@@ -12,13 +12,13 @@ export function HomeScreen() {
   return (
     <Screen screen="home" width={412} height={892}>
       <At x={16} y={88}>
-        <Button label="Sign in" onPress={s.tap(A1, { $: $ })} testID="button" />
+        <Button label="Sign in" onPress={() => s.run(A1, { $: $, part: "button" })} testID="button" />
       </At>
       <At x={16} y={152}>
-        <Button label="Sign out" onPress={s.tap(A2, { $: $ })} testID="button2" />
+        <Button label="Sign out" onPress={() => s.run(A2, { $: $ })} testID="button2" />
       </At>
       <At x={16} y={216}>
-        <Button label="Who" onPress={s.tap(A3, { $: $ })} testID="button3" />
+        <Button label="Who" onPress={() => s.run(A3, { $: $ })} testID="button3" />
       </At>
       {s.layer}
     </Screen>

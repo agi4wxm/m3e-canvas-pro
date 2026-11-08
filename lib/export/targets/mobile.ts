@@ -325,6 +325,7 @@ export function createNativeTransport(options: { baseUrl: string }): Transport {
 const FILES = `${GENERATED}
 import * as DocumentPicker from "expo-document-picker"
 import * as ImagePicker from "expo-image-picker"
+import { runtime } from "./runtime"
 import type { PickedFile } from "./transport"
 
 /** a file's bytes as a data URL: what the mocks read, and what the web sends */
@@ -339,9 +340,21 @@ async function dataUrlOf(uri: string): Promise<{ dataUrl: string; size: number }
   return { dataUrl, size: blob.size }
 }
 
-/** Asks for a file the way a phone does: its photos for pictures (the field accepts images only), its files for anything
- *  else. Nothing when the person changes their mind. */
+/** a file a capability adapter picked (file.pick): its name, type, size and where it is */
+type Picked = { name?: string; type?: string; size?: number; url?: string }
+
+/** Asks for a file through the capability registry (file.pick: the app's adapter, else the platform's), else the way a
+ *  phone does: its photos for pictures (the field accepts images only), its files for anything else. Nothing when the
+ *  person changes their mind. */
 export async function pickFile(accept: string): Promise<PickedFile | undefined> {
+  const asked = await runtime.invoke("file.pick", { accept })
+  if (asked.ok) {
+    const f = (asked.result as { files?: Picked[] } | undefined)?.files?.[0]
+    if (!f?.url) return undefined
+    const { dataUrl, size } = await dataUrlOf(f.url)
+    return { name: f.name ?? "file", type: f.type ?? "application/octet-stream", size: f.size ?? size, dataUrl, uri: f.url }
+  }
+  if (asked.dropped || asked.error.type !== "not-implemented") return undefined
   const kinds = accept
     .split(",")
     .map((s) => s.trim())
@@ -370,11 +383,10 @@ export function fileName(v: unknown): string {
 
 const BIND = (scope: string) => `${GENERATED}
 import { useMemo } from "react"
-import { screenParams, sourceKey, useBindings, useDataSource, useForm, useRuntime, type Bindings, type FieldRule, type FormHandle, type ParamSpec, type SourceHandle } from ${str(`${scope}/app-runtime`)}
-import { useApp, useNav, type ActionBody, type Here } from "../kit"
+import { screenParams, sourceKey, useBindings, useDataSource, useForm, type Bindings, type CallResult, type FieldRule, type FormHandle, type ParamSpec, type SourceHandle } from ${str(`${scope}/app-runtime`)}
+import { useApp, type ActionBody } from "../kit"
 import { call } from "./api"
 import { FORMS, OPERATIONS } from "./contract"
-import { afterSignIn } from "./effects"
 
 /* What a printed screen's bindings stand on (lib/export/rn/print.ts writes the screens): its params, the scope its
  * expressions read, its data sources and its forms, each made of packages/app-runtime's hooks. */
@@ -399,6 +411,10 @@ export type FormDef = {
   /** it signs in: once it has, the screen the app was sent from takes the place of where \`then\` goes */
   login?: boolean
 }
+
+/** A form as a screen holds it: the runtime's form, what the design says of it, and its sending, which the taps'
+ *  interpreter (./effects) runs its \`then\` or \`catch\` after. */
+export type FormFor = FormHandle & { def: FormDef; send: () => Promise<CallResult | { ok: false; invalid: true }> }
 
 /** a screen's params: what it was opened with, each as its type has it, the example of each it was not given */
 export function useParams(specs: ParamSpec[], given: Record<string, unknown> | undefined): Record<string, unknown> {
@@ -438,42 +454,39 @@ export function useSource(def: SourceDef, $: Bindings): SourceHandle {
   )
 }
 
-/** A form: its fields checked by the rules of its operation's body, sent with its params and values, \`then\` or \`catch\`
- *  run after. \`run\` runs an action of the screen (its \`act\`). */
-export function useFormFor(def: FormDef, $: Bindings, run: (body: ActionBody | undefined, here: Here) => void): FormHandle {
-  const runtime = useRuntime()
-  const nav = useNav()
+/** A form: its fields checked by the rules of its operation's body, sent with its params and values. What runs after
+ *  the answer (its \`then\`, its \`catch\`) is the taps' interpreter's to run, as for a call. */
+export function useFormFor(def: FormDef, $: Bindings): FormFor {
   const fields = useMemo(() => {
     const all = FORMS[def.operationId] ?? {}
     const out: Record<string, FieldRule> = {}
     for (const f of def.fields) if (all[f]) out[f] = all[f]
     return out
   }, [def])
-  const scope = $.scope
-  /* what follows the answer reads the form it sent as \`form\`, as the screen's own expressions do */
-  const form: FormHandle = useForm({
+  const send = (body: Record<string, unknown>, init: Parameters<typeof call>[2]) => {
+    const params: Record<string, unknown> = {}
+    for (const [k, e] of Object.entries(def.params ?? {})) params[k] = $.arg(e)
+    return call(def.operationId, { params, body }, init)
+  }
+  const extra = () => Object.fromEntries(Object.entries(def.values ?? {}).map(([k, e]) => [k, $.ev(e)]))
+  const form = useForm({
     /* kept by the runtime: what is typed stays while the app signs in and comes back */
     id: def.id,
     fields,
     initial: def.initial,
     status: OPERATIONS[def.operationId]?.status,
-    send: (body, init) => {
-      const params: Record<string, unknown> = {}
-      for (const [k, e] of Object.entries(def.params ?? {})) params[k] = $.arg(e)
-      return call(def.operationId, { params, body }, init)
-    },
-    extra: () => Object.fromEntries(Object.entries(def.values ?? {}).map(([k, e]) => [k, $.ev(e)])),
-    then: (response, status) => afterSignIn(runtime, def.login ? def.operationId : undefined, def.then, { scope: { ...scope, form: form.view, response, status }, form }, run, nav),
-    catch: (error, status) => run(def.catch, { scope: { ...scope, form: form.view, error, status }, form }),
+    send,
+    extra,
   })
-  return form
+  return { ...form, def, send: () => form.controller.submit(send, extra()) }
 }
 `;
 
 const EFFECTS = (scope: string) => `${GENERATED}
-import { Bindings, evaluate, fillTemplate, type FormHandle, type Runtime, type SourceHandle } from ${str(`${scope}/app-runtime`)}
-import type { ActionBody, EffectHandler, Here, Nav, Reader } from "../kit"
+import { evaluate, fillTemplate, run, type Action as DesignAction, type ActionHost, type Outcome, type SourceHandle, type Tap } from ${str(`${scope}/app-runtime`)}
+import type { Here, Interpreter, KitHost, Nav, Reader, ScreenParts } from "../kit"
 import { call } from "./api"
+import type { FormFor } from "./bind"
 import { AUTH, OPERATIONS } from "./contract"
 import { runtime } from "./runtime"
 
@@ -483,78 +496,131 @@ export const reader: Reader = {
   fill: (template, scope) => fillTemplate(template, scope, runtime.ctx()),
 }
 
+/* The taps of the design, run by the one interpreter every host runs (lib/actions in ${scope}/app-runtime,
+ * docs/交互规则.md): which branch, the effects in order (each reading the state its step finds), where it goes, a call
+ * answered later running its then or catch where the tap was made, and what an answer that comes late may still do.
+ * The host below is what it asks of this app: the kit's memory (variables, what a part shows, the snackbar), the
+ * runtime (the API, the session, the forms, the capabilities) and where taps go. */
+
 /** where a sign-in sends the app back to: the screen a guard or a 401 left */
 type Back = { key: string; params?: Record<string, unknown> }
 
-/** What follows an answer: \`then\`; after a sign-in, the screen the app was sent to sign in from takes the place of where
- *  \`then\` goes (its effects still run). */
-export function afterSignIn(rt: Runtime, signedIn: string | undefined, then: ActionBody | undefined, here: Here, run: (body: ActionBody | undefined, here: Here) => void, nav: Nav) {
-  const back = signedIn !== undefined && signedIn === AUTH.login ? rt.takeReturn<Back>() : undefined
-  if (!back) return run(then, here)
-  run(then ? { ...then, to: "none" } : undefined, here)
-  nav.go(back.key, { ...(back.params ? { params: back.params } : {}), replace: true })
+/** a tap as the interpreter carries it, with where the app made it: the screen's own (its sources, forms, inputs) */
+type At = Tap & { here: Here; parts: ScreenParts }
+
+/* what the host acts through, as the latest tap found it: the app's memory and where taps go */
+let kit: KitHost | undefined
+let nav: Nav | undefined
+let parts: ScreenParts = {}
+
+const placeOf = (tap: Tap) => tap as At
+/** the form a tap reads or sends: the one it names, else the one it was made in */
+function formOf(tap: Tap): FormFor | undefined {
+  const at = placeOf(tap)
+  const named = tap.form ? (at.parts.forms?.[tap.form] as FormFor | undefined) : undefined
+  return named ?? (at.here.form as FormFor | undefined)
+}
+const sourceOf = (tap: Tap, name: string) => placeOf(tap).parts.sources?.[name] as SourceHandle | undefined
+
+/** an address outside the app, through the capability registry (link.open: the app's adapter, else the platform's);
+ *  an app with no registry for it opens the address itself */
+async function openLink(url: string) {
+  const out = await runtime.invoke("link.open", { url })
+  if (out.ok || out.dropped || out.error.type !== "not-implemented") return
+  nav?.open(url)
 }
 
-/** The effects of a tap that are the API's: a call (with its optimistic change, then and catch), loading a data source
- *  again or its next page, submitting a form, signing out; and an invoke of a platform capability. */
-export const handleEffect: EffectHandler = (e, { here, screen, nav, run }) => {
-  const $ = new Bindings(here.scope ?? {}, runtime.ctx())
-  const source = (name: string) => screen.sources?.[name] as SourceHandle | undefined
-  switch (e.do) {
-    case "call": {
-      const op = OPERATIONS[e.operationId]
-      if (!op) return
-      const params: Record<string, unknown> = {}
-      const fields: Record<string, unknown> = {}
-      for (const [k, x] of Object.entries(e.args ?? {})) {
-        const v = $.ev(x)
-        if (v === undefined) continue
-        if (k in op.params) params[k] = v
-        else fields[k] = v
-      }
-      const body = e.body !== undefined ? $.ev(e.body) : Object.keys(fields).length ? fields : undefined
-      const change = e.optimistic
-      const list = change ? source(change.source) : undefined
-      const optimistic =
-        change && list && here.item !== undefined
-          ? () => (change.remove ? list.remove(here.item) : list.patch(here.item, (row) => Object.fromEntries(Object.entries(change.patch ?? {}).map(([k, x]) => [k, $.with({ item: row }).ev(x)]))))
-          : undefined
-      void runtime.call(() => call(e.operationId, { params, body }), {
-        status: op.status,
-        ...(optimistic ? { optimistic } : {}),
-        then: (response, status) => afterSignIn(runtime, e.operationId, e.then, { ...here, scope: { ...here.scope, response, status } }, run, nav),
-        catch: (error, status) => run(e.catch, { ...here, scope: { ...here.scope, error, status } }),
-      })
-      return
+/** what the interpreter asks of the app: one host for the app's life, so an answer knows the calls made since */
+const host: ActionHost = {
+  scope: (tap) => {
+    const at = placeOf(tap)
+    const form = formOf(tap)
+    const session = runtime.session.get()
+    return {
+      ...at.here.scope,
+      ...(at.parts.params ? { params: at.parts.params } : {}),
+      vars: kit?.varScope() ?? {},
+      auth: { signedIn: runtime.session.signedIn, user: session.session?.user ?? null },
+      ...(form ? { form: form.controller.view() } : {}),
     }
-    case "invoke": {
-      /* a platform capability, through the app's registry (src/generated/capabilities.ts): then reads result, catch error */
-      const args: Record<string, unknown> = {}
-      for (const [k, x] of Object.entries(e.args ?? {})) {
-        const v = $.ev(x)
-        if (v !== undefined) args[k] = v
-      }
-      void runtime.invoke(e.capability, args, {
-        then: (result) => run(e.then, { ...here, scope: { ...here.scope, result } }),
-        catch: (error) => run(e.catch, { ...here, scope: { ...here.scope, error } }),
-      })
-      return
-    }
-    case "refresh":
-      void source(e.source)?.refresh()
-      return
-    case "loadMore":
-      void source(e.source)?.loadMore()
-      return
-    case "submit": {
-      const form = (here.form ?? (e.form ? screen.forms?.[e.form] : undefined)) as FormHandle | undefined
-      void form?.submit()
-      return
-    }
-    case "signOut":
-      runtime.signOut()
-      return
+  },
+  ctx: () => runtime.ctx(),
+  variable: (id) => kit?.variable(id),
+  setVar: (id, value) => kit?.setVar(id, value),
+  filled: (part) => kit?.filled(part, parts) ?? false,
+  shown: (part) => kit?.shown(part) ?? false,
+  setShown: (part, on) => kit?.setShown(part, on),
+  setOpen: (part, on) => kit?.setOpen(part, on),
+  setProp: (part, prop, value) => kit?.setProp(part, prop, value),
+  toast: (text) => kit?.toast(text),
+  go: (to, o) => nav?.go(to, { ...(o.overlay ? { overlay: true } : {}), ...(o.params ? { params: o.params } : {}) }),
+  back: () => nav?.back(),
+  openLink: (url) => void openLink(url),
+  scrollTo: () => {},
+  call: async (operationId, given): Promise<Outcome> => {
+    const op = OPERATIONS[operationId]
+    if (!op) return { ok: false, status: 0, error: { status: 0, title: \`The contract has no operation \${operationId}\` } }
+    /* the arguments the contract places (path, query, header) are params; the rest are the body's fields */
+    const params: Record<string, unknown> = {}
+    const fields: Record<string, unknown> = {}
+    for (const [k, v] of Object.entries(given.args)) (k in op.params ? params : fields)[k] = v
+    const body = given.body !== undefined ? given.body : Object.keys(fields).length ? fields : undefined
+    const epoch = runtime.epoch.get()
+    const out = await runtime.call(() => call(operationId, { params, body }), { status: op.status })
+    if (epoch !== runtime.epoch.get()) return { ok: false, status: 0, error: undefined, dropped: true }
+    return out.ok ? { ok: true, status: out.status, response: out.response } : { ok: false, status: out.status, error: out.error, unauthorized: out.unauthorized }
+  },
+  invoke: (capability, args) => runtime.invoke(capability, args),
+  optimistic: (source, change, tap) => {
+    const list = sourceOf(tap, source)
+    if (!list || tap.item === undefined) return undefined
+    return "remove" in change ? list.remove(tap.item) : list.patch(tap.item, change.patch)
+  },
+  refresh: (source, tap) => void sourceOf(tap, source)?.refresh(),
+  loadMore: (source, tap) => void sourceOf(tap, source)?.loadMore(),
+  form: (id, tap) => {
+    const f = formOf(id ? { ...tap, form: id } : tap)
+    return f && (!id || f.def.id === id) ? { id: f.def.id, operationId: f.def.operationId, ...(f.def.then ? { then: f.def.then as DesignAction } : {}), ...(f.def.catch ? { catch: f.def.catch as DesignAction } : {}) } : undefined
+  },
+  submit: async (ref, tap): Promise<Outcome | null> => {
+    const f = formOf(tap)
+    if (!f) return null
+    const epoch = runtime.epoch.get()
+    const out = await f.send()
+    if ("invalid" in out) return null
+    if (epoch !== runtime.epoch.get()) return { ok: false, status: 0, error: undefined, dropped: true }
+    return out.ok ? { ok: true, status: OPERATIONS[ref.operationId]?.status ?? out.status, response: out.response } : { ok: false, status: out.status, error: out.error, unauthorized: out.unauthorized }
+  },
+  signOut: () => runtime.signOut(),
+  afterSignIn: (operationId) => {
+    if (operationId !== AUTH.login) return false
+    const back = runtime.takeReturn<Back>()
+    if (!back) return false
+    nav?.go(back.key, { ...(back.params ? { params: back.params } : {}), replace: true })
+    return true
+  },
+  moves: () => kit?.moves() ?? 0,
+}
+
+/** Runs a tap where it was made: its screen and params, the part, its row, its form, the place or event it came from. */
+export const interpret: Interpreter = (action, at) => {
+  kit = at.kit
+  nav = at.nav
+  parts = at.screen
+  const { here, screen } = at
+  const form = here.form as FormFor | undefined
+  const tap: At = {
+    screen: screen.key ?? "",
+    ...(screen.params ? { params: screen.params } : {}),
+    ...(here.part ? { part: here.part } : {}),
+    ...(here.item !== undefined ? { item: here.item, ...(here.index !== undefined ? { index: here.index } : {}) } : {}),
+    ...(form?.def ? { form: form.def.id } : {}),
+    ...(here.slot ? { slot: here.slot } : {}),
+    ...(here.event !== undefined ? { event: here.event } : {}),
+    here,
+    parts: screen,
   }
+  void run(action as unknown as DesignAction, host, tap)
 }
 `;
 
@@ -682,14 +748,14 @@ export function ScreenRoute({ screen, overlay, render }: { screen: string; overl
 }
 `;
 
-const ROOT = (scope: string, vars: unknown, hidden: unknown, dark: string | undefined) => `${GENERATED}
+const ROOT = (scope: string, vars: unknown, hidden: unknown, triggers: unknown, dark: string | undefined) => `${GENERATED}
 import { useEffect, type ComponentType, type ReactNode } from "react"
 import { SafeAreaProvider, initialWindowMetrics } from "react-native-safe-area-context"
 import { RuntimeProvider } from ${str(`${scope}/app-runtime`)}
 import { AppProvider, NavProvider, SnackHost, ThemeProvider, registerIcons, ${dark ? "useApp, " : ""}type AppVar } from "../kit"
 import { Providers } from "../custom/Providers"
 import { setup } from "../custom/setup"
-import { handleEffect, reader } from "./effects"
+import { interpret, reader } from "./effects"
 import { icons } from "./icons"
 import { routerNav } from "./routing"
 import { runtime } from "./runtime"
@@ -700,6 +766,8 @@ registerIcons(icons)
 /** the design's variables, and the parts hidden until a tap shows them */
 const VARS: AppVar[] = ${jsonCode(vars, 0)}
 const HIDDEN: string[] = ${jsonCode(hidden, 0)}
+/** the overlays that keep a trigger of their own on the screen while shut (a menu) */
+const TRIGGERS: string[] = ${jsonCode(triggers, 0)}
 
 /* In development the API answers from the mocks (${scope}/mocks) unless EXPO_PUBLIC_API_MOCKS is "off", and a dev menu
  * picks their scenario; a production build has neither: Metro drops the branch with what it requires. */
@@ -735,7 +803,7 @@ export function AppRoot({ children }: { children: ReactNode }) {
   return (
     <SafeAreaProvider initialMetrics={initialWindowMetrics}>
       <RuntimeProvider runtime={runtime}>
-        <AppProvider vars={VARS} hidden={HIDDEN} reader={reader} handle={handleEffect}>
+        <AppProvider vars={VARS} hidden={HIDDEN} triggers={TRIGGERS} reader={reader} interpret={interpret}>
           <Themed>
             <NavProvider value={routerNav}>
               <Providers>{children}</Providers>
@@ -904,7 +972,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context"
 import { RuntimeProvider, type TransportRequest } from ${str(`${scope}/app-runtime`)}
 import { createMockTransport } from ${str(`${scope}/mocks`)}
 import { AppProvider, NavProvider, ThemeProvider, registerIcons } from "../kit"
-import { handleEffect, reader } from "./effects"
+import { interpret, reader } from "./effects"
 import { icons } from "./icons"
 import { runtime } from "./runtime"
 ${screens.map((s) => `import { ${s.component} } from ${str(`./screens/${s.component}`)}`).join("\n")}
@@ -931,7 +999,7 @@ function draw(Screen: ComponentType) {
   return render(
     <SafeAreaProvider initialMetrics={{ frame: { x: 0, y: 0, width: 412, height: 892 }, insets: { top: 24, left: 0, right: 0, bottom: 24 } }}>
       <RuntimeProvider runtime={runtime}>
-        <AppProvider reader={reader} handle={handleEffect}>
+        <AppProvider reader={reader} interpret={interpret}>
           <ThemeProvider theme={theme} dark={false}>
             <NavProvider value={nav}>
               <Screen />
@@ -1092,7 +1160,7 @@ export const mobileTarget: ProductTarget = {
 
     /* the app's own modules */
     const dark = darkVarOf(doc.vars)?.id;
-    files["src/generated/root.tsx"] = generated(ROOT(scope, screens.vars, screens.hidden, dark));
+    files["src/generated/root.tsx"] = generated(ROOT(scope, screens.vars, screens.hidden, screens.triggers, dark));
     files["src/generated/routing.tsx"] = generated(ROUTING(scope, routes, screens.initial, login));
     files["src/generated/runtime.ts"] = generated(RUNTIME(scope, ctx.name, ctx.lang, !!capabilities));
     Object.assign(files, capabilities?.files ?? {}, slotFiles(scope, slots, "mobile"));

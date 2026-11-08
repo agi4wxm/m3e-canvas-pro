@@ -32,6 +32,10 @@ export type ActionBody = {
 /** A tap. Without `when` it always runs; with one it runs when that holds, and `else` runs when it
  *  does not. `trigger` starts it on something other than a tap. Printed code reads this too, so it stays plain data. */
 export type Action = ActionBody & { when?: Condition; else?: ActionBody; trigger?: Trigger };
+/** What runs when a call or an invoke is answered (`then`, `catch`): a body, which may branch on the answer as a tap
+ *  branches on its condition. `when` reads the answer (`response`, `status`, `result`, `error`); it holds and the body
+ *  runs, it does not and `else` runs, or nothing without one (docs/交互规则.md, “回答上的条件”). Plain data too. */
+export type Answer = ActionBody & { when?: Condition; else?: ActionBody };
 
 /** a test on the preview's state: a variable against a value, a form field (by item id) that has something in it, or an
  *  expression (lib/bindings/expr.ts) that comes out truthy */
@@ -53,13 +57,13 @@ export type Effect =
    *  with `response` (the body) and `status` to read; `catch` when it does not, with `error` (problem details). The
    *  effects after it do not wait for it. `optimistic` changes a data source's list at once and puts it back if the
    *  call fails: the tapped row taken out, or fields of it set. */
-  | { do: "call"; operationId: string; args?: Record<string, string>; body?: string; then?: ActionBody; catch?: ActionBody; optimistic?: Optimistic }
+  | { do: "call"; operationId: string; args?: Record<string, string>; body?: string; then?: Answer; catch?: Answer; optimistic?: Optimistic }
   /** Invokes a platform capability (lib/capabilities, docs/平台能力.md): `payment.pay`, `location.current`,
    *  `clipboard.write`… `args` gives its arguments by name, each an expression. `then` runs when it does what was
    *  asked, with `result` to read; `catch` when it does not, with `error` (`error.type`: cancelled, failed,
    *  unavailable, not-implemented, denied, timeout). The effects after it do not wait for it. It never decides a
    *  domain result: a payment's `then` only knows it was submitted, the order's status comes from the API. */
-  | { do: "invoke"; capability: string; args?: Record<string, string>; then?: ActionBody; catch?: ActionBody }
+  | { do: "invoke"; capability: string; args?: Record<string, string>; then?: Answer; catch?: Answer }
   /** loads a data source of the screen on show again */
   | { do: "refresh"; source: string }
   /** loads the next page of a paged data source of the screen on show */
@@ -115,8 +119,13 @@ export const familyOfKey = (key: string): string | null => (key.endsWith(":*") &
 export function linkUrlOf(a: Pick<ActionBody, "url"> | undefined): string | null {
   const raw = a?.url?.trim();
   if (!raw) return null;
+  const full = /^[a-z][a-z0-9+.-]*:/i.test(raw) ? raw : `https://${raw}`;
+  /* a mini-program's engine has no URL (nor does the runtime's own lib): there an address is only checked for its
+     scheme and a host, and kept as it was written */
+  const Url = (globalThis as { URL?: new (s: string) => { protocol: string; href: string } }).URL;
+  if (typeof Url !== "function") return /^https?:\/\/[^\s/?#]+[^\s]*$/i.test(full) ? full : null;
   try {
-    const u = new URL(/^[a-z][a-z0-9+.-]*:/i.test(raw) ? raw : `https://${raw}`);
+    const u = new Url(full);
     return u.protocol === "http:" || u.protocol === "https:" ? u.href : null;
   } catch {
     return null;

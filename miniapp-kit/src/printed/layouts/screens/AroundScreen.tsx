@@ -17,12 +17,12 @@ export function AroundScreen() {
         <NavigationMenu menus={[{ label: "Guides" }]} pages={[{ label: "Start here" }]} testID="navigationMenu" />
       </At>
       <At x={16} y={240}>
-        <Pagination pages={8} current={3} width={380} taps={{ "tab:3": s.tap(A1, { $: $ }) }} testID="pagination" />
+        <Pagination pages={8} current={3} width={380} taps={{ "tab:3": () => s.run(A1, { $: $ }) }} testID="pagination" />
       </At>
       <At x={16} y={300}>
         <TableOfContents
           items={[{ label: "Overview" }, { label: "  Install" }, { label: "API" }]}
-          taps={{ "tab:2": s.tap(A2, { $: $ }) }}
+          taps={{ "tab:2": () => s.run(A2, { $: $ }) }}
           testID="tableOfContents"
         />
       </At>
@@ -36,12 +36,12 @@ export function AroundScreen() {
       <At x={16} y={520}>
         <IconGrid
           items={[{ label: "Deals", icon: "local_offer", variant: "new" }, { label: "Orders", icon: "receipt_long" }]}
-          taps={{ "tab:1": s.tap(A1, { $: $ }) }}
+          taps={{ "tab:1": () => s.run(A1, { $: $ }) }}
           testID="iconGrid"
         />
       </At>
       <At x={16} y={640}>
-        <Sidebar label="Places" height={240} taps={{ "tab:1": s.tap(A2, { $: $ }) }} testID="sidebar" />
+        <Sidebar label="Places" height={240} taps={{ "tab:1": () => s.run(A2, { $: $ }) }} testID="sidebar" />
       </At>
       <At x={16} y={900}>
         <Onboarding width={380} height={300} testID="onboarding" />
@@ -49,7 +49,7 @@ export function AroundScreen() {
       <At x={46} y={1224}>
         <FloatingNav
           selected={1}
-          taps={{ "tab:0": s.tap(A1, { $: $ }), "tab:2": s.tap(A2, { $: $ }) }}
+          taps={{ "tab:0": () => s.run(A1, { $: $ }), "tab:2": () => s.run(A2, { $: $ }) }}
           testID="floatingNavigation"
         />
       </At>

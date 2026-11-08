@@ -4,6 +4,7 @@ import { readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
+import { parse } from "@babel/parser";
 import { strFromU8, unzipSync } from "fflate";
 import { beforeAll, describe, expect, it } from "vitest";
 import { allPartsDoc } from "../codegen.fixture";
@@ -47,7 +48,9 @@ beforeAll(async () => {
 
 describe("the prototype export", () => {
   /* The single-app export stays as it was, to the byte, beside the product. These digests were taken from the export
-     before the product existed; one that changes on purpose is written again here (last: the platform capabilities,
+     before the product existed; one that changes on purpose is written again here (last: the taps printed as the data they are, lib/actions'
+     Action, and run in src/runtime.tsx by the interpreter copied into src/lib/actions (docs/交互规则.md), which the
+     README names; before that the platform capabilities,
      docs/平台能力.md, beside the retired parts, the split view and the widgets' outlets: the shop flow pays through
      createOrder and payment.pay and shows the order's status, the checkout's body one column with its payment notices
      among its rows; checkout-bar, video-call, map and camera take their state as props, the map and the camera drawn by
@@ -70,11 +73,11 @@ describe("the prototype export", () => {
      icons asking again and the ripple under reduced motion; in parts, form fields keyed by their item and resizable
      sizes as percentages). */
   const DIGESTS: Record<string, [number, string]> = {
-    proof: [83, "e2ff344877174acc8f0e589982ebee10e7133a762d7132d0f04de35a085c9e0a"],
-    systems: [41, "992987b9634db0e617a98539279765cae5163f7caa5fe8ecdbc9aa5dc3ca56cb"],
-    reuse: [31, "bf3a590479d5cbc75c4c9fcd91fa094350452f6190f2690665cefe7aecff44aa"],
-    sweep: [93, "72606d0118218ffec85eb98ef83ff4364f01252b10723b5c862693a848aa8da0"],
-    parts: [140, "f51e43fefb97a4b7514e156127b081644ef8ccd904782826b0c55e6b1984e2a2"],
+    proof: [90, "4f8f16219d277a278c304543106101f457bb51558524d838d75f4f628f8fc12c"],
+    systems: [47, "7fc80791613dd1512780b4b65b682343d404419113ccd0a605afe6a0a5201ad7"],
+    reuse: [38, "f7e04c27dfd1f2fc34d728474ef0c76cc7ba9cca3395793db1dd331ea72149f2"],
+    sweep: [100, "86a4d14876dd9666d7d1dd996e4e0cb2f147d4936dd54e4f690d2368c07754d4"],
+    parts: [140, "295c3c85b06eab798e6bb08867328a8cd975cd1ce8f55cb46c9beb2d442f19d3"],
   };
   const DOCS: Record<string, () => { doc: Doc; widths: Record<string, number> }> = { proof: proofDoc, systems: systemsDoc, reuse: reuseDoc, sweep: sweepDoc, parts: () => ({ doc: allPartsDoc(), widths: {} }) };
   it.each(Object.keys(DIGESTS))("is byte for byte what it was: %s", async (name) => {
@@ -282,6 +285,58 @@ describe("the product of a document", () => {
   }, 60_000);
 });
 
+/** what the app's own code and its tests may name without importing it: the language's, React Native's and Jest's */
+const GLOBALS = new Set(["Array", "Boolean", "Date", "Error", "JSON", "Map", "Math", "Number", "Object", "Promise", "Set", "String", "Symbol", "URL", "console", "encodeURIComponent", "decodeURIComponent", "globalThis", "process", "require", "setTimeout", "clearTimeout", "undefined", "__DEV__", "jest", "describe", "it", "test", "expect", "beforeEach", "afterEach", "beforeAll", "afterAll"]);
+
+/** A module's names, read off its syntax: the names it declares anywhere (imports, variables, functions, parameters,
+ *  types), the bare names its JSX uses (an element, a prop's value) and every name it refers to outside its imports,
+ *  what it imports, and the props each JSX element is handed. Rough (scopes are not followed), but it is what a name
+ *  left behind by a change looks like: one used and declared nowhere, or one imported and used nowhere. */
+function namesOf(source: string, jsx: boolean) {
+  const ast = parse(source, { sourceType: "module", plugins: ["typescript", ...(jsx ? (["jsx"] as const) : [])] });
+  const declared = new Set<string>();
+  const imported = new Set<string>();
+  const used = new Set<string>();
+  const referenced = new Set<string>();
+  const props = new Map<string, string[]>();
+  const bind = (node: unknown): void => {
+    const n = node as { type?: string; name?: string; properties?: unknown[]; elements?: unknown[]; value?: unknown; argument?: unknown; left?: unknown; parameter?: unknown } | null;
+    if (!n?.type) return;
+    if (n.type === "Identifier") declared.add(n.name!);
+    else if (n.type === "ObjectPattern") n.properties!.forEach((p) => bind((p as { value?: unknown; argument?: unknown }).value ?? (p as { argument?: unknown }).argument));
+    else if (n.type === "ArrayPattern") n.elements!.forEach(bind);
+    else if (n.type === "AssignmentPattern") bind(n.left);
+    else if (n.type === "RestElement") bind(n.argument);
+    else if (n.type === "TSParameterProperty") bind(n.parameter);
+  };
+  const walk = (node: unknown, inImport: boolean): void => {
+    if (Array.isArray(node)) return node.forEach((x) => walk(x, inImport));
+    if (!node || typeof node !== "object" || !("type" in node)) return;
+    const n = node as Record<string, unknown> & { type: string };
+    const here = inImport || n.type === "ImportDeclaration";
+    if (n.type === "ImportSpecifier" || n.type === "ImportDefaultSpecifier" || n.type === "ImportNamespaceSpecifier") {
+      const local = (n.local as { name: string }).name;
+      declared.add(local);
+      imported.add(local);
+    }
+    if (n.type === "VariableDeclarator") bind(n.id);
+    if ((n.type === "FunctionDeclaration" || n.type === "ClassDeclaration" || n.type === "TSTypeAliasDeclaration" || n.type === "TSInterfaceDeclaration" || n.type === "TSEnumDeclaration") && n.id) bind(n.id);
+    if (n.type === "FunctionDeclaration" || n.type === "FunctionExpression" || n.type === "ArrowFunctionExpression" || n.type === "ObjectMethod" || n.type === "ClassMethod") (n.params as unknown[]).forEach(bind);
+    if (n.type === "CatchClause") bind(n.param);
+    if (n.type === "TSTypeParameter") declared.add(typeof n.name === "string" ? n.name : (n.name as { name: string }).name);
+    if (!here && (n.type === "Identifier" || n.type === "JSXIdentifier")) referenced.add(n.name as string);
+    if (n.type === "JSXOpeningElement" && (n.name as { type: string }).type === "JSXIdentifier") {
+      const name = (n.name as { name: string }).name;
+      if (/^[A-Z]/.test(name)) used.add(name);
+      props.set(name, [...(props.get(name) ?? []), ...(n.attributes as { type: string; name?: { name: string } }[]).flatMap((a) => (a.type === "JSXAttribute" ? [a.name!.name] : []))]);
+    }
+    if (n.type === "JSXExpressionContainer" && (n.expression as { type: string }).type === "Identifier") used.add((n.expression as { name: string }).name);
+    for (const [k, v] of Object.entries(n)) if (k !== "loc" && k !== "leadingComments" && k !== "trailingComments" && k !== "innerComments") walk(v, here);
+  };
+  walk(ast.program, false);
+  return { declared, imported, used, referenced, props };
+}
+
 describe("the mobile app", () => {
   let shop: Product;
   beforeAll(async () => {
@@ -330,6 +385,9 @@ describe("the mobile app", () => {
     expect(form).toContain("disabled={form1.submitting}");
     const photo = text(shop, "apps/mobile/src/generated/screens/PhotoScreen.tsx");
     expect(photo).toContain('onPress={() => void pickFile("").then((file) => file && form1.set("file", file))}');
+    /* the file is asked for through the capability registry (file.pick), the device's pickers without an adapter */
+    expect(text(shop, "apps/mobile/src/generated/files.ts")).toContain('const asked = await runtime.invoke("file.pick", { accept })');
+    expect(text(shop, "apps/miniapp/src/generated/screens/PhotoScreen.tsx")).toMatch(/<FileUpload[\s\S]*pick=\{s\.pickFiles\}/);
     expect(photo).toContain('params: { productId: "params.productId" }');
     expect(text(shop, "apps/mobile/src/generated/screens/SignInScreen.tsx")).toContain("login: true");
     expect(text(shop, "apps/mobile/src/generated/contract.ts")).toContain('"media": "multipart/form-data"');
@@ -416,6 +474,21 @@ describe("the mobile app", () => {
       if (!path.startsWith("apps/mobile/src/") || path.endsWith(".test.tsx") || path.endsWith("mocks.ts") || path.endsWith("DevMenu.tsx") || path.endsWith("root.tsx") || typeof f.body !== "string") continue;
       expect(importsIn(f.body).some((s) => s.includes("/mocks")), path).toBe(false);
     }
+  });
+
+  it("uses only names its generated files have, imports only names they use, and hands the kit's AppProvider only its props", async () => {
+    const kit = parse(await fromDisk("rn/src/kit/app.tsx"), { sourceType: "module", plugins: ["typescript", "jsx"] });
+    const provider = kit.program.body.flatMap((s) => (s.type === "ExportNamedDeclaration" && s.declaration?.type === "FunctionDeclaration" && s.declaration.id?.name === "AppProvider" ? [s.declaration] : []))[0];
+    const pattern = provider?.params[0];
+    if (pattern?.type !== "ObjectPattern") throw new Error("rn/src/kit/app.tsx: AppProvider takes no object of props");
+    const props = new Set(pattern.properties.flatMap((p) => (p.type === "ObjectProperty" && p.key.type === "Identifier" ? [p.key.name] : [])));
+    for (const p of [proof, shop])
+      for (const path of Object.keys(p.files).filter((f) => f.startsWith("apps/mobile/src/generated/") && /\.tsx?$/.test(f))) {
+        const n = namesOf(text(p, path), path.endsWith(".tsx"));
+        for (const name of n.used) expect(n.declared.has(name) || GLOBALS.has(name), `${path} uses ${name}, which it neither imports nor declares`).toBe(true);
+        for (const name of n.imported) expect(n.referenced.has(name), `${path} imports ${name} and never uses it`).toBe(true);
+        for (const prop of n.props.get("AppProvider") ?? []) expect(props.has(prop), `${path} hands AppProvider ${prop}, which it does not take`).toBe(true);
+      }
   });
 
   it("has every module its sources import: a file there, or a package its package.json names", () => {

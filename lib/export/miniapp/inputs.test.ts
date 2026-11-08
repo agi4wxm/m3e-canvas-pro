@@ -1,6 +1,6 @@
 import { beforeAll, describe, expect, it } from "vitest";
 import { setGlobalLang } from "../../i18n";
-import { withIds, type Doc, type Item } from "../../tokens";
+import { makeItem, withIds, type Doc, type Item } from "../../tokens";
 import { boundShopDoc } from "../product.fixture";
 import { inputsDoc } from "../rn/fixture";
 import { printMiniScreens } from "./print";
@@ -54,5 +54,20 @@ describe("the D3 inputs in a mini-program", () => {
     expect(entry).toContain('onChange={(v: string[]) => s.setter("tagInput")(v.join("\\n"))}');
     expect(entry).toContain('text={s.value<string>("richTextEditor", "Select some of this text and try the buttons above.")}');
     expect(warnings.filter((w) => w.kind === "input" || w.kind === "placeholder")).toEqual([]);
+  });
+
+  it("move a picked row where the part leaves it to the screen, and write a sorted list and a swipe row out", () => {
+    const { doc, widths } = boundShopDoc();
+    const home = doc.frames[0];
+    const add = (id: string, component: string, props: Record<string, unknown>, bind?: Record<string, string>) => ({ id: `g-${id}`, name: id, x: home.x + 16, y: home.y + 400, axis: "x" as const, items: [{ ...makeItem(component), id, label: id, props, ...(bind ? { bind } : {}) }] });
+    const vars = [...(doc.vars ?? []), { id: "order", name: "order", type: "text" as const, value: "" }, { id: "swiped", name: "swiped", type: "bool" as const, value: false }];
+    const more = { ...doc, vars, groups: [...doc.groups, add("bars", "bar-list", { selected: 1 }), add("rows", "sortable-list", { items: [{ label: "A" }, { label: "B" }] }, { items: "order" }), add("swipe", "swipe-row", {}, { open: "swiped" })] };
+    const screen = printMiniScreens(more, widths, { kitImport: "../../kit", callsImport: "../calls" }).screens.find((s) => s.id === home.id)!.source;
+    expect(screen).toContain('selected={s.prop("bars", "selected", 1)}');
+    expect(screen).toContain('onSelect={(i: number) => s.setProp("bars", "selected", i)}');
+    expect(screen).toContain('onChange={(v: string[]) => s.setter("rows")(v.join("\\n"))}');
+    expect(screen).toContain('"rows": { value: "A\\nB", var: "order" }');
+    expect(screen).toContain('onChange={s.setter("swipe")}');
+    expect(screen).toContain('"swipe": { value: false, var: "swiped" }');
   });
 });

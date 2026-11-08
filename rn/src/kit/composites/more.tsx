@@ -13,6 +13,7 @@ import { fieldStyle } from "../recipes";
 import { Surface } from "../Surface";
 import { corner, recipeOf, typeStyle, useKit, type Kit } from "../theme/ThemeProvider";
 import { tapOf } from "./bars";
+import { rowsOfTable } from "./media";
 
 /* More of what screens are made of, after the most common: a group of radio buttons, an input with what goes before and
  * after it, a grid of shortcuts, an accordion, a block of code, a place to drop files, a scene behind a game screen, a
@@ -185,16 +186,25 @@ export function FileUpload(props: FileUploadProps) {
   );
 }
 
-export type SceneProps = PartBase & { image?: Picture; scrim?: string; icon?: string; width?: number; height?: number; children?: ReactNode };
+export type SceneProps = PartBase & { image?: Picture; scrim?: string; icon?: string; hotspots?: { columns?: string[]; rows?: string[][] }; width?: number; height?: number; children?: ReactNode };
 
-/** the picture a game screen stands on, with what is laid over it; a motion the editor animates is still here */
+/** a cell of the hotspots' table as a share of the scene, in percent */
+const percentOf = (cell: string | undefined): `${number}%` => `${Math.max(0, Math.min(100, Number(String(cell ?? "").replace("%", "")) || 0))}%`;
+
+/** The picture a game screen stands on, its fade, and the places in it that answer a tap (`tab:N`, from `hotspots`:
+ *  label, x, y, w, h in percent), as the mini-program's scene has them; what the player reads and presses is the parts
+ *  laid over it. A motion the editor animates is still here. */
 export function Scene(props: SceneProps & Record<string, unknown>) {
   const p = withDefaults<SceneProps>("scene", props);
   const kit = useKit();
+  const spots = rowsOfTable(p.hotspots);
   return (
     <Surface base={{ width: Math.round(p.width ?? 412), height: Math.round(p.height ?? 892), backgroundColor: c(kit, "surface-container-high"), overflow: "hidden", alignItems: "center", justifyContent: "center" }} appearance={p} testID={p.testID}>
       {p.image ? <ExpoImage source={sourceOf(p.image)} contentFit="cover" style={{ position: "absolute", top: 0, right: 0, bottom: 0, left: 0 }} /> : <Glyph name={p.icon || "landscape"} size={48} color={c(kit, "outline")} />}
-      {p.scrim && p.scrim !== "none" ? <View style={{ position: "absolute", top: 0, right: 0, bottom: 0, left: 0, backgroundColor: withAlpha("#000000", 0.35) }} /> : null}
+      {p.scrim && p.scrim !== "none" ? <View pointerEvents="none" style={{ position: "absolute", top: 0, right: 0, bottom: 0, left: 0, backgroundColor: withAlpha("#000000", 0.35) }} /> : null}
+      {spots.map((r, i) => (
+        <Pressable key={i} accessibilityRole="button" accessibilityLabel={r[0] || `${i + 1}`} onPress={() => tapOf(p, `tab:${i}`)?.()} style={{ position: "absolute", left: percentOf(r[1]), top: percentOf(r[2]), width: percentOf(r[3]), height: percentOf(r[4]) }} />
+      ))}
       {p.children}
     </Surface>
   );

@@ -6,12 +6,18 @@ const A2: Action = { to: "none", effects: [{ do: "close", part: "n2" }] };
 
 export function HomeScreen() {
   const app = useApp();
-  const act = useAct();
+  const act = useAct({ key: "Home" });
   return (
     <Screen width={412} height={892}>
       <At x={16} y={88}>
         {app.shown("n2") ? (
-          <Menu label="Options" items={[{ label: "Rename" }]} destructive="" />
+          <Menu
+            label="Options"
+            items={[{ label: "Rename" }]}
+            destructive=""
+            open={app.opened("n2")}
+            onOpenChange={(on: boolean) => app.setOpened("n2", on)}
+          />
         ) : null}
       </At>
       <At x={16} y={152}>

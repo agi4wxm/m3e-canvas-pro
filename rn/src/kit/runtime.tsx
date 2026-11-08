@@ -38,10 +38,36 @@ const NOWHERE: Nav = {
   todo: () => {},
 };
 
+/* How many times the visitor has gone somewhere (a screen opened, gone back from, laid over, closed): an answer that
+   comes after one runs its effects but goes nowhere (lib/actions, docs/交互规则.md “迟到的回答”). Counted as each move
+   is asked for, whoever asks: a tap, a scrim closing an overlay, the app's own router. */
+let moves = 0;
+
+/** the visitor's moves so far */
+export const movesSoFar = () => moves;
+
+/** a move the visitor made that no `Nav` was asked for (a scrim closing what lies over the screen) */
+export const moved = () => {
+  moves++;
+};
+
 const NavContext = createContext<Nav>(NOWHERE);
 export const useNav = () => useContext(NavContext);
 export function NavProvider({ value, children }: { value: Partial<Nav>; children: ReactNode }) {
-  const merged = useMemo(() => ({ ...NOWHERE, ...value }), [value]);
+  const merged = useMemo<Nav>(() => {
+    const nav = { ...NOWHERE, ...value };
+    return {
+      ...nav,
+      go: (...asked) => {
+        moved();
+        nav.go(...asked);
+      },
+      back: () => {
+        moved();
+        nav.back();
+      },
+    };
+  }, [value]);
   return <NavContext.Provider value={merged}>{children}</NavContext.Provider>;
 }
 
@@ -159,7 +185,13 @@ export function ScreenStack({ screens, initial }: { screens: Record<string, Scre
       <View style={{ flex: 1 }}>
         {Under && under ? <Under params={under.params} /> : null}
         {top.overlay ? (
-          <Pressable accessibilityLabel="Close" onPress={back} style={[StyleSheet.absoluteFill, { backgroundColor: withAlpha(kit.colors.scrim ?? "#000000", 0.32), alignItems: "center", justifyContent: "center" }]}>
+          <Pressable
+            accessibilityLabel="Close"
+            onPress={() => {
+              moved();
+              back();
+            }}
+            style={[StyleSheet.absoluteFill, { backgroundColor: withAlpha(kit.colors.scrim ?? "#000000", 0.32), alignItems: "center", justifyContent: "center" }]}>
             <Pressable onPress={() => {}}>
               <Overlaid.Provider value>
                 <Top params={top.params} />
@@ -179,7 +211,13 @@ export function ScreenStack({ screens, initial }: { screens: Record<string, Scre
 export function OverlayFrame({ onClose, children }: { onClose: () => void; children: ReactNode }) {
   const kit = useKit();
   return (
-    <Pressable accessibilityLabel="Close" onPress={onClose} style={[StyleSheet.absoluteFill, { backgroundColor: withAlpha(kit.colors.scrim ?? "#000000", 0.32), alignItems: "center", justifyContent: "center" }]}>
+    <Pressable
+      accessibilityLabel="Close"
+      onPress={() => {
+        moved();
+        onClose();
+      }}
+      style={[StyleSheet.absoluteFill, { backgroundColor: withAlpha(kit.colors.scrim ?? "#000000", 0.32), alignItems: "center", justifyContent: "center" }]}>
       <Pressable onPress={() => {}}>
         <Overlaid.Provider value>{children}</Overlaid.Provider>
       </Pressable>

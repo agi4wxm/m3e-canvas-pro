@@ -165,8 +165,13 @@ describe("the operations", () => {
     fails(() => tap([{ do: "invoke", capability: "payment.pay" }]), "invalid_value", /needs args.orderId/);
     fails(() => tap([{ do: "invoke", capability: "clipboard.write", args: { txt: "'x'" } }]), "invalid_value", /takes no argument "txt"/);
     fails(() => tap([{ do: "invoke", capability: "map" }]), "invalid_value", /is a view/);
+    /* an answer may branch on what it says, but starts on nothing else */
     // eslint-disable-next-line unicorn/no-thenable -- an action body, never a function: nothing awaits it
-    fails(() => tap([{ do: "invoke", capability: "share.open", then: { to: "none", when: { expr: "result" } } }]), "invalid_value", /then takes no when/);
+    tap([{ do: "invoke", capability: "share.open", then: { to: "none", when: { expr: "result" }, else: { to: "none" } } }]);
+    // eslint-disable-next-line unicorn/no-thenable -- an action body, never a function: nothing awaits it
+    fails(() => tap([{ do: "invoke", capability: "share.open", then: { to: "none", when: { expr: "result +" } } }]), "invalid_value", /then: when:/);
+    // eslint-disable-next-line unicorn/no-thenable -- an action body, never a function: nothing awaits it
+    fails(() => tap([{ do: "invoke", capability: "share.open", then: { to: "none", trigger: { on: "hover" } } }]), "invalid_value", /then: takes no trigger/);
     fails(() => tap([{ do: "invoke", capability: "share.open", args: { url: "1 +" } }]), "invalid_value", /args.url/);
   });
 

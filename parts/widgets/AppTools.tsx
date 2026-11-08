@@ -8,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { TextField } from "@/components/m3e/text-field";
 import type { Look } from "./look";
 import { amountOf, keysOf, stop, usePicked, useSeeded, useValue } from "./seed";
-import { useHost, type HostProps } from "./host";
+import { useCapability, useHost, type HostProps } from "./host";
 import { Tap } from "./Tap";
 import { WidgetIcon } from "./WidgetIcon";
 
@@ -1177,16 +1177,14 @@ export function qrMatrix(text: string, level = "M"): boolean[][] | null {
 export function QrCode({ text = "", level = "M", caption = "", copy = "", copied = "", tooLong = "", size = 200, className, style }: { text?: string; level?: string; caption?: string; copy?: string; copied?: string; tooLong?: string; size?: number } & Look) {
   const matrix = useMemo(() => qrMatrix(text, level), [text, level]);
   const [done, setDone] = useState(false);
+  const invoke = useCapability();
   const path = useMemo(() => (matrix ?? []).flatMap((row, y) => row.flatMap((on, x) => (on ? [`M${x + 4} ${y + 4}h1v1h-1z`] : []))).join(""), [matrix]);
   const take = async (e: MouseEvent) => {
     stop(e);
-    try {
-      await navigator.clipboard.writeText(text);
-      setDone(true);
-      setTimeout(() => setDone(false), 1500);
-    } catch {
-      /* the browser refused: the button simply does not say it copied */
-    }
+    /* through the platform's clipboard.write; refused, the button simply does not say it copied */
+    if (!(await invoke("clipboard.write", { text })).ok) return;
+    setDone(true);
+    setTimeout(() => setDone(false), 1500);
   };
   const span = (matrix?.length ?? 0) + 8;
   return (

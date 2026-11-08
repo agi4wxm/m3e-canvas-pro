@@ -7,7 +7,7 @@
 import { afterAll, beforeAll, describe, expect, it, mock } from "bun:test";
 
 import { createTinyReact, type Element } from "./table/tinyReact";
-import { fakeTaro } from "./taro";
+import { fakeComponents, fakeTaro } from "./taro";
 
 const tiny = createTinyReact();
 mock.module("react", () => tiny.react);
@@ -54,7 +54,7 @@ mock.module("@tarojs/taro", () => {
   };
   return fakeTaro(taro);
 });
-mock.module("@tarojs/components", () => ({ View: "View", Image: "Image", Input: "Input", Picker: "Picker", Slider: "Slider", Textarea: "Textarea", Text: "Text" }));
+mock.module("@tarojs/components", () => fakeComponents());
 
 const G = await import("../src/kit/composites/games");
 const A = await import("../src/kit/composites/actions");

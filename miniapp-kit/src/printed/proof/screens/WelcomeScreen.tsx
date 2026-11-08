@@ -13,7 +13,7 @@ export function WelcomeScreen() {
         <Text text={s.bound("v-email", "")} testID="text3" />
       </At>
       <At x={16} y={78}>
-        <Button label="Back to form" width={160} onPress={s.tap(A1, { $: $ })} testID="button9" />
+        <Button label="Back to form" width={160} onPress={() => s.run(A1, { $: $ })} testID="button9" />
       </At>
       {s.layer}
     </Screen>

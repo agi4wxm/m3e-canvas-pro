@@ -6,9 +6,6 @@ import { runtime } from "./runtime";
 /** the API as the screens call it: the typed client over the runtime's transport (the session's tokens on it) */
 export const api = createApi(runtime.transport);
 
-/** the arguments that are query parameters, as the query takes them */
-const pick = (a: Record<string, unknown>, names: string[]) => Object.fromEntries(names.filter((n) => a[n] !== undefined && a[n] !== null && a[n] !== "").map((n) => [n, typeof a[n] === "number" || typeof a[n] === "boolean" ? a[n] : String(a[n])])) as Record<string, string | number | boolean>;
-
 /** each operation of the contract, by its id, as a tap or a screen's data calls it */
 export const CALLS: Record<string, CallFn> = {
   "pick": (_a, _b, i) => api.pick(i),

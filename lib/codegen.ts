@@ -256,7 +256,9 @@ function flowJsx(run: Group, c: Ctx, all: Group[], parent?: Flow, inside = new S
     if (gates.includes("false")) return "";
     const r = bound.repeatOpen(run.repeat.data, gates, run.repeat.limit);
     const inner = bound.within(r.close, bound.form, () => flowJsx(k, c, all, flow, within, tapped, box));
-    return `${GATE_OPEN}${r.open}${GATE_END}${STATEMENT}${r.row}${GATE_END}${GATE_OPEN}return (${GATE_END}${r.key}${inner}</Fragment>${CLOSE_WITH})${GATE_END}${CLOSE_WITH}})}${GATE_END}`;
+    /* the row's scope, where what it draws reads it (a tap says its row as \`item\` and \`index\`) */
+    const reads = new RegExp(`(^|[^\\w$])${r.close}\\.`).test(inner);
+    return `${GATE_OPEN}${r.open}${GATE_END}${reads ? `${STATEMENT}${r.row}${GATE_END}` : ""}${GATE_OPEN}return (${GATE_END}${r.key}${inner}</Fragment>${CLOSE_WITH})${GATE_END}${CLOSE_WITH}})}${GATE_END}`;
   };
   const held = (form && bound ? bound.within(form.scope, form, () => kids.map(kid)) : kids.map(kid)).join("");
   /* a function: a `$` in a part's words is not a replacement pattern */
@@ -587,6 +589,7 @@ function screensOf(source: Doc, widths: Record<string, number>, o: BuildOptions)
     const length = frameLengthOf(frame);
     const name = componentName(frame.name, i, taken);
     binds?.begin(frame, all, name);
+    b.beginScreen(name);
     /* a screen that loads data grows with it: its body scrolls, its bars stay put */
     const loads = !!binds?.loads;
     const scrolls = length > h || loads;
@@ -615,28 +618,32 @@ function screensOf(source: Doc, widths: Record<string, number>, o: BuildOptions)
     const inner = [open, ...body, "</div>"].join("");
     if (folds) c.imports.set("react", new Set([...(c.imports.get("react") ?? []), "useRef", "useState"]));
     /* the bindings' hooks: params, data, the scope, the regions' states, the forms (they say what else they use) */
-    const head = binds?.head((body, scope) => b.statementsOf(body, c.uses, scope), !!doc.vars?.length);
-    const fromRuntime = new Set<string>();
+    const key = b.screenKey(frame.id) ?? `screen${i + 1}`;
+    const head = binds?.head((answer, label) => b.answerOf(answer, c.uses, label), !!doc.vars?.length, key, () => b.hasScreenActions());
+    /* what the taps on the screen do, as data (lib/printBehaviour.ts): the table goes above the screen's function, and
+       the interpreter runs them (src/runtime.tsx `useActions`) */
+    const acts = b.screenActions();
+    const fromRuntime = new Set<string>(acts ? ["useActions", "type Action"] : []);
     for (const n of head?.app ?? []) {
-      if (n === "useScreenParams" || n === "scopeVars") fromRuntime.add(n);
+      if (n === "useScreenParams" || n === "scopeVars" || n === "useActions") fromRuntime.add(n);
       else c.uses.app.add(n);
     }
     if (binds) for (const [source, names] of binds.imports()) c.imports.set(source, new Set([...(c.imports.get(source) ?? []), ...names]));
     const fromApp = c.uses.app.size ? `  const { ${[...c.uses.app].sort().join(", ")} } = useApp()\n` : "";
     if (c.uses.app.size || c.uses.press || fromRuntime.size) c.imports.set(RUNTIME, new Set([...(c.uses.app.size ? ["useApp"] : []), ...(c.uses.press ? ["Pressable"] : []), ...fromRuntime]));
     const data = binds?.dataFile();
-    const hooks = head?.lines.length ? `${head.lines.map((l) => `  ${l}\n`).join("")}` : "";
+    const hooks = (head?.lines.length ? `${head.lines.map((l) => `  ${l}\n`).join("")}` : "") + (acts && !binds ? `  const act = useActions(${str(key)})\n` : "");
     const state = (folds ? "  const [fabFolded, setFabFolded] = useState(false)\n  const lastScrollTop = useRef(0)\n" : "") + hooks;
     usesToast ||= c.usesToast;
     return {
       id: frame.id,
-      key: b.screenKey(frame.id) ?? `screen${i + 1}`,
+      key,
       component: name,
       width: w,
       height: h,
       foot: Math.max(0, ...runs.filter((g) => g.items.length === 1 && roleOf(g.items[0]) === "bottom").map((g) => sizeOf(g.items[0], widths).h)),
       radius: frameRadius(frame) / 2,
-      source: `export function ${name}() {\n${fromApp}${state}  return (\n${pretty(inner, 2)}\n  )\n}`,
+      source: `${acts ? `${acts}\n\n` : ""}export function ${name}() {\n${fromApp}${state}  return (\n${pretty(inner, 2)}\n  )\n}`,
       imports: c.imports,
       local: c.local,
       ...(data ? { data } : {}),
@@ -681,7 +688,7 @@ function codeOf(doc: Doc, widths: Record<string, number>, onlyFrameId?: string):
     ...(packages.length ? [`// 4. bun add ${packages.join(" ")}`] : []),
     ...(usesToast ? [`// ${packages.length ? 5 : 4}. Render <Toaster /> (from @/components/m3e/sonner) once, so snackbars show.`] : []),
     /* the screens' taps run on it; it is written for this document, so it comes with the project */
-    ...(imports.has(RUNTIME) ? ["// useApp and Pressable are in src/runtime.tsx: Download project writes it, with everything else this code needs."] : []),
+    ...(imports.has(RUNTIME) ? ["// useApp, useActions and Pressable are in src/runtime.tsx: Download project writes it, with everything else this code needs."] : []),
   ];
   const code = [...header, "", ...lines, ...(lines.length ? [""] : []), screens.map((s) => s.source).join("\n\n"), ""].join("\n");
   return { code, install };

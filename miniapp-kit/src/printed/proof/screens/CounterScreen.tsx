@@ -23,10 +23,10 @@ export function CounterScreen() {
         <Text text={s.bound("v-count", "0")} testID="text4" />
       </At>
       <At x={16} y={78}>
-        <Button label="Add" width={160} onPress={s.tap(A1, { $: $ })} testID="button10" />
+        <Button label="Add" width={160} onPress={() => s.run(A1, { $: $ })} testID="button10" />
       </At>
       <At x={16} y={132}>
-        <Button label="Reset" width={160} onPress={s.tap(A2, { $: $ })} testID="button11" />
+        <Button label="Reset" width={160} onPress={() => s.run(A2, { $: $ })} testID="button11" />
       </At>
       <At x={16} y={186}>
         {s.holds(C3, $) ? (
@@ -39,19 +39,19 @@ export function CounterScreen() {
         ) : null}
       </At>
       <At x={16} y={294}>
-        <Button label="Reveal" width={160} onPress={s.tap(A4, { $: $ })} testID="button12" />
+        <Button label="Reveal" width={160} onPress={() => s.run(A4, { $: $ })} testID="button12" />
       </At>
       <At x={16} y={348}>
         <Text text={s.prop("text7", "text", "Old title")} testID="text7" />
       </At>
       <At x={16} y={402}>
-        <Button label="Retitle" width={160} onPress={s.tap(A5, { $: $ })} testID="button13" />
+        <Button label="Retitle" width={160} onPress={() => s.run(A5, { $: $ })} testID="button13" />
       </At>
       <At x={16} y={456}>
         <Switch label="Flag" checked={s.value<boolean>("switch", false)} onChange={s.setter("switch")} testID="switch" />
       </At>
       <At x={16} y={510}>
-        <Button label="Flip" width={160} onPress={s.tap(A6, { $: $ })} testID="button14" />
+        <Button label="Flip" width={160} onPress={() => s.run(A6, { $: $ })} testID="button14" />
       </At>
       <At x={16} y={564}>
         {s.holds(C7, $) ? (
@@ -59,13 +59,13 @@ export function CounterScreen() {
         ) : null}
       </At>
       <At x={16} y={618}>
-        <Button label="Ask" width={160} onPress={s.tap(A8, { $: $ })} testID="button15" />
+        <Button label="Ask" width={160} onPress={() => s.run(A8, { $: $ })} testID="button15" />
       </At>
       <Layer open={s.shows("dialog")} onClose={() => s.close("dialog")} align="center">
         <Dialog
           title={"Set it to 100?"}
           description={"Really?"}
-          taps={{ "confirm": () => (s.tap(A9, { $: $ })(), s.close("dialog")), "dismiss": () => s.close("dialog") }}
+          taps={{ "confirm": () => (s.run(A9, { $: $ }), s.close("dialog")), "dismiss": () => s.close("dialog") }}
           testID="dialog"
         />
       </Layer>
@@ -77,7 +77,7 @@ export function CounterScreen() {
           label="More"
           items={[{ label: "Set to 7" }, { label: "Say hi" }]}
           destructive=""
-          taps={{ "tab:0": s.tap(A10, { $: $ }), "tab:1": s.tap(A11, { $: $ }) }}
+          taps={{ "tab:0": () => s.run(A10, { $: $ }), "tab:1": () => s.run(A11, { $: $ }) }}
           testID="dropdownMenu"
         />
       </At>

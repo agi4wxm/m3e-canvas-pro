@@ -7,9 +7,9 @@ const A1: Action = { to: "none", effects: [{ do: "submit" }] };
 
 export function HomeScreen() {
   const $ = useScreenScope({});
-  const act = useAct();
-  const form1 = useFormFor(F1, $, act);
+  const form1 = useFormFor(F1, $);
   const $form1 = $.with({ form: form1.view });
+  const act = useAct({ key: "Home", forms: { "n2": form1 } });
   return (
     <Screen width={412} height={892}>
       <At x={16} y={16}>
@@ -46,7 +46,7 @@ export function HomeScreen() {
           ) : null}
           <Button
             label="Save note"
-            onPress={() => act(A1, { scope: $form1.scope, form: form1 })}
+            onPress={() => act(A1, { scope: $form1.scope, form: form1, part: "button" })}
             disabled={form1.submitting}
             loading={form1.submitting}
             testID="submit:n2"

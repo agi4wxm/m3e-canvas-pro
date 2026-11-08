@@ -6,6 +6,7 @@
  * which is what it shows until it is written. A product that uses no capability gets none of it. */
 
 import { partBySlug } from "../../parts/registry";
+import { WIDGET_SOURCES } from "../../parts/widgets/sources";
 import { capabilitiesUsed, usedDefinitions } from "../capabilities/doc";
 import { groupsInFrame, type Doc } from "../tokens";
 import { GENERATED, str } from "./code";
@@ -31,8 +32,10 @@ const pascal = (words: string) =>
     .replace(/^\d+/, "")
     .slice(0, 40);
 
-/** names no slot takes: what a screen's file already names, the kits' stand-ins a slot draws until it is written among them */
-const TAKEN = new Set(["Screen", "View", "Text", "Image", "Placeholder", "Slot", "Fragment", "React", "MapStandIn", "CameraStandIn", "CallStandIn"]);
+/** Names no slot takes: what a screen's file already names, the kits' stand-ins a slot draws until it is written among
+ *  them, and the web's own widgets a web screen draws its stand-in with (a map's default slot, `MapView`, is the
+ *  web's map widget: it takes `MapView2`). A name that clashes with none of them stays as it was. */
+const TAKEN = new Set(["Screen", "View", "Text", "Image", "Placeholder", "Slot", "Fragment", "React", "MapStandIn", "CameraStandIn", "CallStandIn", ...Object.keys(WIDGET_SOURCES)]);
 
 /** Every capability view of the document, screen by screen, each with a slot's name of its own: the part's name (its
  *  group's, else its label), else the view's (MapView, CameraView); the same name for the same design on every

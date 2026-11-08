@@ -92,7 +92,7 @@ describe("the MCP server on a project file", () => {
     const doc = onDisk(path);
     expect(doc.groups.some((g) => g.kit?.slug === "search-bar")).toBe(true);
     /* the file is the editor's own format, as "Save project" writes it */
-    expect(JSON.parse(readFileSync(path, "utf8"))).toMatchObject({ format: "m3e-project", version: 2 });
+    expect(JSON.parse(readFileSync(path, "utf8"))).toMatchObject({ format: "m3e-project", version: PROJECT_VERSION });
   });
 
   it("gives back errors a model can act on", async () => {

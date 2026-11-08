@@ -290,11 +290,7 @@ function effectError(e: unknown, s: CoreState, depth = 0): string | null {
       if (e.optimistic !== undefined && (!isRecord(e.optimistic) || typeof e.optimistic.source !== "string")) return "optimistic should be {source, remove: true} or {source, patch: {field: expression}}";
       for (const k of ["then", "catch"] as const) {
         if (e[k] === undefined) continue;
-        /* an answer's body runs as it is: no host reads a condition on it, so one written there would be ignored and
-           the success shown whatever the answer said */
-        const extra = isRecord(e[k]) ? ["when", "else", "trigger"].filter((x) => (e[k] as Record<string, unknown>)[x] !== undefined) : [];
-        if (extra.length) return `${k} takes no ${extra.join(" or ")}: it runs whenever the call ${k === "then" ? "answers 2XX" : "fails"}. To act on what the answer says, set a variable from it (setVar with expr "response.status") and show the outcome with showWhen, or open a result screen that loads the data itself`;
-        const err = bodyError(e[k], s, depth + 1);
+        const err = answerError(e[k], s, depth + 1, k === "then" ? "answers 2XX" : "fails");
         if (err) return `${k}: ${err}`;
       }
       return null;
@@ -317,9 +313,7 @@ function effectError(e: unknown, s: CoreState, depth = 0): string | null {
       if (missing.length) return `${def.name} needs ${missing.map((k) => `args.${k}`).join(" and ")}`;
       for (const k of ["then", "catch"] as const) {
         if (e[k] === undefined) continue;
-        const extra = isRecord(e[k]) ? ["when", "else", "trigger"].filter((x) => (e[k] as Record<string, unknown>)[x] !== undefined) : [];
-        if (extra.length) return `${k} takes no ${extra.join(" or ")}: it runs whenever the capability ${k === "then" ? "does what was asked" : "fails"}. To show each failure its own way, set a variable from error.type in catch and show the designs with showWhen`;
-        const err = bodyError(e[k], s, depth + 1);
+        const err = answerError(e[k], s, depth + 1, k === "then" ? "does what was asked" : "fails");
         if (err) return `${k}: ${err}`;
       }
       return null;
@@ -337,6 +331,21 @@ function effectError(e: unknown, s: CoreState, depth = 0): string | null {
     default:
       return `"${String(e.do)}" is not an effect (show, hide, toggle, open, close, setVar, toggleVar, addVar, setProp, snackbar, call, invoke, refresh, loadMore, submit, signOut)`;
   }
+}
+
+/** A call's or an invoke's then or catch: a body, which may branch on the answer (`when` reading `response`, `status`,
+ *  `result` or `error`, and `else`); it starts on the answer, so it takes no trigger (docs/交互规则.md, 回答上的条件). */
+function answerError(a: unknown, s: CoreState, depth: number, runs: string): string | null {
+  if (isRecord(a) && a.trigger !== undefined) return `takes no trigger: it runs whenever it ${runs}`;
+  if (isRecord(a) && a.when !== undefined) {
+    const err = conditionError(a.when, s);
+    if (err) return `when: ${err}`;
+  }
+  if (isRecord(a) && a.else !== undefined) {
+    const err = bodyError(a.else, s, depth);
+    if (err) return `else: ${err}`;
+  }
+  return bodyError(a, s, depth);
 }
 
 function bodyError(a: unknown, s: CoreState, depth = 0): string | null {

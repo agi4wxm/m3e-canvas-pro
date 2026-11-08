@@ -2,9 +2,10 @@
  *
  * - `demo`: a part that acts out a domain result in a prototype (a coupon that says it was claimed, a prize drawn at
  *   random). A product never runs a demo, so until the part is bound or its actions call the API it only asks and waits.
- * - `event`: an action on a part's named event (`on:<name>`) or on a family of its slots (`tab:*`). The apps do not
- *   send part events yet (the preview does): the action is not printed. lib/actions, the single interpreter, will run
- *   them on every app.
+ * - `event`: every app runs an action on a part's named event (`on:<name>`) and on a family of its slots (`tab:*`) with
+ *   lib/actions, the single interpreter: the web app on its widgets' `onEvent`, the phone app and the mini-program on
+ *   the callbacks their kits' components hand out. Their printers report the few a component does not send (an event
+ *   of a part drawn as its atoms, the map stand-in's region change) as their own differences.
  * - `interface`: what the screens call or load that the API contract does not have.
  * - `capability`: a platform capability the app leans on (lib/capabilities, docs/平台能力.md): a capability view (a map, a
  *   camera, a call) drawn by its stand-in until the product's slot draws the real one, an invoke whose adapter is the
@@ -18,7 +19,7 @@ import { capabilityOf } from "../capabilities/catalog";
 import { invokesOfItem } from "../capabilities/doc";
 import { endpointOf } from "../bindings/contract";
 import { expandDoc } from "../expand";
-import { eventOfKey, familyOfKey, untakenDemos } from "../partContract";
+import { untakenDemos } from "../partContract";
 import { groupsInFrame, type ActionBody, type Doc, type Effect, type Item } from "../tokens";
 import type { DesignDifference } from "./types";
 
@@ -59,12 +60,9 @@ export function boundaryDifferences(given: Doc, app: DesignDifference["app"], wi
     }
     const missing = new Set<string>();
     for (const it of items) {
-      for (const key of Object.keys(it.actions ?? {})) {
-        const event = eventOfKey(key);
-        const family = familyOfKey(key);
-        if (event !== null) add("event", f.name, it, `the action on its event "${event}" is not run: the app does not send part events yet`);
-        else if (family !== null) add("event", f.name, it, `the action for every "${family}" entry is not run: the app does not print families of slots yet`);
-      }
+      /* every app runs a part's events and families of places now (the web app since its taps are lib/actions' data:
+         its widgets send their events through onEvent); the phone's and the mini-program's printers report the few a
+         component does not send */
       for (const a of [it.action, ...Object.values(it.actions ?? {})]) {
         operationsOf(a, missing);
         operationsOf(a?.else, missing);

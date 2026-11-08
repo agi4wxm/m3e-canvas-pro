@@ -6,7 +6,7 @@ const A1: Action = { to: "Next", params: { cat: "'tea'" } };
 
 export function HomeScreen() {
   const $ = useScreenScope({});
-  const act = useAct();
+  const act = useAct({ key: "Home" });
   return (
     <Screen width={412} height={892}>
       <At x={16} y={88}>

@@ -6,7 +6,7 @@
 import { describe, expect, it, mock } from "bun:test";
 
 import { createTinyReact, type Element } from "./table/tinyReact";
-import { fakeTaro } from "./taro";
+import { fakeComponents, fakeTaro } from "./taro";
 
 const tiny = createTinyReact();
 /* the kit's React, and the one the shared runtime (lib/app, outside this package) resolves */
@@ -53,7 +53,7 @@ mock.module("@tarojs/taro", () => {
   };
   return fakeTaro(taro);
 });
-mock.module("@tarojs/components", () => ({ View: "View", Image: "Image", Input: "Input", Picker: "Picker", Slider: "Slider", Textarea: "Textarea", Text: "Text", ScrollView: "ScrollView" }));
+mock.module("@tarojs/components", () => fakeComponents());
 
 const { RuntimeProvider } = await import("@m3e/app-runtime");
 const { AppSpecProvider } = await import("../src/kit/app/screen");
@@ -70,17 +70,29 @@ const isElement = (v: unknown): v is Element => !!v && typeof v === "object" && 
 /** the words a kit part shows */
 const wordsOf = (e: Element): string[] => ["label", "text", "title", "placeholder"].flatMap((k) => (typeof e.props[k] === "string" ? [e.props[k] as string] : []));
 
-/** the words of a drawn page: what a closed layer holds is not on show, nor a menu's entries while it is shut */
+/** the entries of a part's list (a menu's, a group of buttons'), by their words */
+const entriesOf = (e: Element): string[] => (Array.isArray(e.props.items) ? (e.props.items as { label?: unknown }[]).flatMap((r) => (r && typeof r.label === "string" ? [r.label] : [])) : []);
+
+/** the words of a drawn page: what a closed layer holds is not on show, nor a menu's entries while it is shut; an open
+ *  menu shows its entries (its sheet is the platform's, drawn over the page) */
 function wordsIn(node: unknown, out: string[] = []): string[] {
   if (Array.isArray(node)) for (const x of node) wordsIn(x, out);
   else if (typeof node === "string" || typeof node === "number") out.push(String(node));
   else if (isElement(node)) {
     out.push(...wordsOf(node));
     if (node.props.open === false) return out;
+    if (node.props.open === true) out.push(...entriesOf(node));
     wordsIn(node.props.children, out);
   }
   return out;
 }
+
+/** the part drawn with these words (its own, its first entry's, its confirm button's) that handles `prop` */
+const partWith = (elements: Element[], words: string, prop: string): Element => {
+  const e = elements.find((x) => typeof x.props[prop] === "function" || (prop === "taps" && !!x.props.taps) ? [...wordsOf(x), ...entriesOf(x), ...(typeof x.props.action === "string" ? [x.props.action] : [])].includes(words) : false);
+  if (!e) throw new Error(`no part "${words}" on show handles ${prop}`);
+  return e;
+};
 
 describe("the consistency table on the mini-program kit", () => {
   it.each(ROWS.map((r) => [r.id, r] as const))("%s", async (_id, row) => {
@@ -116,6 +128,18 @@ describe("the consistency table on the mini-program kit", () => {
           const e = tiny.elements(top()).find((x) => wordsOf(x).includes(words));
           if (!e) throw new Error(`no words "${words}" on show`);
           if (typeof e.props.onPress === "function") (e.props.onPress as () => void)();
+          draw();
+        },
+        tapSlot: (words, slot) => {
+          const e = partWith(tiny.elements(top()), words, "taps");
+          (e.props.taps as Record<string, (() => void) | undefined>)[slot]?.();
+          draw();
+        },
+        emit: (words, event, payload = {}) => {
+          /* the part's callback for the event: its one value where it takes one (the number pad's words), else the payload */
+          const prop = `on${event.charAt(0).toUpperCase()}${event.slice(1)}`;
+          const e = partWith(tiny.elements(top()), words, prop);
+          (e.props[prop] as (v: unknown) => void)("value" in payload ? payload.value : payload);
           draw();
         },
         type: (words, value) => {

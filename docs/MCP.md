@@ -211,7 +211,7 @@ npx playwright install chromium
 
 <!-- tools:start (bun run mcp:docs) -->
 
-共 172 个工具：服务器环境里没有 OPENAI_API_KEY 时不含“生成”组，只读会话只列出“只读”一栏为“是”的，`undo`、`redo`、`export_product` 只在文件模式里有。说明取自工具给模型看的描述。
+共 173 个工具：服务器环境里没有 OPENAI_API_KEY 时不含“生成”组，只读会话只列出“只读”一栏为“是”的，`undo`、`redo`、`export_product` 只在文件模式里有。说明取自工具给模型看的描述。
 
 | 工具 | 组 | 只读 | 需作者确认 | 说明 |
 | --- | --- | --- | --- | --- |
@@ -279,6 +279,7 @@ npx playwright install chromium
 | `duplicate_nodes` | 搭建 |  |  | Duplicates parts (a container with what it holds) a step aside and selects the copies. |
 | `set_item` | 搭建 |  |  | Changes a part's own fields: props, fill, textColor, corners, look, note, action/actions, bind, and how it sits in an auto layout (flowSize, alignSelf, flowAbsolute, flowMin, flow… |
 | `set_props` | 搭建 |  |  | Sets prop values of a part (checked against its PropDefs); null resets one to its default. |
+| `set_rows` | 搭建 |  |  | Gives a list prop of a part its rows (a navigation bar's tabs, a menu's entries…), in order: each {label, icon?…}. |
 | `set_group` | 搭建 |  |  | Sets a group's fields (by the group's or one of its parts' id): name, hidden (at the start of the preview), locked, showWhen (a condition), pane. |
 | `toggle_lock` | 搭建 |  |  | Locks the groups of the given parts, or unlocks them when all already are. |
 | `nudge` | 搭建 |  |  | Moves parts (or a screen with everything on it) by dx, dy. |
@@ -369,7 +370,7 @@ npx playwright install chromium
 | `remove_capability` | 数据与交互 |  | 是 | Removes a capability the product declared (declare_capability). |
 | `use_capabilities` | 数据与交互 |  |  | Says the product uses these capabilities beyond the ones its designs invoke or draw (those count anyway): an event such as push.opened, or one only the code will invoke. |
 | `add_data_source` | 数据与交互 |  |  | Makes a screen load data from an endpoint: read as data.&lt;name> (value, items, status, loading, error, hasMore, empty). |
-| `update_data_source` | 数据与交互 |  |  | Changes a screen's data source: its endpoint, params, body, when it loads, pull to refresh, paging, page size (null clears one), or its name (rename: the screen's expressions foll… |
+| `update_data_source` | 数据与交互 |  |  | Changes a screen's data source: its endpoint, params, body, when it loads, pull to refresh, paging, page size (null clears one), or its name (rename: the screen's expressions, the… |
 | `remove_data_source` | 数据与交互 |  | 是 | Stops a screen loading a data source; what reads data.&lt;name> reads nothing. |
 | `set_screen_params` | 数据与交互 |  |  | Declares what a screen is opened with (navigation passes them: set_action {params: {productId: "item.id"}}): each {name, type?: string\|number\|boolean, example?}; the screen read… |
 | `set_screen_auth` | 数据与交互 |  |  | Says a screen needs a session ("required": without one the app goes to the sign-in screen first) or is the sign-in screen ("login": where a 401 and a required screen send the app;… |

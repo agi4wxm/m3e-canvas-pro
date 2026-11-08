@@ -14,17 +14,17 @@ export function PlayScreen() {
         <Joystick ariaLabel="Move" testID="joystick" />
       </At>
       <At x={180} y={40}>
-        <SkillButton taps={{ "action": s.tap(A1, { $: $ }) }} testID="skillButton" />
+        <SkillButton taps={{ "action": () => s.run(A1, { $: $ }) }} testID="skillButton" />
       </At>
       <At x={16} y={200}>
-        <LevelMap selected={1} taps={{ "tab:0": s.tap(A1, { $: $ }) }} testID="levelMap" />
+        <LevelMap selected={1} taps={{ "tab:0": () => s.run(A1, { $: $ }) }} testID="levelMap" />
       </At>
       <At x={16} y={500}>
         <GameBoard
           cells="X,,O,,X"
           status="O to play"
           width={280}
-          taps={{ "cell:1": s.tap(A2, { $: $ }), "reset": s.tap(A1, { $: $ }) }}
+          taps={{ "cell:1": () => s.run(A2, { $: $ }), "reset": () => s.run(A1, { $: $ }) }}
           testID="gameBoard"
         />
       </At>

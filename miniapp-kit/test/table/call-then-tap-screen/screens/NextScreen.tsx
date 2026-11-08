@@ -10,7 +10,7 @@ export function NextScreen() {
   return (
     <Screen screen="next" width={412} height={892}>
       <At x={16} y={88}>
-        <Button label="Ping and go" onPress={s.tap(A1, { $: $ })} testID="button2" />
+        <Button label="Ping and go" onPress={() => s.run(A1, { $: $, part: "button2" })} testID="button2" />
       </At>
       {s.layer}
     </Screen>

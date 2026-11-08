@@ -11,6 +11,7 @@ import { NATIVE, kitPropName } from "../../../miniapp-kit/src/kit/coverage";
 import { PARTS as KIT_PARTS } from "../../../miniapp-kit/src/kit/parts.generated";
 import { SET_ONLY, propValues } from "../rn/data";
 import { isExportSource } from "../sourceList";
+import { importsIn } from "../../exportProject";
 import { buildProduct } from "../product";
 import { boundShopDoc } from "../product.fixture";
 import { MINIAPP_KIT_DIR, MINIAPP_KIT_FILES, kitFileFor } from "./kitFiles";
@@ -46,6 +47,17 @@ describe("the kit", () => {
 
   it("reads the product's runtime package once copied", () => {
     expect(kitFileFor('import { useRuntime } from "@m3e/app-runtime";\nconst a = "@m3e/app-runtime";\n', "@shop/app-runtime")).toBe('import { useRuntime } from "@shop/app-runtime";\nconst a = "@m3e/app-runtime";\n');
+    /* an import too long for one line, as Prettier writes it */
+    expect(kitFileFor('import {\n  run,\n  type Tap,\n} from "@m3e/app-runtime";\nexport type { Action } from "@m3e/app-runtime";\n', "@shop/app-runtime")).toBe('import {\n  run,\n  type Tap,\n} from "@shop/app-runtime";\nexport type { Action } from "@shop/app-runtime";\n');
+  });
+
+  it("names no module of the kit's own app once copied: every import of the runtime is the product's package", async () => {
+    for (const f of MINIAPP_KIT_FILES) {
+      if (!/\.(ts|tsx)$/.test(f)) continue;
+      const copied = kitFileFor(await fromDisk(`${MINIAPP_KIT_DIR}/${f}`), "@shop/app-runtime");
+      const sources = parses(f, copied).program.body.flatMap((s) => ("source" in s && s.source ? [s.source.value] : []));
+      expect(sources.filter((m) => m.startsWith("@m3e/")), f).toEqual([]);
+    }
   });
 
   it("covers only parts the registry has, with every default as the registry reads it (run bun run gen:miniapp when this fails)", () => {
@@ -149,6 +161,22 @@ describe("the shop bound to its contract", () => {
     for (const [p, text] of Object.entries(files)) if (/\.(ts|tsx)$/.test(p)) expect(() => parses(p, text), p).not.toThrow();
   });
 
+  it("has every module its sources import: a file there, or a package its package.json names", () => {
+    const pkg = JSON.parse(files["package.json"]);
+    const declared = new Set([...Object.keys(pkg.dependencies), ...Object.keys(pkg.devDependencies)]);
+    for (const path of Object.keys(files).filter((p) => p.startsWith("src/") && /\.(ts|tsx|css)$/.test(p))) {
+      for (const spec of importsIn(files[path], path.endsWith(".css"))) {
+        if (spec.startsWith(".")) {
+          const stem = new URL(spec, `file:///${path}`).pathname.slice(1);
+          expect([stem, `${stem}.ts`, `${stem}.tsx`, `${stem}.d.ts`, `${stem}/index.ts`].some((p) => p in files), `${path} imports ${spec}`).toBe(true);
+        } else {
+          const name = spec.startsWith("@") ? spec.split("/").slice(0, 2).join("/") : spec.split("/")[0];
+          expect(declared.has(name), `${path} imports ${spec}`).toBe(true);
+        }
+      }
+    }
+  });
+
   it("binds the screens through the shared runtime: a paged source, a param, a form kept by its id, the sign-in", () => {
     const list = files["src/generated/screens/ProductsScreen.tsx"];
     expect(list).toContain('paging: { style: "cursor"');
@@ -181,6 +209,15 @@ describe("the shop bound to its contract", () => {
     expect(calls).toContain('import { createApi, segment } from "@t/api";');
     expect(calls).toContain('path: "/files/" + segment(seg(a["name"]))');
     expect(calls).not.toContain("encodeURIComponent");
+  });
+
+  it("prints only the helpers its calls use, whatever its operations are called", () => {
+    /* an operation called pick (or omit, headers) with no query: no helper of that name */
+    const openapi = { openapi: "3.1.0", info: { title: "T", version: "1" }, paths: { "/pick": { post: { operationId: "pick", responses: { "204": { description: "picked" } } } }, "/omit": { post: { operationId: "omit", responses: { "204": { description: "left" } } } } } };
+    const ops = ["pick", "omit"].map((name) => ({ name, operationId: name, method: "POST" as const, path: `/${name}`, params: [], query: false, body: false, bodyType: "void", responseType: "void", status: 204 }));
+    const calls = callsModule({ openapi, asyncapi: null, types: "", operations: ops }, { apiImport: "@t/api", kitImport: "../kit", runtimeFrom: "./runtime" });
+    expect(calls).toContain('"pick": (_a, _b, i) => api.pick(');
+    expect(calls).not.toMatch(/const (pick|omit|seg|headers) = /);
   });
 
   it("comes out the same each time", async () => {

@@ -3,18 +3,16 @@ import type { Look } from "./look";
 import { cn } from "@/lib/m3e/cn";
 import { Button } from "@/components/m3e/button";
 import { WidgetIcon } from "./WidgetIcon";
+import { useCapability } from "./host";
 
-/* A line of text with a button that copies it. The button says so when it has, and says nothing was
- * copied when the browser refused (a page that is not focused, or not served over https). */
+/* A line of text with a button that copies it, through the platform's `clipboard.write` (the app's capabilities, else
+ * the browser's). The button says so when it has, and says nothing was copied when it was refused (a page that is not
+ * focused, or not served over https). */
 export function ClipboardRow({ text = "", width = 280, className, style }: { text?: string; width?: number } & Look) {
   const [state, setState] = useState<"idle" | "copied" | "failed">("idle");
+  const invoke = useCapability();
   const copy = async () => {
-    try {
-      await navigator.clipboard.writeText(text);
-      setState("copied");
-    } catch {
-      setState("failed");
-    }
+    setState((await invoke("clipboard.write", { text })).ok ? "copied" : "failed");
     setTimeout(() => setState("idle"), 1500);
   };
   return (

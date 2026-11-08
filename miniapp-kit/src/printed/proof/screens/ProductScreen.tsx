@@ -16,7 +16,7 @@ export function ProductScreen() {
           leading="arrow_back"
           trailing="share"
           trailing2="shopping_cart"
-          taps={{ "icon": s.tap(A1, { $: $ }) }}
+          taps={{ "icon": () => s.run(A1, { $: $ }) }}
           testID="appBar2"
         />
       </Pin>
@@ -118,7 +118,7 @@ export function ProductScreen() {
             </Box>
             <Text text="Free delivery" styleVariant="tiny" fit="auto" color="muted" />
           </Box>
-          <Button label="Add to cart" onPress={s.tap(A2, { $: $ })} />
+          <Button label="Add to cart" onPress={() => s.run(A2, { $: $ })} />
         </Box>
       </At>
       {s.layer}

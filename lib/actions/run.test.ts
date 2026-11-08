@@ -122,4 +122,44 @@ describe("lib/actions", () => {
     expect(e?.do).toBe("call");
     expect(depth).toBe(MAX_CALL_DEPTH);
   });
+  it("runs the branch an answer's condition picks: then on the response, catch on the status, an invoke's on its result", async () => {
+    const { doc } = designDoc({ screens: [{ id: "home", name: "Home" }], parts: [] });
+    const say = (message: string) => ({ to: "none", transition: "none" as const, effects: [{ do: "snackbar" as const, message }] });
+    // eslint-disable-next-line unicorn/no-thenable -- an action body, never a function: nothing awaits it
+    const branching = (answers: Pick<Extract<Effect, { do: "call" }>, "then" | "catch">): Action => ({ to: "none", transition: "none", effects: [{ do: "call", operationId: "pay", ...answers }] });
+    const paid = recording(doc, () => ({ ok: true, status: 200, response: { state: "paid" } }));
+    // eslint-disable-next-line unicorn/no-thenable -- an action body, never a function: nothing awaits it
+    await run(branching({ then: { ...say("Paid"), when: { expr: "response.state == 'paid'" }, else: say("Pending") } }), paid.h, tap);
+    expect(paid.host.snack).toBe("Paid");
+    const pending = recording(doc, () => ({ ok: true, status: 200, response: { state: "pending" } }));
+    // eslint-disable-next-line unicorn/no-thenable -- an action body, never a function: nothing awaits it
+    await run(branching({ then: { ...say("Paid"), when: { expr: "response.state == 'paid'" }, else: say("Pending") } }), pending.h, tap);
+    expect(pending.host.snack).toBe("Pending");
+    /* no else: nothing runs when the condition does not hold */
+    const quiet = recording(doc, () => ({ ok: true, status: 200, response: { state: "pending" } }));
+    // eslint-disable-next-line unicorn/no-thenable -- an action body, never a function: nothing awaits it
+    await run(branching({ then: { ...say("Paid"), when: { expr: "response.state == 'paid'" } } }), quiet.h, tap);
+    expect(quiet.host.snack).toBeNull();
+    const full = recording(doc, () => ({ ok: false, status: 409, error: {} }));
+    await run(branching({ catch: { ...say("Taken"), when: { expr: "status == 409" }, else: say("Failed") } }), full.h, tap);
+    expect(full.host.snack).toBe("Taken");
+    const scanned = recording(doc, () => ({ ok: true, status: 200, response: {} }));
+    scanned.host.invoke = async () => ({ ok: true, result: { text: "" } });
+    // eslint-disable-next-line unicorn/no-thenable -- an action body, never a function: nothing awaits it
+    await run({ to: "none", transition: "none", effects: [{ do: "invoke", capability: "scan.code", then: { ...say("Read"), when: { expr: "result.text" }, else: say("Empty") } }] }, scanned.h, tap);
+    expect(scanned.host.snack).toBe("Empty");
+  });
+
+  it("keeps an answer's condition and its else through a file, and drops one that is no condition", () => {
+    // eslint-disable-next-line unicorn/no-thenable -- an action body, never a function: nothing awaits it
+    const then = { to: "none", transition: "none" as const, when: { expr: "response.ok" }, else: { to: "none", transition: "none" as const, effects: [{ do: "snackbar" as const, message: "No" }] } };
+    const built = designDoc({
+      screens: [{ id: "home", name: "Home" }],
+      // eslint-disable-next-line unicorn/no-thenable -- an action body, never a function: nothing awaits it
+      parts: [{ id: "go", label: "Go", action: { to: "none", transition: "none", effects: [{ do: "call", operationId: "c", then, catch: { ...then, when: { nonsense: 1 } as never } }] }, unchecked: true }],
+    }).doc;
+    const e = openProject(projectFile(built))?.groups.flatMap((g) => g.items).find((it) => it.id === "go")?.action?.effects?.[0] as Extract<Effect, { do: "call" }>;
+    expect(e.then).toEqual(then);
+    expect(e.catch && "when" in e.catch).toBe(false);
+  });
 });

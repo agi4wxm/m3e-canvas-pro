@@ -7,11 +7,11 @@ const A1: Action = { to: "none", effects: [{ do: "call", operationId: "save", ca
 export function HomeScreen() {
   const nav = useNav();
   const $ = useScreenScope({});
-  const act = useAct();
+  const act = useAct({ key: "Home" });
   return (
     <Screen width={412} height={892}>
       <At x={16} y={88}>
-        <Button label="Save badly" onPress={() => act(A1, { scope: $.scope })} />
+        <Button label="Save badly" onPress={() => act(A1, { scope: $.scope, part: "button" })} />
       </At>
       <At x={16} y={152}>
         <Button label="Leave" onPress={() => nav.go("Other")} />

@@ -8,11 +8,11 @@ const A3: Action = { to: "none", effects: [{ do: "snackbar", message: "in" }], w
 
 export function HomeScreen() {
   const $ = useScreenScope({});
-  const act = useAct();
+  const act = useAct({ key: "Home" });
   return (
     <Screen width={412} height={892}>
       <At x={16} y={88}>
-        <Button label="Sign in" onPress={() => act(A1, { scope: $.scope })} />
+        <Button label="Sign in" onPress={() => act(A1, { scope: $.scope, part: "button" })} />
       </At>
       <At x={16} y={152}>
         <Button label="Sign out" onPress={() => act(A2)} />
