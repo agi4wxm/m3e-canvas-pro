@@ -26,7 +26,7 @@ describe("a file's name", () => {
   it("is Content-Disposition's: filename* in UTF-8 or Latin-1 first, a quoted filename, never a path", () => {
     expect(dispositionFileName("attachment; filename=\"a.pdf\"; filename*=UTF-8''%E6%94%B6%E6%8D%AE.pdf")).toBe("收据.pdf");
     expect(dispositionFileName("attachment; filename*=iso-8859-1'en'caf%E9.txt")).toBe("café.txt");
-    expect(dispositionFileName('inline; filename="say \\"hi\\".txt"')).toBe('say _hi_.txt');
+    expect(dispositionFileName('inline; filename="say \\"hi\\".txt"; __proto__=x')).toBe('say "hi".txt');
     expect(dispositionFileName('attachment; filename="../../etc/passwd"')).toBe("passwd");
     expect(dispositionFileName("attachment; filename=..")).toBeUndefined();
     expect(dispositionFileName("attachment")).toBeUndefined();

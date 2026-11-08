@@ -241,14 +241,17 @@ describe("a download", () => {
       ...FORMATS.map((f, i) => ({ operationId: `export${i}`, method: "get" as const, path: `/exports/${i}`, responses: { "200": { description: "it", content: { [f.type]: { schema: { type: "string" as const, format: "binary" } } } } } })),
       { operationId: "motto", method: "get" as const, path: "/motto", responses: { "200": { description: "words", content: { "text/plain": { schema: { type: "string" as const } } } } } },
     ];
-    const source = { api: { endpoints }, mocks: {} };
-    for (const e of endpoints) {
-      const request: TransportRequest = { operationId: e.operationId, method: "GET", path: e.path };
+    /* and a file of the library whose name is anything but plain ASCII */
+    const named = { id: "named", name: 'Q3: 收据 "final" ½.pdf', type: "application/pdf", data: `data:application/pdf;base64,${b64(PDF)}` };
+    const source = { api: { endpoints }, mocks: { files: [named] } };
+    const requests: TransportRequest[] = [...endpoints.map((e): TransportRequest => ({ operationId: e.operationId, method: "GET", path: e.path })), { method: "GET", path: `${MOCK_FILES_PATH}/named` }];
+    for (const request of requests) {
       const direct = await createMockTransport(source, { latency: false }).request(request);
       const fetched = await throughHttp(createMockTransport(source, { latency: false })).request(request);
-      expect(fetched.body, e.path).toEqual(direct.body);
-      expect(typeof direct.body, e.path).toBe(e.operationId === "motto" ? "string" : "object");
+      expect(fetched.body, request.path).toEqual(direct.body);
+      expect(typeof direct.body, request.path).toBe(request.operationId === "motto" ? "string" : "object");
     }
+    expect((await throughHttp(createMockTransport(source)).request(requests.at(-1)!)).body).toMatchObject({ name: named.name });
   });
 
   it("reads as the editor's own lib/api/body.ts reads it: packages/api's copy is that file", async () => {

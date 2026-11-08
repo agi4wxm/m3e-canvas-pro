@@ -114,13 +114,13 @@ export function extensionOfType(type: string): string {
   return EXTENSIONS[t] ?? /^(?:application|image|audio|video|model|text|font)\/(?:x-)?([a-z0-9]{1,5})$/.exec(t)?.[1] ?? "bin";
 }
 
-/** A file's name as a name and nothing more: the last piece of a path, without control characters or the
- *  characters file systems refuse, not "." or "..". Empty when nothing is left. */
+/** A file's name as a name and nothing more: the last piece of a path, its control characters made "_", not "." or
+ *  "..". Empty when nothing is left. Otherwise the server's own name, as the mocks give it. */
 function cleanName(name: string): string {
   let out = "";
   for (const ch of name.slice(Math.max(name.lastIndexOf("/"), name.lastIndexOf("\\")) + 1)) {
     const c = ch.codePointAt(0)!;
-    out += c < 0x20 || c === 0x7f || '<>:"|?*'.includes(ch) ? "_" : ch;
+    out += c < 0x20 || c === 0x7f ? "_" : ch;
   }
   out = out.trim();
   return out === "." || out === ".." ? "" : out.slice(0, 200);
@@ -142,7 +142,8 @@ function percentDecoded(value: string, latin1: boolean): string {
 function parseDisposition(value: string): { type: string; params: Record<string, string> } {
   const at = value.indexOf(";");
   const type = (at < 0 ? value : value.slice(0, at)).trim().toLowerCase();
-  const params: Record<string, string> = {};
+  /* no prototype: a parameter named __proto__ is a parameter like any other */
+  const params: Record<string, string> = Object.create(null) as Record<string, string>;
   const re = /;\s*([!#$%&'*+.^_`|~0-9A-Za-z-]+)\s*=\s*("(?:[^"\\]|\\.)*"|[^;]*)/g;
   for (const m of value.slice(Math.max(at, 0)).matchAll(re)) {
     const raw = m[2].trim();
@@ -167,19 +168,22 @@ export function isFileDisposition(value: string | undefined): boolean {
   return type === "attachment" || "filename" in params || "filename*" in params;
 }
 
+/** a piece of a path with its %XX made characters, or as it is when they are not UTF-8 */
+function uriDecoded(piece: string): string {
+  try {
+    return decodeURIComponent(piece);
+  } catch {
+    return piece;
+  }
+}
+
 /** the name of a file an answer carries: Content-Disposition's, else the last piece of the path, with the type's
  *  extension when that piece has none: /orders/42/receipt as application/pdf → receipt.pdf */
 export function responseFileName(headers: Readonly<Record<string, string>>, path: string, type: string): string {
   const given = dispositionFileName(headerOf(headers, "content-disposition"));
   if (given) return given;
   const last = path.split(/[?#]/)[0].split("/").filter(Boolean).pop() ?? "";
-  let piece = "";
-  try {
-    piece = cleanName(decodeURIComponent(last));
-  } catch {
-    piece = cleanName(last);
-  }
-  const base = piece || "file";
+  const base = cleanName(uriDecoded(last)) || "file";
   return /\.[A-Za-z0-9]{1,8}$/.test(base) ? base : `${base}.${extensionOfType(type)}`;
 }
 
