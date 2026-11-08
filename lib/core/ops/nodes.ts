@@ -43,6 +43,7 @@ import { paneGroups, panesOf, refusePanes } from "./split";
 import { SPLIT_SLUG, splitOf, withSplitPanes, type PaneSide } from "../../split";
 import { arrangeFlows } from "../../flow";
 import { propsPatch } from "./rows";
+import { conditionValue } from "../../converge";
 
 /** the groups whose anchor moved, for a canvas that draws them there at once rather than easing them */
 export const movedGroups = (before: Group[], after: Group[]): string[] => {
@@ -566,7 +567,8 @@ export const setGroup = op<{ id: string; patch: GroupPatch }>({
     const next = { ...g } as Record<string, unknown>;
     for (const [k, v] of Object.entries(a.patch)) {
       if (v === null) delete next[k];
-      else next[k] = v;
+      /* a condition's value is written as what it is compared as (lib/converge.ts) */
+      else next[k] = k === "showWhen" && v && typeof v === "object" ? conditionValue(s.doc.vars)(v as Record<string, unknown>) : v;
     }
     return { state: withGroups(s, s.doc.groups.map((x) => (x.id === g.id ? (next as unknown as Group) : x))) };
   },

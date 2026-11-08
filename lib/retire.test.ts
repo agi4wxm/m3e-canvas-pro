@@ -16,6 +16,7 @@ import { buildCode } from "./codegen";
 import { expandDoc } from "./expand";
 import { kitTree, splitIntoAtoms } from "./kits";
 import { loadDocument, openProject } from "./project";
+import { MIGRATIONS } from "./migrations";
 import { RETIRED_SLUGS, retiredParts, retiredRows } from "./retire";
 import { turnContext } from "./agent/prompt";
 import { printRnScreens } from "./export/rn/print";
@@ -94,7 +95,8 @@ describe("the retired parts", () => {
       const wrote = file.document.groups.flatMap((g) => g.items).filter((it) => partBySlug(it.component)?.retired);
       expect(wrote.length, name).toBeGreaterThan(0);
       const loaded = loadDocument(file)!;
-      expect(loaded.migrated, name).toEqual([]);
+      /* the format's own steps run (version 3 converges how taps and conditions are written); none splits a part */
+      expect(loaded.migrated, name).toEqual(MIGRATIONS.map((m) => m.name));
       const read = loaded.doc.groups.flatMap((g) => g.items).filter((it) => partBySlug(it.component)?.retired);
       expect(read.map((it) => [it.id, it.component, it.props]), name).toEqual(wrote.map((it) => [it.id, it.component, it.props]));
       expect(retiredParts(loaded.doc.groups).length, name).toBe(wrote.length);

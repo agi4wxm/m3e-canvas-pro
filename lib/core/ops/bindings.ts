@@ -161,7 +161,7 @@ function renamedSource(s: CoreState, f: Frame, from: string, to: string, ctx: Op
 
 export const updateDataSource = op<{ screen: string; name: string; rename?: string; operationId?: string } & { [K in keyof SourceArgs]?: SourceArgs[K] | null }>({
   name: "update_data_source",
-  summary: "Changes a screen's data source: its endpoint, params, body, when it loads, pull to refresh, paging, page size (null clears one), or its name (rename: the screen's expressions follow).",
+  summary: "Changes a screen's data source: its endpoint, params, body, when it loads, pull to refresh, paging, page size (null clears one), or its name (rename: the screen's expressions, the {{data.<name>}} in its words and the effects that name it follow).",
   args: S.obj(
     {
       screen: S.str(),
