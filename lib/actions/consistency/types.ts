@@ -121,3 +121,7 @@ export type Observed = {
   screen: string;
   calls: SeenCall[];
 };
+
+/** a row as a kit's runner has it (lib/actions/consistency/kits.ts): no design, which the kit's printer has printed
+ *  already, but its variables' ids and its screens' ids by the keys the printed app knows them by */
+export type KitRow = Omit<Row, "design"> & { vars: string[]; screens: Record<string, string> };

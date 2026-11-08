@@ -68,6 +68,7 @@ export const ROWS: Row[] = [
     known: {
       webPrototype: "原型 Web 导出忽略“设为变量”的表达式，不报告（报告 6.2：`printBehaviour.ts` setVar）",
       webProduct: "产品 Web 的“设为变量”表达式读屏幕渲染时的作用域（`$`），读不到同一次点击里前面效果写入的值（报告 6.2）",
+      miniapp: "小程序的“设为变量”表达式读屏幕渲染时的作用域（`env.$`），读不到同一次点击里前面效果写入的值（报告 6.2）",
     },
   },
   {
@@ -84,6 +85,8 @@ export const ROWS: Row[] = [
     known: {
       webPrototype: "原型 Web 导出没有屏幕参数（参数只属于绑定接口的产品）",
       webProduct: "产品 Web 的跳转参数读屏幕渲染时的作用域，读不到同一次点击里写入的值（报告 6.3：跳转参数在所有效果之后读）",
+      rn: "手机端：没有接口的设计不打印屏幕参数和跳转参数（`lib/export/rn/print.ts` 只在 `doc.api` 存在时打印绑定）",
+      miniapp: "小程序的跳转参数读屏幕渲染时的作用域（`env.$`），读不到同一次点击里写入的值（报告 6.3）",
     },
   },
   {
@@ -170,6 +173,10 @@ export const ROWS: Row[] = [
     },
     steps: [{ tap: "Open options" }, { tap: "Close options" }],
     expect: { shown: { Options: true, Rename: false } },
+    known: {
+      rn: "手机端把“关闭”当成隐藏整个部件，下拉菜单连触发按钮一起消失（报告 6.2：`rn/src/kit/app.tsx`）",
+      miniapp: "小程序把“关闭”当成隐藏整个部件，下拉菜单连触发按钮一起消失（`miniapp-kit/src/kit/app/screen.tsx` close）",
+    },
   },
   {
     id: "open-menu",
@@ -178,6 +185,10 @@ export const ROWS: Row[] = [
     design: { screens: [HOME], parts: [{ id: "menu", kind: "menu", label: "Choices", items: ["Duplicate"] }, btn("open", "Show choices", stay({ do: "open", part: "menu" }))] },
     steps: [{ tap: "Show choices" }],
     expect: { shown: { Choices: true, Duplicate: true } },
+    known: {
+      rn: "手机端的“打开”只让部件出现，不打开菜单的弹出层（套件的 Menu 自己管开合，不读 opened）",
+      miniapp: "小程序的“打开”只让部件出现，不打开菜单的弹出层（套件的 Menu 自己管开合，不读 opened）",
+    },
   },
 
   /* ---------- variables, props, words ---------- */
@@ -372,7 +383,7 @@ export const ROWS: Row[] = [
     design: { screens: [HOME], api: [op("note", { body: { text: { title: "Note", required: true } } })], forms: [{ operationId: "note", submit: "Save note", ok: body("none", toast("Saved {{form.values.text}}")) }], parts: [] },
     steps: [{ type: "Note", value: "hi" }, { tap: "Save note" }],
     expect: { toast: "Saved hi", calls: [{ op: "note", in: { text: "hi" } }] },
-    known: { webPrototype: WEB_PROTO_NO_API },
+    known: { webPrototype: WEB_PROTO_NO_API, rn: "手机端表单的 then 和 catch 读屏幕的作用域，里面没有 form：`form.values.*` 读不到（`mobile.ts` 的 useFormFor）" },
   },
   {
     id: "form-invalid",

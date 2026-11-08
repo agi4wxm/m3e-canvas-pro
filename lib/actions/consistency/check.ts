@@ -75,7 +75,7 @@ export async function turns(n = 4) {
 }
 
 /** Runs a row's steps on a host and says where it ends up differing from what the row expects. */
-export async function drive(row: Row, make: (backend: Backend) => Driver | Promise<Driver>): Promise<{ problems: string[]; seen: Observed }> {
+export async function drive(row: Omit<Row, "design">, make: (backend: Backend) => Driver | Promise<Driver>): Promise<{ problems: string[]; seen: Observed }> {
   const backend = new Backend(row);
   const d = await make(backend);
   await d.settle();
@@ -98,7 +98,7 @@ export async function drive(row: Row, make: (backend: Backend) => Driver | Promi
  *  differs and the row does not say so, or it now does as the row says while the row still lists it. */
 export type Verdict = { ok: true; known?: string } | { ok: false; why: string };
 
-export function verdict(row: Row, host: HostName, problems: string[]): Verdict {
+export function verdict(row: Omit<Row, "design">, host: HostName, problems: string[]): Verdict {
   const known = row.known?.[host];
   if (!problems.length) return known ? { ok: false, why: `${row.id} now passes on ${host}: take it out of the row's known divergences ("${known}")` } : { ok: true };
   if (known) return { ok: true, known };
