@@ -78,7 +78,6 @@ export const ROWS: (KitRow & {
    ]
   },
   "known": {
-   "preview": "预览先整批执行本地效果、再发出接口调用和能力调用，调用读到后面才写的值（报告 6.2：`Preview.tsx` runBody）",
    "webPrototype": "原型 Web 导出没有接口：调用、刷新、提交、退出登录整个丢掉，也不报告（报告 6.2、9.4）"
   },
   "vars": [
@@ -1135,7 +1134,6 @@ export const ROWS: (KitRow & {
    ]
   },
   "known": {
-   "preview": "预览嵌套到第 6 层（`Preview.tsx` depth > 6），比读文件的 4 层多（报告 6.2）",
    "webPrototype": "原型 Web 导出没有接口：调用、刷新、提交、退出登录整个丢掉，也不报告（报告 6.2、9.4）",
    "webProduct": "产品 Web 不限层数（报告 6.2）",
    "rn": "手机端打印到第 6 层（`rn/print.ts` depth > 6）（报告 6.2）"
@@ -1276,7 +1274,6 @@ export const ROWS: (KitRow & {
    "screen": "other"
   },
   "known": {
-   "preview": "预览在访客离开后整个丢弃 then/catch（第一批 W5 的规则），效果也不再运行，状态跟不上后端（报告 7.1）",
    "webPrototype": "原型 Web 导出没有接口：调用、刷新、提交、退出登录整个丢掉，也不报告（报告 6.2、9.4）",
    "webProduct": "回答到达时访客已经离开，lib/app 宿主仍执行 then/catch 里的跳转，把访客拽走（报告 7.1、7.2）",
    "rn": "回答到达时访客已经离开，lib/app 宿主仍执行 then/catch 里的跳转，把访客拽走（报告 7.1、7.2）",
@@ -1326,7 +1323,6 @@ export const ROWS: (KitRow & {
    "screen": "other"
   },
   "known": {
-   "preview": "预览在访客离开后整个丢弃 then/catch（第一批 W5 的规则），效果也不再运行，状态跟不上后端（报告 7.1）",
    "webPrototype": "原型 Web 导出没有接口：调用、刷新、提交、退出登录整个丢掉，也不报告（报告 6.2、9.4）"
   },
   "vars": [],
@@ -1513,7 +1509,6 @@ export const ROWS: (KitRow & {
    "screen": "login"
   },
   "known": {
-   "preview": "预览只在进入屏幕时检查登录，退出登录后仍停在需要登录的屏幕上（报告 6.2）",
    "webPrototype": "原型 Web 导出没有接口：调用、刷新、提交、退出登录整个丢掉，也不报告（报告 6.2、9.4）",
    "webProduct": "产品 Web 只在进入屏幕时检查登录，退出登录后仍停在需要登录的屏幕上（报告 6.2）"
   },
@@ -1740,7 +1735,6 @@ export const ROWS: (KitRow & {
    ]
   },
   "known": {
-   "preview": "预览先整批执行本地效果、再发出接口调用和能力调用，调用读到后面才写的值（报告 6.2：`Preview.tsx` runBody）",
    "webPrototype": "原型 Web 导出没有能力层：能力调用整个丢掉（第三批只给产品的三端接上能力注册表；原型导出第四批改为打印 Action 数据，报告 6.2、9.4）",
    "webProduct": "接口参数读的是屏幕渲染时的作用域，看不到同一次点击里前面效果写入的值（报告 6.2：Web `printBindings.ts`、手机端 `mobile.ts`、小程序 `env.$`）",
    "rn": "接口参数读的是屏幕渲染时的作用域，看不到同一次点击里前面效果写入的值（报告 6.2：Web `printBindings.ts`、手机端 `mobile.ts`、小程序 `env.$`）",

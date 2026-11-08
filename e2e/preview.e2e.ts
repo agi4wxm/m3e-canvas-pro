@@ -3,7 +3,8 @@
  *   - Backspace and ← in a field edit the field; elsewhere they go back
  *   - a form in an overlay submits the overlay's own params and fields
  *   - a search field the source's params read loads the list again as it is typed in
- *   - an answer after the scenario changed, after the visitor went back, or to a call made again since, runs nothing
+ *   - an answer after the scenario changed, or to a call made again since, runs nothing; one after the visitor went
+ *     back runs its effects where the tap was made, and goes nowhere (docs/交互规则.md, “迟到的回答”)
  *   - `then` runs in the tap's screen (its params, its form) after the tap itself went on
  *   - a resizable starts and resets at the share it was set to, at several widths
  * They are written so the table they make can move into the hosts' consistency tests (report 6.3) once the preview
@@ -187,7 +188,7 @@ export const tests: E2ETest[] = [
     },
   },
   {
-    name: "preview answers: one that comes after the visitor went back runs no then",
+    name: "preview answers: one that comes after the visitor went back runs its then's effects, and goes nowhere",
     async run({ page, base }) {
       await onNotes(page, base, ["ping"]);
       await part(page, "ping").click();
@@ -195,8 +196,8 @@ export const tests: E2ETest[] = [
       await page.locator('[aria-label="Back"]').first().click();
       await onScreen(page, "list");
       await answer(page, 0, 200, { n: 5 });
-      await settle(page, 900);
-      equal(await snack(page), null, "its then did not run where the visitor is now");
+      /* the back end did what was asked: the app keeps up with it, reading the screen the tap was made on */
+      await snackSays(page, "Pong 5 tea");
       equal(await shownScreen(page), "list", "and nothing moved");
       await page.keyboard.press("Escape");
       await settle(page, 600);
