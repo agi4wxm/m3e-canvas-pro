@@ -27,7 +27,7 @@ export function CounterScreen() {
         <Button label="Reset" width={160} onPress={() => act(A2)} />
       </At>
       <At x={16} y={186}>
-        {app.holds({ var: "v-count", op: "eq", value: "3" }) ? (
+        {app.holds({ expr: "vars.Count == 3" }) ? (
           <Text text={"Three!"} />
         ) : null}
       </At>
@@ -56,7 +56,7 @@ export function CounterScreen() {
         <Button label="Flip" width={160} onPress={() => act(A5)} />
       </At>
       <At x={16} y={564}>
-        {app.holds({ var: "v-flag", op: "eq", value: true }) ? (
+        {app.holds({ expr: "vars.Flag == true" }) ? (
           <Text text="Flag is on" />
         ) : null}
       </At>

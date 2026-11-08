@@ -16,8 +16,10 @@ const OTHER = { id: "other", name: "Other" };
 const stay = (...effects: Effect[]): Action => ({ to: "none", effects });
 /** a move with no animation: what every host plays at once */
 const INSTANT = { kind: "instant" as const };
-const goTo = (to: string, ...effects: Effect[]): Action => ({ to, ...(to === "none" ? {} : { motion: INSTANT }), effects });
-const body = (to: string, ...effects: Effect[]): ActionBody => ({ to, ...(to === "none" || to === "back" ? {} : { motion: INSTANT }), effects });
+/* a move to a screen (not staying, going back or out to a page, which play no move of their own) is at once */
+const atOnce = (to: string) => (to === "none" || to === "back" || to === "link" ? {} : { motion: INSTANT });
+const goTo = (to: string, ...effects: Effect[]): Action => ({ to, ...atOnce(to), effects });
+const body = (to: string, ...effects: Effect[]): ActionBody => ({ to, ...atOnce(to), effects });
 const btn = (id: string, label: string, action: Action, more: Partial<PartSpec> = {}): PartSpec => ({ id, label, action, ...more });
 const text = (id: string, label: string, more: Partial<PartSpec> = {}): PartSpec => ({ id, kind: "text", label, ...more });
 /** a call; `ok` is its `then`, `fail` its `catch` */

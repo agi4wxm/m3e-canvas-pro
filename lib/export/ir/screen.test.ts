@@ -112,3 +112,36 @@ function group(id: string, x: number, y: number, it: Item): Group {
 function docOf(groups: Group[]): Doc {
   return { groups, frames: [{ id: "f1", name: "Home", x: 0, y: 0 }, { id: "f2", name: "Next", x: 600, y: 0 }], paletteKey: "purple", frame: "phone", title: "T", brief: "" };
 }
+
+describe("what a row's parts read of their row", () => {
+  /* Neither kit has a collection's rows to read: the plan writes each row's fields into what its parts read, so a
+     condition on the row (`row.name == "Pear"`) is the row's own answer on a phone and in a mini-program too. Before
+     version 4 the kits read `{var: "row.name"}` off their variables, where no row is, and it never held. */
+  const rows = (): Doc => {
+    const doc = withIds(counter(), proofDoc).doc;
+    const home = doc.frames[0];
+    const box = (id: string, extra: Partial<Group>, it: Item): Group => ({ id, x: home.x + 16, y: home.y + 300, axis: "x", items: [it], ...extra });
+    return {
+      ...doc,
+      collections: [{ id: "fruit", name: "Fruit", fields: ["name"], rows: [["Apple"], ["Pear"]] }],
+      groups: [
+        ...doc.groups,
+        box("g-list", { repeat: { collection: "fruit" } }, { ...makeItem("box"), id: "list", props: { layout: "column", width: 300 } }),
+        box("g-say", { inFlow: "g-list", showWhen: { expr: 'row.name != "Apple"' } }, { ...makeItem("button"), id: "say", props: { label: "Say {{row.name}}" }, action: { to: "none", when: { expr: 'row.name == "Pear"' }, effects: [{ do: "snackbar", message: "Pear" }], else: { to: "none", effects: [{ do: "snackbar", message: "{{row.name}}" }] } } }),
+      ],
+    };
+  };
+
+  it("writes them in on both kits, row by row", () => {
+    for (const plan of [rnPlan, miniPlan]) {
+      const { doc } = plan(rows(), {});
+      const says = doc.groups.filter((g) => g.items[0].props?.label === "Say Apple" || g.items[0].props?.label === "Say Pear");
+      expect(says.map((g) => [g.items[0].props?.label, g.showWhen, g.items[0].action?.when])).toEqual([
+        ["Say Apple", { expr: '"Apple" != "Apple"' }, { expr: '"Apple" == "Pear"' }],
+        ["Say Pear", { expr: '"Pear" != "Apple"' }, { expr: '"Pear" == "Pear"' }],
+      ]);
+    }
+    expect(printRnScreens(rows(), {}, { runtime: { bind: "../bind" } }).screens[0].source).toContain('when: { expr: "\\"Pear\\" == \\"Pear\\"" }');
+    expect(printMiniScreens(rows(), {}).screens[0].source).toContain('{ expr: "\\"Pear\\" != \\"Apple\\"" }');
+  });
+});

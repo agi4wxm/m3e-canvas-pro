@@ -3,8 +3,8 @@ import { useBindings } from "@m3e/app-runtime";
 import { AppBar, At, Box, Button, Cell, Container, Icon, Image, InputGroup, ListItem, Pin, RadioGroup, Screen, Text, useScreen, type Action, type Condition } from "../../../kit";
 
 const A1: Action = { to: "back" };
-const C2: Condition = { var: "payIssue", op: "eq", value: "cancelled" };
-const C3: Condition = { var: "payIssue", op: "eq", value: "order" };
+const C2: Condition = { expr: "vars.payIssue == \"cancelled\"" };
+const C3: Condition = { expr: "vars.payIssue == \"order\"" };
 const C4: Condition = { expr: "vars.payIssue != '' && vars.payIssue != 'cancelled' && vars.payIssue != 'order'" };
 const A5: Action = { to: "none", effects: [{ do: "setVar", var: "payIssue", value: "" }, { do: "setVar", var: "paying", value: true }, { do: "call", operationId: "createOrder", args: { method: "'card'" }, then: { to: "none", effects: [{ do: "invoke", capability: "payment.pay", args: { orderId: "response.id", amount: "response.amount", currency: "response.currency", method: "response.method", payload: "response.payment" }, then: { to: "paymentResult", effects: [{ do: "setVar", var: "paying", value: false }], params: { orderId: "response.id" } }, catch: { to: "none", effects: [{ do: "setVar", var: "paying", value: false }, { do: "setVar", var: "payIssue", value: "", expr: "error.type" }] } }] }, catch: { to: "none", effects: [{ do: "setVar", var: "paying", value: false }, { do: "setVar", var: "payIssue", value: "order" }] } }] };
 

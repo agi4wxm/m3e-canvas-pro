@@ -4,11 +4,11 @@ import { At, Button, Dialog, Image, Layer, Menu, Screen, Switch, Text, useScreen
 
 const A1: Action = { to: "none", effects: [{ do: "addVar", var: "v-count", by: 1 }] };
 const A2: Action = { to: "none", effects: [{ do: "setVar", var: "v-count", value: 0 }] };
-const C3: Condition = { var: "v-count", op: "eq", value: "3" };
+const C3: Condition = { expr: "vars.Count == 3" };
 const A4: Action = { to: "none", effects: [{ do: "toggle", part: "text6" }] };
 const A5: Action = { to: "none", effects: [{ do: "setProp", part: "text7", prop: "text", value: "New title" }] };
 const A6: Action = { to: "none", effects: [{ do: "toggleVar", var: "v-flag" }] };
-const C7: Condition = { var: "v-flag", op: "eq", value: true };
+const C7: Condition = { expr: "vars.Flag == true" };
 const A8: Action = { to: "none", effects: [{ do: "open", part: "dialog" }] };
 const A9: Action = { to: "none", effects: [{ do: "setVar", var: "v-count", value: 100 }] };
 const A10: Action = { to: "none", effects: [{ do: "setVar", var: "v-count", value: 7 }] };

@@ -294,6 +294,19 @@ describe("the row a tap came from, in printed code", () => {
     expect(source).not.toContain("vars");
     expect(source).not.toContain("false &&");
   });
+
+  it("writes the row's fields into a condition that reads the app's state too, which its runtime cannot read a row for", () => {
+    const asks: Doc = {
+      ...doc,
+      vars: [{ id: "n", name: "n", type: "number", value: 0 }],
+      groups: [box("host", 16, 40, {}, { repeat: { collection: "col" } }), row("say", "Say", { to: "none", when: { expr: 'row.name == "Pear" && vars.n > 0' }, effects: [{ do: "snackbar", message: "Pear" }] })],
+      frames: [doc.frames[0]],
+    };
+    const source = buildScreens(asks, { "say-b": 80, "say-b:h": 40 }, { live: true }).screens[0].source;
+    expect(source).toContain('when: { expr: "\\"Pear\\" == \\"Pear\\" && vars.n > 0" }');
+    expect(source).toContain('when: { expr: "\\"Apple\\" == \\"Pear\\" && vars.n > 0" }');
+    expect(source).not.toContain("row.name");
+  });
 });
 
 describe("what a part in a row runs in the preview", () => {
