@@ -6,11 +6,15 @@
  * proves the same to it against a challenge of the server's (`editorProven`), and the pairing needs no code. The
  * secret itself never travels again, except once more to be forgotten.
  *
- * Several servers (one per client) share the file: each change reads it, changes it and writes it back at once. */
+ * Several servers (one per client) share the file. Each change (add, touch, remove, clear) is one transaction under a
+ * lock file beside it (`trusted-editors.json.lock`, made with O_EXCL): it reads the file, changes it and writes it
+ * back (beside it first, then renamed over it) while no other process can, so no pairing added is lost and none
+ * removed comes back from a write made with an older list. A lock whose process has died, or that is older than any
+ * transaction takes, is taken away, one process at a time. Reading needs no lock: the rename makes every read whole. */
 
 import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import { chmod, mkdir, open, readFile, rename, stat, unlink } from "node:fs/promises";
-import { homedir } from "node:os";
+import { homedir, hostname } from "node:os";
 import { dirname, join } from "node:path";
 import { proofWords, type Access } from "../../lib/mcp/protocol";
 
@@ -33,6 +37,25 @@ type TrustFile = { version: 1; editors: Remembered[] };
 
 /** how long a remembered pairing nobody used is kept */
 export const TRUST_MAX_IDLE_MS = 180 * 24 * 3600_000;
+
+/** a lock older than this was left by a process that stopped in the middle (a transaction takes milliseconds) */
+export const TRUST_LOCK_STALE_MS = 15_000;
+/** how long a change waits for the lock before it gives up */
+const LOCK_WAIT_MS = 20_000;
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/** whether a process of this machine is still there */
+function running(pid: number): boolean {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (e) {
+    return (e as NodeJS.ErrnoException).code === "EPERM";
+  }
+}
+
+type LockHolder = { pid?: number; host?: string; token?: string };
 
 /** The folder for this server's own settings: $M3E_MCP_CONFIG_DIR, else the platform's per-user config folder. */
 export function configDir(env: Record<string, string | undefined> = process.env, platform: NodeJS.Platform = process.platform, home = homedir()): string {
@@ -137,11 +160,83 @@ export class TrustStore {
     await chmod(this.path, 0o600).catch(() => {});
   }
 
+  private get lockPath() {
+    return `${this.path}.lock`;
+  }
+
+  /** Runs `fn` while this process holds the lock: the one read-change-write of the file at a time. */
+  private async transaction<T>(fn: () => Promise<T>): Promise<T> {
+    await mkdir(dirname(this.path), { recursive: true, mode: 0o700 });
+    await this.tighten();
+    const token = randomBytes(8).toString("hex");
+    const end = Date.now() + LOCK_WAIT_MS;
+    for (let tries = 1; ; tries++) {
+      try {
+        const fh = await open(this.lockPath, "wx", 0o600);
+        try {
+          await fh.writeFile(JSON.stringify({ pid: process.pid, host: hostname(), token, at: Date.now() } satisfies LockHolder & { at: number }));
+        } finally {
+          await fh.close();
+        }
+        break;
+      } catch (e) {
+        if ((e as NodeJS.ErrnoException).code !== "EEXIST") throw e;
+      }
+      const gone = await this.breakStale();
+      if (Date.now() > end) throw new Error(`${this.lockPath} is held by another process; nothing was changed.`);
+      if (!gone) await sleep(Math.min(100, 2 * tries) + Math.random() * 10);
+    }
+    try {
+      return await fn();
+    } finally {
+      /* only a lock that is still this one's is let go (one taken as stale and made again belongs to another) */
+      const held = await readFile(this.lockPath, "utf8").catch(() => "");
+      if (held.includes(token)) await unlink(this.lockPath).catch(() => {});
+    }
+  }
+
+  /** Takes away a lock its process left: one whose process on this machine is gone, or one held longer than any
+   *  transaction takes. One process at a time does it (its own lock beside it), and only to the lock it judged. Whether
+   *  the lock is gone now (try again at once). */
+  private async breakStale(): Promise<boolean> {
+    const lock = this.lockPath;
+    const [st, text] = await Promise.all([stat(lock).catch(() => null), readFile(lock, "utf8").catch(() => null)]);
+    if (!st || text === null) return true;
+    let holder: LockHolder = {};
+    try {
+      holder = JSON.parse(text) as LockHolder;
+    } catch {
+      /* a lock being written this moment, or a broken one: its age decides */
+    }
+    const dead = holder.host === hostname() && typeof holder.pid === "number" && holder.pid !== process.pid && !running(holder.pid);
+    if (!dead && Date.now() - st.mtimeMs < TRUST_LOCK_STALE_MS) return false;
+    const breaker = `${lock}.break`;
+    try {
+      await (await open(breaker, "wx", 0o600)).close();
+    } catch (e) {
+      if ((e as NodeJS.ErrnoException).code !== "EEXIST") throw e;
+      /* another process is breaking it, or died doing so */
+      const b = await stat(breaker).catch(() => null);
+      if (b && Date.now() - b.mtimeMs > TRUST_LOCK_STALE_MS) await unlink(breaker).catch(() => {});
+      return false;
+    }
+    try {
+      const [st2, again] = await Promise.all([stat(lock).catch(() => null), readFile(lock, "utf8").catch(() => null)]);
+      if (st2 && again === text && st2.mtimeMs === st.mtimeMs) {
+        await unlink(lock).catch(() => {});
+        this.warn(`${lock} was left by a process that stopped${dead ? ` (pid ${holder.pid})` : ""}; it was taken away.`);
+      }
+    } finally {
+      await unlink(breaker).catch(() => {});
+    }
+    return true;
+  }
+
   /** keeps a new pairing; its id */
   async add(r: Omit<Remembered, "id" | "created" | "used">): Promise<Remembered> {
     const now = this.now();
     const made: Remembered = { ...r, id: randomBytes(8).toString("hex"), created: now, used: now };
-    await this.write([...(await this.list()), made]);
+    await this.transaction(async () => this.write([...(await this.list()), made]));
     return made;
   }
 
@@ -155,25 +250,32 @@ export class TrustStore {
     return (await this.list()).filter((r) => r.client === client && r.origin === origin).map((r) => r.id);
   }
 
+  /** marks a pairing used now; one forgotten meanwhile stays forgotten */
   async touch(id: string) {
-    const list = await this.list();
-    const r = list.find((x) => x.id === id);
-    if (!r) return;
-    r.used = this.now();
-    await this.write(list);
+    await this.transaction(async () => {
+      const list = await this.list();
+      const r = list.find((x) => x.id === id);
+      if (!r) return;
+      r.used = this.now();
+      await this.write(list);
+    });
   }
 
   /** forgets a pairing, for whoever shows its secret (the tab that holds it); whether one went */
   async remove(id: string, secret: string): Promise<boolean> {
-    const list = await this.list();
-    const next = list.filter((r) => !(r.id === id && r.secret === secret));
-    if (next.length === list.length) return false;
-    await this.write(next);
-    return true;
+    return this.transaction(async () => {
+      const list = await this.list();
+      const next = list.filter((r) => !(r.id === id && r.secret === secret));
+      if (next.length === list.length) return false;
+      await this.write(next);
+      return true;
+    });
   }
 
   /** forgets them all */
   async clear() {
-    await unlink(this.path).catch(() => {});
+    await this.transaction(async () => {
+      await unlink(this.path).catch(() => {});
+    });
   }
 }

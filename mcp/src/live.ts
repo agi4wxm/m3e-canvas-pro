@@ -41,6 +41,21 @@ export type LiveOptions = {
   log: Log;
   /** where remembered pairings are kept; without it the tab is never offered to remember one */
   trust?: TrustStore;
+  /** how long a pairing code holds (PAIRING_CODE_MS) */
+  codeMs?: number;
+  /** the time, for tests */
+  now?: () => number;
+};
+
+/** How long a pairing code holds. A new one is made after that, and after one was used to pair: the code a client
+ *  was told is good for a while and for one tab, not for as long as the server runs. Wrong tries still count across
+ *  codes (PAIRING_TRIES for the server's whole run). */
+export const PAIRING_CODE_MS = 10 * 60_000;
+
+/** a time left, in the words a model passes on */
+const timeLeft = (ms: number) => {
+  const s = Math.max(0, Math.ceil(ms / 1000));
+  return s >= 120 ? `${Math.floor(s / 60)} minutes` : s >= 60 ? `1 minute ${s - 60} s` : `${s} s`;
 };
 
 type Pending = { name: string; resolve: (o: ToolOutcome) => void; timer: ReturnType<typeof setTimeout>; draws: number; abort: AbortController };
@@ -51,8 +66,9 @@ const DRAWS_PER_CALL = 2;
 
 export class LiveBackend implements Backend {
   readonly kind = "live" as const;
-  readonly code: string;
   readonly id: string;
+  /** the pairing code now, and until when it holds */
+  private pairCode: { code: string; until: number };
   private wss: WebSocketServer | null = null;
   private conn: Conn | null = null;
   private resume: { token: string; access: Access } | null = null;
@@ -67,8 +83,30 @@ export class LiveBackend implements Backend {
   port: number | null = null;
 
   constructor(private readonly o: LiveOptions) {
-    this.code = pairingCode((n) => randomInt(n));
+    this.pairCode = this.newCode();
     this.id = randomBytes(8).toString("hex");
+  }
+
+  private now = () => (this.o.now ?? Date.now)();
+  private newCode = () => ({ code: pairingCode((n) => randomInt(n)), until: this.now() + (this.o.codeMs ?? PAIRING_CODE_MS) });
+
+  /** The pairing code now: a new one once the last has run out (said in the log, where the author may read it). */
+  get code(): string {
+    if (this.now() >= this.pairCode.until) {
+      this.pairCode = this.newCode();
+      if (!this.locked()) this.o.log.notice(`The pairing code ran out; the new one is ${this.pairCode.code} (for ${timeLeft(this.codeLeft())}).`);
+    }
+    return this.pairCode.code;
+  }
+
+  /** how long the code holds still */
+  codeLeft(): number {
+    return Math.max(0, this.pairCode.until - this.now());
+  }
+
+  /** a code that paired a tab is spent: the next tab is given a new one */
+  private spend() {
+    this.pairCode = this.newCode();
   }
 
   /** Listens on the first free port of the range; the port, or a thrown error when none is free. */
@@ -91,7 +129,7 @@ export class LiveBackend implements Backend {
     if (!this.wss || this.port === null) throw new Error(`No port is free for the live bridge (${first}–${first + count - 1}): ${last instanceof Error ? last.message : String(last)}`);
     this.ping = setInterval(() => this.heartbeat(), 15_000);
     this.ping.unref?.();
-    this.o.log.notice(`Live bridge on ws://127.0.0.1:${this.port}. In M3E Canvas, turn on “Connect to MCP” and type pairing code ${this.code}.`);
+    this.o.log.notice(`Live bridge on ws://127.0.0.1:${this.port}. In M3E Canvas, turn on “Connect to MCP” and type pairing code ${this.code} (it holds for ${timeLeft(this.codeLeft())}, then a new one is given here).`);
     return this.port;
   }
 
@@ -143,7 +181,7 @@ export class LiveBackend implements Backend {
     if (cur) cur.ws.close(4002, "replaced");
     const conn: Conn = { ws, paired: false, access: this.o.access, origin, alive: true, challenge: randomBytes(16).toString("hex") };
     this.conn = conn;
-    this.o.log.info(this.locked() ? `Editor tab connected from ${origin}; too many wrong pairing codes were typed, so this server pairs no more until it is started again.` : `Editor tab connected from ${origin}. Pairing code ${this.code}: type it in the editor.`);
+    this.o.log.info(this.locked() ? `Editor tab connected from ${origin}; too many wrong pairing codes were typed, so this server pairs no more until it is started again.` : `Editor tab connected from ${origin}. Pairing code ${this.code} (for ${timeLeft(this.codeLeft())}): type it in the editor.`);
     void this.known(origin).then((known) => this.send(ws, { t: "hello", protocol: BRIDGE_PROTOCOL, server: { name: "m3e-canvas-mcp", version: this.o.version, id: this.id }, client: this.client, access: this.o.access, challenge: conn.challenge, generate: !!this.o.draw, confirmMs: this.o.confirmMs ?? CONFIRM_MS, ...(known ? { known } : {}) }));
     ws.on("pong", () => {
       conn.alive = true;
@@ -180,6 +218,8 @@ export class LiveBackend implements Backend {
     }
     const typed = codeDigits(msg.code);
     if (!typed || typed !== codeDigits(this.code)) return this.wrong(conn);
+    /* spent the moment it is taken: it pairs one tab */
+    this.spend();
     return this.approved(conn, access, msg.remember);
   }
 
@@ -376,7 +416,7 @@ export class LiveBackend implements Backend {
   /** how the author connects a tab, in words a model can pass on */
   howToPair(): string {
     if (this.locked()) return "Too many wrong pairing codes were typed in the editor, so this server pairs no more. Ask the author to restart the MCP server (restart the client, or reload its MCP servers), then pair again with the new code.";
-    return `Tell the author the pairing code ${this.code}, and ask them to open M3E Canvas, click the plug icon (Connect to MCP) at the bottom of the left rail and type that code when the editor asks for it.`;
+    return `Tell the author the pairing code ${this.code} (it holds for another ${timeLeft(this.codeLeft())}; after that, or once a tab has paired with it, call connection_status for the new one), and ask them to open M3E Canvas, click the plug icon (Connect to MCP) at the bottom of the left rail and type that code when the editor asks for it.`;
   }
 
   status() {
@@ -384,7 +424,7 @@ export class LiveBackend implements Backend {
     return {
       mode: "live",
       editor: this.paired() ? "paired" : this.locked() ? "locked (too many wrong pairing codes)" : c ? "waiting for the author to type the code" : "not connected",
-      ...(this.paired() ? { access: c!.access, origin: c!.origin } : this.locked() ? { howToConnect: this.howToPair() } : { pairingCode: this.code, howToConnect: this.howToPair() }),
+      ...(this.paired() ? { access: c!.access, origin: c!.origin } : this.locked() ? { howToConnect: this.howToPair() } : { pairingCode: this.code, pairingCodeExpiresInSeconds: Math.ceil(this.codeLeft() / 1000), howToConnect: this.howToPair() }),
       bridge: this.port !== null ? `ws://127.0.0.1:${this.port}` : "not listening",
       drawing: this.o.draw ? "on (OPENAI_API_KEY)" : "off",
     };
