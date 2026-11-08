@@ -100,7 +100,7 @@ export class Runtime {
     this.language = new Store(o.lang ?? "en");
     this.session = new SessionStore({ storage: o.storage, key: o.storageKey, presumed: o.presumed });
     this.sources = new SourceCache({ lang: () => this.lang, errorOf: (e) => this.errorOf(e) });
-    this.transport = sessionTransport({ inner: () => this.base, session: this.session, auth: o.auth, onUnauthorized: (r) => this.onUnauthorized?.(r) });
+    this.transport = sessionTransport({ inner: () => this.base, session: this.session, auth: o.auth, onUnauthorized: (r) => this.onUnauthorized?.(r), epoch: () => this.epoch.get() });
   }
 
   get lang(): string {

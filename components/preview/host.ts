@@ -1,21 +1,20 @@
 /* The editor's preview as a host of the interpreter (lib/actions/host.ts): what a tap does is decided by lib/actions
  * `run`, the one set of rules every host follows (docs/交互规则.md); this file only says how the preview keeps and
  * shows what the rules ask for. Its interaction state is the store (store.ts); its data, calls, forms and session are
- * the bindings engine (lib/bindings/runtime.ts) that draws the screens; the runtime (lib/app) says when the preview has
- * started over, so an answer to the session before lands nowhere, and invokes the platform capabilities (the mock
- * library's, the catalog's examples). Navigation is the preview's own and is handed in. No React and no page here:
- * the preview's click-path tests run this file as it is. */
+ * the runtime every exported app runs on (lib/app: its data sources' cache, its form controllers, its session store),
+ * read from the document by lib/bindings/design.ts: this file is the preview's only contact with it. The runtime also says
+ * when the preview has started over, so an answer to the session before lands nowhere, and invokes the platform
+ * capabilities (the mock library's, the catalog's examples). Navigation is the preview's own and is handed in. No React
+ * and no page here: the preview's click-path tests run this file as it is. */
 
-import type { CallArgs, Change, FormRef, GoOptions, Host, InvokeOutcome, Outcome, Tap } from "@/lib/actions";
-import type { Runtime } from "@/lib/app/runtime";
+import type { CallArgs, Change, FormRef, GoOptions, Host, InvokeOutcome, Tap } from "@/lib/actions";
+import { outcomeOf } from "@/lib/app/actions";
+import type { DesignRuntime, FormAt, ScreenAt } from "@/lib/bindings/design";
 import type { TransportFile } from "@/lib/api/transport";
 import { endpointOf, paramsOf } from "@/lib/bindings/contract";
-import { evaluate, type Scope } from "@/lib/bindings/expr";
-import { formViewOf } from "@/lib/bindings/form";
-import { screenScope, sourceKey, type BindingEngine, type BindingState, type CallOutcome } from "@/lib/bindings/runtime";
+import { evaluate } from "@/lib/bindings/expr";
 import { NO_BINDINGS, scopeFor, type BindingContext } from "@/lib/bindings/scope";
-import { optimisticChange } from "@/lib/bindings/sources";
-import { formsOf, readForm, type BoundScreen } from "@/lib/bindings/view";
+import { formsOf, type BoundScreen } from "@/lib/bindings/view";
 import { applyEffects, conditionHolds, isHidden, screenVars, type PreviewState } from "@/lib/interact";
 import type { Doc, Frame, Group, Item, ItemScope, VarValue } from "@/lib/tokens";
 import type { PreviewStore } from "./store";
@@ -28,12 +27,12 @@ export type PreviewHostDeps = {
   dark: () => boolean;
   /** the screen on show (the overlay over it, when there is one): what a variable read without a tap reads in */
   onShow: () => Frame | undefined;
-  /** the data, the calls, the forms and the session */
-  engine: BindingEngine;
-  bindings: () => BindingState;
-  setBindings: (next: BindingState) => void;
-  /** when the preview started over, and the capabilities */
-  runtime: Runtime;
+  /** the data, the calls, the forms and the session: lib/app's runtime, read from the document; when the preview
+   *  started over, and the capabilities */
+  data: DesignRuntime;
+  /** how many times the capabilities were handed over (another mock session of theirs): an invoke made before the last
+   *  time answers into nothing */
+  capabilitySession?: () => number;
   /** each screen as its bindings had it when last drawn (its repeats, its forms) */
   bound: (frameId: string) => BoundScreen | undefined;
   /** the files the visitor gave the file inputs, by item id */
@@ -51,8 +50,6 @@ export type PreviewHostDeps = {
   told?: (part: string) => void;
   /** the visitor signed out: a screen that needs a session cannot stay on show */
   signedOut?: () => void;
-  /** a timer for a form's upload progress */
-  tick?: (fn: () => void) => () => void;
 };
 
 /** where in the document a part is: its group */
@@ -68,14 +65,6 @@ const partOf = (tap: Tap): Pick<Item, "scope" | "row"> => {
   return { scope, ...(tap.row ? { row: tap.row } : {}) };
 };
 
-/** A call's answer as the interpreter takes it. One that comes after the preview started over (another scenario, the
- *  log's "start over", another transport) is `dropped`: it belongs to a session that is gone. */
-function outcomeOf(out: CallOutcome, stale: boolean): Outcome {
-  if (stale || (!out.ok && out.dropped)) return { ok: false, status: out.status, error: out.ok ? null : out.problem, dropped: true };
-  if (out.ok) return { ok: true, status: out.status, response: out.body };
-  return { ok: false, status: out.status, error: out.problem, ...(out.unauthorized ? { unauthorized: true } : {}) };
-}
-
 /** The preview's host. Made once for a preview session: the interpreter keeps which call of a part is the newest by
  *  its host, so every tap runs on this same object. */
 export function createPreviewHost(d: PreviewHostDeps): Host {
@@ -85,18 +74,12 @@ export function createPreviewHost(d: PreviewHostDeps): Host {
   const varsOn = (f: Frame | undefined): PreviewState => screenVars(d.store.get(), d.doc(), f, d.dark());
   const write = (fn: (s: PreviewState) => PreviewState) => d.store.update(fn);
 
-  /** a screen's own scope as it is now: its data, its params, the variables, the session, the time */
-  const screenNow = (f: Frame, params: Record<string, unknown> | undefined, s: PreviewState): Scope =>
-    screenScope({ frame: f, state: d.bindings(), params, vars: s.vars, varNames: varNames(), collections: d.doc().collections });
+  const runtime = d.data.runtime;
+  /** where a screen's data is read now: its params, the variables as it shows them */
+  const atScreen = (f: Frame, params: Record<string, unknown> | undefined, s: PreviewState): ScreenAt => ({ frame: f, params, vars: s.vars, varNames: varNames() });
 
-  /** the form of a tap as it is now: what is typed in it, what its submission has come to */
-  const formNow = (f: Frame, id: string, scope: Scope, s: PreviewState) => {
-    const b = d.bound(f.id);
-    const form = b?.groups.find((g) => g.id === id);
-    if (!b || !form?.form) return undefined;
-    const read = readForm({ form, groups: b.groups, owner: formsOf(b.groups), doc: d.doc(), fields: s.fields, files: d.files(), scope, ctx: host.ctx() });
-    return formViewOf(read, d.bindings().forms[id]);
-  };
+  /** a form of a screen as the visitor has filled it in now */
+  const formAt = (b: BoundScreen, form: Group): FormAt => ({ form, groups: b.groups, owner: formsOf(b.groups), fields: d.store.get().fields, files: d.files() });
 
   const host: Host = {
     scope(tap) {
@@ -104,11 +87,14 @@ export function createPreviewHost(d: PreviewHostDeps): Host {
       const s = varsOn(f);
       const part = partOf(tap);
       if (!f) return scopeFor({ ...NO_BINDINGS, varNames: varNames(), eval: host.ctx() }, s.vars, part);
-      const base: BindingContext = { scope: screenNow(f, tap.params, s), varNames: varNames(), forms: d.bound(f.id)?.ctx.forms ?? {}, eval: host.ctx() };
-      const form = tap.form ? formNow(f, tap.form, scopeFor(base, s.vars), s) : undefined;
+      const b = d.bound(f.id);
+      const base: BindingContext = { scope: d.data.scope(atScreen(f, tap.params, s)), varNames: varNames(), forms: b?.ctx.forms ?? {}, eval: host.ctx() };
+      /* the form of the tap as it is now: what is typed in it, what its submission has come to */
+      const group = tap.form ? b?.groups.find((g) => g.id === tap.form) : undefined;
+      const form = b && group?.form ? d.data.formView(formAt(b, group)) : undefined;
       return scopeFor(form ? { ...base, forms: { ...base.forms, [tap.form!]: form } } : base, s.vars, part);
     },
-    ctx: () => d.runtime.ctx(),
+    ctx: () => runtime.ctx(),
 
     variable(id) {
       const v = (d.doc().vars ?? []).find((x) => x.id === id);
@@ -144,37 +130,31 @@ export function createPreviewHost(d: PreviewHostDeps): Host {
       const fields: Record<string, unknown> = {};
       for (const [k, v] of Object.entries(given.args)) (takes.has(k) ? params : fields)[k] = v;
       const body = given.body !== undefined ? given.body : Object.keys(fields).length ? fields : undefined;
-      const epoch = d.runtime.epoch.get();
-      const out = await d.engine.call(operationId, { params, body });
-      return outcomeOf(out, epoch !== d.runtime.epoch.get());
+      return outcomeOf(await d.data.call(operationId, { params, body }));
     },
     async invoke(capability, args): Promise<InvokeOutcome> {
-      const out = await d.runtime.invoke(capability, args);
+      const session = d.capabilitySession?.();
+      const out = await runtime.invoke(capability, args);
+      /* the capabilities were handed over while it was out: it belongs to their session before */
+      if (session !== d.capabilitySession?.() && !(!out.ok && out.dropped)) return { ok: false, error: out.ok ? { type: "failed", capability } : out.error, dropped: true };
       /* the page a link.open was given leaves the sketch the way a link action does */
       if (out.ok && capability === "link.open" && typeof args.url === "string") d.openLink(args.url);
       return out;
     },
     optimistic(source, change: Change, tap) {
-      const key = sourceKey(tap.screen, source);
-      const was = d.bindings().sources[key];
-      if (!was?.items || tap.item === undefined) return undefined;
-      const changed = optimisticChange(was, tap.item, change);
-      const put = (items: unknown[] | undefined, value: unknown) => {
-        const now = d.bindings();
-        d.setBindings({ ...now, sources: { ...now.sources, [key]: { ...(now.sources[key] ?? was), items, value } } });
-      };
-      put(changed.items, changed.value);
-      return () => put(was.items, was.value);
+      const f = frameOf(tap.screen);
+      const spec = f ? d.data.sourceOf(atScreen(f, tap.params, varsOn(f)), source) : undefined;
+      const was = spec ? d.data.state(spec) : undefined;
+      if (!spec || !was?.items || was.key !== spec.key || tap.item === undefined) return undefined;
+      return runtime.sources.optimistic(spec.key, tap.item, change);
     },
     refresh(source, tap) {
       const f = frameOf(tap.screen);
-      const src = f?.data?.find((x) => x.name === source);
-      if (f && src) void d.engine.load(f, src, screenNow(f, tap.params, varsOn(f)), { force: true }).catch(() => {});
+      if (f) void d.data.load(atScreen(f, tap.params, varsOn(f)), source);
     },
     loadMore(source, tap) {
       const f = frameOf(tap.screen);
-      const src = f?.data?.find((x) => x.name === source);
-      if (f && src) void d.engine.load(f, src, screenNow(f, tap.params, varsOn(f)), { more: true }).catch(() => {});
+      if (f) void d.data.load(atScreen(f, tap.params, varsOn(f)), source, { more: true });
     },
 
     form(id, tap): FormRef | undefined {
@@ -188,28 +168,21 @@ export function createPreviewHost(d: PreviewHostDeps): Host {
       return { id: g.id, operationId: g.form.operationId, ...(g.form.then ? { then: g.form.then } : {}), ...(g.form.catch ? { catch: g.form.catch } : {}) };
     },
     async submit(ref, tap) {
-      const f = frameOf(tap.screen);
       const b = d.bound(tap.screen);
       const form = b?.groups.find((g) => g.id === ref.id) ?? d.doc().groups.find((g) => g.id === ref.id);
-      if (!f || !b || !form?.form) return null;
-      /* a second press while it is out is no new submission, nor a failed one */
-      if (d.engine.formState(form.id).submitting) return null;
+      if (!frameOf(tap.screen) || !b || !form?.form) return null;
       const scope = host.scope(tap);
-      const read = readForm({ form, groups: b.groups, owner: formsOf(b.groups), doc: d.doc(), fields: d.store.get().fields, files: d.files(), scope, ctx: host.ctx() });
-      if (Object.keys(read.errors).length) {
-        d.engine.setForm(form.id, { errors: read.errors, submitted: true, error: null });
-        return null;
-      }
       const params = Object.fromEntries(Object.entries(form.form.params ?? {}).map(([k, x]) => [k, evaluate(x, scope, host.ctx())]));
-      const epoch = d.runtime.epoch.get();
-      const out = await d.engine.submit(form.id, form.form.operationId, { params, body: read.body }, { files: read.files, tick: d.tick });
-      return outcomeOf(out, epoch !== d.runtime.epoch.get());
+      const extra = Object.fromEntries(Object.entries(form.form.values ?? {}).map(([k, x]) => [k, evaluate(x, scope, host.ctx())]));
+      /* checked and sent by lib/app's form controller; nothing sent (a field is wrong, or it is out already) is null */
+      const out = await d.data.submit(formAt(b, form), { params, extra });
+      return out ? outcomeOf(out) : null;
     },
 
     signOut() {
       /* wherever a sign-in would have taken the app back to is forgotten with the session */
-      d.runtime.takeReturn();
-      d.engine.signOut();
+      runtime.takeReturn();
+      d.data.signOut();
       d.signedOut?.();
     },
     afterSignIn: (operationId) => d.doc().api?.auth?.login === operationId && d.returnAfterSignIn(),

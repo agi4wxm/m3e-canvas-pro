@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { run, type Action, type Effect, type GoOptions } from "../../lib/actions";
 import { createRuntime } from "../../lib/app/runtime";
 import type { Transport, TransportRequest } from "../../lib/api/transport";
-import { BindingEngine, emptyBindings, type BindingState } from "../../lib/bindings/runtime";
+import { DesignRuntime, authConfigOf } from "../../lib/bindings/design";
 import { boundScreen } from "../../lib/bindings/view";
 import { designDoc } from "../../lib/actions/consistency/design";
 import type { Design } from "../../lib/actions/consistency/types";
@@ -12,7 +12,7 @@ import type { CapabilityHost } from "../../lib/capabilities/types";
 import { createPreviewHost, tapOf } from "./host";
 import { PreviewStore } from "./store";
 
-/* The preview's host of the interpreter (host.ts) on its own, with the real bindings engine and runtime under it and a
+/* The preview's host of the interpreter (host.ts) on its own, with the real runtime (lib/app) under it and a
  * back end that answers when told: the click paths the preview's taps take, step by step. The whole preview runs the
  * consistency table (lib/actions/consistency/preview.test.ts); these pin what is the preview's own. */
 
@@ -29,10 +29,9 @@ function bed(design: Design, o: { hold?: string[]; capabilities?: CapabilityHost
       return Promise.resolve({ status: 200, headers: {}, body: { token: "t1" } });
     },
   };
-  let bindings: BindingState = emptyBindings();
   const store = PreviewStore.start(doc, false);
-  const engine = new BindingEngine({ doc: () => doc, transport, get: () => bindings, set: (next) => (bindings = next), ctx: () => ({ lang: "en" }) });
-  const runtime = createRuntime({ transport, lang: "en", ...(o.capabilities ? { capabilities: o.capabilities } : {}) });
+  const runtime = createRuntime({ transport, auth: authConfigOf(doc.api), lang: "en", ...(o.capabilities ? { capabilities: o.capabilities } : {}) });
+  const data = new DesignRuntime(runtime, () => doc);
   const went: { to: string; o: GoOptions }[] = [];
   const opened: string[] = [];
   let moves = 0;
@@ -42,13 +41,12 @@ function bed(design: Design, o: { hold?: string[]; capabilities?: CapabilityHost
     store,
     dark: () => false,
     onShow: () => doc.frames[0],
-    engine,
-    bindings: () => bindings,
-    setBindings: (next) => (bindings = next),
-    runtime,
+    data,
     bound: (id) => {
       const frame = doc.frames.find((f) => f.id === id)!;
-      return boundScreen({ groups: groupsInFrame(doc.groups, frame, doc.frames, {}), frame, doc, state: bindings, vars: screenVars(store.get(), doc, frame, false).vars, fields: store.get().fields, widths: {}, ctx: { lang: "en" } });
+      const vars = screenVars(store.get(), doc, frame, false).vars;
+      const scope = data.scope({ frame, vars });
+      return boundScreen({ groups: groupsInFrame(doc.groups, frame, doc.frames, {}), frame, doc, scope, form: (form, groups, owner) => data.formView({ form, groups, owner, fields: store.get().fields }), vars, widths: {}, ctx: { lang: "en" } });
     },
     files: () => ({}),
     go: (to, go) => {
@@ -80,8 +78,7 @@ function bed(design: Design, o: { hold?: string[]; capabilities?: CapabilityHost
       return signedOut;
     },
     leave: () => moves++,
-    bindings: () => bindings,
-    setBindings: (next: BindingState) => (bindings = next),
+    data,
   };
 }
 
@@ -189,17 +186,22 @@ describe("the preview's host of the interpreter", () => {
     await run(submit.action as Action, b.host, tapOf({ frame: b.doc.frames[0] }, { ...submit, scope: { form: form.id } }, undefined));
     expect(b.sent).toEqual([]);
     expect(b.store.get().snack).toBeNull();
-    expect(Object.keys(b.bindings().forms[form.id]?.errors ?? {})).toEqual(["text"]);
+    /* lib/app's form controller says why, as an exported app's form does */
+    expect(Object.keys(b.runtime.form(form.id, {}).view().errors)).toEqual(["text"]);
   });
 
-  it("takes a row out of a source before the answer, and puts it back when asked", () => {
-    const b = bed({ screens: [HOME], parts: [] });
+  it("takes a row out of a source before the answer, and puts it back when asked", async () => {
     const rows = [{ id: "a" }, { id: "b" }];
-    b.setBindings({ ...b.bindings(), sources: { "home/items": { ...({} as BindingState["sources"][string]), status: "ready", items: rows, value: rows, seq: 1 } } });
+    const b = bed({ screens: [HOME], api: [{ operationId: "items", path: "/items" }], parts: [] });
+    const home = { ...b.doc.frames[0], data: [{ name: "items", operationId: "items" }] };
+    b.doc.frames[0] = home;
+    /* the source's key, as the runtime's cache holds it */
+    const spec = b.data.sourceOf({ frame: home }, "items")!;
+    b.runtime.sources.store.set({ [spec.key]: { status: "ready", key: spec.key, items: rows, value: rows, loading: false, loadingMore: false, hasMore: false, seq: 1 } });
     const undo = b.host.optimistic("items", { remove: true }, { screen: "home", item: { id: "a" } });
-    expect(b.bindings().sources["home/items"].items).toEqual([{ id: "b" }]);
+    expect(b.runtime.sources.state(spec.key).items).toEqual([{ id: "b" }]);
     undo?.();
-    expect(b.bindings().sources["home/items"].items).toEqual(rows);
+    expect(b.runtime.sources.state(spec.key).items).toEqual(rows);
     expect(b.host.optimistic("items", { remove: true }, { screen: "home" })).toBeUndefined();
   });
 
