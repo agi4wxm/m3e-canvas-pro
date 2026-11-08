@@ -43,14 +43,14 @@ beforeAll(async () => {
 
 describe("the prototype export", () => {
   /* The single-app export stays as it was, to the byte, beside the product. These digests were taken from the export
-     before the product existed; one that changes on purpose is written again here (last: the ripple holding still
-     under reduced motion, read from the new components/m3e/reduced-motion.ts, and its timers cleared with it). */
+     before the product existed; one that changes on purpose is written again here (last: parts/icons.ts asking again
+     for icons whose shard did not come, after the ripple holding still under reduced motion). */
   const DIGESTS: Record<string, [number, string]> = {
-    proof: [77, "093de076e62505bfa21bd9b7d19571105d88fe97de3155e128607c273ee12b60"],
+    proof: [77, "9a7e6c9b1b4af0b29ee508aca8d15f7dc60292feeec375738319dc6239268692"],
     systems: [40, "fe350b28dee0e667c6a33665a619f74599695020dda85b6107a334d8079e82af"],
     reuse: [30, "c927332adcf650e2ccfdb707beb22ea9c1064ed2aa51a5ad2f598cf1ae813aa2"],
-    sweep: [83, "1328dddf1c92380cfcc05510dfa1ce8e01b9788cdacadee33ade3940dc9a27a0"],
-    parts: [136, "1ee7a65aa11cb12c3c616eff99c81384bd779bd062fc49843ae15976c27400c7"],
+    sweep: [83, "f6689151ca84fb6fa95dd7cd234d1bcb1e46823abf1e883d0ad175305326ef7b"],
+    parts: [136, "f82db8d05f359184598eccfb283dcd62ce5a2ac0b26a68ea197fe67df7df1527"],
   };
   const DOCS: Record<string, () => { doc: Doc; widths: Record<string, number> }> = { proof: proofDoc, systems: systemsDoc, reuse: reuseDoc, sweep: sweepDoc, parts: () => ({ doc: allPartsDoc(), widths: {} }) };
   it.each(Object.keys(DIGESTS))("is byte for byte what it was: %s", async (name) => {
