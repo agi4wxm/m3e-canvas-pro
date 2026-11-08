@@ -349,13 +349,17 @@ const ORDER_ENDPOINTS: ApiEndpoint[] = [
   },
 ];
 
-/** one scenario per outcome of a payment, named in the language the screens are added in */
+/** One scenario per outcome of a payment, named in the language the screens are added in: each shows one design of
+ *  the checkout or the result screen, from submitting to paid. */
 const paymentScenarios = (lang: Lang): MockScenario[] => {
   const name = (en: string, zh: string, ja: string, ko: string) => ({ en, zh, ja, ko })[lang];
   return [
     { id: "pay-success", name: name("Payment received", "支付成功", "支払い完了", "결제 완료"), description: name("The sheet submits, the back end says paid", "支付已提交，后端订单状态为已支付", "送信され、注文は支払い済み", "제출되고 주문은 결제 완료"), ops: { getOrder: { patch: { status: "paid" } } } },
     { id: "pay-processing", name: name("Payment processing", "支付处理中", "支払い処理中", "결제 처리 중"), description: name("The sheet submits, the back end has not heard yet", "支付已提交，后端还没收到结果", "送信され、結果はまだ", "제출되었지만 결과는 아직"), ops: { getOrder: { patch: { status: "processing" } } } },
+    /* the sheet stays open as long as the mocks wait for anything, so the checkout's "submitting" can be looked at */
+    { id: "pay-submitting", name: name("Payment submitting", "支付提交中", "支払い送信中", "결제 제출 중"), description: name("The payment sheet is still open", "支付界面还开着", "支払い画面がまだ開いている", "결제 화면이 아직 열려 있음"), capabilities: { "payment.pay": { delayMs: 60_000 } } },
     { id: "pay-cancelled", name: name("Payment cancelled", "支付已取消", "支払いキャンセル", "결제 취소"), description: name("The visitor closes the payment sheet", "访客关掉了支付界面", "支払い画面を閉じた", "결제 화면을 닫음"), capabilities: { "payment.pay": { fail: "cancelled" } } },
+    { id: "pay-declined", name: name("Payment not completed", "支付未完成", "支払い未完了", "결제 미완료"), description: name("The payment sheet reports a failure", "支付界面报告失败", "支払い画面が失敗を返す", "결제 화면이 실패를 알림"), capabilities: { "payment.pay": { fail: "failed" } } },
     { id: "pay-failed", name: name("Payment failed", "支付失败", "支払い失敗", "결제 실패"), description: name("The back end says the payment failed", "后端订单状态为支付失败", "注文の支払いは失敗", "주문 결제 실패"), ops: { getOrder: { patch: { status: "failed" } } } },
   ];
 };
