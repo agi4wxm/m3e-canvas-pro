@@ -271,17 +271,17 @@ describe("buildPrompt — a part's shape and its entries are in its code", () =>
 
 describe("buildPrompt — behavior / actions", () => {
   it("an item with action.to='back' generates a 'go back' note", () => {
-    const item = part("button", "b1", { label: "Back" }, { action: { to: "back", transition: "none" } });
+    const item = part("button", "b1", { label: "Back" }, { action: { to: "back" } });
     const doc = baseDoc({ groups: [{ id: "g", x: 100, y: 100, axis: "x", items: [item] }] });
     const out = buildPrompt(doc, widths, undefined, "en");
     expect(out).toMatch(/go back|previous screen/i);
   });
 
   it("a button with a link action names the address it opens, and says nothing without one", () => {
-    const linked = part("button", "b1", { label: "Docs" }, { action: { to: LINK_TARGET, transition: "none", url: "example.com/docs" } });
+    const linked = part("button", "b1", { label: "Docs" }, { action: { to: LINK_TARGET, url: "example.com/docs" } });
     const doc = baseDoc({ groups: [{ id: "g", x: 100, y: 100, axis: "x", items: [linked] }] });
     expect(buildPrompt(doc, widths, undefined, "en")).toContain("opens https://example.com/docs in a new browser tab");
-    const blank = baseDoc({ groups: [{ id: "g", x: 100, y: 100, axis: "x", items: [{ ...linked, action: { to: LINK_TARGET, transition: "none" } }] }] });
+    const blank = baseDoc({ groups: [{ id: "g", x: 100, y: 100, axis: "x", items: [{ ...linked, action: { to: LINK_TARGET } }] }] });
     expect(buildPrompt(blank, widths, undefined, "en")).not.toMatch(/browser tab/);
   });
 
@@ -295,7 +295,7 @@ describe("buildPrompt — behavior / actions", () => {
 
   it("an item with action.to=<frameId> generates an 'opens the ... screen' note", () => {
     const target: Frame = { id: "f2", name: "Settings", x: 600, y: 0 };
-    const item = part("button", "b1", { label: "Open" }, { action: { to: "f2", transition: "slide" } });
+    const item = part("button", "b1", { label: "Open" }, { action: { to: "f2" } });
     const doc = baseDoc({ frames: [phoneFrame, target], groups: [{ id: "g", x: 100, y: 100, axis: "x", items: [item] }] });
     const out = buildPrompt(doc, widths, undefined, "en");
     expect(out).toContain(`"Settings"`);

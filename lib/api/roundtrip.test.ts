@@ -191,8 +191,8 @@ describe("the project file", () => {
     expect(lines.filter((l) => l.startsWith('        {"operationId":')).length).toBe(11);
   });
 
-  it("writes a document without one exactly as before (under the format's version, 3 since the convergence)", () => {
+  it("writes a document without one exactly as before (under the format's version, 4 since the convergence)", () => {
     const plain: Doc = { groups: [], frames: [], paletteKey: "purple", frame: "phone", title: "", brief: "" };
-    expect(serializeProject(plain).text).toBe('{\n  "format": "m3e-project",\n  "version": 3,\n  "document": {\n    "brief": "",\n    "frame": "phone",\n    "frames": [],\n    "groups": [],\n    "paletteKey": "purple",\n    "title": ""\n  }\n}\n');
+    expect(serializeProject(plain).text).toBe('{\n  "format": "m3e-project",\n  "version": 4,\n  "document": {\n    "brief": "",\n    "frame": "phone",\n    "frames": [],\n    "groups": [],\n    "paletteKey": "purple",\n    "title": ""\n  }\n}\n');
   });
 });

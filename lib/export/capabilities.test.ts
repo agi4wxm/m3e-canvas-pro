@@ -37,9 +37,9 @@ function payingDoc(): Doc {
     frames: [{ id: "f", name: "Checkout", x: 0, y: 0 }],
     groups: [
       // eslint-disable-next-line unicorn/no-thenable -- an action body, never a function: nothing awaits it
-      { id: "g1", x: 16, y: 100, axis: "x", items: [{ ...pay, action: { to: "none", transition: "none", effects: [{ do: "invoke", capability: "payment.pay", args: { orderId: "'o1'" }, then: { to: "none", transition: "none", effects: [{ do: "snackbar", message: "{{result.status}}" }] }, catch: { to: "none", transition: "none", effects: [{ do: "snackbar", message: "{{error.type}}" }] } }] } }] },
+      { id: "g1", x: 16, y: 100, axis: "x", items: [{ ...pay, action: { to: "none", effects: [{ do: "invoke", capability: "payment.pay", args: { orderId: "'o1'" }, then: { to: "none", effects: [{ do: "snackbar", message: "{{result.status}}" }] }, catch: { to: "none", effects: [{ do: "snackbar", message: "{{error.type}}" }] } }] } }] },
       { id: "g2", x: 16, y: 200, axis: "x", name: "Store map", items: [map] },
-      { id: "g3", x: 16, y: 500, axis: "x", items: [{ ...copy, action: { to: "none", transition: "none", effects: [{ do: "invoke", capability: "clipboard.write", args: { text: "'x'" } }] } }] },
+      { id: "g3", x: 16, y: 500, axis: "x", items: [{ ...copy, action: { to: "none", effects: [{ do: "invoke", capability: "clipboard.write", args: { text: "'x'" } }] } }] },
     ],
   };
 }
@@ -178,7 +178,7 @@ describe("a product that only pays", () => {
 
   it("imports only what the defaults it uses reach", async () => {
     const doc = payingDoc();
-    const share = { ...makeItem("button"), id: "share", props: { label: "Share" }, action: { to: "none", transition: "none" as const, effects: [{ do: "invoke" as const, capability: "share.open", args: { url: "'https://example.com'" } }] } };
+    const share = { ...makeItem("button"), id: "share", props: { label: "Share" }, action: { to: "none", effects: [{ do: "invoke" as const, capability: "share.open", args: { url: "'https://example.com'" } }] } };
     doc.groups = [...doc.groups.filter((g) => g.id === "g1"), { id: "g4", x: 16, y: 600, axis: "x", items: [share] }];
     const mobile = text(await build(doc), "apps/mobile/src/generated/platformCapabilities.ts");
     expect(mobile).toContain('import { Share } from "react-native"');

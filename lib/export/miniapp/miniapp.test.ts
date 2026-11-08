@@ -85,7 +85,7 @@ describe("the theme", () => {
 describe("the screens", () => {
   const item = (slug: string, id: string, props: Record<string, unknown> = {}, more: Partial<Item> = {}): Item => ({ ...makeItem(slug), id, props, ...more });
   const docOf = (frames: Doc["frames"], groups: Group[]): Doc => ({ groups, frames, paletteKey: "purple", frame: "phone", title: "T", brief: "" });
-  const stay = (effects: Effect[]) => ({ to: STAY_TARGET, transition: "none" as const, effects });
+  const stay = (effects: Effect[]) => ({ to: STAY_TARGET, effects });
 
   it("show and hide every part a tap reaches, the ones that start on show too, by the group the part is in", () => {
     const doc = docOf(
@@ -116,8 +116,8 @@ describe("the screens", () => {
   it("never names a screen's key where a tap goes beside a screen, nor its component as the kit's Screen", () => {
     const names = ["Home", "Back", "Link", "None", "Screen"];
     const frames = names.map((name, i) => ({ id: `f${i}`, name, x: i * 600, y: 0 }));
-    const taps = names.slice(1).map((name, i) => ({ id: `t${i}`, x: 16, y: 16 + i * 60, axis: "x" as const, items: [item("button", `to${name}`, { label: `To ${name}` }, { action: { to: `f${i + 1}`, transition: "slide" } })] }));
-    const back = { id: "tb", x: 16, y: 400, axis: "x" as const, items: [item("button", "goBack", { label: "Go back" }, { action: { to: BACK_TARGET, transition: "slide" } })] };
+    const taps = names.slice(1).map((name, i) => ({ id: `t${i}`, x: 16, y: 16 + i * 60, axis: "x" as const, items: [item("button", `to${name}`, { label: `To ${name}` }, { action: { to: `f${i + 1}` } })] }));
+    const back = { id: "tb", x: 16, y: 400, axis: "x" as const, items: [item("button", "goBack", { label: "Go back" }, { action: { to: BACK_TARGET } })] };
     const nowhere = { id: "tn", x: 16, y: 460, axis: "x" as const, items: [item("button", "stay", { label: "Stay" }, { action: stay([{ do: "snackbar", message: "Hi" }]) })] };
     const printed = printMiniScreens(docOf(frames, [...taps, back, nowhere]), {});
     expect(printed.screens.map((s) => [s.key, s.component, s.path])).toEqual([

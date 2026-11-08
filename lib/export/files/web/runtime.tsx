@@ -515,12 +515,12 @@ export function AppProvider({ children/*#if !mocks*//*#else , capabilities#end*/
       toast: (words) => app().snackbar(words),
       go: (to, o) => {
 //#if overlay
-        if (o.overlay) return app().openOverlay(to as ScreenId, o.transition, o.motion)
+        if (o.overlay) return app().openOverlay(to as ScreenId, undefined, o.motion)
 //#end
 //#if product
-        app().navigate(to as ScreenId, o.params, o.transition/*#if proto*/, o.motion/*#end*/)
+        app().navigate(to as ScreenId, o.params/*#if proto*/, undefined, o.motion/*#end*/)
 //#else
-//|         app().go(to as ScreenId, o.transition/*#if proto*/, o.motion/*#end*/)
+//|         app().go(to as ScreenId/*#if proto*/, undefined, o.motion/*#end*/)
 //#end
       },
       back: (/*#if proto*/o/*#end*/) => app().back(/*#if proto*/o?.motion/*#end*/),

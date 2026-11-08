@@ -1,3 +1,4 @@
+import { bindExpr, boundVar } from "../../bindings/bind";
 import { COLOR_TOKENS, BACK_TARGET, LINK_TARGET, GAP, linkUrlOf, normalizeTheme, type Action, type ActionBody, type Condition, type DataSource, type Doc, type Effect, type Frame, type Group, type Item, type ScreenParam } from "../../tokens";
 import type { Answer } from "../../actions/model";
 import { partBySlug } from "../../../parts/registry";
@@ -464,7 +465,7 @@ class ScreenPrinter {
       if (def.slug === "svg" && d.key === "markup" && typeof v === "string" && v) v = svgMarkup(v, it.id) ?? "";
       let code: string | undefined;
       const ref = it.bind?.[d.key];
-      if (typeof ref === "string" && bound.has(d.key)) code = this.boundProp(d, ref, v, it.id);
+      if (typeof ref === "string" && bound.has(d.key)) code = this.boundProp(d, ref, v, it.id, boundVar(it, d.key, this.doc.vars));
       else if (this.runtime && d.kind === "text" && typeof v === "string" && v.includes("{{")) code = fillCode(this.$, v);
       const set = this.facts.setProps.get(it.id);
       /* a row picked moves the chosen one where the part leaves that to whoever draws it (`selects`) */
@@ -480,13 +481,15 @@ class ScreenPrinter {
   }
 
   /** a prop that follows a variable or an expression, in the kind of value the prop takes */
-  boundProp(d: PartDef["props"][number], ref: string, design: unknown, part: string): string | undefined {
-    if (!ref.startsWith("=")) {
+  boundProp(d: PartDef["props"][number], ref: string, design: unknown, part: string, varId?: string): string | undefined {
+    /* a plain read of a variable is the app's variable (lib/bindings/bind.ts), which an input bound so writes back to */
+    if (varId !== undefined) {
       if (d.kind === "list" || d.kind === "table" || !(typeof design === "string" || typeof design === "number" || typeof design === "boolean")) return undefined;
       this.uses.app = true;
-      return `app.bound(${str(ref)}, ${expr(design)})`;
+      return `app.bound(${str(varId)}, ${expr(design)})`;
     }
-    const e = ref.slice(1);
+    const e = bindExpr(ref);
+    if (e === null) return undefined;
     if (!this.runtime) {
       this.warn("binding", "a prop bound to an expression keeps the design's value without the app's runtime", part);
       return undefined;
@@ -518,7 +521,7 @@ class ScreenPrinter {
     /* the inputs the kit's own controls take a value and a change for; another part that declares an input keeps its
        value to itself on a phone, and says so where something reads it */
     const known = INPUT_PROP[slug] !== undefined && RN_INPUTS.has(slug);
-    if (INPUT_PROP[slug] !== undefined && !known && ((it.field && this.ctx.form) || (typeof it.bind?.[INPUT_PROP[slug]] === "string" && !it.bind[INPUT_PROP[slug]].startsWith("=")) || this.facts.filled.has(it.id))) {
+    if (INPUT_PROP[slug] !== undefined && !known && ((it.field && this.ctx.form) || boundVar(it, INPUT_PROP[slug], this.doc.vars) !== undefined || this.facts.filled.has(it.id))) {
       this.warn("input", "what is entered here does not reach its variable or form on a phone", it.id);
       return [];
     }
@@ -560,8 +563,8 @@ class ScreenPrinter {
       return out;
     }
     if (key === undefined) return [];
-    const varId = it.bind?.[key];
-    const toVar = typeof varId === "string" && !varId.startsWith("=");
+    const varId = boundVar(it, key, this.doc.vars);
+    const toVar = varId !== undefined;
     if (!toVar && !this.facts.filled.has(it.id)) return [];
     this.uses.app = true;
     const write = (type: string) => `(v: ${type}) => app.input(${str(it.id)}, v${toVar ? `, ${str(varId)}` : ""})`;

@@ -14,7 +14,7 @@ import { rowsOrder } from "./rows";
 
 beforeAll(() => setGlobalLang("en"));
 
-const to = (id: string): Action => ({ to: id, transition: "slide" });
+const to = (id: string): Action => ({ to: id });
 const rows = (...labels: string[]) => labels.map((label) => ({ label }));
 const screens = ["F1", "a", "b", "c"].map((id, i) => ({ id, name: id, x: i * 500, y: 0 }));
 const group = (it: Partial<Item> & { component: string }): Group => ({ id: "g", x: 16, y: 700, axis: "x", items: [{ ...makeItem(it.component), id: "p", ...it }] });

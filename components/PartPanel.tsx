@@ -442,12 +442,12 @@ export function TriggerSection({
   const scrolls = action?.to === STAY_TARGET && action.scrollTo !== undefined;
   /* where a tap goes is one choice among what it does: changing it leaves its effects and condition be */
   const pick = (k: string) => {
-    const { scrollTo: _scroll, overlay: _overlay, ...was } = action ?? { to: STAY_TARGET, transition: "none" as const };
-    const stays = action ? tidiedAction({ ...was, to: STAY_TARGET, transition: "none" }) : undefined;
+    const { scrollTo: _scroll, overlay: _overlay, ...was } = action ?? { to: STAY_TARGET };
+    const stays = action ? tidiedAction({ ...was, to: STAY_TARGET }) : undefined;
     if (k === SCROLL_TO) {
       /* the first part of the screen that is not this one is where it scrolls to first */
       const first = behavior.groups.flatMap((g) => g.items).find((it) => it.id !== item.id) ?? item;
-      set({ ...was, to: STAY_TARGET, transition: "none", scrollTo: first.id });
+      set({ ...was, to: STAY_TARGET, scrollTo: first.id });
       return;
     }
     if (toggleable && k === "toggle") {
@@ -457,15 +457,15 @@ export function TriggerSection({
     /* choosing a destination leaves a flip part's toggle off */
     if (toggleable && item.props?.toggle) onChange({ props: { ...item.props, toggle: false } });
     if (k === LINK_TARGET) {
-      set({ ...was, to: LINK_TARGET, transition: "none", url: action?.url });
+      set({ ...was, to: LINK_TARGET, url: action?.url });
       return;
     }
     if (k === "none") {
       set(stays);
       return;
     }
-    const transition = action && action.to !== LINK_TARGET && action.to !== STAY_TARGET ? action.transition : "slide";
-    set({ ...was, ...(action?.overlay && k !== BACK_TARGET ? { overlay: true } : {}), to: k, transition });
+    /* the motion goes with it from one screen (or back) to another; none plays the default slide */
+    set({ ...was, ...(action?.overlay && k !== BACK_TARGET ? { overlay: true } : {}), to: k });
   };
   const options = actionOptionsOf(item, frame, allFrames, lang);
   return (

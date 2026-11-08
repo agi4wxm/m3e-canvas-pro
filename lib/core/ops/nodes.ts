@@ -38,12 +38,12 @@ import {
 import { op, OpError, S } from "../op";
 import { withGroups, withSession, type CoreState, type Widths } from "../state";
 import { componentById, copiedIds, freshId, freshPart, frameById, groupById, groupOfItem, itemById, itemRects, landNewPart, laidOut, onItsEdge, selectionUnits, spotOn, unlocked, withHeld } from "./common";
-import { checkItemPatch, checkProps, cleanedLook, conditionError } from "./validate";
+import { checkItemPatch, checkProps, cleanedLook, conditionError, writtenForms } from "./validate";
 import { paneGroups, panesOf, refusePanes } from "./split";
 import { SPLIT_SLUG, splitOf, withSplitPanes, type PaneSide } from "../../split";
 import { arrangeFlows } from "../../flow";
 import { propsPatch } from "./rows";
-import { conditionValue } from "../../converge";
+import { convergedCondition } from "../../converge";
 
 /** the groups whose anchor moved, for a canvas that draws them there at once rather than easing them */
 export const movedGroups = (before: Group[], after: Group[]): string[] => {
@@ -502,6 +502,7 @@ export const setItem = op<{ id: string; patch: Partial<Item> }>({
     if (ctx.strict) {
       patch = Object.fromEntries(Object.entries(patch).map(([k, v]) => [k, v === null ? undefined : v]));
       for (const k of ["id", "kind", "component"]) if (k in patch) throw new OpError("invalid_value", `A part's ${k} cannot change.`, k);
+      patch = writtenForms(patch, s.doc.vars);
       checkItemPatch(item, patch, s);
       if ("look" in patch) patch = { ...patch, look: cleanedLook(patch.look) };
     }
@@ -559,7 +560,8 @@ export const setGroup = op<{ id: string; patch: GroupPatch }>({
       const p = a.patch;
       if (p.name !== undefined && p.name !== null && typeof p.name !== "string") throw new OpError("invalid_value", "name should be text.", "name");
       if (p.showWhen) {
-        const e = conditionError(p.showWhen, s);
+        /* what a model gives in the older form is written as the expression it is, then checked */
+        const e = conditionError(convergedCondition(p.showWhen as Record<string, unknown>, s.doc.vars), s);
         if (e) throw new OpError("invalid_value", `showWhen: ${e}.`, "showWhen");
       }
       if (g.locked && Object.keys(p).some((k) => k !== "locked")) unlocked(g, "That group");
@@ -568,7 +570,7 @@ export const setGroup = op<{ id: string; patch: GroupPatch }>({
     for (const [k, v] of Object.entries(a.patch)) {
       if (v === null) delete next[k];
       /* a condition's value is written as what it is compared as (lib/converge.ts) */
-      else next[k] = k === "showWhen" && v && typeof v === "object" ? conditionValue(s.doc.vars)(v as Record<string, unknown>) : v;
+      else next[k] = k === "showWhen" && v && typeof v === "object" ? convergedCondition(v as Record<string, unknown>, s.doc.vars) : v;
     }
     return { state: withGroups(s, s.doc.groups.map((x) => (x.id === g.id ? (next as unknown as Group) : x))) };
   },

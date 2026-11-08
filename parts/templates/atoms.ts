@@ -76,7 +76,7 @@ export function atomsOf(slug: string, props: Record<string, unknown> = {}, extra
   const placed = splitTaps(def, readers[0], trees[0], { actions: wired }).actions;
   const withTaps = (n: Node, en: Node): Node => {
     const tap = placed.get(en) as Link | undefined;
-    return { ...n, ...(tap ? { action: { to: tap.to, transition: tap.transition } } : {}), ...(n.kids ? { kids: n.kids.map((k, i) => withTaps(k, en.kids![i])) } : {}) };
+    return { ...n, ...(tap ? { action: { to: tap.to, ...(tap.motion ? { motion: tap.motion } : {}) } } : {}), ...(n.kids ? { kids: n.kids.map((k, i) => withTaps(k, en.kids![i])) } : {}) };
   };
   const tapped = withTaps(tree, trees[0]);
   const role = o.inLayout ? undefined : roleOf({ component: slug, props: valuesIn(def, props, "en") });

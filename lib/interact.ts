@@ -5,8 +5,9 @@ import type { Action, ActionBody, Collection, Condition, Doc, DocVar, Effect, Fr
 import { varValues } from "./variables";
 import { heldBy } from "./tokens";
 import { isColorRef } from "./look";
-import { display, evaluate, fillTemplate, holds, toNumber, truthy, type Scope } from "./bindings/expr";
-import { NO_BINDINGS, exprOfBind, scopeFor, type BindingContext } from "./bindings/scope";
+import { display, evaluate, fillTemplate, holds, propValueOf, type PropRead, type Scope } from "./bindings/expr";
+import { NO_BINDINGS, scopeFor, type BindingContext } from "./bindings/scope";
+import { bindExpr, boundVar } from "./bindings/bind";
 import { tableOfData } from "../parts/tables";
 import { optionsOf } from "./partContract";
 import type { ListItem } from "../parts/types";
@@ -42,10 +43,12 @@ export type PreviewState = {
   set?: Record<string, true>;
   /** Runtime only: what expressions on the screen on show read (lib/bindings): its data, params, forms, the session. */
   ctx?: BindingContext;
+  /** the variables' names, so `vars.<name>` reads them where there is no `ctx` (a state made by `startState` alone) */
+  names?: { id: string; name: string }[];
 };
 
 /** what an expression on a part reads in this state: the screen's bindings, the variables now, the part's own scope */
-export const scopeOf = (s: PreviewState, it?: Pick<Item, "scope" | "row">, extra?: Scope): Scope => scopeFor(s.ctx ?? NO_BINDINGS, s.vars, it, extra);
+export const scopeOf = (s: PreviewState, it?: Pick<Item, "scope" | "row">, extra?: Scope): Scope => scopeFor(s.ctx ?? (s.names?.length ? { ...NO_BINDINGS, varNames: s.names } : NO_BINDINGS), s.vars, it, extra);
 const evalCtx = (s: PreviewState) => (s.ctx ?? NO_BINDINGS).eval;
 
 /** the state with a variable written, and marked as written */
@@ -91,6 +94,7 @@ export const startState = (vars: DocVar[] | undefined, collections?: Collection[
   fields: {},
   snack: null,
   ...(collections?.length ? { current: firstRows(collections) } : {}),
+  ...(Array.isArray(vars) && vars.length ? { names: vars.map((v) => ({ id: v.id, name: v.name })) } : {}),
 });
 
 /** The state a tap from a repeated part runs in: its row is the current one, and its fields can be
@@ -129,60 +133,28 @@ const groupOf = (groups: Group[], id: string) => groups.find((g) => g.items.some
 
 export const isHidden = (s: PreviewState, g: Group) => s.hidden[g.id] ?? !!g.hidden;
 
-/** what a bound prop reads as, in the kind of value the prop takes; undefined when it cannot be that */
-function boundValue(it: Item, key: string, v: VarValue): VarValue | ListItem[] | undefined {
+/** What a prop bound to an expression shows, in the kind of value the prop takes (lib/bindings/expr.ts `propValueOf`,
+ *  the one rule every host follows): a list made of words keeps, row by row, the design's row of the same words (its
+ *  icon, its state), as a list input's rows do; a table lays records out by its columns. Undefined leaves the prop as
+ *  designed. */
+function propValue(it: Item, key: string, v: unknown): unknown {
   const def = partBySlug(it.component);
   const d = def?.props.find((x) => x.key === key);
   if (!def || !d) return undefined;
-  if (d.kind === "bool") return asBool(v);
-  /* a list bound to words: a row for each line, as a list input writes its rows */
-  if (d.kind === "list") return fieldValueOf(it, String(v).split("\n").filter((w) => w.trim()));
-  if (d.kind === "number") {
-    /* a choice bound to a text variable holds the words of the row chosen */
-    if (typeof v === "string" && def.input?.prop === key && def.input.kind === "choice") {
-      const at = optionsOf(it).indexOf(v);
-      if (at >= 0) return at;
-    }
-    return asNumber(v) ?? undefined;
-  }
-  return String(v);
-}
-
-/** What a prop bound to an expression shows, in the kind of value the prop takes: words for words (nothing is ""), a
- *  number kept to its range, yes or no, a choice it offers, rows for a list. Undefined leaves the prop as designed. */
-function exprValue(it: Item, key: string, v: unknown): unknown {
-  const d = partBySlug(it.component)?.props.find((x) => x.key === key);
-  if (!d) return undefined;
-  switch (d.kind) {
-    case "bool":
-      return v === undefined ? undefined : truthy(v);
-    case "number": {
-      const n = toNumber(v);
-      return n === undefined ? undefined : Math.min(d.max, Math.max(d.min, n));
-    }
-    case "enum":
-      return d.options.some((o) => (typeof o === "string" ? o : o.value) === String(v)) ? String(v) : undefined;
-    case "list":
-      if (!Array.isArray(v)) return undefined;
-      return v.slice(0, d.max ?? 50).map((x) => {
-        if (!x || typeof x !== "object" || Array.isArray(x)) return { label: display(x) };
-        const r = x as Record<string, unknown>;
-        /* a row keeps what it says of itself: its icon, its picture, and the state its part reads from `variant` (a
-           to-do's status, a tile's mark) and `width` */
-        return {
-          label: display(r.label ?? r.name ?? r.title ?? ""),
-          ...(typeof r.icon === "string" ? { icon: r.icon } : {}),
-          ...(typeof r.image === "string" ? { image: r.image } : {}),
-          ...(typeof r.variant === "string" ? { variant: r.variant } : {}),
-          ...(typeof r.width === "string" ? { width: r.width } : {}),
-        };
-      });
-    case "table":
-      /* records laid out by the columns' keys (an API list, a collection's rows), lists cell by cell, a table */
-      return tableOfData(v, reader(partBySlug(it.component)!, it.props).table(key), d.columns) ?? undefined;
-    default:
-      return display(v);
-  }
+  if (d.kind === "table") return tableOfData(v, reader(def, it.props).table(key), d.columns) ?? undefined;
+  const read: PropRead =
+    d.kind === "bool"
+      ? { kind: "bool" }
+      : d.kind === "number"
+        ? { kind: "number", min: d.min, max: d.max, ...(def.input?.prop === key && def.input.kind === "choice" ? { labels: optionsOf(it) } : {}) }
+        : d.kind === "enum"
+          ? { kind: "enum", options: d.options.map((o) => (typeof o === "string" ? o : o.value)) }
+          : d.kind === "list"
+            ? { kind: "list", max: d.max }
+            : { kind: "text" };
+  const out = propValueOf(v, read);
+  if (d.kind === "list" && Array.isArray(out) && !Array.isArray(v)) return fieldValueOf(it, (out as { label: string }[]).map((r) => r.label));
+  return out;
 }
 
 /** the part as it is right now: what effects changed, what the visitor entered, what variables and expressions say,
@@ -196,15 +168,12 @@ export function liveItem(source: Item, s: PreviewState): Item {
   const changed = s.props[it.id];
   const field = key !== undefined ? s.fields[it.id] : undefined;
   let scope: Scope | undefined;
-  const bound = Object.entries(it.bind ?? {}).flatMap(([prop, id]) => {
-    const expr = exprOfBind(id);
-    if (expr !== null) {
-      scope ??= scopeOf(s, it);
-      const value = exprValue(it, prop, evaluate(expr, scope, evalCtx(s)));
-      return value === undefined ? [] : [[prop, value] as const];
-    }
-    const v = s.vars[id];
-    const value = v === undefined ? undefined : boundValue(it, prop, v);
+  /* every binding is an expression (a field of the design, `@fill`..., is drawn by lib/variables.ts `boundItem`) */
+  const bound = Object.entries(it.bind ?? {}).flatMap(([prop, b]) => {
+    const expr = prop.startsWith("@") ? null : bindExpr(b);
+    if (expr === null) return [];
+    scope ??= scopeOf(s, it);
+    const value = propValue(it, prop, evaluate(expr, scope, evalCtx(s)));
     return value === undefined ? [] : [[prop, value] as const];
   });
   if (!changed && field === undefined && !bound.length) return it;
@@ -228,11 +197,8 @@ export function conditionHolds(c: Condition | undefined, s: PreviewState, doc: D
     const d = def.props.find((x) => x.key === key);
     return holdsValue(d?.kind === "bool" ? live.b(key) : d?.kind === "number" ? live.n(key) : live.s(key));
   }
-  const v = s.vars[c.var];
-  if (v === undefined) return false;
-  /* the panel writes what it was typed as: "3" and 3 are the same answer */
-  const same = String(v) === String(c.value);
-  return c.op === "neq" ? !same : same;
+  /* a condition of a form this version does not know (a later one's) holds never */
+  return false;
 }
 
 /** the part of an action this state runs: itself, its `else`, or nothing when it has no `else` */
@@ -328,7 +294,8 @@ export function fieldValueOf(it: Item, raw: unknown): FieldValue | undefined {
 export function writeField(s: PreviewState, it: Item, value: FieldValue, doc: DocScope): PreviewState {
   const key = INPUT_PROP[it.component ?? ""];
   if (key === undefined) return s;
-  const id = it.bind?.[key];
+  /* an input bound to a plain read of a variable writes it back */
+  const id = boundVar(it, key, doc.vars);
   const type = id ? doc.vars?.find((v) => v.id === id)?.type : undefined;
   const def = partBySlug(it.component);
   /* a choice written to a text variable is the row's words, not its place in the list; rows are their words, one a line */

@@ -252,6 +252,8 @@ function opCalls(): [string, Record<string, unknown>][] {
     /* screens bound to the contract (lib/core/ops/bindings.ts) */
     ["add_screen", { id: "shop", name: "Shop" }],
     ["set_screen_params", { screen: "detail", params: [{ name: "itemId", type: "string", example: "i1" }] }],
+    ["rename_screen_param", { screen: "detail", from: "itemId", to: "id" }],
+    ["rename_screen_param", { screen: "detail", from: "id", to: "itemId" }],
     ["set_screen_auth", { screen: "shop", auth: "login" }],
     ["add_data_source", { screen: "shop", operationId: "listItems", name: "items" }],
     ["update_data_source", { screen: "shop", name: "items", pageSize: 10, paging: "button" }],

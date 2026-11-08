@@ -17,21 +17,23 @@ import { readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { beforeAll, describe, expect, it } from "vitest";
-import { applyEffects, chooseBranch, goneIds, startState } from "./interact";
+import { applyEffects, chooseBranch, goneIds, inRow, leftRow, startState } from "./interact";
+import { expandDoc } from "./expand";
 import { CONVERGE_PARTS } from "./converge";
 import { BARE_VERSION, MIGRATIONS, PROJECT_VERSION, migrate, migrationProblems, versionOf, type Migration, type MigrationDoc } from "./migrations";
 import { isProject, loadDocument, loadStored, newerVersionOf, PROJECT_FORMAT } from "./project";
 import { serializeProject } from "./core/projectFile";
 import { motionOf, triggerOf } from "./prototype";
+import { screenPoses } from "./screenMotion";
 import { setGlobalLang } from "./i18n";
-import type { Action, Doc } from "./tokens";
+import type { Action, ActionBody, Doc } from "./tokens";
 
 beforeAll(() => setGlobalLang("en"));
 
 const HISTORY = join(dirname(fileURLToPath(import.meta.url)), "fixtures", "history");
 /** the project files earlier versions wrote, by name; the one of the old kinds (before a8b123f) is refused on purpose */
 const FIXTURES = readdirSync(HISTORY)
-  .filter((f) => f.endsWith(".json") && f !== "behaviour.json")
+  .filter((f) => f.endsWith(".json") && f !== "behaviour.json" && f !== "drawn.json")
   .sort()
   .map((f) => [f.replace(/\.json$/, ""), JSON.parse(readFileSync(join(HISTORY, f), "utf8")) as Record<string, unknown>] as const);
 const OLD_KINDS = "2026-11-04-72e234c-scrolling";
@@ -249,9 +251,16 @@ describe("the worked examples", () => {
 
 /* ---------- documents written by earlier versions ---------- */
 
+/** The poses the preview plays for a tap's move to a screen, forwards and back, eased and on springs
+ *  (lib/screenMotion.ts): its motion, the default slide where it gives none. Recorded by version 3, where the move was
+ *  its `transition` unless it had a motion; version 4 says it by the motion alone. */
+const playedMoves = (body: ActionBody) => [false, true].flatMap((backwards) => [false, true].map((spring) => screenPoses({ motion: motionOf(body), backwards, spring })));
+
 /** What a document does in the preview, by the preview's own rules (lib/interact.ts): what shows at the start, and for
  *  every tap (a part's and each of its places') where it goes and how, and what its effects leave behind. */
-function behaviour(doc: Doc) {
+function behaviour(source: Doc) {
+  /* as the preview draws it: instances and repeats drawn out, a tap on a row's part made in its row */
+  const doc = expandDoc(source, {});
   const s0 = startState(doc.vars, doc.collections);
   const gone = (s: typeof s0) => [...goneIds(doc.groups, s, doc, {})].sort();
   const taps: Record<string, unknown> = {};
@@ -260,11 +269,13 @@ function behaviour(doc: Doc) {
       const slots: [string, Action | undefined][] = [["tap", it.action], ...Object.entries(it.actions ?? {})];
       for (const [slot, a] of slots) {
         if (!a) continue;
-        const body = chooseBranch(a, s0, doc, it);
-        const s1 = body ? applyEffects(s0, body.effects, doc, { it }) : s0;
+        const sIn = inRow(s0, it.row);
+        const body = chooseBranch(a, sIn, doc, it);
+        const s1 = leftRow(body ? applyEffects(sIn, body.effects, doc, { it }) : sIn, it.row);
         taps[`${it.id}/${slot}`] = {
           to: body?.to ?? null,
-          motion: body ? motionOf(body) : null,
+          /* what plays as the screen comes in and as it goes back, in either motion scheme */
+          moves: body && doc.frames.some((f) => f.id === body.to) ? JSON.stringify(playedMoves(body)) : null,
           trigger: triggerOf(a),
           overlay: !!body?.overlay,
           scrollTo: body?.scrollTo ?? null,

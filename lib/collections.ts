@@ -1,4 +1,5 @@
 import { flowOf } from "./flow";
+import { fillTemplate } from "./bindings/expr";
 import { type Collection, type Group, type Item, type ItemScope, heldBy, retarget } from "./tokens";
 
 /* Data-bound repeat. A layout container with `Group.repeat` draws its first child once per row of a
@@ -49,14 +50,22 @@ export function fillDeep<T>(value: T, fill: (text: string) => string): T {
   return value;
 }
 
-/** `{{field}}` is the row's; a token it does not know is left as written, so a typo shows */
-export const fillText = (text: string, row: Row) =>
-  text.includes("{{")
-    ? text.replace(TOKEN, (whole, inner: string) => {
-        const key = inner.trim();
-        return key && Object.prototype.hasOwnProperty.call(row, key) ? row[key] : whole;
-      })
-    : text;
+/** Words as one row of a collection draws them: what reads the row (`{{row.price}}`, `{{upper(row.name)}}`) filled by the
+ *  one filler of words (lib/bindings/expr.ts `fillTemplate`), everything else left for whoever reads it later. A bare
+ *  `{{field}}` of the row's fields, the older form, is filled too, read-only: version 4 of the format wrote it as
+ *  `{{row.field}}` wherever a step can tell a part is in the repeat (lib/converge.ts), but not in what only drawing
+ *  tells (a component's parts drawn in a row, a part placed freely in a row's box). */
+export function fillRow(text: string, row: Row): string {
+  if (!text.includes("{{")) return text;
+  /* only words that read the row go through the filler, which keeps what it writes to its bound */
+  const readsRow = [...text.matchAll(TOKEN)].some((m) => /\brow\b/.test(m[1]));
+  const filled = readsRow ? fillTemplate(text, { row }, undefined, ["row"]) : text;
+  if (!filled.includes("{{")) return filled;
+  return filled.replace(TOKEN, (whole, inner: string) => {
+    const key = inner.trim();
+    return key && Object.prototype.hasOwnProperty.call(row, key) ? row[key] : whole;
+  });
+}
 
 /** `{{current.field}}` reads the row last tapped; a field it does not have reads as nothing */
 export const fillCurrent = <T>(value: T, current: Row | undefined): T =>
@@ -79,7 +88,7 @@ export const markCurrent = <T>(value: T, mark: (field: string) => string): T =>
 
 /** a part as one row draws it; a tap on it will run with these fields */
 function fillItem(it: Item, row: Row): Item {
-  const fill = (text: string) => fillText(text, row);
+  const fill = (text: string) => fillRow(text, row);
   return {
     ...it,
     ...(it.props ? { props: fillDeep(it.props, fill) } : {}),

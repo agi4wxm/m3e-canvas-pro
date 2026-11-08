@@ -41,8 +41,10 @@ export function useConnect({ store, runOp, toWorld, framesRef, setSelectedLinkId
     const it = store.get().doc.groups.flatMap((g) => g.items).find((x) => x.id === itemId);
     if (!it) return;
     const was = it.action;
+    /* the motion it came in by goes with it from screen to screen; a tap that went nowhere comes in by the default */
     const toScreen = !!was && (store.get().doc.frames.some((f) => f.id === was.to));
-    const action = { ...was, to, transition: toScreen ? was!.transition : "slide" } as Action;
+    const { motion: _from, ...rest } = was ?? { to };
+    const action = { ...rest, to, ...(toScreen && was?.motion ? { motion: was.motion } : {}) } as Action;
     runOp(ops.setAction, { id: itemId, action }, { history: "step" });
     setSelectedLinkId(`${itemId}|`);
   };

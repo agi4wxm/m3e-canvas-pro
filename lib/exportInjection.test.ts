@@ -119,9 +119,9 @@ function hostileDoc(): Doc {
   return {
     groups: [
       button("1", { to: w("f2"), transition: w("slide"), overlay: true, motion: { kind: w("push"), dir: w("up"), easing: w("in"), ms: w("5") }, trigger: { on: "delay", ms: w("9") } }),
-      button("2", { to: w("f2"), transition: "slide", overlay: w("yes"), motion: { kind: "push", dir: w("up"), easing: w("in"), ms: 300 }, trigger: { on: "hover" } }),
-      button("3", { to: "none", transition: "none", scrollTo: w("t"), trigger: { on: w("hover") } }),
-      button("4", { to: "none", transition: "none", effects: [{ do: "setVar", var: w("v1"), value: "#ff0000" }, { do: "setVar", var: w("v2"), value: w("set") }, { do: "toggleVar", var: w("v4") }] }),
+      button("2", { to: w("f2"), overlay: w("yes"), motion: { kind: "push", dir: w("up"), easing: w("in"), ms: 300 }, trigger: { on: "hover" } }),
+      button("3", { to: "none", scrollTo: w("t"), trigger: { on: w("hover") } }),
+      button("4", { to: "none", effects: [{ do: "setVar", var: w("v1"), value: "#ff0000" }, { do: "setVar", var: w("v2"), value: w("set") }, { do: "toggleVar", var: w("v4") }] }),
       { id: w("gt"), x: 16, y: 400, axis: "x", items: [{ ...makeItem("text"), id: w("t"), props: { text: w("Hi") }, look, bind: { "@text": w("v1"), "@stroke": w("v1"), "@fill": w("v1"), "@opacity": w("v3"), "@radius": w("v3"), "@rotation": w("v3"), text: w("v2") } }] },
     ],
     frames: [

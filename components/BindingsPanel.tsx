@@ -2,7 +2,7 @@ import { createContext, useContext, useMemo, useState } from "react";
 import type { ApiSpec } from "@/lib/api/types";
 import { endpointOf, paramsOf, requestOf, responseSchema } from "@/lib/bindings/contract";
 import { listPaths, shapeFor, type ScopeShape } from "@/lib/bindings/complete";
-import { exprOfBind } from "@/lib/bindings/scope";
+import { bindExpr, boundVarOf } from "@/lib/bindings/bind";
 import { formAround, regionDesigns } from "@/lib/core/ops/bindings";
 import type { Op } from "@/lib/core";
 import * as ops from "@/lib/core/ops";
@@ -289,8 +289,10 @@ export function PartDataSection({ item, frame, p }: { item: Item; frame: Frame |
   const api = b.doc.api;
   const def = partBySlug(item.component);
   const isContainer = !!def?.holds && !!item.props?.layout && item.props.layout !== "free";
+  /* every binding is an expression; a plain read of a variable is the variable's (the prop's row binds it), a field of
+     the design follows its variable (its own button) */
   const exprs = Object.entries(item.bind ?? {}).flatMap(([prop, v]) => {
-    const e = exprOfBind(v);
+    const e = prop.startsWith("@") || boundVarOf(v, b.doc.vars) ? null : bindExpr(v);
     return e === null ? [] : [{ prop, expr: e }];
   });
   const hasApi = !!api?.endpoints?.length;

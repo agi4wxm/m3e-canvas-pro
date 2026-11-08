@@ -167,9 +167,7 @@ const PAYMENT_VARS: DocVar[] = [
 
 /** What "Place order" does: create the order, hand it to the payment sheet, open the result screen with its id. */
 export const placeOrder = (result: string): Action => ({
-  to: "none",
-  transition: "none",
-  effects: [
+  to: "none", effects: [
     { do: "setVar", var: "payIssue", value: "" },
     { do: "setVar", var: "paying", value: true },
     {
@@ -178,26 +176,24 @@ export const placeOrder = (result: string): Action => ({
       args: { method: "'card'" },
       // eslint-disable-next-line unicorn/no-thenable -- an action body, never a function: nothing awaits it
       then: {
-        to: "none",
-        transition: "none",
-        effects: [
+        to: "none", effects: [
           {
             do: "invoke",
             capability: "payment.pay",
             args: { orderId: "response.id", amount: "response.amount", currency: "response.currency", method: "response.method", payload: "response.payment" },
             // eslint-disable-next-line unicorn/no-thenable -- an action body, never a function: nothing awaits it
-            then: { to: result, transition: "slide", params: { orderId: "response.id" }, effects: [{ do: "setVar", var: "paying", value: false }] },
-            catch: { to: "none", transition: "none", effects: [{ do: "setVar", var: "paying", value: false }, { do: "setVar", var: "payIssue", value: "", expr: "error.type" }] },
+            then: { to: result, params: { orderId: "response.id" }, effects: [{ do: "setVar", var: "paying", value: false }] },
+            catch: { to: "none", effects: [{ do: "setVar", var: "paying", value: false }, { do: "setVar", var: "payIssue", value: "", expr: "error.type" }] },
           },
         ],
       },
-      catch: { to: "none", transition: "none", effects: [{ do: "setVar", var: "paying", value: false }, { do: "setVar", var: "payIssue", value: "order" }] },
+      catch: { to: "none", effects: [{ do: "setVar", var: "paying", value: false }, { do: "setVar", var: "payIssue", value: "order" }] },
     },
   ],
 });
 
 /** a notice of the checkout's, shown while what went wrong last is this */
-const issue = (when: { var: string; op: "eq"; value: string } | { expr: string }, icon: string, title: Say, words: Say): Node =>
+const issue = (when: { expr: string }, icon: string, title: Say, words: Say): Node =>
   row({ gap: 12, align: "start", padX: 16, padY: 12, fill: "surface-container-highest", radius: 12 }, [part("icon", { name: icon, size: 24, color: "error" }), col({ gap: 2 }, [txt(title, "label"), txt(words, "caption", { color: "muted" })], { fill: true })], { showWhen: when });
 
 export const checkoutScreen = (links: { place?: Link; back?: Link } = {}): ScreenSeed =>
@@ -219,8 +215,8 @@ export const checkoutScreen = (links: { place?: Link; back?: Link } = {}): Scree
       col({ gap: 16 }, [
         ...(links.place
           ? [
-              issue({ var: "payIssue", op: "eq", value: "cancelled" }, "do_not_disturb_on", say("Payment cancelled", "支付已取消", "支払いをキャンセルしました", "결제가 취소되었습니다"), say("Your order is kept: place it again when you are ready.", "订单已保留，准备好后可以重新支付。", "注文はそのままです。準備ができたらもう一度お支払いください。", "주문은 그대로 있습니다. 준비되면 다시 결제하세요.")),
-              issue({ var: "payIssue", op: "eq", value: "order" }, "cloud_off", say("The order was not created", "订单没有创建成功", "注文を作成できませんでした", "주문을 만들지 못했습니다"), say("Check your connection and try again.", "请检查网络后重试。", "接続を確認して、もう一度お試しください。", "연결을 확인하고 다시 시도하세요.")),
+              issue({ expr: 'vars.payIssue == "cancelled"' }, "do_not_disturb_on", say("Payment cancelled", "支付已取消", "支払いをキャンセルしました", "결제가 취소되었습니다"), say("Your order is kept: place it again when you are ready.", "订单已保留，准备好后可以重新支付。", "注文はそのままです。準備ができたらもう一度お支払いください。", "주문은 그대로 있습니다. 준비되면 다시 결제하세요.")),
+              issue({ expr: 'vars.payIssue == "order"' }, "cloud_off", say("The order was not created", "订单没有创建成功", "注文を作成できませんでした", "주문을 만들지 못했습니다"), say("Check your connection and try again.", "请检查网络后重试。", "接続を確認して、もう一度お試しください。", "연결을 확인하고 다시 시도하세요.")),
               issue({ expr: "vars.payIssue != '' && vars.payIssue != 'cancelled' && vars.payIssue != 'order'" }, "error", say("The payment did not go through", "支付没有成功", "支払いが完了しませんでした", "결제가 완료되지 않았습니다"), say("Try again, or pick another way to pay.", "请重试，或换一种支付方式。", "もう一度お試しいただくか、別の支払い方法を選んでください。", "다시 시도하거나 다른 결제 수단을 선택하세요.")),
             ]
           : []),
@@ -293,20 +289,20 @@ export const orderSuccessScreen =(links: { more?: Link } = {}): ScreenSeed =>
           row({ justify: "center", hugHeight: false, height: 72 }, [part("icon", { name: "hourglass_top", size: 72, color: "primary" })]),
           txt(say("Payment processing", "支付处理中", "お支払いを処理しています", "결제 처리 중"), "headline", { align: "center" }),
           txt(say("This page shows the result as soon as the payment service confirms it.", "支付服务确认后，这里会显示结果。", "決済サービスの確認が取れしだい、ここに結果を表示します。", "결제 서비스가 확인하면 바로 결과가 표시됩니다."), "body", { align: "center", color: "muted" }),
-          part("button", { label: say("Check again", "刷新状态", "もう一度確認", "다시 확인"), icon: "refresh", variant: "tonal" }, { action: { to: "none", transition: "none", effects: [{ do: "refresh", source: "order" }] } }),
+          part("button", { label: say("Check again", "刷新状态", "もう一度確認", "다시 확인"), icon: "refresh", variant: "tonal" }, { action: { to: "none", effects: [{ do: "refresh", source: "order" }] } }),
         ], { showWhen: { expr: "data.order.value.status == 'pending' || data.order.value.status == 'processing'" } }),
         /* failed or cancelled, as the back end says */
         col({ gap: 12 }, [
           row({ justify: "center", hugHeight: false, height: 72 }, [part("icon", { name: "error", size: 72, color: "error" })]),
           txt(say("Payment failed", "支付失败", "お支払いに失敗しました", "결제 실패"), "headline", { align: "center" }),
           txt(say("Nothing was taken for this order. Try again, or pick another way to pay.", "这笔订单没有扣款。请重试，或换一种支付方式。", "この注文の支払いは行われていません。もう一度お試しいただくか、別の支払い方法を選んでください。", "이 주문은 결제되지 않았습니다. 다시 시도하거나 다른 결제 수단을 선택하세요."), "body", { align: "center", color: "muted" }),
-          part("button", { label: say("Back to checkout", "返回结算", "レジに戻る", "결제로 돌아가기") }, { action: { to: "back", transition: "slide" } }),
+          part("button", { label: say("Back to checkout", "返回结算", "レジに戻る", "결제로 돌아가기") }, { action: { to: "back" } }),
         ], { showWhen: { expr: "data.order.value.status == 'failed' || data.order.value.status == 'cancelled'" } }),
         /* the order on its way, and one that could not be loaded */
         col({ gap: 8, align: "center" }, [part("loading-indicator", {}), txt(say("Checking the payment…", "正在确认支付结果…", "支払いを確認しています…", "결제를 확인하는 중…"), "body", { color: "muted" })], { pane: 1 }),
         col({ gap: 8, align: "center" }, [
           txt(say("The order could not be loaded", "订单加载失败", "注文を読み込めませんでした", "주문을 불러오지 못했습니다"), "label"),
-          part("button", { label: say("Try again", "重试", "再試行", "다시 시도"), variant: "tonal" }, { action: { to: "none", transition: "none", effects: [{ do: "refresh", source: "order" }] } }),
+          part("button", { label: say("Try again", "重试", "再試行", "다시 시도"), variant: "tonal" }, { action: { to: "none", effects: [{ do: "refresh", source: "order" }] } }),
         ], { pane: 3 }),
       ], { states: { source: "order" } }),
     ],

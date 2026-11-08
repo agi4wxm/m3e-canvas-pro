@@ -53,18 +53,18 @@ const VARS: DocVar[] = [
 
 type Case = { id: string; slug: string; props?: Record<string, unknown>; bind?: Record<string, string>; effects?: Effect[] };
 const CASES: Case[] = [
-  { id: "name", slug: "text-field", props: { label: "Name" }, bind: { value: "name" } },
-  { id: "twin", slug: "text-field", props: { label: "Twin" }, bind: { value: "name" } },
+  { id: "name", slug: "text-field", props: { label: "Name" }, bind: { value: "=vars.name" } },
+  { id: "twin", slug: "text-field", props: { label: "Twin" }, bind: { value: "=vars.name" } },
   { id: "notes", slug: "textarea", props: { value: "first" } },
-  { id: "count", slug: "input", bind: { value: "level" } },
-  { id: "wifi", slug: "switch", bind: { checked: "on" } },
+  { id: "count", slug: "input", bind: { value: "=vars.level" } },
+  { id: "wifi", slug: "switch", bind: { checked: "=vars.on" } },
   { id: "agree", slug: "checkbox", props: { checked: false } },
-  { id: "volume", slug: "slider", bind: { value: "level" } },
+  { id: "volume", slug: "slider", bind: { value: "=vars.level" } },
   { id: "range", slug: "slider", props: { range: true, value: 20, end: 70 } },
   { id: "density", slug: "radio-group", props: { selected: 1 } },
-  { id: "fruit", slug: "select", bind: { selected: "fruit" } },
+  { id: "fruit", slug: "select", bind: { selected: "=vars.fruit" } },
   /* bound to a variable, with a tap that toggles that variable too (what the agent writes for a dark mode switch) */
-  { id: "darkSwitch", slug: "switch", bind: { checked: "dark" }, effects: [{ do: "toggleVar", var: "dark" }] },
+  { id: "darkSwitch", slug: "switch", bind: { checked: "=vars.dark" }, effects: [{ do: "toggleVar", var: "dark" }] },
   { id: "set", slug: "button", props: { label: "Set" }, effects: [{ do: "setVar", var: "name", value: "From a button" }, { do: "toggleVar", var: "on" }, { do: "setVar", var: "level", value: 80 }, { do: "setVar", var: "fruit", value: 2 }, { do: "setProp", part: "agree", prop: "checked", value: true }] },
   { id: "clear", slug: "button", props: { label: "Clear" }, effects: [{ do: "setVar", var: "name", value: "" }] },
 ];
@@ -76,7 +76,7 @@ function inputsDoc(): Doc {
     tx.set((s) => {
       const f = s.doc.frames.find((x) => x.id === "inputs")!;
       const groups = CASES.map((c, i) => {
-        const it: Item = { ...makeItem(c.slug), id: c.id, props: c.props ?? {}, ...(c.bind ? { bind: c.bind } : {}), ...(c.effects ? { action: { to: "", transition: "none", effects: c.effects } } : {}) } as Item;
+        const it: Item = { ...makeItem(c.slug), id: c.id, props: c.props ?? {}, ...(c.bind ? { bind: c.bind } : {}), ...(c.effects ? { action: { to: "", effects: c.effects } } : {}) } as Item;
         return { id: `g-${c.id}`, axis: "x" as const, x: f.x + 16 + (i % 4) * 300, y: f.y + 24 + Math.floor(i / 4) * 120, items: [it] };
       });
       return { ...s, doc: { ...s.doc, groups: [...s.doc.groups, ...groups], vars: VARS } };

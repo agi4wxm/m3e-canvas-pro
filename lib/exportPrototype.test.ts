@@ -10,7 +10,7 @@ import { buildCode } from "./codegen";
 import { proofDoc, reuseDoc, sweepDoc, systemsDoc } from "./exportProject.fixture";
 import { buildProject, type ProjectFiles } from "./exportProject";
 import { setGlobalLang } from "./i18n";
-import { motionPoses, screenPoses } from "./screenMotion";
+import { DEFAULT_MOTION, TRANSITION_MOTIONS, motionPoses, screenPoses } from "./screenMotion";
 import { makeItem, type Action, type Doc, type Item } from "./tokens";
 
 beforeAll(() => setGlobalLang("en"));
@@ -42,8 +42,11 @@ describe("the moves between screens", () => {
     expect(motionPoses({ kind: "push", easing: "spring" }, false).animate.transition).toMatchObject({ type: "spring", stiffness: 360 });
   });
 
-  it("plays an older transition where an action has no animation, on springs in the expressive scheme", () => {
-    expect(screenPoses({ transition: "slideUp", backwards: false }).initial).toMatchObject({ y: "100%" });
+  it("plays the motions the older moves were written as, the theme's on springs in the expressive scheme", () => {
+    expect(screenPoses({ motion: TRANSITION_MOTIONS.slideUp, backwards: false }).initial).toMatchObject({ y: "100%" });
+    expect(screenPoses({ motion: DEFAULT_MOTION, backwards: false, spring: true }).animate.transition).toMatchObject({ type: "spring" });
+    expect(screenPoses({ motion: TRANSITION_MOTIONS.fade, backwards: false, spring: true }).animate.transition).toMatchObject({ duration: 0.3 });
+    /* an app's own moves still name the older ones */
     expect(screenPoses({ transition: "slide", backwards: false, spring: true }).animate.transition).toMatchObject({ type: "spring" });
     expect(screenPoses({ transition: "fade", backwards: true }).initial).toMatchObject({ opacity: 0 });
     expect(screenPoses({ transition: "expand", backwards: false }).initial).toMatchObject({ scale: 0.92, zIndex: 2 });
@@ -75,43 +78,43 @@ const button = (id: string, label: string, action: Action): Item => ({ ...makeIt
 
 describe("the prototype in printed code", () => {
   it("starts an action on the pointer or on time instead of a tap", () => {
-    const { code } = buildCode(doc([button("h", "Hover", { to: "sheet", transition: "fade", trigger: { on: "hover" } }), button("d", "Later", { to: "back", transition: "none", trigger: { on: "delay", ms: 1500 } })]), {});
+    const { code } = buildCode(doc([button("h", "Hover", { to: "sheet", motion: TRANSITION_MOTIONS.fade, trigger: { on: "hover" } }), button("d", "Later", { to: "back", trigger: { on: "delay", ms: 1500 } })]), {});
     expect(code).toContain(`<Pressable onHover={() => act(homeScreenActions.hover, { part: "hover" })}>`);
     expect(code).toContain(`<Pressable after={1500} onAfter={() => act(homeScreenActions.later, { part: "later" })}>`);
     /* what starts it is the Pressable's: the data says what it does */
-    expect(code).toContain(`hover: { to: "sheet", transition: "fade" },`);
-    expect(code).toContain(`later: { to: "back", transition: "none" },`);
+    expect(code).toContain(`hover: { to: "sheet", motion: { kind: "dissolve", easing: "emphasized", ms: 300 } },`);
+    expect(code).toContain(`later: { to: "back" },`);
     /* neither is a tap */
     expect(code).not.toContain("onClick");
     expect(code).not.toContain("onPress");
   });
 
   it("lays a screen over the one on show, with its animation", () => {
-    const { code } = buildCode(doc([button("o", "Open", { to: "sheet", transition: "slideUp", overlay: true, motion: { kind: "push", dir: "up", easing: "inOut", ms: 300 } })]), {});
-    expect(code).toContain(`open: { to: "sheet", transition: "slideUp", motion: { kind: "push", dir: "up", easing: "inOut", ms: 300 }, overlay: true },`);
+    const { code } = buildCode(doc([button("o", "Open", { to: "sheet", overlay: true, motion: { kind: "push", dir: "up", easing: "inOut", ms: 300 } })]), {});
+    expect(code).toContain(`open: { to: "sheet", motion: { kind: "push", dir: "up", easing: "inOut", ms: 300 }, overlay: true },`);
     expect(code).toContain(`onClick={() => act(homeScreenActions.open, { part: "open" })}`);
   });
 
   it("goes to a screen with its animation, also on the branch a condition does not take", () => {
     const vars = [{ id: "c", name: "Count", type: "number" as const, value: 0 }];
-    const action: Action = { to: "sheet", transition: "slide", motion: { kind: "move", dir: "down", ms: 250 }, when: { var: "c", op: "eq", value: 1 }, else: { to: "sheet", transition: "fade", overlay: true, motion: { kind: "dissolve" } } };
+    const action: Action = { to: "sheet", motion: { kind: "move", dir: "down", ms: 250 }, when: { expr: "vars.Count == 1" }, else: { to: "sheet", overlay: true, motion: { kind: "dissolve" } } };
     const { code } = buildCode(doc([button("g", "Go", action)], { vars }), {});
-    expect(code).toContain(`go: { to: "sheet", transition: "slide", motion: { kind: "move", dir: "down", ms: 250 }, when: { var: "count", op: "eq", value: 1 }, else: { to: "sheet", transition: "fade", motion: { kind: "dissolve" }, overlay: true } },`);
+    expect(code).toContain(`go: { to: "sheet", motion: { kind: "move", dir: "down", ms: 250 }, when: { expr: "vars.Count == 1" }, else: { to: "sheet", motion: { kind: "dissolve" }, overlay: true } },`);
   });
 
   it("scrolls to a part it marks, before going anywhere", () => {
     const target: Item = { ...makeItem("text"), id: "far", props: { text: "Far below" } };
-    const { code } = buildCode(doc([button("s", "Scroll", { to: "sheet", transition: "none", scrollTo: "far" }), target]), {});
-    expect(code).toContain(`scroll: { to: "sheet", transition: "none", scrollTo: "farBelow" },`);
+    const { code } = buildCode(doc([button("s", "Scroll", { to: "sheet", motion: { kind: "instant" }, scrollTo: "far" }), target]), {});
+    expect(code).toContain(`scroll: { to: "sheet", scrollTo: "farBelow", motion: { kind: "instant" } },`);
     expect(code).toContain(`data-part="farBelow"`);
     /* a part that is not there is no part to scroll to */
-    expect(buildCode(doc([button("s", "Scroll", { to: "none", transition: "none", scrollTo: "gone" })]), {}).code).not.toContain("scrollTo");
+    expect(buildCode(doc([button("s", "Scroll", { to: "none", scrollTo: "gone" })]), {}).code).not.toContain("scrollTo");
   });
 
   it("prints only what an animation can be, whatever the document holds", () => {
     const hostile = { kind: "push", dir: `left"});alert(1);//`, easing: "in", ms: 1e9, extra: "x" } as never;
-    const { code } = buildCode(doc([button("o", "Open", { to: "sheet", transition: "nope" as never, motion: hostile })]), {});
-    expect(code).toContain(`open: { to: "sheet", transition: "slide", motion: { kind: "push", easing: "in", ms: 10000 } },`);
+    const { code } = buildCode(doc([button("o", "Open", { to: "sheet", motion: hostile })]), {});
+    expect(code).toContain(`open: { to: "sheet", motion: { kind: "push", easing: "in", ms: 10000 } },`);
     expect(code).not.toContain("alert");
   });
 });
@@ -161,18 +164,18 @@ describe("the exported app's prototype", () => {
 
 describe("the taps of an exported prototype (lib/actions)", () => {
   it("runs them with the editor's own interpreter, over the state as each step leaves it", async () => {
-    const files = await exported(doc([button("b", "Go", { to: "sheet", transition: "none", effects: [{ do: "addVar", var: "n", by: 1 }, { do: "setVar", var: "m", value: 0, expr: "vars.n * 10" }] })], { vars: [{ id: "n", name: "n", type: "number", value: 1 }, { id: "m", name: "m", type: "number", value: 0 }] }));
+    const files = await exported(doc([button("b", "Go", { to: "sheet", motion: { kind: "instant" }, effects: [{ do: "addVar", var: "n", by: 1 }, { do: "setVar", var: "m", value: 0, expr: "vars.n * 10" }] })], { vars: [{ id: "n", name: "n", type: "number", value: 1 }, { id: "m", name: "m", type: "number", value: 0 }] }));
     const runtime = text(files, "src/runtime.tsx");
     expect(runtime).toContain('import { run } from "@/lib/actions/run"');
     expect(runtime).toContain("const act = useCallback((action: Action, tap: Tap) => void run(action, host, { ...tap, current: live.current.current }), [host])");
     /* what a step writes the next one reads, before anything is drawn again */
     expect(runtime).toContain("live.current = typeof next === \"function\" ? next(was) : next");
     expect(text(files, "src/lib/actions/run.ts")).toBe(await fromDisk("lib/actions/run.ts"));
-    expect(text(files, "src/screens/HomeScreen.tsx")).toContain('go: { to: "sheet", transition: "none", effects: [{ do: "addVar", var: "n", by: 1 }, { do: "setVar", var: "m", value: 0, expr: "vars.n * 10" }] },');
+    expect(text(files, "src/screens/HomeScreen.tsx")).toContain('go: { to: "sheet", motion: { kind: "instant" }, effects: [{ do: "addVar", var: "n", by: 1 }, { do: "setVar", var: "m", value: 0, expr: "vars.n * 10" }] },');
   });
 
   it("says what reaches for an API it does not have, and answers the capabilities with the mocks, as the preview does", async () => {
-    const files = await exported(doc([button("s", "Save", { to: "none", transition: "none", effects: [{ do: "call", operationId: "save" }, { do: "invoke", capability: "clipboard.write", args: { text: "'x'" } }, { do: "signOut" }] })]));
+    const files = await exported(doc([button("s", "Save", { to: "none", effects: [{ do: "call", operationId: "save" }, { do: "invoke", capability: "clipboard.write", args: { text: "'x'" } }, { do: "signOut" }] })]));
     expect(text(files, "README.md")).toContain("## Not in this prototype");
     expect(text(files, "README.md")).toContain("- the call of `save`\n- signing out\n");
     const runtime = text(files, "src/runtime.tsx");
@@ -186,7 +189,7 @@ describe("the taps of an exported prototype (lib/actions)", () => {
 
 describe("a document with one variable", () => {
   it("writes it under a key read as any key, so a value of another type for it still typechecks", async () => {
-    const one = text(await exported(doc([button("b", "Go", { to: "none", transition: "none", effects: [{ do: "addVar", var: "w", by: 1 }] })], { vars: [{ id: "w", name: "word", type: "text", value: "1" }] })), "src/runtime.tsx");
+    const one = text(await exported(doc([button("b", "Go", { to: "none", effects: [{ do: "addVar", var: "w", by: 1 }] })], { vars: [{ id: "w", name: "word", type: "text", value: "1" }] })), "src/runtime.tsx");
     expect(one).toContain("toggleVar: (name) => setState((s) => ({ ...s, vars: { ...s.vars, [name as string]: !s.vars[name] } })),");
     expect(one).toContain('return { ...s, vars: { ...s.vars, [name as string]: typeof now === "string" ? String(next) : next } }');
     /* more than one is read as any key already */
@@ -208,12 +211,21 @@ function digestOf(files: ProjectFiles): string {
 
 describe("a document with no prototype interactions, flows or variables in modes", () => {
   it("exports as it did before them, byte for byte", async () => {
-    const proof = await exported(proofDoc().doc, proofDoc().widths);
-    for (const name of ["screenMotion", "ScreenContext", "openOverlay", "FLOWS", "varStyle", "onHover"]) expect(text(proof, "src/App.tsx") + text(proof, "src/runtime.tsx"), name).not.toContain(name);
+    /* a document whose taps play only the default slide carries none of the prototype's code */
+    const reuse = await exported(reuseDoc().doc, reuseDoc().widths);
+    for (const name of ["screenMotion", "ScreenContext", "openOverlay", "FLOWS", "varStyle", "onHover"]) expect(text(reuse, "src/App.tsx") + text(reuse, "src/runtime.tsx"), name).not.toContain(name);
     /* the moves are not played: only the interpreter's model names them (src/lib/actions/model.ts) */
-    expect(Object.entries(proof).filter(([p, t]) => p.startsWith("src/") && typeof t === "string" && !p.startsWith("src/lib/actions/") && t.includes("screenMotion")).map(([p]) => p)).toEqual([]);
+    expect(Object.entries(reuse).filter(([p, t]) => p.startsWith("src/") && typeof t === "string" && !p.startsWith("src/lib/actions/") && t.includes("screenMotion")).map(([p]) => p)).toEqual([]);
+    /* one whose taps fade, expand or go at once (the older moves, written as their motions since version 4) plays the
+       preview's own poses (src/lib/screenMotion.ts), and nothing else of the prototype */
+    const proof = await exported(proofDoc().doc, proofDoc().widths);
+    expect(text(proof, "src/App.tsx")).toContain('import { screenPoses } from "@/lib/screenMotion"');
+    for (const name of ["openOverlay", "FLOWS", "varStyle", "onHover"]) expect(text(proof, "src/App.tsx") + text(proof, "src/runtime.tsx"), name).not.toContain(name);
     /* Digests of what these documents exported before prototypes, flows and modes reached the app. A change here means
-       documents that use none of them now export differently: if that is meant, update the digests (last: the taps are
+       documents that use none of them now export differently: if that is meant, update the digests (last: version 4 of
+       the format, lib/converge.ts: a tap's data says its move by its motion alone, no `transition`, and the older fade,
+       expand and at-once moves of proof's menu and sweep's screens are motions, played by the preview's own poses; a
+       condition is an expression; before that the taps are
        the data they are, lib/actions' Action, which src/runtime.tsx runs with the interpreter, and the widgets' copy
        goes through the host's capabilities; before that the platform capabilities: the shop flow pays through createOrder and payment.pay and shows the order's status, its checkout's
        body one column with the payment notices among its rows, and the checkout bar, the map and the camera take their
@@ -226,9 +238,9 @@ describe("a document with no prototype interactions, flows or variables in modes
        parts declare theirs, so it reads and writes a variable of its own). */
     expect({ proof: digestOf(proof), reuse: digestOf(await exported(reuseDoc().doc, reuseDoc().widths)), sweep: digestOf(await exported(sweepDoc().doc, sweepDoc().widths)) }).toMatchInlineSnapshot(`
       {
-        "proof": "4ecf5e986d1ee538",
-        "reuse": "98e65cd031d5d5af",
-        "sweep": "3c3de885fbd556b6",
+        "proof": "5b61f740b3d06588",
+        "reuse": "b39e99536fce9966",
+        "sweep": "76b169e2150cd1fa",
       }
     `);
   }, 60_000);

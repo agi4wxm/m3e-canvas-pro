@@ -55,7 +55,7 @@ describe("the web app of a document bound to its contract", () => {
     for (const state of ["loading", "empty", "error", "forbidden"]) expect(screen, state).toContain(`{productsState === "${state}" && (`);
     expect(screen).toContain('{$.text("data.products.error.detail ?? data.products.error.title")}');
     /* a tap on a row opens the detail with the row's id; the body pulls to refresh and pages at its end */
-    expect(screen).toContain('row: { to: "product", transition: "slide", params: { productId: "item.id" } },');
+    expect(screen).toContain('row: { to: "product", params: { productId: "item.id" } },');
     expect(screen).toContain('onPress={() => act(productsScreenActions.row, { part: "row", item, index })}');
     expect(screen).toContain("sources: { products },");
     expect(screen).toContain("<DataScroll");
@@ -76,7 +76,7 @@ describe("the web app of a document bound to its contract", () => {
     expect(screen).toContain("send: (body, init) => api.createProduct({ body: body as NewProduct }, init)");
     expect(screen).toContain("status: 201");
     /* what follows the answer is the design's, run by the interpreter (lib/actions) as a call's then is */
-    expect(screen).toContain('createProductFormThen: { to: "products", transition: "slide", effects: [{ do: "snackbar", message: "Added {{response.name}}" }] },');
+    expect(screen).toContain('createProductFormThen: { to: "products", effects: [{ do: "snackbar", message: "Added {{response.name}}" }] },');
     expect(screen).toContain('createProductForm: { handle: createProductForm, operationId: "createProduct", then: newProductScreenActions.createProductFormThen },');
     expect(screen).toMatch(/\{ do: "submit", form: "createProductForm" \}/);
     expect(screen).toContain('value={createProductForm.text("name")}');
@@ -102,7 +102,7 @@ describe("the web app of a document bound to its contract", () => {
   it("signs in through the contract's sign-in and goes back to where it was sent from", () => {
     const screen = web(shop, "screens/SignInScreen.tsx");
     expect(screen).toContain("send: (body, init) => api.login({ body: body as LoginRequest }, init)");
-    expect(screen).toContain('loginFormThen: { to: "products", transition: "fade" },');
+    expect(screen).toContain('loginFormThen: { to: "products", motion: { kind: "dissolve", easing: "emphasized", ms: 300 } },');
     /* once the sign-in answers, the app goes back where it was sent from instead (lib/actions: Host.afterSignIn) */
     expect(web(shop, "runtime.tsx")).toContain("afterSignIn: (operation) => operation === LOGIN && app().afterSignIn(),");
     expect(web(shop, "runtime.tsx")).toContain('const LOGIN: string | undefined = "login"');

@@ -3,11 +3,12 @@
  * part shows, and a dock's tabs. */
 
 import { panesAfterReorder } from "../../flow";
-import { actionWithoutScreen, frameOfPart, type Action, type ActionBody, type Collection, type DocVar, type Frame, type Group, type Transition, type VarCollection, type VarValue } from "../../tokens";
+import { actionWithoutScreen, frameOfPart, MOTION_KINDS, MOTION_PRESETS, presetOf, type Action, type ActionBody, type Collection, type DocVar, type Frame, type Group, type Motion, type VarCollection, type VarValue } from "../../tokens";
 import { exprPlaceError } from "../../bindings/check";
 import { shapeFor } from "../../bindings/complete";
 import { BIND_FIELDS, collectionsOf, DEFAULT_COLLECTION, fitsType, isBindField, startValueOf } from "../../variables";
-import { cleanMotion, motionOf } from "../../prototype";
+import { cleanMotion } from "../../prototype";
+import { bindOfVar, boundVarOf, fieldBindOf, fieldVarOf } from "../../bindings/bind";
 import { partBySlug } from "../../../parts/registry";
 import { t } from "../../i18n";
 import { op, OpError, S } from "../op";
@@ -46,7 +47,7 @@ const MODEL_LINK = { type: ["string", "null"], description: "the API model (add_
 
 export const addCollection = op<{ id?: string; name?: string; fields: string[]; rows?: string[][]; model?: string | null }, { id: string }>({
   name: "add_collection",
-  summary: "Adds a data collection: named fields and rows of text (one cell per field). A layout repeats its first child per row; {{field}} in its words reads the row. model links it to an API model.",
+  summary: "Adds a data collection: named fields and rows of text (one cell per field). A layout repeats its first child per row; {{row.<field>}} in its words reads the row, row.<field> in its conditions. model links it to an API model.",
   args: S.obj({ id: S.str(), name: S.str(), fields: S.arr(S.str(undefined, { minLength: 1 }), undefined, { minItems: 1 }), rows: S.arr(S.arr(S.str())), model: MODEL_LINK }, ["fields"]),
   label: () => "Add data",
   run(s, a, ctx) {
@@ -248,13 +249,18 @@ export const updateVar = op<{ id: string; name?: string; type?: DocVar["type"]; 
  *  of a collection that went with them keeps nothing of it. */
 function withoutVars(s: CoreState, ids: Set<string>): CoreState {
   const rest = (s.doc.vars ?? []).filter((x) => !ids.has(x.id));
+  /* a binding to one of them: a plain read of it, a design field following it */
+  const toGone = (k: string, v: string) => {
+    const id = k.startsWith("@") ? fieldVarOf(v) : boundVarOf(v, s.doc.vars);
+    return id !== undefined && ids.has(id);
+  };
   const groups = s.doc.groups.map((g) =>
-    g.items.some((it) => it.bind && Object.values(it.bind).some((v) => ids.has(v)))
+    g.items.some((it) => it.bind && Object.entries(it.bind).some(([k, v]) => toGone(k, v)))
       ? {
           ...g,
           items: g.items.map((it) => {
             if (!it.bind) return it;
-            const bind = Object.fromEntries(Object.entries(it.bind).filter(([, v]) => !ids.has(v)));
+            const bind = Object.fromEntries(Object.entries(it.bind).filter(([k, v]) => !toGone(k, v)));
             return { ...it, bind: Object.keys(bind).length ? bind : undefined };
           }),
         }
@@ -282,7 +288,7 @@ export const removeVar = op<{ id: string }>({
 export const setAction = op<{ id: string; slot?: string; action: Action | null }>({
   name: "set_action",
   summary:
-    'Sets what a tap on a part does, or what runs on one of the outlets it declares (describe_node lists them): a place, slot "tab:0" or "icon"; a family of places, slot "tab:*", one action for every row, which reads the row tapped as slot.index; an event, slot "on:submit", which runs when the part sends it and reads its payload as event.<field> (event.value). The action: {to: screen id | "back" | "link" | "none", transition, url, effects: [{do: show|hide|toggle|open|close, part} | {do: setVar, var, value} | {do: toggleVar, var} | {do: addVar, var, by} | {do: setProp, part, prop, value} | {do: snackbar, message}], when: {var, op: eq|neq, value (of the variable type: 3, true, "words")} | {filled: part} | {expr}, else: {...}, trigger: {on: "hover"} | {on: "delay", ms} (starts it without a tap), overlay: true (the screen opens over the one on show; back closes it), scrollTo: part id (with to "none"), motion: {kind: instant|dissolve|move|push|slide, dir: left|right|up|down (the way the new screen moves), easing: out|in|inOut|linear|spring, ms} (how the screen comes in; with a motion, transition is the nearest older kind and may be left out)}. null removes it.',
+    'Sets what a tap on a part does, or what runs on one of the outlets it declares (describe_node lists them): a place, slot "tab:0" or "icon"; a family of places, slot "tab:*", one action for every row, which reads the row tapped as slot.index; an event, slot "on:submit", which runs when the part sends it and reads its payload as event.<field> (event.value). The action: {to: screen id | "back" | "link" | "none", url, effects: [{do: show|hide|toggle|open|close, part} | {do: setVar, var, value} | {do: toggleVar, var} | {do: addVar, var, by} | {do: setProp, part, prop, value} | {do: snackbar, message}], when: {expr} (an expression: a variable compared, "vars.count == 3", "vars.agreed == true", "vars.name != \'\'"; a field of the row a repeated part was drawn for, "row.price == \'0\'") | {filled: part}, else: {...}, trigger: {on: "hover"} | {on: "delay", ms} (starts it without a tap), overlay: true (the screen opens over the one on show; back closes it), scrollTo: part id (with to "none"), motion: {kind: instant|dissolve|move|push|slide|expand, dir: left|right|up|down (where the new screen comes from), easing: out|in|inOut|linear|spring|emphasized|theme (theme: the theme\'s own, a spring in the expressive motion scheme), ms} (how the screen comes in; left out, the default slide; a fade is {kind: "dissolve", easing: "emphasized", ms: 300}, at once {kind: "instant"})}. null removes it.',
   args: S.obj({ id: S.str(), slot: S.str('a place ("tab:0"), a family ("tab:*") or an event ("on:submit") the part declares; left out, the tap on the whole part'), action: { type: ["object", "null"] } }, ["id", "action"]),
   label: () => "Tap",
   run(given, a, ctx) {
@@ -290,12 +296,13 @@ export const setAction = op<{ id: string; slot?: string; action: Action | null }
     const s = a.action ? withTapParams(given, a.action) : given;
     const { item, group } = itemById(s, a.id);
     unlocked(group, "That part");
-    if (a.action && ctx.strict) {
-      const e = actionError(a.action, s);
+    /* written the one way version 4 reads (lib/converge.ts): a motion for a transition, an expression for a comparison;
+       what a model still gives in the older forms is written so too, and then checked */
+    const action = a.action ? fullAction(convergedAction(a.action, s.doc.vars)) : undefined;
+    if (action && ctx.strict) {
+      const e = actionError(action, s);
       if (e) throw new OpError("invalid_value", `action: ${e}.`, "action");
     }
-    /* written the one way version 3 reads (lib/converge.ts): a transition follows the motion, a value its variable */
-    const action = a.action ? convergedAction(fullAction(a.action), s.doc.vars) : undefined;
     if (!a.slot) return setItem.run(s, { id: a.id, patch: { action } }, { ...ctx, strict: false });
     const actions = { ...item.actions };
     if (action) actions[a.slot] = action;
@@ -308,7 +315,7 @@ export const setAction = op<{ id: string; slot?: string; action: Action | null }
 export const bindProp = op<{ id: string; prop: string; var: string | null }>({
   name: "bind_prop",
   summary:
-    'Binds a prop of a part to a variable (the preview shows the variable\'s value), or a field of its design: "@fill", "@text" (the words\' color) and "@stroke" take a color variable, "@opacity" (0-100), "@radius" and "@rotation" a number one; these show the value of the mode on show on the canvas too. var null unbinds it.',
+    'Binds a prop of a part to a variable: it is bound to the expression that reads it ("=vars.<name>"), which an input writes back to as it is used (bind_expression binds any other expression, which only shows). Or a field of its design: "@fill", "@text" (the words\' color) and "@stroke" take a color variable, "@opacity" (0-100), "@radius" and "@rotation" a number one; these show the value of the mode on show on the canvas too. var null unbinds it.',
   args: S.obj({ id: S.str(), prop: S.str('a prop key, or one of "@fill", "@text", "@stroke", "@opacity", "@radius", "@rotation"'), var: { type: ["string", "null"] } }, ["id", "prop", "var"]),
   label: () => "Bind",
   run(s, a, ctx) {
@@ -324,13 +331,14 @@ export const bindProp = op<{ id: string; prop: string; var: string | null }>({
     }
     const bind = { ...item.bind };
     if (a.var === null) delete bind[a.prop];
-    else bind[a.prop] = a.var;
+    /* bound by the expression that reads the variable (lib/bindings/bind.ts): a field of the design by its key */
+    else bind[a.prop] = isBindField(a.prop) ? fieldBindOf(a.var) : bindOfVar(s.doc.vars ?? [], a.var);
     /* a field of the design is checked here, not by the part's props */
     return setItem.run(s, { id: a.id, patch: { bind: Object.keys(bind).length ? bind : undefined } }, { ...ctx, strict: ctx.strict && a.var !== null && !isBindField(a.prop) });
   },
 });
 
-/** The actions behind link lines, by `itemId|slot`: what changes one of them, and the transition they show with. */
+/** The actions behind link lines, by `itemId|slot`: what changes one of them, and the motion they show with. */
 function patchLink(s: CoreState, linkId: string, fn: (a: Action) => Action | undefined): CoreState {
   const [itemId, slot] = linkId.split("|");
   return withGroups(
@@ -352,25 +360,23 @@ function patchLink(s: CoreState, linkId: string, fn: (a: Action) => Action | und
   );
 }
 
-/** A tap given another transition. Its motion, where it has one, plays over `transition`, so it follows: the same kind
- *  of move (move in, push, slide in) from the new side, its easing and duration kept where the new one has them. An
- *  expand has no motion that plays it: the motion goes and the transition plays. */
-export function withTransition<B extends ActionBody>(a: B, t: Transition): B {
-  if (!a.motion) return { ...a, transition: t };
-  const { motion: was, ...rest } = a;
-  if (t === "expand") return { ...rest, transition: t } as B;
-  const base = motionOf({ transition: t });
-  const kind = base.kind === "slide" && (was.kind === "move" || was.kind === "push") ? was.kind : base.kind;
-  const motion = cleanMotion({ ...base, kind, easing: was.easing, ms: was.ms }) ?? base;
-  return { ...rest, transition: t, motion } as B;
+/** A tap given another motion: one of the presets the link's chip offers (each the motion an older move played, as
+ *  `MOTION_PRESETS` has it), or a motion of its own. The default slide is written as none. */
+export function withLinkMotion<B extends ActionBody>(a: B, m: Motion): B {
+  const { motion: _was, ...rest } = a;
+  return (presetOf(m) === "slide" ? rest : { ...rest, motion: m }) as B;
 }
 
-export const setLinkTransition = op<{ links: string[]; transition: Transition }>({
-  name: "set_link_transition",
-  summary: "Sets the transition of the taps behind link lines (`itemId|slot`); a tap's motion follows it.",
-  args: S.obj({ links: S.arr(S.str()), transition: S.enum(["slide", "slideLeft", "slideUp", "slideDown", "fade", "expand", "none"]) }, ["links", "transition"]),
+export const setLinkMotion = op<{ links: string[]; motion: Motion | string }>({
+  name: "set_link_motion",
+  summary: 'Sets how the screen comes in for the taps behind link lines (`itemId|slot`): a motion {kind, dir, easing, ms}, or the name of a preset ("slide", "slideLeft", "slideUp", "slideDown", "fade", "expand", "none").',
+  args: S.obj({ links: S.arr(S.str()), motion: { type: ["object", "string"], description: 'a motion {kind: instant|dissolve|move|push|slide|expand, dir, easing, ms}, or a preset\'s name ("fade")' } }, ["links", "motion"]),
   label: () => "Transition",
-  run: (s, a) => ({ state: a.links.reduce((st, id) => patchLink(st, id, (x) => withTransition(x, a.transition)), s) }),
+  run(s, a) {
+    const m = typeof a.motion === "string" ? MOTION_PRESETS.find((x) => x.key === a.motion)?.motion : cleanMotion(a.motion);
+    if (!m) throw new OpError("invalid_value", `motion should be {kind: ${MOTION_KINDS.join("|")}, dir, easing, ms} or one of ${MOTION_PRESETS.map((x) => x.key).join(", ")}.`, "motion");
+    return { state: a.links.reduce((st, id) => patchLink(st, id, (x) => withLinkMotion(x, m)), s) };
+  },
 });
 
 export const removeLinks = op<{ links: string[] }>({

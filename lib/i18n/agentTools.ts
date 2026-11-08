@@ -169,6 +169,7 @@ const L: Record<string, Four> = {
   update_data_source: ["Change a data source", "修改数据源", "データソースを変更", "데이터 소스 변경"],
   remove_data_source: ["Remove a data source", "删除数据源", "データソースを削除", "데이터 소스 삭제"],
   set_screen_params: ["Set a screen's params", "设置屏幕参数", "画面のパラメーターを設定", "화면 매개변수 설정"],
+  rename_screen_param: ["Rename a screen's param", "重命名屏幕参数", "画面のパラメーター名を変更", "화면 매개변수 이름 바꾸기"],
   set_screen_auth: ["Set a screen's sign-in", "设置屏幕的登录要求", "画面のログインを設定", "화면 로그인 설정"],
   bind_expression: ["Bind to an expression", "绑定表达式", "式に結び付ける", "식에 연결"],
   set_region: ["Show the states of data", "设置数据状态区域", "データの状態を表示", "데이터 상태 표시"],

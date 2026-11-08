@@ -29,7 +29,7 @@ const SLUGS = ["inventory", "task-row", "pull-to-refresh", "cart-list", "contact
 /** the widget each retired part was drawn with */
 const WIDGETS = ["Inventory", "TaskBar", "PullToRefresh", "CartList", "ContactList", "CommentList", "NotificationList", "SettingsGroup", "TodoList", "AuthForm", "ChatComposer"];
 
-const go = (to: string): Action => ({ to, transition: "slide" });
+const go = (to: string): Action => ({ to });
 const item = (slug: string, id: string, props: Record<string, unknown> = {}, more: Partial<Item> = {}): Item => ({ id, kind: "component", label: "", icon: null, variant: "filled", component: slug, props, ...more });
 
 /** each part on a phone screen of its own, with a screen called "Target" to go to */

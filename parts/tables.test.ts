@@ -141,14 +141,14 @@ describe("editing a table's rows", () => {
   it("takes each row's tap and the part's choice with it", () => {
     const def = partBySlug("leaderboard")!;
     const data = defaultValues(def).data as TableData;
-    const it0: Item = { ...makeItem("leaderboard"), id: "l", props: { ...defaultValues(def), selected: 1 }, actions: { "tab:0": { to: "a", transition: "slide" }, "tab:1": { to: "b", transition: "slide" } } };
+    const it0: Item = { ...makeItem("leaderboard"), id: "l", props: { ...defaultValues(def), selected: 1 }, actions: { "tab:0": { to: "a" }, "tab:1": { to: "b" } } };
     /* the first two rows swap places */
     const swapped = { ...data, rows: [data.rows[1], data.rows[0], ...data.rows.slice(2)] };
     const patch = tableRowsPatch(it0, "data", swapped);
     expect(patch.props?.selected).toBe(0);
-    expect(patch.actions).toEqual({ "tab:1": { to: "a", transition: "slide" }, "tab:0": { to: "b", transition: "slide" } });
+    expect(patch.actions).toEqual({ "tab:1": { to: "a" }, "tab:0": { to: "b" } });
     /* a row taken out takes its tap with it */
     const gone = tableRowsPatch(it0, "data", { ...data, rows: data.rows.slice(1) });
-    expect(gone.actions).toEqual({ "tab:0": { to: "b", transition: "slide" } });
+    expect(gone.actions).toEqual({ "tab:0": { to: "b" } });
   });
 });

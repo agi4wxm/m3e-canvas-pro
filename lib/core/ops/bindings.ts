@@ -4,6 +4,7 @@
  * its fields, and `wire_screen`, which sets all of it up for a screen and an endpoint in one step. Each is one undo
  * step, and through OPS a tool of the in-app AI and of MCP. */
 
+import { convergedAction } from "../../converge";
 import { partBySlug } from "../../../parts/registry";
 import type { ApiSpec, JsonSchema, JsonSchemaObject } from "../../api/types";
 import { BINDING_NAME } from "../../bindings/clean";
@@ -19,7 +20,7 @@ import { frameById, groupById, itemById, laidOut, unlocked } from "./common";
 import { addKit, buildKit, setItem } from "./nodes";
 import { addTree, type TreeNode } from "./tree";
 import { actionError, FIELD_PATH, fullAction } from "./validate";
-import { mapFrameExprs, mapGroupExprs, namesMap, renamedName } from "../../refs";
+import { mapFrameExprs, mapGroupExprs, mapNestedBodies, namesMap, renamedName } from "../../refs";
 
 /* ---------- finding ---------- */
 
@@ -229,6 +230,55 @@ export const setScreenParams = op<{ screen: string; params: ScreenParam[] }>({
   },
 });
 
+/** The taps (anywhere, at any depth: a tap's else, a call's then and catch, a form's answers) that open a screen with
+ *  params, each param it is given under its new name. */
+function renamedTapParams(s: CoreState, screen: string, from: string, to: string): Group[] {
+  const body = <B extends ActionBody>(b: B): B => {
+    if (b.to !== screen || !b.params || !(from in b.params)) return b;
+    return { ...b, params: Object.fromEntries(Object.entries(b.params).map(([k, v]) => [k === from ? to : k, v])) };
+  };
+  const action = (a: Action): Action => body(mapNestedBodies(a, body));
+  return s.doc.groups.map((g) => {
+    const items = g.items.map((it) => {
+      const own = it.action ? action(it.action) : undefined;
+      const places = it.actions ? Object.fromEntries(Object.entries(it.actions).map(([k, a]) => [k, action(a)])) : undefined;
+      const changed = own !== it.action || (places && Object.entries(places).some(([k, a]) => a !== it.actions![k]));
+      return changed ? { ...it, ...(own ? { action: own } : {}), ...(places ? { actions: places } : {}) } : it;
+    });
+    // eslint-disable-next-line unicorn/no-thenable -- an action body, never a function: nothing awaits it
+    const form = g.form && (g.form.then || g.form.catch) ? { ...g.form, ...(g.form.then ? { then: action(g.form.then as Action) } : {}), ...(g.form.catch ? { catch: action(g.form.catch as Action) } : {}) } : g.form;
+    const same = items.every((it, i) => it === g.items[i]) && (form === g.form || (form?.then === g.form?.then && form?.catch === g.form?.catch));
+    return same ? g : { ...g, items, ...(form ? { form } : {}) };
+  });
+}
+
+export const renameScreenParam = op<{ screen: string; from: string; to: string }>({
+  name: "rename_screen_param",
+  summary:
+    "Renames a param a screen is opened with. Everything on the screen that reads it (params.<name> in its bound props, conditions, taps, data sources and the {{params.<name>}} in its words) and every tap that opens it with that param follow; a data source's path parameter that read it by its name now reads it by the new one.",
+  args: S.obj({ screen: S.str(), from: S.str("the param's name now"), to: S.str("its new name: a letter, then letters, digits or _") }, ["screen", "from", "to"]),
+  label: () => "Rename param",
+  run(s, a, ctx) {
+    const f = frameById(s, a.screen);
+    const params = f.params ?? [];
+    if (!params.some((p) => p.name === a.from)) throw new OpError("not_found", `The screen takes no param ${JSON.stringify(a.from)}${params.length ? ` (it takes ${params.map((p) => p.name).join(", ")})` : ""}.`, a.from);
+    if (a.to === a.from) return { state: s };
+    if (!BINDING_NAME.test(a.to)) throw new OpError("invalid_value", `${JSON.stringify(a.to)} is no param name: a letter, then letters, digits or _.`, a.to);
+    if (params.some((p) => p.name === a.to)) throw new OpError("invalid_value", `The screen takes a param ${JSON.stringify(a.to)} already.`, a.to);
+    /* a data source's path parameter left unsaid reads the screen's param of its name: it is given the old one's read */
+    const api = s.doc.api ?? {};
+    const data = (f.data ?? []).map((d) => {
+      const e = endpointOf(api, d.operationId);
+      const reads = e && paramsOf(api, e).some((p) => p.in === "path" && p.name === a.from) && d.params?.[a.from] === undefined;
+      return reads ? { ...d, params: { ...d.params, [a.from]: `params.${a.from}` } } : d;
+    });
+    const m = namesMap(renamedName("params", a.from, a.to));
+    const frame = mapFrameExprs({ ...f, params: params.map((p) => (p.name === a.from ? { ...p, name: a.to } : p)), ...(f.data ? { data } : {}) }, m);
+    const groups = renamedTapParams(s, f.id, a.from, a.to).map((g) => (screenOf(s, g, ctx)?.id === f.id ? mapGroupExprs(g, m) : g));
+    return { state: withFrame(withGroups(s, groups), frame) };
+  },
+});
+
 export const setScreenAuth = op<{ screen: string; auth: "required" | "login" | null }>({
   name: "set_screen_auth",
   summary: 'Says a screen needs a session ("required": without one the app goes to the sign-in screen first) or is the sign-in screen ("login": where a 401 and a required screen send the app; one at a time); null for neither.',
@@ -301,8 +351,8 @@ function innerWidth(g: Group, f: Frame | undefined): number {
 /** the tap of a design's button: the source loaded again, or the sign-in screen opened */
 function designTap(s: CoreState, state: RegionState, source: string | undefined): Action {
   const login = s.doc.frames.find((f) => f.auth === "login");
-  if (state === "forbidden" && login) return { to: login.id, transition: "slide" };
-  return source ? { to: STAY_TARGET, transition: "none", effects: [{ do: "refresh", source }] } : { to: STAY_TARGET, transition: "none" };
+  if (state === "forbidden" && login) return { to: login.id };
+  return source ? { to: STAY_TARGET, effects: [{ do: "refresh", source }] } : { to: STAY_TARGET };
 }
 
 /** A kit's groups with its words and glyph made a state's: the first glyph, a title and a line, the first button's words
@@ -475,12 +525,12 @@ function checkedForm(s: CoreState, g: Group, form: FormBinding, ctx: OpCtx) {
   for (const [k, x] of Object.entries(form.values ?? {})) checkExpr(x, shape, `values.${k}`);
   for (const k of ["then", "catch"] as const) {
     if (!form[k]) continue;
-    const err = actionError({ ...form[k], transition: form[k]!.transition ?? "none" }, s);
+    const err = actionError(form[k], s);
     if (err && ctx.strict) throw new OpError("invalid_value", `${k}: ${err}.`, k);
   }
 }
 
-const bodyOfArg = (v: unknown): ActionBody | undefined => (v && typeof v === "object" ? (fullAction({ to: STAY_TARGET, ...(v as Partial<Action>) } as Action) as ActionBody) : undefined);
+const bodyOfArg = (v: unknown): ActionBody | undefined => (v && typeof v === "object" ? (fullAction(convergedAction({ to: STAY_TARGET, ...(v as Partial<Action>) } as Action, undefined)) as ActionBody) : undefined);
 
 function formOf(a: { operationId: string; params?: unknown; values?: unknown; then?: unknown; catch?: unknown }): FormBinding {
   const then = bodyOfArg(a.then);
@@ -852,7 +902,7 @@ export const wireScreen = op<
         }
       }
       const params = target ? paramsTo(target, itemNames) : undefined;
-      const tap: Action | undefined = target ? { to: target.id, transition: "slide", ...(params ? { params } : {}) } : undefined;
+      const tap: Action | undefined = target ? { to: target.id, ...(params ? { params } : {}) } : undefined;
       const row = addTree.run(state, { tree: rowTree(api, list.item, width, tap), into: { container: regionId } }, user);
       state = row.state;
       template = row.result?.itemId;

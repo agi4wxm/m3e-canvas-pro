@@ -85,7 +85,7 @@ describe("renaming through the operations", () => {
       stateOf({
         groups: [
           part("t", "text", 100, { props: { text: "{{vars.count}} for {{ vars.name }}" }, bind: { text: "v-name", label: "=vars.count + 1" } }),
-          { ...part("b", "button", 200, { action: { to: "none", transition: "none", when: { expr: "vars.count > 0" }, effects: [{ do: "setVar", var: "v-count", value: 0, expr: "vars.count * 2" }, { do: "snackbar", message: "Now {{vars.count}}" }] } }), showWhen: { expr: "vars['count'] != 3" } },
+          { ...part("b", "button", 200, { action: { to: "none", when: { expr: "vars.count > 0" }, effects: [{ do: "setVar", var: "v-count", value: 0, expr: "vars.count * 2" }, { do: "snackbar", message: "Now {{vars.count}}" }] } }), showWhen: { expr: "vars['count'] != 3" } },
         ],
         frames: [screen],
         vars,

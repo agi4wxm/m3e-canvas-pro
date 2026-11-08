@@ -391,7 +391,7 @@ const listComponents = tool<Record<string, never>>({
 const listData = tool<{ rows?: number }>({
   name: "list_data",
   group: "read",
-  description: "The document's data collections (id, name, fields, rows) and prototype variables (id, name, type, starting value). A container repeats its first child once per row with set_repeat; {{field}} in words reads the row. Variables drive set_action effects, bind_prop and showWhen.",
+  description: "The document's data collections (id, name, fields, rows) and prototype variables (id, name, type, starting value). A container repeats its first child once per row with set_repeat; {{row.<field>}} in words reads the row. Variables drive set_action effects, bind_prop (a prop bound to =vars.<name>) and conditions ({expr: 'vars.<name> == 3'}).",
   input: obj({ rows: int("how many rows of each collection to show (default 20)", { minimum: 0 }) }),
   readOnly: true,
   destructive: false,

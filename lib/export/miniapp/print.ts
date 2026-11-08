@@ -1,3 +1,4 @@
+import { bindExpr, boundVar } from "../../bindings/bind";
 import { COLOR_TOKENS, GAP, REGION_STATES, frameLengthOf, frameSizeOf, normalizeTheme, type Action, type ActionBody, type ApiSpec, type Condition, type Doc, type Effect, type Frame, type Group, type Item, type ScreenParam } from "../../tokens";
 import type { Answer } from "../../actions/model";
 import { partBySlug, reader } from "../../../parts/registry";
@@ -400,15 +401,17 @@ class ScreenPrinter {
       if (d.kind === "image" && typeof v === "string" && v.startsWith("data:")) v = this.picture(v, it.id);
       if (d.kind === "list" && Array.isArray(v)) v = (v as Record<string, unknown>[]).map((row) => (typeof row.image === "string" && row.image.startsWith("data:") ? { ...row, image: this.picture(row.image, it.id) } : row));
       if (def.slug === "svg" && d.key === "markup" && typeof v === "string" && v) v = svgMarkup(v, it.id) ?? "";
-      const bind = it.bind?.[d.key];
+      /* a plain read of a variable is the screen's variable (lib/bindings/bind.ts), which an input bound so writes back to */
+      const varId = boundVar(it, d.key, this.doc.vars);
+      const bind = varId === undefined ? bindExpr(it.bind?.[d.key]) : null;
       let code = expr(v);
-      if (typeof bind === "string" && bind.startsWith("=")) {
-        code = this.boundExpr(d, bind.slice(1), code, at.$);
+      if (bind !== null) {
+        code = this.boundExpr(d, bind, code, at.$);
         /* as the app for phones says: a table is not read from data yet */
         if (d.kind === "table") this.warn("binding", "a table bound to an expression keeps the design's rows", it.id);
-      } else if (typeof bind === "string" && bind) {
+      } else if (varId !== undefined) {
         const labels = d.key === "selected" ? listLabels(def, it) : undefined;
-        code = `s.bound(${str(bind)}, ${code}${labels ? `, ${expr(labels)}` : ""})`;
+        code = `s.bound(${str(varId)}, ${code}${labels ? `, ${expr(labels)}` : ""})`;
       } else if (typeof v === "string" && v.includes("{{") && (d.kind === "text" || d.kind === "image")) {
         this.uses$ = true;
         code = fillCode(at.$, v);
@@ -428,7 +431,7 @@ class ScreenPrinter {
     if (!key) {
       /* a part that declares an input the kit does not wire keeps its value to itself here, and says so where it is read */
       const own = def.input?.prop;
-      if (own && ((it.field && at.form) || (typeof it.bind?.[own] === "string" && !it.bind[own].startsWith("=")))) this.warn("input", "what is entered here does not reach its variable or form in a mini-program", it.id);
+      if (own && ((it.field && at.form) || boundVar(it, own, this.doc.vars) !== undefined)) this.warn("input", "what is entered here does not reach its variable or form in a mini-program", it.id);
       return { props: [] };
     }
     const prop = kitPropName(def.slug, key);
@@ -466,9 +469,9 @@ class ScreenPrinter {
     }
     if (it.field) this.warn("binding", "an input with a field outside a form is entered but sent nowhere", it.id);
     const design = list ? linesOf(values[key]) : values[key];
-    const bind = it.bind?.[key];
-    const varId = typeof bind === "string" && bind && !bind.startsWith("=") ? bind : undefined;
-    const start = typeof bind === "string" && bind.startsWith("=") ? this.boundExpr(def.props.find((d) => d.key === key)!, bind.slice(1), expr(design), at.$) : expr(design ?? (def.slug === "file-upload" ? undefined : ""));
+    const varId = boundVar(it, key, this.doc.vars);
+    const bind = varId === undefined ? bindExpr(it.bind?.[key]) : null;
+    const start = bind !== null ? this.boundExpr(def.props.find((d) => d.key === key)!, bind, expr(design), at.$) : expr(design ?? (def.slug === "file-upload" ? undefined : ""));
     this.inputs[this.names.part(it.id)] = `{ value: ${expr(design ?? null)}${varId ? `, var: ${str(varId)}` : ""}${labels ? `, labels: ${expr(labels)}` : ""} }`;
     const id = str(this.names.part(it.id));
     const typed = def.slug === "file-upload" ? "PickedFile | PickedFile[] | undefined" : typeof design === "boolean" ? "boolean" : typeof design === "number" ? "number" : "string";

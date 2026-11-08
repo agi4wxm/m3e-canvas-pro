@@ -88,7 +88,7 @@ describe("a style's layout", () => {
   it("carries the destinations a bar shows by default, their taps and the chosen one, there and back", () => {
     setGlobalLang("zh");
     try {
-      const taps = { "tab:0": { to: "home", transition: "slide" as const }, "tab:3": { to: "settings", transition: "slide" as const } };
+      const taps = { "tab:0": { to: "home" }, "tab:3": { to: "settings" } };
       const seeded = [...screen().filter((g) => g.id !== "g-nav"), { ...part("nav", "navigation-bar", 0, 828, { selected: 3, width: 412 }), items: [{ ...makeItem("navigation-bar"), id: "nav", props: { selected: 3, width: 412 }, actions: taps }] }];
       const shown = ["首页", "搜索", "已保存", "设置"];
       const labels = (g: Group) => ((g.items[0].props?.items ?? []) as { label: string }[]).map((x) => x.label);

@@ -4,7 +4,7 @@ import { holdsNow, partBySlug, reader } from "../parts/registry";
 import { axisValue, axisWrite, resizeOf } from "../parts/resize";
 import { roleOf } from "../parts/role";
 import type { ListItem, TableData } from "../parts/types";
-import type { Motion, Transition } from "./screenMotion";
+import { TRANSITION_MOTIONS, type Motion, type Transition } from "./screenMotion";
 import { STAY_TARGET, linkUrlOf, type Action, type ActionBody, type Condition, type VarType, type VarValue } from "./actions/model";
 import { normalizeRecipes, normalizeUx, styleOf, stylePalette, stylePatch, styleSeed, type CustomStyle, type Recipes, type StyleContext, type StyleUX } from "./styles";
 import type { ApiSpec } from "./api/types";
@@ -779,13 +779,6 @@ export const SWIPE_DIRS: { key: SwipeDir; icon: string; transition: Transition }
  * carry a copy of it and play the same moves the preview does. */
 export { MOTION_DIRS, MOTION_EASINGS, MOTION_KINDS, SLIDE_SPEC, type Motion, type Transition } from "./screenMotion";
 
-/** the older transition nearest to a motion: what reads only those plays it that way */
-export function transitionOf(m: Motion): Transition {
-  if (m.kind === "instant") return "none";
-  if (m.kind === "dissolve") return "fade";
-  return m.dir === "right" ? "slideLeft" : m.dir === "up" ? "slideUp" : m.dir === "down" ? "slideDown" : "slide";
-}
-
 export type { Action, ActionBody, Trigger } from "./actions/model";
 
 export type { VarType, VarValue } from "./actions/model";
@@ -863,9 +856,14 @@ export type RegionBinding = {
 
 /** the action left when its screen is deleted: its effects go on, staying put; with none it is gone */
 export function actionWithoutScreen(a: Action, screen: string): Action | undefined {
-  const other = a.else?.to === screen ? { ...a.else, to: STAY_TARGET, transition: "none" as const } : a.else;
+  /* staying put plays no move */
+  const stay = <B extends ActionBody>(b: B): B => {
+    const { motion: _motion, ...rest } = b;
+    return { ...rest, to: STAY_TARGET } as B;
+  };
+  const other = a.else?.to === screen ? stay(a.else) : a.else;
   if (a.to !== screen) return other === a.else ? a : { ...a, else: other };
-  return a.effects?.length || a.when ? { ...a, to: STAY_TARGET, transition: "none", else: other } : undefined;
+  return a.effects?.length || a.when ? { ...stay(a), else: other } : undefined;
 }
 
 /** a FAB that shows both an icon and a label may fold to the icon while the body scrolls */
@@ -876,15 +874,22 @@ export function canCollapseFab(it: Item): boolean {
   return !!values?.s("label") && !!values.s("icon");
 }
 
-export const TRANSITIONS: { key: Transition; label: string; icon: string }[] = [
-  { key: "slide", label: "Slide from right", icon: "arrow_back" },
-  { key: "slideLeft", label: "Slide from left", icon: "arrow_forward" },
-  { key: "slideUp", label: "Slide from bottom", icon: "arrow_upward" },
-  { key: "slideDown", label: "Slide from top", icon: "arrow_downward" },
-  { key: "fade", label: "Fade", icon: "blur_on" },
-  { key: "expand", label: "Expand", icon: "open_in_full" },
-  { key: "none", label: "None", icon: "block" },
+/** The motions a picker offers in one click, named as the older moves were: each is that move's motion exactly
+ *  (lib/screenMotion.ts `TRANSITION_MOTIONS`). Picking one writes its motion; any other motion is edited in full. */
+export const MOTION_PRESETS: { key: Transition; label: string; icon: string; motion: Motion }[] = [
+  { key: "slide", label: "Slide from right", icon: "arrow_back", motion: TRANSITION_MOTIONS.slide },
+  { key: "slideLeft", label: "Slide from left", icon: "arrow_forward", motion: TRANSITION_MOTIONS.slideLeft },
+  { key: "slideUp", label: "Slide from bottom", icon: "arrow_upward", motion: TRANSITION_MOTIONS.slideUp },
+  { key: "slideDown", label: "Slide from top", icon: "arrow_downward", motion: TRANSITION_MOTIONS.slideDown },
+  { key: "fade", label: "Fade", icon: "blur_on", motion: TRANSITION_MOTIONS.fade },
+  { key: "expand", label: "Expand", icon: "open_in_full", motion: TRANSITION_MOTIONS.expand },
+  { key: "none", label: "None", icon: "block", motion: TRANSITION_MOTIONS.none },
 ];
+
+const sameMotion = (a: Motion, b: Motion) => a.kind === b.kind && a.dir === b.dir && a.easing === b.easing && (a.kind === "instant" || a.ms === b.ms);
+
+/** the preset a motion is (none plays the default slide), or undefined for a motion of its own */
+export const presetOf = (m: Motion | undefined): Transition | undefined => MOTION_PRESETS.find((x) => sameMotion(x.motion, m ?? TRANSITION_MOTIONS.slide))?.key;
 
 /** the places inside a part that can each carry their own tap action: each node it marks `data-tap` answers to one */
 export function actionSlotsOf(it: Item): IconSlot[] {

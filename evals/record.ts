@@ -13,7 +13,8 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 
 import { join } from "node:path";
 import { gunzipSync } from "fflate";
 import { formatProject } from "../lib/core/projectFile";
-import { projectFile } from "../lib/project";
+import { loadDocument, projectFile } from "../lib/project";
+import type { Doc } from "../lib/tokens";
 import type { RunOutput } from "./harness";
 import type { JudgeVerdict, Observed, TaskScore } from "./types";
 
@@ -38,9 +39,16 @@ export function writeRun(dir: string, out: RunOutput, result: TaskScore & { cost
 export function readObserved(dir: string): Observed | null {
   const plain = join(dir, "observed.json");
   const zipped = `${plain}.gz`;
-  if (existsSync(plain)) return JSON.parse(readFileSync(plain, "utf8")) as Observed;
-  if (existsSync(zipped)) return JSON.parse(new TextDecoder().decode(gunzipSync(new Uint8Array(readFileSync(zipped))))) as Observed;
+  if (existsSync(plain)) return asRead(JSON.parse(readFileSync(plain, "utf8")) as Observed);
+  if (existsSync(zipped)) return asRead(JSON.parse(new TextDecoder().decode(gunzipSync(new Uint8Array(readFileSync(zipped))))) as Observed);
   return null;
+}
+
+/** A recorded run's documents as the format reads them now: one recorded by an earlier version is an old document,
+ *  brought up by the steps after it (lib/migrations.ts), as it would be if opened; a newer one's steps find nothing. */
+function asRead(o: Observed): Observed {
+  const read = (d: Doc) => loadDocument(d)?.doc ?? d;
+  return { ...o, start: read(o.start), final: read(o.final) };
 }
 
 /** every recorded run under a folder (each folder holding an observation), by folder name */

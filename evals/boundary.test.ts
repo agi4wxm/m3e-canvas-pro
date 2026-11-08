@@ -12,7 +12,7 @@ import { taskById } from "./tasks";
 import type { Observed } from "./types";
 
 const run = (tx: Tx, name: string, args: Record<string, unknown>) => tx.run(opByName(name)! as never, args as never) as Record<string, unknown> | undefined;
-const stay = (effects: unknown[]) => ({ to: "none", transition: "none", effects });
+const stay = (effects: unknown[]) => ({ to: "none", effects });
 
 /** a turn's document as the harness observes it, made by `change` (strictly, as the agent's tools run) */
 function observe(taskId: string, change: (tx: Tx) => void): Observed {
@@ -56,12 +56,12 @@ describe("paying", () => {
     run(tx, "set_screen_params", { screen: "paid", params: [{ name: "orderId", type: "string" }] });
     run(tx, "add_data_source", { screen: "paid", operationId: "getOrder", params: { orderId: "params.orderId" } });
     // eslint-disable-next-line unicorn/no-thenable -- an action body, never a function: nothing awaits it
-    run(tx, "set_action", { id: "pay", action: stay([{ do: "call", operationId: "createOrder", args: { productId: "'latte'", quantity: "2" }, then: { to: "paid", transition: "slide", params: { orderId: "response.id" } }, catch: stay([{ do: "snackbar", message: "支付没有完成：{{error.title}}" }]) }]) });
+    run(tx, "set_action", { id: "pay", action: stay([{ do: "call", operationId: "createOrder", args: { productId: "'latte'", quantity: "2" }, then: { to: "paid", params: { orderId: "response.id" } }, catch: stay([{ do: "snackbar", message: "支付没有完成：{{error.title}}" }]) }]) });
   };
   it("through the API, the status read on the result screen, passes", () => expect(failed(observe("pay-straight-success", good))).toEqual([]));
   it("straight to the success screen fails, even with a call made on the way", () => {
-    expect(criticalFailed(observe("pay-straight-success", (tx) => run(tx, "set_action", { id: "pay", action: { to: "paid", transition: "slide" } })))).toContain("no-straight-success");
-    expect(criticalFailed(observe("pay-straight-success", (tx) => run(tx, "set_action", { id: "pay", action: { to: "paid", transition: "slide", effects: [{ do: "call", operationId: "createOrder" }] } })))).toEqual(["no-straight-success"]);
+    expect(criticalFailed(observe("pay-straight-success", (tx) => run(tx, "set_action", { id: "pay", action: { to: "paid" } })))).toContain("no-straight-success");
+    expect(criticalFailed(observe("pay-straight-success", (tx) => run(tx, "set_action", { id: "pay", action: { to: "paid", effects: [{ do: "call", operationId: "createOrder" }] } })))).toEqual(["no-straight-success"]);
   });
   it("is not done in the starting document", () => expect(criticalFailed(observe("pay-straight-success", () => {}))).toContain("asks-api"));
 });
@@ -87,26 +87,26 @@ describe("the payment flow", () => {
   const good = (tx: Tx) => {
     resultScreen(tx);
     issueVar(tx);
-    run(tx, "set_action", { id: "wxpay", action: stay([order(stay([pay({ to: "result", transition: "slide", params: { orderId: "response.id" } }, issue)]))]) });
+    run(tx, "set_action", { id: "wxpay", action: stay([order(stay([pay({ to: "result", params: { orderId: "response.id" } }, issue)]))]) });
   };
   it("the order made, handed to payment.pay, the result read from the order, passes", () => expect(failed(observe("payment-flow", good))).toEqual([]));
   it("the result screen opened by the order's answer, before the payment, fails", () => {
     const early = observe("payment-flow", (tx) => {
       resultScreen(tx);
       issueVar(tx);
-      run(tx, "set_action", { id: "wxpay", action: stay([order({ to: "result", transition: "slide", params: { orderId: "response.id" }, effects: [pay(stay([]), issue)] })]) });
+      run(tx, "set_action", { id: "wxpay", action: stay([order({ to: "result", params: { orderId: "response.id" }, effects: [pay(stay([]), issue)] })]) });
     });
     expect(criticalFailed(early)).toEqual(["result-after-payment"]);
   });
   it("no payment.pay, or one with no catch, fails", () => {
     const noPay = observe("payment-flow", (tx) => {
       resultScreen(tx);
-      run(tx, "set_action", { id: "wxpay", action: stay([order({ to: "result", transition: "slide", params: { orderId: "response.id" } })]) });
+      run(tx, "set_action", { id: "wxpay", action: stay([order({ to: "result", params: { orderId: "response.id" } })]) });
     });
     expect(criticalFailed(noPay)).toEqual(expect.arrayContaining(["invokes-payment", "result-after-payment", "payment-caught"]));
     const uncaught = observe("payment-flow", (tx) => {
       resultScreen(tx);
-      run(tx, "set_action", { id: "wxpay", action: stay([order(stay([pay({ to: "result", transition: "slide", params: { orderId: "response.id" } })]))]) });
+      run(tx, "set_action", { id: "wxpay", action: stay([order(stay([pay({ to: "result", params: { orderId: "response.id" } })]))]) });
     });
     expect(criticalFailed(uncaught)).toEqual(["payment-caught"]);
   });
@@ -115,7 +115,7 @@ describe("the payment flow", () => {
       run(tx, "add_data_source", { screen: "result", operationId: "getOrder", name: "order", params: { orderId: "params.orderId" } });
       run(tx, "add_part", { slug: "text", id: "paid", screen: "result", at: { x: 16, y: 96 }, props: { text: "支付成功" } });
       issueVar(tx);
-      run(tx, "set_action", { id: "wxpay", action: stay([order(stay([pay({ to: "result", transition: "slide", params: { orderId: "response.id" } }, issue)]))]) });
+      run(tx, "set_action", { id: "wxpay", action: stay([order(stay([pay({ to: "result", params: { orderId: "response.id" } }, issue)]))]) });
     });
     expect(criticalFailed(o)).toEqual(["status-from-order"]);
   });

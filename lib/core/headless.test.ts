@@ -52,7 +52,7 @@ function buildApp() {
     /* a variable, and a tap on the instance's screen that counts and goes to the list */
     tx.run(ops.addVar, { id: "count", name: "count", type: "number", value: 0 });
     tx.run(ops.addPart, { slug: "button", id: "go", screen: "detail", at: { x: 16, y: 400 }, props: { label: "See all" } });
-    tx.run(ops.setAction, { id: "go", action: { to: "list", transition: "slide", effects: [{ do: "addVar", var: "count", by: 1 }] } });
+    tx.run(ops.setAction, { id: "go", action: { to: "list", effects: [{ do: "addVar", var: "count", by: 1 }] } });
     tx.run(ops.bindProp, { id: "row", prop: "text", var: null });
 
     /* a style picked */

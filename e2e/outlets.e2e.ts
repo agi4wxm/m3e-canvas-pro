@@ -40,33 +40,33 @@ function outletsDoc(): Doc {
     tx.run(ops.addPart, { slug: "text", id: "score-shown", screen: SCREEN, at: at(60), props: { text: "-" } });
     tx.run(ops.bindProp, { id: "score-shown", prop: "text", var: "score" });
     tx.run(ops.addPart, { slug: "button", id: "set-three", screen: SCREEN, at: at(90), props: { label: "Three stars" } });
-    tx.run(ops.setAction, { id: "set-three", action: { to: "none", transition: "none", effects: [{ do: "setVar", var: "score", value: 3 }] } as never });
+    tx.run(ops.setAction, { id: "set-three", action: { to: "none", effects: [{ do: "setVar", var: "score", value: 3 }] } as never });
 
     /* the pad: its draft in a variable, a reset, and its submit event */
     tx.run(ops.addPart, { slug: "number-pad", id: "pad", screen: SCREEN, at: at(150), props: { mode: "phone", action: "Confirm" } });
     tx.run(ops.bindProp, { id: "pad", prop: "value", var: "amount" });
-    tx.run(ops.setAction, { id: "pad", slot: "on:submit", action: { to: "none", transition: "none", effects: [{ do: "snackbar", message: "Submitted {{event.value}}" }] } as never });
+    tx.run(ops.setAction, { id: "pad", slot: "on:submit", action: { to: "none", effects: [{ do: "snackbar", message: "Submitted {{event.value}}" }] } as never });
     tx.run(ops.addPart, { slug: "text", id: "amount-shown", screen: SCREEN, at: at(600), props: { text: "-" } });
     tx.run(ops.bindProp, { id: "amount-shown", prop: "text", var: "amount" });
     tx.run(ops.addPart, { slug: "button", id: "clear-pad", screen: SCREEN, at: at(630), props: { label: "Clear the pad" } });
-    tx.run(ops.setAction, { id: "clear-pad", action: { to: "none", transition: "none", effects: [{ do: "setVar", var: "amount", value: "" }] } as never });
+    tx.run(ops.setAction, { id: "clear-pad", action: { to: "none", effects: [{ do: "setVar", var: "amount", value: "" }] } as never });
 
     /* two coupons: one nothing takes over, one whose tap asks the API */
     tx.run(ops.addPart, { slug: "coupon", id: "free-coupon", screen: SCREEN, at: at(690), props: { title: "Free coupon" } });
     tx.run(ops.addPart, { slug: "coupon", id: "asked-coupon", screen: SCREEN, at: at(800), props: { title: "Asked coupon" } });
     // eslint-disable-next-line unicorn/no-thenable -- an action body, never a function: nothing awaits it
-    tx.run(ops.setAction, { id: "asked-coupon", slot: "action", action: { to: "none", transition: "none", effects: [{ do: "call", operationId: "claimCoupon", then: { to: "none", transition: "none", effects: [{ do: "snackbar", message: "Claim accepted" }] }, catch: { to: "none", transition: "none", effects: [{ do: "snackbar", message: "Claim refused" }] } }] } as never });
+    tx.run(ops.setAction, { id: "asked-coupon", slot: "action", action: { to: "none", effects: [{ do: "call", operationId: "claimCoupon", then: { to: "none", effects: [{ do: "snackbar", message: "Claim accepted" }] }, catch: { to: "none", effects: [{ do: "snackbar", message: "Claim refused" }] } }] } as never });
 
     /* a wheel whose prize comes from the API */
     tx.run(ops.addPart, { slug: "prize-wheel", id: "wheel", screen: SCREEN, at: at(920) });
     tx.run(ops.bindProp, { id: "wheel", prop: "result", var: "won" });
     // eslint-disable-next-line unicorn/no-thenable -- an action body, never a function: nothing awaits it
-    tx.run(ops.setAction, { id: "wheel", action: { to: "none", transition: "none", effects: [{ do: "call", operationId: "draw", then: { to: "none", transition: "none", effects: [{ do: "setVar", var: "won", value: -1, expr: "response.index" }] } }] } as never });
-    tx.run(ops.setAction, { id: "wheel", slot: "on:settled", action: { to: "none", transition: "none", effects: [{ do: "snackbar", message: "Won {{event.label}} at {{event.index}}" }] } as never });
+    tx.run(ops.setAction, { id: "wheel", action: { to: "none", effects: [{ do: "call", operationId: "draw", then: { to: "none", effects: [{ do: "setVar", var: "won", value: -1, expr: "response.index" }] } }] } as never });
+    tx.run(ops.setAction, { id: "wheel", slot: "on:settled", action: { to: "none", effects: [{ do: "snackbar", message: "Won {{event.label}} at {{event.index}}" }] } as never });
 
     /* a list whose rows share one action */
     tx.run(ops.addPart, { slug: "item", id: "rows", screen: SCREEN, at: at(1200), props: { items: [{ label: "First" }, { label: "Second" }, { label: "Third" }] } });
-    tx.run(ops.setAction, { id: "rows", slot: "tab:*", action: { to: "none", transition: "none", effects: [{ do: "snackbar", message: "Row {{slot.index}}" }] } as never });
+    tx.run(ops.setAction, { id: "rows", slot: "tab:*", action: { to: "none", effects: [{ do: "snackbar", message: "Row {{slot.index}}" }] } as never });
   });
   return savedDoc(store.get());
 }
@@ -79,7 +79,7 @@ function ownDoc(): Doc {
     tx.run(ops.addScreen, { id: SCREEN, name: "Own", w: 412, h: 1600 });
     tx.run(ops.addVar, { id: "picks", name: "picks", type: "text", value: "1" });
     const at = (y: number) => ({ x: 16, y });
-    const say = (message: string) => ({ to: "none", transition: "none", effects: [{ do: "snackbar", message }] }) as never;
+    const say = (message: string) => ({ to: "none", effects: [{ do: "snackbar", message }] }) as never;
     /* two cards whose tap says so; the first one's heart has an action of its own */
     tx.run(ops.addPart, { slug: "product-card", id: "wired-card", screen: SCREEN, at: at(20), props: { title: "Wired" } });
     tx.run(ops.setAction, { id: "wired-card", action: say("Opened the wired card") });
@@ -95,7 +95,7 @@ function ownDoc(): Doc {
     tx.run(ops.addPart, { slug: "text", id: "picks-shown", screen: SCREEN, at: at(960), props: { text: "-" } });
     tx.run(ops.bindProp, { id: "picks-shown", prop: "text", var: "picks" });
     tx.run(ops.addPart, { slug: "button", id: "pick-three", screen: SCREEN, at: at(1000), props: { label: "Pick the third" } });
-    tx.run(ops.setAction, { id: "pick-three", action: { to: "none", transition: "none", effects: [{ do: "setVar", var: "picks", value: "3" }] } as never });
+    tx.run(ops.setAction, { id: "pick-three", action: { to: "none", effects: [{ do: "setVar", var: "picks", value: "3" }] } as never });
   });
   return savedDoc(store.get());
 }

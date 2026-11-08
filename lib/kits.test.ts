@@ -129,7 +129,7 @@ describe("a composite split into atoms", () => {
   const card = (): Group[] => {
     const host: Group = { id: "host", x: 0, y: 0, axis: "x", items: [{ ...makeItem("container"), id: "hi", props: { layout: "column", width: 412, height: 600 } }] };
     const before: Group = { id: "b", x: 16, y: 16, axis: "x", inFlow: "host", items: [{ ...makeItem("text"), id: "bt" }] };
-    const it = { ...makeItem("card"), id: "card-item", props: { title: "Soup", description: "Hot", action: "Order" }, action: { to: "detail", transition: "slide" as const }, fill: "primaryContainer" as const };
+    const it = { ...makeItem("card"), id: "card-item", props: { title: "Soup", description: "Hot", action: "Order" }, action: { to: "detail" }, fill: "primaryContainer" as const };
     const target: Group = { id: "c", x: 16, y: 64, axis: "x", inFlow: "host", name: "Dinner", items: [it] };
     const after: Group = { id: "a", x: 16, y: 300, axis: "x", inFlow: "host", items: [{ ...makeItem("button"), id: "at" }] };
     return [host, before, target, after];
@@ -169,7 +169,7 @@ describe("a composite split into atoms", () => {
 
 describe("what a split keeps of the part", () => {
   const part = (slug: string, id: string, props: Record<string, unknown> = {}, more: Partial<Item> = {}): Item => ({ ...makeItem(slug), id, props, ...more });
-  const go = (to: string): Action => ({ to, transition: "slide" });
+  const go = (to: string): Action => ({ to });
   /** the groups a split comes to, standing in `around` (a layout first) when it is given */
   const split = (slug: string, props: Record<string, unknown>, more: Partial<Item> = {}, around: Group[] = []) => {
     const g: Group = { id: "g", x: 0, y: 0, axis: "x", items: [part(slug, "i", props, more)], ...(around.length ? { inFlow: around[0].id } : {}) };
@@ -316,7 +316,7 @@ describe("a split composed the way the style composes the part", () => {
   /* looks written as fields, the way a kit reads them: no style is named */
   const IPHONE: KitLook = { ...MATERIAL_LOOK, bar: "center", appbar: "ios", list: "inset", row: "chevron", dialog: "alert", sheet: "grabber" };
   const MESSENGER: KitLook = { ...MATERIAL_LOOK, bar: "center", appbar: "center", list: "flush", row: "arrow", dialog: "weui", sheet: "weui" };
-  const go = (to: string): Action => ({ to, transition: "slide" });
+  const go = (to: string): Action => ({ to });
   const split = (slug: string, props: Record<string, unknown>, look?: KitLook, more: Partial<Item> = {}) => {
     const g: Group = { id: "g", x: 0, y: 0, axis: "x", items: [{ ...makeItem(slug), id: "i", props, ...more }] };
     const groups = splitIntoAtoms([g], "i", "en", {}, look)!.groups;

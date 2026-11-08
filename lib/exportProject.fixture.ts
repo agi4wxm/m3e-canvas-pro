@@ -2,6 +2,7 @@ import { PARTS, partBySlug } from "../parts/registry";
 import { instantiate, templateBySlug } from "../parts/templates";
 import { defaultMeasures } from "../parts/templates/kit";
 import { FRAME_GAP, PHONE_H, PHONE_W, makeItem, type Action, type ComponentDef, type Doc, type Frame, type Group, type Item } from "./tokens";
+import { TRANSITION_MOTIONS, type Transition } from "./screenMotion";
 import { createVariant } from "./variants";
 
 /* A document that uses everything a tap can do, with the shop flow behind a menu screen: what the
@@ -10,7 +11,7 @@ import { createVariant } from "./variants";
 /** one red pixel: a picture the author picked from a file, held as data */
 export const PICKED_PNG = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8DwHwAFBQIAX8jx0gAAAABJRU5ErkJggg==";
 
-const STAY = { to: "none", transition: "none" } as const;
+const STAY = { to: "none" } as const;
 const stay = (effects: Action["effects"]): Action => ({ ...STAY, effects });
 
 export const FORM = "f-form";
@@ -40,7 +41,8 @@ export function proofDoc(): { doc: Doc; widths: Record<string, number> } {
   /* the long screen stands tall, so nothing beside it shares its height */
   const shop = instantiate(templateBySlug("shop-flow")!, "en", { x: names.length * (PHONE_W + FRAME_GAP), y: 0 });
   const start = shop.frames[0].id;
-  const go = (to: string, transition: Action["transition"] = "slide"): Action => ({ to, transition });
+  /* the older moves as the motions that play them; the default slide is none */
+  const go = (to: string, move: Transition = "slide"): Action => ({ to, ...(move === "slide" ? {} : { motion: TRANSITION_MOTIONS[move] }) });
 
   const menu = column(0, [button("to-shop", "Shop", go(start)), button("to-form", "Form", go(FORM, "slideUp")), button("to-counter", "Counter", go(COUNTER, "fade")), button("to-inputs", "Inputs", go(INPUTS, "expand")), button("to-dock", "Dock", go(DOCK, "none")), button("to-bars", "Bars", go(BARS)), button("to-long", "Long", go(LONG))]);
 
@@ -48,20 +50,20 @@ export function proofDoc(): { doc: Doc; widths: Record<string, number> } {
     1,
     [
       text("form-title", "Sign up"),
-      part("email", "text-field", { label: "Email", value: "" }, { bind: { value: "v-email" } }),
+      part("email", "text-field", { label: "Email", value: "" }, { bind: { value: "=vars.Email" } }),
       part("terms", "checkbox", { label: "Accept terms", checked: false }),
       text("thanks", "We will write to you", {}),
-      button("continue", "Continue", { to: WELCOME, transition: "fade", when: { filled: "terms" }, else: stay([{ do: "snackbar", message: "Accept the terms first" }]) }),
+      button("continue", "Continue", { to: WELCOME, motion: TRANSITION_MOTIONS.fade, when: { filled: "terms" }, else: stay([{ do: "snackbar", message: "Accept the terms first" }]) }),
     ],
     { thanks: { showWhen: { filled: "email" } } },
   );
 
-  const welcome = column(2, [text("hello", "", { bind: { text: "v-email" } }), button("welcome-back", "Back to form", { to: "back", transition: "slide" })]);
+  const welcome = column(2, [text("hello", "", { bind: { text: "=vars.Email" } }), button("welcome-back", "Back to form", { to: "back" })]);
 
   const counter = column(
     3,
     [
-      text("count", "0", { bind: { text: "v-count" } }),
+      text("count", "0", { bind: { text: "=vars.Count" } }),
       button("add", "Add", stay([{ do: "addVar", var: "v-count", by: 1 }])),
       button("reset", "Reset", stay([{ do: "setVar", var: "v-count", value: 0 }])),
       text("three", "Three!"),
@@ -69,7 +71,7 @@ export function proofDoc(): { doc: Doc; widths: Record<string, number> } {
       button("reveal", "Reveal", stay([{ do: "toggle", part: "secret" }])),
       text("title", "Old title"),
       button("retitle", "Retitle", stay([{ do: "setProp", part: "title", prop: "text", value: "New title" }])),
-      part("flag", "switch", { label: "Flag", checked: false }, { bind: { checked: "v-flag" } }),
+      part("flag", "switch", { label: "Flag", checked: false }, { bind: { checked: "=vars.Flag" } }),
       button("flip", "Flip", stay([{ do: "toggleVar", var: "v-flag" }])),
       text("flag-on", "Flag is on"),
       button("ask", "Ask", stay([{ do: "open", part: "confirm" }])),
@@ -78,9 +80,9 @@ export function proofDoc(): { doc: Doc; widths: Record<string, number> } {
       part("more", "dropdown-menu", { label: "More", items: [{ label: "Set to 7" }, { label: "Say hi" }], destructive: "" }, { actions: { "tab:0": stay([{ do: "setVar", var: "v-count", value: 7 }]), "tab:1": stay([{ do: "snackbar", message: "Hi" }]) } }),
     ],
     {
-      three: { showWhen: { var: "v-count", op: "eq", value: "3" } },
+      three: { showWhen: { expr: "vars.Count == 3" } },
       secret: { hidden: true },
-      "flag-on": { showWhen: { var: "v-flag", op: "eq", value: true } },
+      "flag-on": { showWhen: { expr: "vars.Flag == true" } },
       confirm: { hidden: true },
     },
   );
@@ -88,17 +90,17 @@ export function proofDoc(): { doc: Doc; widths: Record<string, number> } {
   const inputs = column(
     4,
     [
-      part("fruit", "select", { items: [{ label: "Apple" }, { label: "Banana" }, { label: "Cherry" }], selected: 0, width: 224 }, { bind: { selected: "v-fruit" } }),
-      text("fruit-said", "", { bind: { text: "v-fruit" } }),
-      part("volume", "slider", { value: 40, width: 240 }, { bind: { value: "v-volume" } }),
-      text("volume-said", "", { bind: { text: "v-volume" } }),
+      part("fruit", "select", { items: [{ label: "Apple" }, { label: "Banana" }, { label: "Cherry" }], selected: 0, width: 224 }, { bind: { selected: "=vars.Fruit" } }),
+      text("fruit-said", "", { bind: { text: "=vars.Fruit" } }),
+      part("volume", "slider", { value: 40, width: 240 }, { bind: { value: "=vars.Volume" } }),
+      text("volume-said", "", { bind: { text: "=vars.Volume" } }),
       part("size", "radio-group", { items: [{ label: "Small" }, { label: "Large" }], selected: 0 }),
       button("large", "Pick large", stay([{ do: "setProp", part: "size", prop: "selected", value: 1 }])),
       text("note", "Note"),
       part("notes", "textarea", { placeholder: "Notes", value: "" }),
       text("noted", "Noted", {}),
-      part("city", "input", { placeholder: "City", value: "Oslo" }, { bind: { value: "v-city" } }),
-      text("city-said", "", { bind: { text: "v-city" } }),
+      part("city", "input", { placeholder: "City", value: "Oslo" }, { bind: { value: "=vars.City" } }),
+      text("city-said", "", { bind: { text: "=vars.City" } }),
     ],
     { noted: { showWhen: { filled: "notes" } } },
   );
@@ -109,7 +111,7 @@ export function proofDoc(): { doc: Doc; widths: Record<string, number> } {
   const bars = [
     ...column(6, [text("bars-title", "First bars"), part("tabs", "tabs", { items: [{ label: "Red" }, { label: "Green" }, { label: "Blue" }], selected: 0 })]),
     barAt(6, "bar-one", 0, { "tab:1": go(BARS_TWO, "none") }),
-    ...column(7, [text("bars-two-title", "Second bars"), button("bars-back", "Bars back", { to: "back", transition: "none" })]),
+    ...column(7, [text("bars-two-title", "Second bars"), button("bars-back", "Bars back", { to: "back" })]),
     barAt(7, "bar-two", 1, { "tab:0": go(BARS, "none") }),
   ];
 
@@ -162,7 +164,7 @@ export function reuseDoc(): { doc: Doc; widths: Record<string, number> } {
   const INSTANCES = "r-instances";
   const DOCKED = "r-docked";
   const x = (i: number) => i * (PHONE_W + FRAME_GAP);
-  const go = (to: string): Action => ({ to, transition: "slide" });
+  const go = (to: string): Action => ({ to });
   const box = (id: string, gx: number, gy: number, props: Record<string, unknown>, more: Partial<Group> = {}): Group => ({ id, x: gx, y: gy, axis: "x", ...more, items: [part(`${id}-part`, "container", { label: "", fill: "none", border: "none", radius: 0, padX: 0, padY: 0, gap: 8, hugHeight: true, hugWidth: true, width: 380, height: 80, ...props })] });
   const inside = (id: string, host: string, item: Item, more: Partial<Group> = {}): Group => ({ id, x: 0, y: 0, axis: "x", inFlow: host, items: [item], ...more });
   const plain = (id: string, gx: number, gy: number, item: Item, more: Partial<Group> = {}): Group => ({ id, x: gx, y: gy, axis: "x", items: [item], ...more });
@@ -185,22 +187,22 @@ export function reuseDoc(): { doc: Doc; widths: Record<string, number> } {
   ]);
   const outer = sized("c-outer", "Outer", [plain("o-t", 0, 0, text("o-t-t", "Outer words")), instance("o-i", "c-promo", 0, 40, { overrides: { "p-title-t/text": "Nested title" } })]);
   /* a definition with its own repeat: drawn out wherever it is placed */
-  const list = sized("c-list", "List", [box("l-col", 0, 0, { layout: "column" }, { repeat: { collection: "products" } }), inside("l-row", "l-col", text("l-row-t", "Listed {{name}}"))]);
+  const list = sized("c-list", "List", [box("l-col", 0, 0, { layout: "column" }, { repeat: { collection: "products" } }), inside("l-row", "l-col", text("l-row-t", "Listed {{row.name}}"))]);
 
   const narrow = (item: Item, width: number): Item => ({ ...item, props: { ...item.props, width } });
   const home = [
     box("home-col", 16, 40, { layout: "column" }, { repeat: { collection: "products" } }),
     box("home-row", 0, 0, { layout: "row", align: "center" }, { inFlow: "home-col" }),
-    inside("home-name", "home-row", narrow(text("home-name-t", "{{name}}"), 48)),
-    inside("home-price", "home-row", narrow(text("home-price-t", "{{price}}$"), 28)),
-    inside("home-open", "home-row", narrow(button("home-open-b", "Open {{name}}", go(DETAIL)), 110)),
-    inside("home-say", "home-row", narrow(button("home-say-b", "Say {{name}}", { ...STAY, when: { var: "row.name", op: "eq", value: "Pear" }, effects: [{ do: "snackbar", message: "Pear only" }], else: { ...STAY, effects: [{ do: "snackbar", message: "Not pear {{name}}" }] } }), 110)),
-    inside("home-plum", "home-row", narrow(text("home-plum-t", "Plum tag"), 48), { showWhen: { var: "row.name", op: "eq", value: "Plum" } }),
+    inside("home-name", "home-row", narrow(text("home-name-t", "{{row.name}}"), 48)),
+    inside("home-price", "home-row", narrow(text("home-price-t", "{{row.price}}$"), 28)),
+    inside("home-open", "home-row", narrow(button("home-open-b", "Open {{row.name}}", go(DETAIL)), 110)),
+    inside("home-say", "home-row", narrow(button("home-say-b", "Say {{name}}", { ...STAY, when: { expr: 'row.name == "Pear"' }, effects: [{ do: "snackbar", message: "Pear only" }], else: { ...STAY, effects: [{ do: "snackbar", message: "Not pear {{row.name}}" }] } }), 110)),
+    inside("home-plum", "home-row", narrow(text("home-plum-t", "Plum tag"), 48), { showWhen: { expr: 'row.name == "Plum"' } }),
     plain("home-go", 16, 300, button("home-go-b", "To instances", go(INSTANCES))),
     box("tags", 16, 360, { layout: "column" }, { repeat: { collection: "products", limit: 2 } }),
     instance("tag-i", "c-tag", 0, 0, { inFlow: "tags" }),
   ];
-  const detail = [plain("det-a", x(1) + 16, 40, text("det-a-t", "You chose {{current.name}}")), plain("det-b", x(1) + 16, 80, text("det-b-t", "{{current.price}} dollars")), plain("det-say", x(1) + 16, 120, button("det-say-b", "Say chosen", stay([{ do: "snackbar", message: "Said {{current.name}}" }]))), plain("det-back", x(1) + 16, 180, button("det-back-b", "Go back", { to: "back", transition: "slide" }))];
+  const detail = [plain("det-a", x(1) + 16, 40, text("det-a-t", "You chose {{current.name}}")), plain("det-b", x(1) + 16, 80, text("det-b-t", "{{current.price}} dollars")), plain("det-say", x(1) + 16, 120, button("det-say-b", "Say chosen", stay([{ do: "snackbar", message: "Said {{current.name}}" }]))), plain("det-back", x(1) + 16, 180, button("det-back-b", "Go back", { to: "back" }))];
   const instances = [
     instance("i-a", "c-promo", x(2) + 16, 40),
     box("inst-col", x(2) + 16, 260, { layout: "column" }),
@@ -252,7 +254,7 @@ export function sweepDoc(): { doc: Doc; widths: Record<string, number>; pickers:
     const next = frames[(i + 1) % frames.length].id;
     const def = partBySlug(slug)!;
     const buttons: Group[] = [
-      { id: `next-${slug}`, x: x + 16, y: PHONE_H - 120, axis: "x", items: [button(`n-${slug}`, "Next", { to: next, transition: "none" })] },
+      { id: `next-${slug}`, x: x + 16, y: PHONE_H - 120, axis: "x", items: [button(`n-${slug}`, "Next", { to: next, motion: TRANSITION_MOTIONS.none })] },
       ...(overlay ? [{ id: `open-${slug}`, x: x + 16, y: PHONE_H - 180, axis: "x" as const, items: [button(`o-${slug}`, "Open it", stay([{ do: "open", part: `p-${slug}` }]))] }] : []),
     ];
     const seed = def.props.find((d) => d.kind === "list");
@@ -292,27 +294,27 @@ export function systemsDoc(): { doc: Doc; widths: Record<string, number> } {
   });
   const components = [variant("c-rest", "Rest", "Rest"), variant("c-down", "Down", "Down")];
   const instance = (id: string, of: string, gx: number, gy: number, more: Partial<Group> = {}): Group => ({ id, x: gx, y: gy, axis: "x", instanceOf: of, ...more, items: [part(`${id}-part`, "container", { label: "", fill: "none", border: "none", radius: 0, width: 200, height: 96 })] });
-  const tinted = (id: string, gx: number, gy: number): Group => plain(id, gx, gy, part(`${id}-p`, "box", { surface: "card", layout: "free", width: 200, height: 80 }, { bind: { "@fill": "v-brand", "@opacity": "v-fade" } }));
+  const tinted = (id: string, gx: number, gy: number): Group => plain(id, gx, gy, part(`${id}-p`, "box", { surface: "card", layout: "free", width: 200, height: 80 }, { bind: { "@fill": '=vars["v-brand"]', "@opacity": '=vars["v-fade"]' } }));
   const groups: Group[] = [
     instance("i-rest", "c-rest", x(0) + 16, 40, { properties: { "p-label": "Buy" } }),
     instance("i-down", "c-down", x(0) + 16, 150, { properties: { "p-caption": false } }),
     tinted("tint-home", x(0) + 16, 260),
     plain("pin", x(0) + 156, 270, part("pin-p", "icon", { name: "star" }, { constraints: { h: "right", v: "center" } })),
-    plain("open", x(0) + 16, 380, button("open-b", "Open sheet", { to: SHEET, transition: "slideUp", overlay: true, motion: { kind: "push", dir: "up", easing: "inOut", ms: 300 } })),
-    plain("hover", x(0) + 16, 440, button("hover-b", "Hover me", { to: DARK, transition: "fade", trigger: { on: "hover" }, motion: { kind: "dissolve", ms: 200 } })),
-    plain("accent-words", x(0) + 16, 500, text("accent-t", "Accent words", { bind: { "@text": "v-accent" } })),
-    plain("accent-box", x(0) + 216, 500, part("accent-p", "box", { surface: "card", layout: "free", width: 120, height: 48 }, { look: { stroke: { width: 3, color: "#000000" } }, bind: { "@stroke": "v-accent", "@radius": "v-round", "@rotation": "v-tilt" } })),
+    plain("open", x(0) + 16, 380, button("open-b", "Open sheet", { to: SHEET, overlay: true, motion: { kind: "push", dir: "up", easing: "inOut", ms: 300 } })),
+    plain("hover", x(0) + 16, 440, button("hover-b", "Hover me", { to: DARK, trigger: { on: "hover" }, motion: { kind: "dissolve", ms: 200 } })),
+    plain("accent-words", x(0) + 16, 500, text("accent-t", "Accent words", { bind: { "@text": '=vars["v-accent"]' } })),
+    plain("accent-box", x(0) + 216, 500, part("accent-p", "box", { surface: "card", layout: "free", width: 120, height: 48 }, { look: { stroke: { width: 3, color: "#000000" } }, bind: { "@stroke": '=vars["v-accent"]', "@radius": '=vars["v-round"]', "@rotation": '=vars["v-tilt"]' } })),
     plain("paint", x(0) + 16, 570, button("paint-b", "Paint red", stay([{ do: "setVar", var: "v-accent", value: "#c62828" }]))),
-    plain("night", x(0) + 16, 630, part("night-p", "switch", { label: "Night", checked: false }, { bind: { checked: "v-night" } })),
-    plain("push", x(0) + 16, 690, button("push-b", "Push on", { to: PUSHED, transition: "slide", motion: { kind: "push", dir: "left", easing: "linear", ms: 900 } })),
-    plain("to-long", x(0) + 16, 750, button("to-long-b", "To long", { to: LONG, transition: "none" })),
+    plain("night", x(0) + 16, 630, part("night-p", "switch", { label: "Night", checked: false }, { bind: { checked: "=vars.night" } })),
+    plain("push", x(0) + 16, 690, button("push-b", "Push on", { to: PUSHED, motion: { kind: "push", dir: "left", easing: "linear", ms: 900 } })),
+    plain("to-long", x(0) + 16, 750, button("to-long-b", "To long", { to: LONG, motion: TRANSITION_MOTIONS.none })),
     tinted("tint-dark", x(1) + 16, 40),
-    plain("dark-back", x(1) + 16, 160, button("dark-back-b", "Back", { to: "back", transition: "slide" })),
+    plain("dark-back", x(1) + 16, 160, button("dark-back-b", "Back", { to: "back" })),
     plain("sheet-t", x(2) + 16, 40, text("sheet-tt", "A sheet"), {}),
-    plain("sheet-later", x(2) + 16, 100, button("sheet-later-b", "Closes itself", { to: "back", transition: "none", trigger: { on: "delay", ms: 1500 } })),
+    plain("sheet-later", x(2) + 16, 100, button("sheet-later-b", "Closes itself", { to: "back", trigger: { on: "delay", ms: 1500 } })),
     plain("pushed-t", x(3) + 16, 40, text("pushed-tt", "Pushed here")),
-    plain("pushed-back", x(3) + 16, 100, button("pushed-back-b", "Back again", { to: "back", transition: "slide" })),
-    plain("scroll", x(4) + 16, 40, button("scroll-b", "Scroll down", { to: "none", transition: "none", scrollTo: "bottom-t" })),
+    plain("pushed-back", x(3) + 16, 100, button("pushed-back-b", "Back again", { to: "back" })),
+    plain("scroll", x(4) + 16, 40, button("scroll-b", "Scroll down", { to: "none", scrollTo: "bottom-t" })),
     plain("bottom", x(4) + 16, 1700, text("bottom-t", "Bottom line")),
     plain("intro-t", x(5) + 16, 40, text("intro-tt", "Intro screen")),
   ];

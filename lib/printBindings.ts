@@ -13,7 +13,7 @@ import { answerShape, clientCallCode, fieldRule, fillCode, holdsCode, listCode, 
 import { endpointOf, formFields, type FieldSpec } from "./bindings/contract";
 import { messagesShown } from "./bindings/view";
 import { hasTemplate, parseExpr, type Expr } from "./bindings/expr";
-import { exprOfBind } from "./bindings/scope";
+import { bindExpr, boundVar } from "./bindings/bind";
 import type { ApiSpec } from "./api/types";
 import { partBySlug, reader } from "../parts/registry";
 import { formStateProps } from "../parts/fieldState";
@@ -239,8 +239,8 @@ export class BoundPrint {
   /** The code of a prop bound to an expression, or of words with `{{templates}}` in them; null when it is neither. A
    *  choice comes with the values it can take: those the expression names among the prop's options, and the design's. */
   prop(it: Item, d: PropDef, design: unknown): { code: string; samples?: string[] } | null {
-    const b = it.bind?.[d.key];
-    const expr = typeof b === "string" ? exprOfBind(b) : null;
+    /* a plain read of a variable is the variable's: the app's state, written back to by an input (lib/printBehaviour.ts) */
+    const expr = boundVar(it, d.key, this.doc.vars) ? null : bindExpr(it.bind?.[d.key]);
     if (expr !== null) {
       /* the web's components take words, a number, yes or no and a choice from an expression; the rest keep the design */
       const $ = this.use();

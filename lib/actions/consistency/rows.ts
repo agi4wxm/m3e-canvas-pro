@@ -13,9 +13,13 @@ const DONE = { id: "done", name: "Done" };
 const OTHER = { id: "other", name: "Other" };
 
 /** a tap that stays where it is and runs these effects */
-const stay = (...effects: Effect[]): Action => ({ to: "none", transition: "none", effects });
-const goTo = (to: string, ...effects: Effect[]): Action => ({ to, transition: "none", effects });
-const body = (to: string, ...effects: Effect[]): ActionBody => ({ to, transition: "none", effects });
+const stay = (...effects: Effect[]): Action => ({ to: "none", effects });
+/** a move with no animation: what every host plays at once */
+const INSTANT = { kind: "instant" as const };
+/* a move to a screen (not staying, going back or out to a page, which play no move of their own) is at once */
+const atOnce = (to: string) => (to === "none" || to === "back" || to === "link" ? {} : { motion: INSTANT });
+const goTo = (to: string, ...effects: Effect[]): Action => ({ to, ...atOnce(to), effects });
+const body = (to: string, ...effects: Effect[]): ActionBody => ({ to, ...atOnce(to), effects });
 const btn = (id: string, label: string, action: Action, more: Partial<PartSpec> = {}): PartSpec => ({ id, label, action, ...more });
 const text = (id: string, label: string, more: Partial<PartSpec> = {}): PartSpec => ({ id, kind: "text", label, ...more });
 /** a call; `ok` is its `then`, `fail` its `catch` */
@@ -102,7 +106,7 @@ export const ROWS: Row[] = [
     id: "cond-var-else",
     title: "变量条件不成立时走 else",
     ref: "条件",
-    design: { screens: [HOME], vars: [bool("flag", false), words("r", "")], parts: [btn("go", "Decide", { ...stay(setVar("r", "yes")), when: { var: "flag", op: "eq", value: true }, else: body("none", setVar("r", "no")) })] },
+    design: { screens: [HOME], vars: [bool("flag", false), words("r", "")], parts: [btn("go", "Decide", { ...stay(setVar("r", "yes")), when: { expr: "vars.flag == true" }, else: body("none", setVar("r", "no")) })] },
     steps: [{ tap: "Decide" }],
     expect: { vars: { r: "no" } },
   },

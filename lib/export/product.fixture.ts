@@ -126,13 +126,13 @@ export function boundShopDoc(lang: Lang = "en"): { doc: Doc; widths: Record<stri
     tx.run(ops.wireScreen, { screen: "detail", operationId: "getProduct" });
     tx.run(ops.wireScreen, { screen: "products", operationId: "listProducts", detail: "detail", paging: "scroll" });
     // eslint-disable-next-line unicorn/no-thenable -- an action body, never a function: nothing awaits it
-    tx.run(ops.makeForm, { screen: "create", operationId: "createProduct", then: { to: "products", transition: "slide", effects: [{ do: "snackbar", message: "Added {{response.name}}" }] } });
+    tx.run(ops.makeForm, { screen: "create", operationId: "createProduct", then: { to: "products", effects: [{ do: "snackbar", message: "Added {{response.name}}" }] } });
     // eslint-disable-next-line unicorn/no-thenable -- an action body, never a function: nothing awaits it
-    tx.run(ops.makeForm, { screen: "login", operationId: "login", then: { to: "products", transition: "fade" } });
+    tx.run(ops.makeForm, { screen: "login", operationId: "login", then: { to: "products", motion: { kind: "dissolve", easing: "emphasized", ms: 300 } } });
     /* the shop's logo under the sign-in form: a picture held as data, which each app writes as a file of its own */
     tx.run(ops.addPart, { slug: "image", id: "logo", screen: "login", at: { x: 174, y: 420 }, props: { src: SHOP_LOGO, alt: "Shop logo", width: 64, height: 64 } });
     tx.run(ops.addPart, { slug: "button", id: "add", screen: "products", at: { x: 16, y: 820 }, props: { label: "Add product" } });
-    tx.run(ops.setAction, { id: "add", action: { to: "create", transition: "slide" } });
+    tx.run(ops.setAction, { id: "add", action: { to: "create" } });
     /* the orders, which need a session; a picture of a product, uploaded with its progress (multipart/form-data) */
     tx.run(ops.addScreen, { id: "orders", name: "Orders" });
     tx.run(ops.setScreenAuth, { screen: "orders", auth: "required" });
@@ -141,13 +141,13 @@ export function boundShopDoc(lang: Lang = "en"): { doc: Doc; widths: Record<stri
        calls with its init alone */
     tx.run(ops.addDataSource, { screen: "orders", operationId: "getMe" });
     tx.run(ops.addPart, { slug: "button", id: "to-orders", screen: "products", at: { x: 220, y: 820 }, props: { label: "Orders", variant: "tonal" } });
-    tx.run(ops.setAction, { id: "to-orders", action: { to: "orders", transition: "slide" } });
+    tx.run(ops.setAction, { id: "to-orders", action: { to: "orders" } });
     tx.run(ops.addScreen, { id: "photo", name: "Photo" });
     tx.run(ops.setScreenParams, { screen: "photo", params: [{ name: "productId", type: "string", example: "00000000-0000-4000-8000-000000000000" }] });
     // eslint-disable-next-line unicorn/no-thenable -- an action body, never a function: nothing awaits it
-    tx.run(ops.makeForm, { screen: "photo", operationId: "uploadProductImage", params: { productId: "params.productId" }, then: { to: "back", transition: "slide", effects: [{ do: "snackbar", message: "Photo added" }] } });
+    tx.run(ops.makeForm, { screen: "photo", operationId: "uploadProductImage", params: { productId: "params.productId" }, then: { to: "back", effects: [{ do: "snackbar", message: "Photo added" }] } });
     tx.run(ops.addPart, { slug: "button", id: "add-photo", screen: "detail", at: { x: 16, y: 820 }, props: { label: "Add a photo", variant: "tonal" } });
-    tx.run(ops.setAction, { id: "add-photo", action: { to: "photo", transition: "slide", params: { productId: "params.productId" } } });
+    tx.run(ops.setAction, { id: "add-photo", action: { to: "photo", params: { productId: "params.productId" } } });
   });
   return { doc: savedDoc(store.get()), widths: {} };
 }

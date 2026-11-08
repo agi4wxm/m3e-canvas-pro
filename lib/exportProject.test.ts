@@ -328,30 +328,29 @@ describe("printed behaviour", () => {
   });
 
   it("goes to a screen by a plain name, on the button itself", () => {
-    const { code } = buildCode(single([buttonWith({ to: "cart", transition: "slide" })]), {});
+    const { code } = buildCode(single([buttonWith({ to: "cart" })]), {});
     /* the tap is data, which the runtime runs with the editor's own interpreter (lib/actions) */
     expect(code).toContain(`import { type Action, useActions } from "@/runtime"`);
     expect(code).toContain(`const act = useActions("home")`);
-    expect(code).toContain(`  go: { to: "yourCart", transition: "slide" },\n} satisfies Record<string, Action>`);
+    expect(code).toContain(`  go: { to: "yourCart" },\n} satisfies Record<string, Action>`);
     expect(code).toMatch(/<Button [^>]*onClick=\{\(\) => act\(homeScreenActions\.go, \{ part: "go" \}\)\}/);
     expect(code).toContain("src/runtime.tsx");
   });
 
-  it("says a transition only when it is not the usual one", () => {
-    const { code } = buildCode(single([buttonWith({ to: "cart", transition: "fade" })]), {});
-    expect(code).toContain(`go: { to: "yourCart", transition: "fade" }`);
-    expect(buildCode(single([buttonWith({ to: "back", transition: "slide" })]), {}).code).toContain(`go: { to: "back", transition: "slide" }`);
+  it("says a move only when it is not the default slide", () => {
+    const { code } = buildCode(single([buttonWith({ to: "cart", motion: { kind: "dissolve", easing: "emphasized", ms: 300 } })]), {});
+    expect(code).toContain(`go: { to: "yourCart", motion: { kind: "dissolve", easing: "emphasized", ms: 300 } }`);
+    expect(buildCode(single([buttonWith({ to: "cart" })]), {}).code).toContain(`go: { to: "yourCart" }`);
+    expect(buildCode(single([buttonWith({ to: "back" })]), {}).code).toContain(`go: { to: "back" }`);
     /* only a web page is ever opened: the address is read as the interpreter reads it */
-    expect(buildCode(single([buttonWith({ to: "link", transition: "none", url: "example.com" })]), {}).code).toContain(`go: { to: "link", transition: "none", url: "https://example.com/" }`);
-    expect(buildCode(single([buttonWith({ to: "link", transition: "none", url: "javascript:alert(1)" })]), {}).code).not.toContain("javascript");
+    expect(buildCode(single([buttonWith({ to: "link", url: "example.com" })]), {}).code).toContain(`go: { to: "link", url: "https://example.com/" }`);
+    expect(buildCode(single([buttonWith({ to: "link", url: "javascript:alert(1)" })]), {}).code).not.toContain("javascript");
   });
 
   it("runs effects in order, then goes", () => {
     const vars = [{ id: "c", name: "Count", type: "number" as const, value: 0 }, { id: "f", name: "Flag", type: "bool" as const, value: false }];
     const action: Item["action"] = {
-      to: "cart",
-      transition: "slide",
-      effects: [
+      to: "cart", effects: [
         { do: "addVar", var: "c", by: 2 },
         { do: "toggleVar", var: "f" },
         { do: "setVar", var: "c", value: "5" },
@@ -360,29 +359,30 @@ describe("printed behaviour", () => {
     };
     const { code } = buildCode(single([buttonWith(action)], { vars }), {});
     /* in the document's order, each in the app's names; the interpreter runs them in that order, then goes */
-    expect(code).toContain(`go: { to: "yourCart", transition: "slide", effects: [{ do: "addVar", var: "count", by: 2 }, { do: "toggleVar", var: "flag" }, { do: "setVar", var: "count", value: "5" }, { do: "snackbar", message: "Done" }] },`);
+    expect(code).toContain(`go: { to: "yourCart", effects: [{ do: "addVar", var: "count", by: 2 }, { do: "toggleVar", var: "flag" }, { do: "setVar", var: "count", value: "5" }, { do: "snackbar", message: "Done" }] },`);
     expect(code).not.toContain("= useApp()");
   });
 
   it("honours when and else", () => {
     const vars = [{ id: "c", name: "Count", type: "number" as const, value: 0 }];
-    const action: Item["action"] = { to: "cart", transition: "slide", when: { var: "c", op: "neq", value: "3" }, else: { to: "none", transition: "none", effects: [{ do: "snackbar", message: "No" }] } };
+    const action: Item["action"] = { to: "cart", when: { expr: "vars.Count != 3" }, else: { to: "none", effects: [{ do: "snackbar", message: "No" }] } };
     const { code } = buildCode(single([buttonWith(action)], { vars }), {});
-    expect(code).toContain(`go: { to: "yourCart", transition: "slide", when: { var: "count", op: "neq", value: "3" }, else: { to: "none", transition: "none", effects: [{ do: "snackbar", message: "No" }] } },`);
-    /* a variable that is gone never holds */
-    const gone: Item["action"] = { to: "cart", transition: "slide", when: { var: "nope", op: "eq", value: "abc" } };
+    /* the interpreter reads the expression over the app's variables, by the design's names */
+    expect(code).toContain(`go: { to: "yourCart", when: { expr: "vars.Count != 3" }, else: { to: "none", effects: [{ do: "snackbar", message: "No" }] } },`);
+    /* a variable that is gone never held: version 4 wrote that as false */
+    const gone: Item["action"] = { to: "cart", when: { expr: "false" } };
     expect(buildCode(single([buttonWith(gone)], { vars }), {}).code).toContain(`when: { expr: "false" }`);
   });
 
   it("does nothing for a reference that is gone, as the preview does", () => {
-    const action: Item["action"] = { to: "nowhere", transition: "slide", effects: [{ do: "show", part: "gone" }, { do: "setVar", var: "gone", value: 1 }] };
+    const action: Item["action"] = { to: "nowhere", effects: [{ do: "show", part: "gone" }, { do: "setVar", var: "gone", value: 1 }] };
     const { code } = buildCode(single([buttonWith(action)]), {});
     expect(code).not.toContain("onClick");
     expect(code).not.toContain("useApp");
   });
 
   it("delegates a part's slots from around it, keeping the marks it tells them apart by", () => {
-    const nav: Item = { ...makeItem("navigation-bar"), id: "n", actions: { "tab:1": { to: "cart", transition: "slide" } } };
+    const nav: Item = { ...makeItem("navigation-bar"), id: "n", actions: { "tab:1": { to: "cart" } } };
     const { code } = buildCode(single([nav]), {});
     expect(code).toContain(`import { Pressable, type Action, useActions, useApp } from "@/runtime"`);
     expect(code).toContain(`"tab:1": () => { leaveTab("navigationBar", 1, "yourCart"); act(homeScreenActions.navigationBarTab1, { part: "navigationBar" }) }`);
@@ -391,16 +391,16 @@ describe("printed behaviour", () => {
   });
 
   it("sends each half of a split button its own way; the arrow of one with a menu only opens it", () => {
-    const withMenu: Item = { ...makeItem("split-button"), id: "s", actions: { main: { to: "cart", transition: "slide" } } };
+    const withMenu: Item = { ...makeItem("split-button"), id: "s", actions: { main: { to: "cart" } } };
     const code = buildCode(single([withMenu]), {}).code;
     expect(code).toMatch(/main: \(\) => act\(homeScreenActions\.splitButtonMain, \{ part: "splitButton" \}\)/);
-    expect(code).toContain(`splitButtonMain: { to: "yourCart", transition: "slide" },`);
+    expect(code).toContain(`splitButtonMain: { to: "yourCart" },`);
     expect(code).toContain(`data-tap-lead="main"`);
     expect(code).toContain(`data-tap-trail="self"`);
-    const noMenu: Item = { ...makeItem("split-button"), id: "s", props: { menu: false }, actions: { main: { to: "cart", transition: "slide" }, more: { to: "back", transition: "slide" } } };
+    const noMenu: Item = { ...makeItem("split-button"), id: "s", props: { menu: false }, actions: { main: { to: "cart" }, more: { to: "back" } } };
     const both = buildCode(single([noMenu]), {}).code;
     expect(both).toMatch(/more: \(\) => act\(homeScreenActions\.splitButtonMore, \{ part: "splitButton" \}\)/);
-    expect(both).toContain(`splitButtonMore: { to: "back", transition: "slide" },`);
+    expect(both).toContain(`splitButtonMore: { to: "back" },`);
     expect(both).toContain(`data-tap-trail="more"`);
     /* with nothing to tell apart, the marks stay out of the code */
     expect(buildCode(single([{ ...makeItem("split-button"), id: "s" }]), {}).code).not.toContain("data-tap");
@@ -422,7 +422,7 @@ describe("printed behaviour", () => {
 
   it("keeps a modal rail modal while it is shut, and lets its scrim shut it with no menu button", () => {
     const rail: Item = { ...makeItem("navigation-rail"), id: "r", props: { modal: true, menu: false, expanded: true } };
-    const live = buildCode(single([{ ...rail, actions: { "tab:0": { to: "cart", transition: "slide" } } }]), {}).code;
+    const live = buildCode(single([{ ...rail, actions: { "tab:0": { to: "cart" } } }]), {}).code;
     expect(live).toContain(`rail: () => setProp(`);
     expect(live).toContain(" modal");
   });
@@ -431,8 +431,8 @@ describe("printed behaviour", () => {
     const items = [{ label: "A", icon: "home" }, { label: "B", icon: "star" }];
     const doc = single([]);
     doc.groups = [
-      { id: "a", x: 0, y: 700, axis: "x", items: [{ ...makeItem("navigation-bar"), id: "n1", props: { items, selected: 0 }, actions: { "tab:1": { to: "cart", transition: "none" } } }] },
-      { id: "b", x: 600, y: 700, axis: "x", items: [{ ...makeItem("navigation-bar"), id: "n2", props: { items, selected: 1 }, actions: { "tab:0": { to: "home", transition: "none" } } }] },
+      { id: "a", x: 0, y: 700, axis: "x", items: [{ ...makeItem("navigation-bar"), id: "n1", props: { items, selected: 0 }, actions: { "tab:1": { to: "cart", motion: { kind: "instant" } } } }] },
+      { id: "b", x: 600, y: 700, axis: "x", items: [{ ...makeItem("navigation-bar"), id: "n2", props: { items, selected: 1 }, actions: { "tab:0": { to: "home", motion: { kind: "instant" } } } }] },
     ];
     const { code } = buildCode(doc, {});
     expect(code).toContain(`tab("navigationBar", 0)`);
@@ -442,8 +442,8 @@ describe("printed behaviour", () => {
 
   it("turns hidden and showWhen into conditional rendering, on its own line", () => {
     const vars = [{ id: "on", name: "On", type: "bool" as const, value: false }];
-    const doc = single([{ ...makeItem("text"), id: "t", props: { text: "Hi" } }, buttonWith({ to: "none", transition: "none", effects: [{ do: "toggle", part: "t" }] })], { vars });
-    doc.groups[0] = { ...doc.groups[0], name: "Promo banner", hidden: true, showWhen: { var: "on", op: "eq", value: true } };
+    const doc = single([{ ...makeItem("text"), id: "t", props: { text: "Hi" } }, buttonWith({ to: "none", effects: [{ do: "toggle", part: "t" }] })], { vars });
+    doc.groups[0] = { ...doc.groups[0], name: "Promo banner", hidden: true, showWhen: { expr: "vars.On == true" } };
     const { code } = buildCode(doc, {});
     expect(code).toMatch(/\n\s+\{visible\("promoBanner"\) && vars\.on && \(\n/);
     expect(code).toContain(`{ do: "toggle", part: "promoBanner" }`);
@@ -466,11 +466,11 @@ describe("printed behaviour", () => {
     const { code } = buildCode(
       single(
         [
-          { ...makeItem("text"), id: "t", props: { text: "x" }, bind: { text: "n" } },
-          { ...makeItem("text-field"), id: "f", props: { label: "Name" }, bind: { value: "n" } },
-          { ...makeItem("switch"), id: "s", props: { label: "" }, bind: { checked: "on" } },
-          { ...makeItem("slider"), id: "r", bind: { value: "c" } },
-          { ...makeItem("button"), id: "b", props: { label: "Hi", icon: "" }, bind: { label: "n" } },
+          { ...makeItem("text"), id: "t", props: { text: "x" }, bind: { text: "=vars.Name" } },
+          { ...makeItem("text-field"), id: "f", props: { label: "Name" }, bind: { value: "=vars.Name" } },
+          { ...makeItem("switch"), id: "s", props: { label: "" }, bind: { checked: '=vars["on"]' } },
+          { ...makeItem("slider"), id: "r", bind: { value: "=vars.Count" } },
+          { ...makeItem("button"), id: "b", props: { label: "Hi", icon: "" }, bind: { label: "=vars.Name" } },
         ],
         { vars },
       ),
@@ -486,14 +486,14 @@ describe("printed behaviour", () => {
   });
 
   it("asks an input the document asks about through a variable of its own", () => {
-    const action: Item["action"] = { to: "cart", transition: "slide", when: { filled: "f" } };
+    const action: Item["action"] = { to: "cart", when: { filled: "f" } };
     const { code } = buildCode(single([{ ...makeItem("input"), id: "f", props: { placeholder: "Email" } }, buttonWith(action)]), {});
     expect(code).toContain(`when: { filled: "email" }`);
     expect(code).toContain("value={vars.email}");
   });
 
   it("prints a value a tap changes as a read of the runtime", () => {
-    const action: Item["action"] = { to: "none", transition: "none", effects: [{ do: "setProp", part: "t", prop: "text", value: "Later" }, { do: "setProp", part: "bb", prop: "variant", value: "tonal" }] };
+    const action: Item["action"] = { to: "none", effects: [{ do: "setProp", part: "t", prop: "text", value: "Later" }, { do: "setProp", part: "bb", prop: "variant", value: "tonal" }] };
     const doc = single([{ ...makeItem("text"), id: "t", props: { text: "Soon" } }, { ...makeItem("button"), id: "bb", props: { label: "B", icon: "", variant: "filled" } }, buttonWith(action)]);
     const { code } = buildCode(doc, {});
     expect(code).toContain(`{prop("soon", "text", "Soon")}`);
@@ -502,8 +502,8 @@ describe("printed behaviour", () => {
   });
 
   it("holds a dialog's open state in the runtime and takes its own button away", () => {
-    const action: Item["action"] = { to: "none", transition: "none", effects: [{ do: "open", part: "d" }] };
-    const dialog: Item = { ...makeItem("dialog"), id: "d", props: { title: "Sure?", dismiss: "No", confirm: "Yes" }, actions: { confirm: { to: "cart", transition: "slide" } } };
+    const action: Item["action"] = { to: "none", effects: [{ do: "open", part: "d" }] };
+    const dialog: Item = { ...makeItem("dialog"), id: "d", props: { title: "Sure?", dismiss: "No", confirm: "Yes" }, actions: { confirm: { to: "cart" } } };
     const { code } = buildCode(single([dialog, buttonWith(action)]), {});
     expect(code).toContain(`open={isOpen("sure")}`);
     expect(code).toContain(`onOpenChange={(next) => (next ? open("sure") : close("sure"))}`);
