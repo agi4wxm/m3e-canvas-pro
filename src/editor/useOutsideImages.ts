@@ -5,7 +5,7 @@
 
 import { useMemo, useState, useSyncExternalStore } from "react";
 import type { DocStore } from "@/lib/core";
-import { useStore } from "@/lib/core/react";
+import { useStoreSelector } from "@/lib/core/react";
 import { outsideInDoc } from "@/lib/outside";
 import { outsideBlocked, setOutsideBlocked, subscribeOutside } from "@/lib/outsidePolicy";
 import { ProjectsPersist } from "@/lib/projects/persist";
@@ -29,8 +29,9 @@ export const useOutsideBlocked = () => useSyncExternalStore(subscribeOutside, ou
 /** What the banner shows: how many outside addresses are held back, and the author's two answers. */
 export function useOutsideImages(store: DocStore, persist: PersistAdapter | null | undefined) {
   const blocked = useOutsideBlocked();
-  const { state } = useStore(store);
-  const { groups, components, frames } = state.doc;
+  const groups = useStoreSelector(store, (v) => v.state.doc.groups);
+  const components = useStoreSelector(store, (v) => v.state.doc.components);
+  const frames = useStoreSelector(store, (v) => v.state.doc.frames);
   const count = useMemo(() => (blocked ? outsideInDoc({ groups, components, frames }).length : 0), [blocked, groups, components, frames]);
   const [later, setLater] = useState(false);
   return {

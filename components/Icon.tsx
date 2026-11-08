@@ -1,4 +1,4 @@
-import { useEffect, useSyncExternalStore } from "react";
+import { memo, useEffect, useSyncExternalStore } from "react";
 import { Icon as Iconify } from "@iconify/react/offline";
 import { Icon as PartIcon } from "@/components/m3e/icon";
 import { ensureIcons, useIconVersion } from "@/parts/icons";
@@ -53,7 +53,8 @@ function BundledGlyph({ name, size, color, fill }: { name: string; size: number;
   );
 }
 
-export function Icon({
+/* the panels draw a few hundred of these and render with the editor: one whose props are the same is not drawn again */
+export const Icon = memo(function Icon({
   name,
   size = 24,
   color,
@@ -85,4 +86,4 @@ export function Icon({
       {name}
     </span>
   );
-}
+});
