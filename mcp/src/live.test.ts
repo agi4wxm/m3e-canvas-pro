@@ -205,6 +205,44 @@ describe("the live bridge", () => {
     await until(() => t.view().conns[0]?.phase === "paired");
   });
 
+  it("gives a new pairing code once the last runs out, saying how long it holds where it is shown", async () => {
+    const { live, port, call } = await server({ pairCodeMs: 400 });
+    const status = async () => ((await call("connection_status")).structuredContent as { result: { pairingCode: string; pairingCodeExpiresInSeconds: number; howToConnect: string } }).result;
+    const first = await status();
+    expect(first.pairingCode).toBe(live.code);
+    expect(first.pairingCodeExpiresInSeconds).toBeGreaterThan(0);
+    expect(first.pairingCodeExpiresInSeconds).toBeLessThanOrEqual(1);
+    expect(first.howToConnect).toMatch(/holds for another \d+ s/);
+    await new Promise((r) => setTimeout(r, 500));
+    const next = await status();
+    expect(next.pairingCode).not.toBe(first.pairingCode);
+    /* the old code is a wrong one now; the new one pairs */
+    const t = tab(port);
+    await until(() => t.view().asks.some((a) => a.kind === "pair"));
+    t.bridge.approve(port, "edit", { code: first.pairingCode });
+    await until(() => t.view().asks.some((a) => a.kind === "pair" && a.left === PAIRING_TRIES - 1));
+    t.bridge.approve(port, "edit", { code: live.code });
+    await until(() => t.view().conns[0]?.phase === "paired");
+  });
+
+  it("spends a code on the tab it paired: another tab needs the new one", async () => {
+    const { live, port } = await server();
+    const used = live.code;
+    const first = tab(port);
+    await until(() => first.view().asks.some((a) => a.kind === "pair"));
+    first.bridge.approve(port, "edit", { code: used });
+    await until(() => first.view().conns[0]?.phase === "paired");
+    expect(live.code).not.toBe(used);
+    first.bridge.stop();
+    /* a tab of its own (nothing to resume with) */
+    const second = tab(port);
+    await until(() => second.view().asks.some((a) => a.kind === "pair"));
+    second.bridge.approve(port, "edit", { code: used });
+    await until(() => second.view().asks.some((a) => a.kind === "pair" && a.left === PAIRING_TRIES - 1));
+    second.bridge.approve(port, "edit", { code: live.code });
+    await until(() => second.view().conns[0]?.phase === "paired");
+  });
+
   it("refuses the pairing when the author says no", async () => {
     const { port, call } = await server();
     const t = tab(port);

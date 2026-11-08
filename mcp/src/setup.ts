@@ -37,6 +37,8 @@ export type SetupOptions = {
   screenshots?: boolean;
   confirmMs?: number;
   pairWaitMs?: number;
+  /** how long a pairing code holds (live.ts PAIRING_CODE_MS; tests make it short) */
+  pairCodeMs?: number;
   /** the environment generation reads OPENAI_API_KEY from */
   env?: Record<string, string | undefined>;
   /** what draws, instead of the environment's key (tests) */
@@ -89,6 +91,7 @@ export async function setup(o: SetupOptions): Promise<{ backend: Backend; regist
       drawingTools: GENERATE_TOOLS.map((t) => t.name),
       confirmMs: o.confirmMs ?? CONFIRM_MS,
       pairWaitMs: o.pairWaitMs,
+      codeMs: o.pairCodeMs,
       version: o.version,
       log: o.log,
       ...(o.trustDir === false ? {} : { trust: TrustStore.at(o.trustDir ?? configDir(o.env ?? process.env), (m) => o.log.warn(m)) }),
