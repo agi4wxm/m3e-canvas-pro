@@ -449,6 +449,22 @@ describe("two tabs and closing", () => {
     expect(again.recovered).toBeNull();
   });
 
+  it("notes a version with a large picture by reference, leaving localStorage room for the rest", async () => {
+    await createProject({ id: "p", name: "P", doc: doc("P"), now: 1 });
+    const items: Record<string, string> = {};
+    const persist = new ProjectsPersist(resolveOpening(env("?project=p", items)), { storage: storage(items) });
+    await persist.read();
+    refuse = () => new DOMException("gone", "UnknownError");
+    await persist.write(withPicture(doc("Big"), `data:image/png;base64,${"A".repeat(2_500_000)}`))!.catch(() => {});
+    refuse = null;
+    const noted = items[unsavedKey("p")];
+    expect(noted.length).toBeLessThan(10_000);
+    expect(noted).toContain("m3e-asset:");
+    expect(JSON.parse(noted).doc.title).toBe("Big");
+    await persist.flush();
+    expect(items[unsavedKey("p")]).toBeUndefined();
+  });
+
   it("forgets the note once the write it was for lands, and offers nothing when what is kept is that version", async () => {
     await createProject({ id: "p", name: "P", doc: doc("P"), now: 1 });
     const items: Record<string, string> = {};

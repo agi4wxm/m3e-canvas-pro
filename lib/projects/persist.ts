@@ -146,6 +146,8 @@ export async function resolveOpening(env: OpeningEnv): Promise<Opening> {
 const TELL_EDITS_MS = 2000;
 /** how long after a failed write it is tried again, one step longer each time it fails again */
 const RETRY_MS = [2000, 5000, 15_000, 30_000, 60_000];
+/** the most a note of a version not kept takes of localStorage (about 5 million characters per site) */
+const NOTE_MAX_CHARS = 2_000_000;
 
 /** where the browser's copy of the project stands */
 export type SaveStatus = "saved" | "pending" | "saving" | "error" | "conflict";
@@ -427,16 +429,19 @@ export class ProjectsPersist implements PersistAdapter {
     }, wait);
   }
 
-  /** Notes the latest version not kept yet in localStorage, synchronously: with its pictures if there is room, else
-   *  with them by reference (those already kept come back). Best effort: a full store notes nothing. */
+  /** Notes the latest version not kept yet in localStorage, synchronously: with its pictures if they fit, else with
+   *  them by reference (those already kept come back). Never more than `NOTE_MAX_CHARS`, so the rest of what the
+   *  editor keeps there still has room. Best effort: a full store notes nothing. */
   private note() {
     const id = this.id;
     const doc = this.lastDoc;
     if (!this.storage || !id || !doc) return;
     const at = Date.now();
-    for (const text of [() => JSON.stringify(doc), () => storedForm(doc).json]) {
+    for (const form of [() => JSON.stringify(doc), () => storedForm(doc).json]) {
       try {
-        this.storage.setItem(unsavedKey(id), `{"at":${at},"doc":${text()}}`);
+        const text = form();
+        if (text.length > NOTE_MAX_CHARS) continue;
+        this.storage.setItem(unsavedKey(id), `{"at":${at},"doc":${text}}`);
         this.noted = this.handed;
         return;
       } catch {}
