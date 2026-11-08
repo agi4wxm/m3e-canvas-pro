@@ -670,6 +670,28 @@ export function Select({
   );
 }
 
+/** The words of a field that stands for a value read out of them (a table's rows, say), kept as typed: writing them
+ *  out again from the value at each key would swallow a line just started, a space after a comma or a quote still
+ *  open. They give way only when the value changes from elsewhere, an undo or the AI. Returns the words and what to
+ *  call with new ones, which hands back the value they read as. */
+export function useDraft<V>(value: V, write: (v: V) => string, read: (text: string) => V): [string, (text: string) => V] {
+  const [draft, setDraft] = useState(() => write(value));
+  const now = JSON.stringify(value);
+  const drafted = JSON.stringify(read(draft));
+  useEffect(() => {
+    if (drafted !== now) setDraft(write(value));
+    // only a change of the value itself can make the draft stale
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [now]);
+  return [
+    draft,
+    (text) => {
+      setDraft(text);
+      return read(text);
+    },
+  ];
+}
+
 /** how wide the band is that a field wears while a model writes into it */
 const RING = 3;
 

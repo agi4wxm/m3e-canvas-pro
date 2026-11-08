@@ -16,7 +16,7 @@ import { FlowControl } from "./FlowPanel";
 import { PartDesign } from "./DesignPanel";
 import { FLOW_KEYS } from "@/parts/flow";
 import { type Flow } from "@/lib/flow";
-import { Field, ImageRow, NamedSizes, PanelShell, Segmented, Select, Slider, Toggle } from "./ui";
+import { Field, ImageRow, NamedSizes, PanelShell, Segmented, Select, Slider, Toggle, useDraft } from "./ui";
 
 /* The panel of a part that is a real shadcn M3E component. It is built from the part's own prop
  * definitions: text, choices, switches, numbers, icons and lists, each drawn with the controls
@@ -28,6 +28,13 @@ const choices = (options: Choice[], lang: Lang) => options.map((o) => ({ key: ch
 const toRows = (list: ListItem[]): NavTab[] => list.map((x) => ({ icon: x.icon ?? "", label: x.label, variant: x.variant, width: x.width, image: x.image }));
 const fromRows = (rows: NavTab[], icons: boolean): ListItem[] =>
   rows.map((x) => ({ label: x.label, ...(icons && x.icon ? { icon: x.icon } : {}), ...(x.variant ? { variant: x.variant } : {}), ...(x.width ? { width: x.width } : {}), ...(x.image ? { image: x.image } : {}) }));
+
+/** a table prop as the text it is edited in (lib/collections.ts): the words stay as typed while the rows follow them,
+ *  so a line just started, a space after a comma and a quoted "$1,350.00" all survive the typing */
+function TableField({ value, onChange, label, p }: { value: TableData; onChange: (v: TableData) => void; label: string; p: Palette }) {
+  const [draft, type] = useDraft(value, tableText, tableOf);
+  return <Field value={draft} onChange={(text) => onChange(type(text))} placeholder={label} label={label} p={p} multiline rows={6} height={44} />;
+}
 
 function PropRow({ def, value, onChange, onRows, item, p, frameW, lang }: { def: PropDef; value: unknown; onChange: (v: unknown) => void; onRows: (rows: ListItem[], order: number[]) => void; item: Item; p: Palette; frameW: number; lang: Lang }) {
   const labelText = labelOf(def, lang);
@@ -97,7 +104,7 @@ function PropRow({ def, value, onChange, onRows, item, p, frameW, lang }: { def:
       return (
         <div>
           {label}
-          <Field value={tableText(value as TableData)} onChange={(text) => onChange(tableOf(text))} placeholder={labelText} label={labelText} p={p} multiline rows={6} height={44} />
+          <TableField value={value as TableData} onChange={onChange} label={labelText} p={p} />
         </div>
       );
     case "list": {
