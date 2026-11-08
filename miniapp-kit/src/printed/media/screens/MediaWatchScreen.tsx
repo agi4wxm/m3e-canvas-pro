@@ -7,30 +7,45 @@ export function MediaWatchScreen() {
     <Screen screen="mediaWatch" width={412} height={892}>
       <At y={16} span>
         <ExpressiveCarousel
+          variant="multi-browse"
           slides={[{ label: "Sunrise" }, { label: "Forest" }, { label: "Ocean" }, { label: "Desert" }]}
+          itemWidth={186}
+          gap={8}
           height={140}
           width={412}
           testID="expressiveCarousel"
         />
       </At>
       <At x={16} y={170}>
-        <Video title="Trailer" time="00:30" testID="video" />
+        <Video src="" title="Trailer" time="00:30" width={380} testID="video" />
       </At>
       <At x={16} y={400}>
         <MapStandIn
           label="Stores"
+          center=""
+          zoom={14}
           markers={{ columns: ["Id", "Title", "Lat", "Lng"], rows: [["a", "Harbour", "31.2", "121.4"], ["b", "Old town", "31.25", "121.5"]] }}
           selected="a"
           route
+          width={380}
           height={180}
           testID="mapPlaceholder"
         />
       </At>
       <At x={16} y={600}>
-        <PhotoGrid count={6} width={180} testID="photoGrid" />
+        <PhotoGrid count={6} columns={3} width={180} testID="photoGrid" />
       </At>
       <At x={212} y={600}>
-        <QrCode text="https://m3e.dev" size={120} testID="qRCode" />
+        <QrCode
+          text="https://m3e.dev"
+          level="M"
+          caption="Scan to open"
+          copy="Copy link"
+          copied="Copied"
+          tooLong="Too much text for a QR code"
+          size={120}
+          testID="qRCode"
+        />
       </At>
       <At x={16} y={800}>
         <Marquee text="Doors open at six" seconds={8} width={380} testID="marquee" />

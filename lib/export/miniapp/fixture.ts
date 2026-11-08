@@ -1,7 +1,8 @@
 import { proofDoc } from "../../exportProject.fixture";
 import { withIds, type Doc } from "../../tokens";
 import { str } from "../../../parts/print";
-import { kitsDoc, mediaDoc, splitsDoc } from "../rn/fixture";
+import { kitsDoc, mediaDoc, playDoc, splitsDoc } from "../rn/fixture";
+import { layoutsDoc } from "../rn/layoutsFixture";
 import { callsModule, iconsModule, pageConfig, pageModule, printMiniApp, screensIndex, specModule, themeModule } from "./app";
 
 /* Documents printed into the kit's own app (miniapp-kit/src/printed), so that what the printer writes is type-checked,
@@ -70,13 +71,22 @@ export async function printedFixture(): Promise<Record<string, string>> {
   const a = await printed("proof", proof.doc, proof.widths);
   const b = await printed("kits", kits.doc, kits.widths);
   const c = await printed("splits", splits.doc, splits.widths);
+  /* D4: the game parts, actions and menus */
+  const play = withIds(next, playDoc);
+  const d = await printed("play", play.doc, play.widths);
+  /* D5: layouts, ways of getting around, what floats */
+  const layouts = withIds(next, layoutsDoc);
+  const e = await printed("layouts", layouts.doc, layouts.widths);
+  /* D1: the media parts, the capability views' stand-ins, what talks and keeps time */
   const media = withIds(next, mediaDoc);
-  const d = await printed("media", media.doc, media.widths);
+  const f = await printed("media", media.doc, media.widths);
   return {
     ...a.files,
     ...b.files,
     ...c.files,
     ...d.files,
-    "miniapp-kit/src/printed/pages.ts": `${HEAD}\n\n/** the pages of the printed documents, for the app's config */\nexport const PRINTED_PAGES: string[] = ${JSON.stringify([...a.pages, ...b.pages, ...c.pages, ...d.pages], null, 2)};\n`,
+    ...e.files,
+    ...f.files,
+    "miniapp-kit/src/printed/pages.ts": `${HEAD}\n\n/** the pages of the printed documents, for the app's config */\nexport const PRINTED_PAGES: string[] = ${JSON.stringify([...a.pages, ...b.pages, ...c.pages, ...d.pages, ...e.pages, ...f.pages], null, 2)};\n`,
   };
 }

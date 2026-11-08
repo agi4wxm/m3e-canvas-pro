@@ -38,6 +38,13 @@ export const MINIAPP_KIT_FILES = [
   "theme.generated.ts",
   "theme.ts",
   "value.ts",
+  /* D4: the game parts, and a group of buttons, actions, menus and search */
+  "composites/actions.tsx",
+  "composites/games.tsx",
+  /* D5: layouts, ways of getting around, what floats */
+  "composites/floating.tsx",
+  "composites/layouts.tsx",
+  "composites/navs.tsx",
   /* D1: media, capability views' stand-ins, what talks and keeps time */
   "composites/live.tsx",
   "composites/media.tsx",

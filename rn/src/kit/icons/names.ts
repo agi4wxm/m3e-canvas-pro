@@ -40,6 +40,14 @@ export const KIT_ICONS = [
   "unfold_more",
   "upload_file",
   "warning",
+  /* D4: a money tree, a locked level, the sign-in and pay buttons */
+  "park",
+  "lock",
+  "login",
+  "payments",
+  /* D5: the rail's compose button, the mini-program header's capsule */
+  "edit",
+  "radio_button_checked",
   /* D1: what the media parts, the capability views' stand-ins and the parts that talk and keep time draw */
   "animation",
   "arrow_downward",
@@ -47,7 +55,6 @@ export const KIT_ICONS = [
   "fullscreen",
   "language",
   "location_on",
-  "lock",
   "mic_off",
   "no_photography",
   "pause",

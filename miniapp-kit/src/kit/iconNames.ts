@@ -27,6 +27,17 @@ export const KIT_ICONS = [
   "star",
   "unfold_more",
   "upload_file",
+  /* D4: a money tree, a split button's arrow, the sign-in and pay buttons */
+  "park",
+  "keyboard_arrow_down",
+  "login",
+  "payments",
+  /* D5: a shortcut with no icon, an accordion's and a menu's chevrons, the rail's menu and compose buttons */
+  "apps",
+  "edit",
+  "expand_less",
+  "expand_more",
+  "menu",
   /* D1: what the media parts, the capability views' stand-ins and the parts that talk and keep time draw */
   "add",
   "animation",

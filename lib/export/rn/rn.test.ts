@@ -108,13 +108,16 @@ describe("the screens", () => {
     expect(screens[0].source).toContain('<Pin edge="bottom">');
   });
 
-  it("prints a composite without a component as its atoms, and one with neither as a placeholder, and says so", () => {
+  it("prints a composite without a component as its atoms, one with a component as it, one it does not know as a placeholder, and says so", () => {
     const stat = item("stat-card", {});
-    const wheel = item("prize-wheel", {});
-    const { screens, warnings } = printRnScreens(docOf([{ id: "a", x: 0, y: 0, axis: "x", items: [stat] }, { id: "b", x: 0, y: 200, axis: "x", items: [wheel] }]), {});
+    /* a game part is the kit's own since the mobile parts were made native (D4): its taps go on its places */
+    const wheel = item("prize-wheel", { result: 2 }, { actions: { action: { to: "f1", transition: "slide" } } });
+    const odd = item("no-such-part", {});
+    const { screens, warnings } = printRnScreens(docOf([{ id: "a", x: 0, y: 0, axis: "x", items: [stat] }, { id: "b", x: 0, y: 200, axis: "x", items: [wheel] }, { id: "c", x: 0, y: 500, axis: "x", items: [odd] }]), {});
     expect(screens[0].source).toContain("<Box");
-    expect(screens[0].source).toContain('<Placeholder part="prize-wheel" name="Prize wheel"');
-    expect(warnings.map((w) => w.kind).sort()).toEqual(["atoms", "placeholder"]);
+    expect(screens[0].source).toMatch(/<PrizeWheel result=\{2\} taps=\{\{ "action": \(\) => nav\.go\("\w+"\) \}\} \/>/);
+    expect(screens[0].source).toContain('<Placeholder part="no-such-part"');
+    expect(warnings.map((w) => w.kind).sort()).toEqual(["atoms", "unknown"]);
   });
 
   it("prints the retired sign-in form as the atoms it splits into, each button with its slot's action", () => {

@@ -8,27 +8,70 @@ export function MediaTalkScreen() {
       <At x={0} y={16}>
         <StoryRow
           items={[{ label: "Your story" }, { label: "Ada" }, { label: "Grace", variant: "seen" }]}
+          add
           width={412}
           testID="stories"
         />
       </At>
       <At x={16} y={120}>
-        <Marker width={380} testID="marker" />
+        <Marker text="Today" variant="separator" icon="" width={380} testID="marker" />
       </At>
       <At x={16} y={150}>
-        <MessageScroller width={380} height={200} testID="messageScroller" />
+        <MessageScroller
+          messages={[{ label: "Hi! Ask me anything." }, { label: "What is a spatial spring?" }, { label: "One that moves things, and may overshoot a little." }, { label: "Thanks!" }]}
+          button
+          width={380}
+          height={200}
+          testID="messageScroller"
+        />
       </At>
       <At x={16} y={360}>
-        <VoiceMessage seconds={9} mine testID="voiceMessage" />
+        <VoiceMessage
+          seconds={9}
+          mine
+          transcript="See you at the station at six."
+          transcribe="Show text"
+          width={240}
+          testID="voiceMessage"
+        />
       </At>
       <At x={16} y={440}>
-        <Questionnaire question={"Which do you use?"} width={380} testID="questionnaire" />
+        <Questionnaire
+          question={"Which do you use?"}
+          description="Pick one."
+          choices={[{ label: "React" }, { label: "Svelte" }, { label: "Vue" }]}
+          multiple={false}
+          steps={2}
+          width={380}
+          testID="questionnaire"
+        />
       </At>
       <At x={16} y={640}>
-        <CallStandIn name="Ada" mic={false} height={240} width={240} testID="videoCall" />
+        <CallStandIn
+          name="Ada"
+          connected
+          status={"Calling…"}
+          mic={false}
+          camera
+          speaker
+          startedAt=""
+          image=""
+          icon="person"
+          height={240}
+          width={240}
+          testID="videoCall"
+        />
       </At>
       <At x={264} y={640}>
-        <CameraStandIn mode="scan" width={132} height={240} testID="cameraPlaceholder" />
+        <CameraStandIn
+          facing="back"
+          mode="scan"
+          state="live"
+          denied=""
+          width={132}
+          height={240}
+          testID="cameraPlaceholder"
+        />
       </At>
       {s.layer}
     </Screen>

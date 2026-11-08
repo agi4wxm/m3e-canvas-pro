@@ -34,7 +34,8 @@ import { str } from "../../../parts/print";
 import type { Node } from "../../../parts/templates/kit";
 import { expandDoc } from "../../expand";
 import { getLang } from "../../i18n";
-import { childLayoutOf, flowOf, outOfPane, sizingOf, type Flow } from "../../flow";
+import { childLayoutOf, flowOf, sizingOf, type Flow } from "../../flow";
+import { dockPanes, isLaidOutDock, offTabOf } from "../panes";
 import { PANE_SIDES, panesOfSplit, splitOf } from "../../split";
 import { cleanLook } from "../../look";
 import { kitLookOf, splitTaps } from "../../kits";
@@ -761,7 +762,8 @@ class ScreenPrinter {
     } else if (run.repeat?.data !== undefined) held = this.repeat(run, kids, inner, print);
     else {
       if (run.repeat) this.warn("binding", "a repeat over a collection is drawn once", run.items[0]?.id);
-      held = print(kids, inner);
+      /* a dock with an auto layout switches its tabs itself: what each tab holds, the kit showing the chosen one */
+      held = isLaidOutDock(run) ? dockPanes(run, kids).map(([pane, gs]) => (this.kit.add("DockPane"), el("DockPane", [["pane", expr(pane)]], print(gs, inner)))) : print(kids, inner);
     }
     return this.shown(run, at, boxed(this.part(run.items[0], inner, held, this.hugs(run, flow, parent, flowing))));
   }
@@ -1013,8 +1015,9 @@ function screensOf(source: Doc, widths: Record<string, number>, o: MiniPrintOpti
   });
   const warnings: MiniWarning[] = [];
   const icons = new Set<string>();
-  /* what a dock's other tabs hold is left out; a region's other states are its own to switch between */
-  const offTab = outOfPane(
+  /* what a dock's other tabs hold is left out, unless the dock lays it out and so switches its tabs itself (../panes.ts);
+     a region's other states are its own to switch between */
+  const offTab = offTabOf(
     doc.groups.map((g) => (g.states ? { ...g, states: undefined } : g)),
     widths,
   );

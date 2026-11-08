@@ -9,6 +9,13 @@ import { DatePicker, FileUpload, Menu, RadioGroup, SegmentedButton, Select, Text
 import { ActionSheet, AlertDialog, Dialog, Sheet } from "./composites/overlays";
 import { NATIVE, type NativeName, type NativeSlug } from "./coverage";
 import { SplitView } from "./split";
+/* D4: the game parts, and a group of buttons, actions, menus and search */
+import { BrandButton, ButtonGroup, CascadingMenu, Command, ContextMenu, FabMenu, FilterBar, SplitButton } from "./composites/actions";
+import { EggSmash, Gacha, GameBoard, GridDraw, Joystick, LevelMap, MoneyTree, PrizeWheel, SkillButton, SlotMachine } from "./composites/games";
+/* D5 */
+import { Accordion, AspectRatio, Collapsible, CustomComponent, Dock, GridView, ScrollArea, Stack, SupportingPane } from "./composites/layouts";
+import { FloatingNav, IconGrid, NavigationMenu, NavigationRail, Onboarding, Pagination, Sidebar, SlideGroup, TableOfContents } from "./composites/navs";
+import { Drawer, HoverCard, Popover, SideSheet, Tooltip } from "./composites/floating";
 /* D1: media, capability views' stand-ins, what talks and keeps time */
 import { CallStandIn, Marker, MessageScroller, NumberTicker, Questionnaire, ShimmerText, StoryRow, Timer, VoiceMessage } from "./composites/live";
 import { Animation, AudioPlayer, CameraStandIn, Carousel, ExpressiveCarousel, ImageCropper, ImageViewer, MapStandIn, Marquee, PhotoGrid, Playlist, QrCode, Scene, Video, WebPage } from "./composites/media";
@@ -72,6 +79,49 @@ export const BY_NAME = {
   Alert,
   RadioGroup,
   FileUpload,
+  /* D4: the game parts, and a group of buttons, actions, menus and search */
+  PrizeWheel,
+  GridDraw,
+  Gacha,
+  SlotMachine,
+  MoneyTree,
+  EggSmash,
+  Joystick,
+  SkillButton,
+  LevelMap,
+  GameBoard,
+  ButtonGroup,
+  SplitButton,
+  FabMenu,
+  BrandButton,
+  Command,
+  ContextMenu,
+  FilterBar,
+  CascadingMenu,
+  /* D5: layouts, ways of getting around, what floats */
+  Accordion,
+  Collapsible,
+  ScrollArea,
+  AspectRatio,
+  Stack,
+  GridView,
+  Dock,
+  SupportingPane,
+  CustomComponent,
+  NavigationRail,
+  Pagination,
+  NavigationMenu,
+  Sidebar,
+  FloatingNav,
+  TableOfContents,
+  SlideGroup,
+  IconGrid,
+  Onboarding,
+  Tooltip,
+  SideSheet,
+  Drawer,
+  Popover,
+  HoverCard,
   /* D1: media, capability views' stand-ins, what talks and keeps time */
   Carousel,
   ExpressiveCarousel,
