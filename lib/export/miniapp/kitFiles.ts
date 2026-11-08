@@ -48,6 +48,9 @@ export const MINIAPP_KIT_FILES = [
   "composites/floating.tsx",
   "composites/layouts.tsx",
   "composites/navs.tsx",
+  /* D2: data and charts, lists and desktop parts */
+  "composites/data.tsx",
+  "composites/desk.tsx",
 ] as const;
 
 export const MINIAPP_KIT_DIR = "miniapp-kit/src/kit";

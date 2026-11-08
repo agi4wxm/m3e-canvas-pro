@@ -52,4 +52,18 @@ export const KIT_ICONS = [
   "expand_less",
   "expand_more",
   "menu",
+  /* D2: what the data, list and desktop parts draw by themselves (sort arrows, a drag handle, a file's kind, a window's buttons, a copy button) */
+  "arrow_downward",
+  "arrow_forward",
+  "arrow_upward",
+  "audio_file",
+  "crop_square",
+  "delete",
+  "description",
+  "drag_indicator",
+  "folder",
+  "folder_zip",
+  "movie",
+  "picture_as_pdf",
+  "table_chart",
 ] as const;

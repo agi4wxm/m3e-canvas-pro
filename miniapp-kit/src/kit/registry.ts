@@ -19,6 +19,9 @@ import { EggSmash, Gacha, GameBoard, GridDraw, Joystick, LevelMap, MoneyTree, Pr
 import { Accordion, AspectRatio, Collapsible, CustomComponent, Dock, GridView, ScrollArea, Stack, SupportingPane } from "./composites/layouts";
 import { FloatingNav, IconGrid, NavigationMenu, NavigationRail, Onboarding, Pagination, Sidebar, SlideGroup, TableOfContents } from "./composites/navs";
 import { Drawer, HoverCard, Popover, SideSheet, Tooltip } from "./composites/floating";
+/* D2: data and charts, lists and desktop parts */
+import { Agenda, BarList, Chart, DataTable, FunnelChart, GanttChart, Gauge, Heatmap, Kanban, Markdown, ScatterPlot, Sparkline, Table } from "./composites/data";
+import { CodeBlock, FileDiff, FileList, Menubar, SortableList, SwipeRow, Tracker, Tree, Window } from "./composites/desk";
 
 /* Every component the kit draws a part with, by the name coverage.ts gives it, and by the part's id. */
 
@@ -146,6 +149,29 @@ export const BY_NAME = {
   Drawer,
   Popover,
   HoverCard,
+  /* D2: data and charts, lists and desktop parts */
+  Chart,
+  ScatterPlot,
+  Heatmap,
+  Gauge,
+  Table,
+  Markdown,
+  Sparkline,
+  BarList,
+  DataTable,
+  Kanban,
+  Agenda,
+  FunnelChart,
+  GanttChart,
+  Tracker,
+  SortableList,
+  SwipeRow,
+  FileList,
+  Menubar,
+  Tree,
+  Window,
+  CodeBlock,
+  FileDiff,
 } satisfies Record<NativeName, ComponentType<never>>;
 
 /** the component that draws each part the kit covers, by the part's id */

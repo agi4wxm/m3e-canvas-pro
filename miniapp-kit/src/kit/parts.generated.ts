@@ -1105,6 +1105,37 @@ export const PARTS: Record<string, PartInfo> = {
    "height": 128
   }
  },
+ "menubar": {
+  "name": "Menubar",
+  "tier": "composite",
+  "defaults": {
+   "menus": [
+    {
+     "label": "File"
+    },
+    {
+     "label": "Edit"
+    },
+    {
+     "label": "View"
+    }
+   ],
+   "items": [
+    {
+     "label": "New tab",
+     "icon": "tab"
+    },
+    {
+     "label": "New window",
+     "icon": "open_in_new"
+    },
+    {
+     "label": "Print",
+     "icon": "print"
+    }
+   ]
+  }
+ },
  "calendar": {
   "name": "Calendar",
   "tier": "composite",
@@ -1398,6 +1429,158 @@ export const PARTS: Record<string, PartInfo> = {
    "height": 360
   }
  },
+ "chart": {
+  "name": "Chart",
+  "tier": "composite",
+  "defaults": {
+   "type": "bar",
+   "title": "Visitors",
+   "subtitle": "Last 6 months",
+   "data": {
+    "columns": [
+     "Month",
+     "Desktop",
+     "Mobile"
+    ],
+    "rows": [
+     [
+      "Jan",
+      "186",
+      "80"
+     ],
+     [
+      "Feb",
+      "305",
+      "200"
+     ],
+     [
+      "Mar",
+      "237",
+      "120"
+     ],
+     [
+      "Apr",
+      "173",
+      "190"
+     ],
+     [
+      "May",
+      "209",
+      "130"
+     ],
+     [
+      "Jun",
+      "214",
+      "140"
+     ]
+    ]
+   },
+   "width": 420,
+   "height": 220
+  }
+ },
+ "scatter-plot": {
+  "name": "Scatter plot",
+  "tier": "composite",
+  "defaults": {
+   "title": "Steps and sleep",
+   "subtitle": "",
+   "data": {
+    "columns": [
+     "X",
+     "Y"
+    ],
+    "rows": [
+     [
+      "10",
+      "30"
+     ],
+     [
+      "22",
+      "48"
+     ],
+     [
+      "35",
+      "41"
+     ],
+     [
+      "48",
+      "66"
+     ],
+     [
+      "60",
+      "58"
+     ],
+     [
+      "74",
+      "82"
+     ],
+     [
+      "88",
+      "76"
+     ]
+    ]
+   },
+   "width": 320,
+   "height": 200
+  }
+ },
+ "heatmap": {
+  "name": "Heatmap",
+  "tier": "composite",
+  "defaults": {
+   "title": "Activity",
+   "subtitle": "",
+   "data": {
+    "columns": [
+     "Mon",
+     "Tue",
+     "Wed",
+     "Thu",
+     "Fri"
+    ],
+    "rows": [
+     [
+      "2",
+      "5",
+      "1",
+      "7",
+      "4"
+     ],
+     [
+      "6",
+      "3",
+      "8",
+      "2",
+      "5"
+     ],
+     [
+      "1",
+      "9",
+      "4",
+      "6",
+      "3"
+     ],
+     [
+      "7",
+      "2",
+      "5",
+      "8",
+      "6"
+     ]
+    ]
+   },
+   "width": 320
+  }
+ },
+ "gauge": {
+  "name": "Gauge",
+  "tier": "composite",
+  "defaults": {
+   "label": "Battery",
+   "value": 72
+  }
+ },
  "filter-bar": {
   "name": "Filter bar",
   "tier": "composite",
@@ -1415,6 +1598,67 @@ export const PARTS: Record<string, PartInfo> = {
     }
    ],
    "width": 420
+  }
+ },
+ "table": {
+  "name": "Table",
+  "tier": "composite",
+  "defaults": {
+   "title": "Invoices",
+   "data": {
+    "columns": [
+     "Invoice",
+     "Status",
+     "Amount"
+    ],
+    "rows": [
+     [
+      "INV-001",
+      "Paid",
+      "$250.00"
+     ],
+     [
+      "INV-002",
+      "Pending",
+      "$150.00"
+     ],
+     [
+      "INV-003",
+      "Unpaid",
+      "$350.00"
+     ]
+    ]
+   },
+   "caption": "",
+   "selected": 0,
+   "alignLast": false,
+   "width": 420
+  }
+ },
+ "tree": {
+  "name": "Tree",
+  "tier": "composite",
+  "defaults": {
+   "items": [
+    {
+     "label": "src",
+     "icon": "folder_open"
+    },
+    {
+     "label": "  main.rs",
+     "icon": "draft"
+    },
+    {
+     "label": "  ui",
+     "icon": "folder"
+    },
+    {
+     "label": "Cargo.toml",
+     "icon": "draft"
+    }
+   ],
+   "selected": 0,
+   "width": 260
   }
  },
  "copy-row": {
@@ -1848,6 +2092,26 @@ export const PARTS: Record<string, PartInfo> = {
    "height": 160
   }
  },
+ "window": {
+  "name": "Window",
+  "tier": "composite",
+  "defaults": {
+   "title": "Window",
+   "controls": "mac",
+   "layout": "free",
+   "gap": 8,
+   "padX": 16,
+   "padY": 16,
+   "align": "start",
+   "justify": "start",
+   "wrap": false,
+   "columns": 2,
+   "hugWidth": false,
+   "hugHeight": false,
+   "width": 640,
+   "height": 400
+  }
+ },
  "tag-input": {
   "name": "Tag input",
   "tier": "composite",
@@ -2118,6 +2382,304 @@ export const PARTS: Record<string, PartInfo> = {
   "tier": "atom",
   "defaults": {
    "label": ""
+  }
+ },
+ "tracker": {
+  "name": "Status tracker",
+  "tier": "composite",
+  "defaults": {
+   "title": "Uptime",
+   "states": "ok,ok,ok,warn,ok,ok,bad,ok,ok,ok,ok,none",
+   "width": 360
+  }
+ },
+ "code-block": {
+  "name": "Code block",
+  "tier": "composite",
+  "defaults": {
+   "code": "const greeting = \"Hello\";\nconsole.log(greeting);",
+   "language": "TypeScript",
+   "width": 420
+  }
+ },
+ "markdown": {
+  "name": "Markdown",
+  "tier": "composite",
+  "defaults": {
+   "text": "# Heading\n\nSome **bold** text with `code`.\n\n- First\n- Second\n\n> A note",
+   "width": 420
+  }
+ },
+ "file-diff": {
+  "name": "File diff",
+  "tier": "composite",
+  "defaults": {
+   "file": "main.ts",
+   "diff": " const a = 1;\n-const b = 2;\n+const b = 3;\n console.log(a + b);",
+   "width": 420
+  }
+ },
+ "sortable-list": {
+  "name": "Sortable list",
+  "tier": "composite",
+  "defaults": {
+   "items": [
+    {
+     "label": "First"
+    },
+    {
+     "label": "Second"
+    },
+    {
+     "label": "Third"
+    }
+   ],
+   "width": 320,
+   "ariaLabel": "",
+   "disabled": false,
+   "readOnly": false,
+   "required": false,
+   "loading": false,
+   "error": false,
+   "errorText": "",
+   "helperText": ""
+  }
+ },
+ "swipe-row": {
+  "name": "Swipe row",
+  "tier": "composite",
+  "defaults": {
+   "title": "Swipe me left",
+   "note": "",
+   "action": "Delete",
+   "open": false,
+   "width": 360
+  }
+ },
+ "file-list": {
+  "name": "Files",
+  "tier": "composite",
+  "defaults": {
+   "data": {
+    "columns": [
+     "Name",
+     "Size",
+     "Date"
+    ],
+    "rows": [
+     [
+      "Projects",
+      "12 items",
+      "Nov 3"
+     ],
+     [
+      "Q3 report.pdf",
+      "2.4 MB",
+      "Oct 28"
+     ],
+     [
+      "Team photo.jpg",
+      "4.1 MB",
+      "Oct 12"
+     ],
+     [
+      "Budget.xlsx",
+      "86 KB",
+      "Sep 30"
+     ]
+    ]
+   },
+   "removable": true,
+   "selected": -1,
+   "width": 380
+  }
+ },
+ "sparkline": {
+  "name": "Sparkline",
+  "tier": "composite",
+  "defaults": {
+   "title": "Weekly visitors",
+   "value": "1,284",
+   "trend": "+12%",
+   "values": "420,512,480,610,590,720,840",
+   "kind": "line",
+   "height": 48,
+   "width": 200
+  }
+ },
+ "bar-list": {
+  "name": "Bar list",
+  "tier": "composite",
+  "defaults": {
+   "title": "Traffic by source",
+   "data": {
+    "columns": [
+     "Label",
+     "Value",
+     "Share"
+    ],
+    "rows": [
+     [
+      "Search",
+      "4,820",
+      "54%"
+     ],
+     [
+      "Direct",
+      "2,140",
+      "24%"
+     ],
+     [
+      "Social",
+      "1,360",
+      "15%"
+     ],
+     [
+      "Email",
+      "640",
+      "7%"
+     ]
+    ]
+   },
+   "sorted": true,
+   "selected": -1,
+   "width": 360
+  }
+ },
+ "data-table": {
+  "name": "Data table",
+  "tier": "composite",
+  "defaults": {
+   "title": "Orders",
+   "data": {
+    "columns": [
+     "Order",
+     "Customer",
+     "Status",
+     "Total"
+    ],
+    "rows": [
+     [
+      "A-1001",
+      "Ada Lovelace",
+      "Paid",
+      "$250.00"
+     ],
+     [
+      "A-1002",
+      "Grace Hopper",
+      "Pending",
+      "$150.00"
+     ],
+     [
+      "A-1003",
+      "Alan Turing",
+      "Paid",
+      "$1,350.00"
+     ],
+     [
+      "A-1004",
+      "Katherine Johnson",
+      "Refunded",
+      "$75.50"
+     ],
+     [
+      "A-1005",
+      "Linus Pauling",
+      "Pending",
+      "$420.00"
+     ],
+     [
+      "A-1006",
+      "Marie Curie",
+      "Paid",
+      "$98.00"
+     ],
+     [
+      "A-1007",
+      "Rosalind Franklin",
+      "Paid",
+      "$610.00"
+     ]
+    ]
+   },
+   "search": "Search",
+   "selectable": true,
+   "pageSize": 5,
+   "query": "",
+   "sortColumn": -1,
+   "sortDir": "asc",
+   "page": 0,
+   "total": 0,
+   "width": 560
+  }
+ },
+ "kanban": {
+  "name": "Kanban board",
+  "tier": "composite",
+  "defaults": {
+   "data": {
+    "columns": [
+     "To do",
+     "In progress",
+     "Done"
+    ],
+    "rows": [
+     [
+      "Write the brief",
+      "Draw the screens",
+      "Pick a name"
+     ],
+     [
+      "Book the room",
+      "",
+      "Set up the repo"
+     ]
+    ]
+   },
+   "add": "Add card",
+   "width": 560
+  }
+ },
+ "agenda": {
+  "name": "Event calendar",
+  "tier": "composite",
+  "defaults": {
+   "year": 2026,
+   "month": 11,
+   "day": 4,
+   "data": {
+    "columns": [
+     "Date",
+     "Time",
+     "Title"
+    ],
+    "rows": [
+     [
+      "2026-11-04",
+      "09:30",
+      "Team stand-up"
+     ],
+     [
+      "2026-11-04",
+      "14:00",
+      "Design review"
+     ],
+     [
+      "2026-11-12",
+      "All day",
+      "Company holiday"
+     ],
+     [
+      "2026-11-20",
+      "18:30",
+      "Dinner with Ada"
+     ]
+    ]
+   },
+   "weekStart": "sunday",
+   "empty": "Nothing planned",
+   "width": 360
   }
  },
  "transfer-list": {
@@ -2405,6 +2967,83 @@ export const PARTS: Record<string, PartInfo> = {
    "error": false,
    "errorText": "",
    "helperText": ""
+  }
+ },
+ "funnel-chart": {
+  "name": "Funnel chart",
+  "tier": "composite",
+  "defaults": {
+   "title": "Sign-up funnel",
+   "data": {
+    "columns": [
+     "Step",
+     "Value"
+    ],
+    "rows": [
+     [
+      "Visits",
+      "5200"
+     ],
+     [
+      "Sign-ups",
+      "2100"
+     ],
+     [
+      "Activated",
+      "1300"
+     ],
+     [
+      "Paid",
+      "480"
+     ]
+    ]
+   },
+   "width": 380
+  }
+ },
+ "gantt-chart": {
+  "name": "Gantt chart",
+  "tier": "composite",
+  "defaults": {
+   "title": "Release plan",
+   "data": {
+    "columns": [
+     "Task",
+     "Start",
+     "Length",
+     "Done"
+    ],
+    "rows": [
+     [
+      "Research",
+      "0",
+      "2",
+      "100"
+     ],
+     [
+      "Design",
+      "1",
+      "3",
+      "70"
+     ],
+     [
+      "Build",
+      "3",
+      "4",
+      "30"
+     ],
+     [
+      "Launch",
+      "7",
+      "1",
+      "0"
+     ]
+    ]
+   },
+   "units": 8,
+   "unit": "w",
+   "today": 4,
+   "width": 380
   }
  },
  "skill-button": {
