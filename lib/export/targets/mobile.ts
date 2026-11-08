@@ -18,6 +18,7 @@ import { KIT_ICONS } from "../../../rn/src/kit/icons/names";
 import { darkVarOf } from "../../tokens";
 import { GENERATED, jsonCode, jsonFile, propKey, sortedObject, str } from "../code";
 import { kebab } from "../paths";
+import { boundaryDifferences } from "../boundary";
 import { generated, seeded, type ProductContext, type ProductFiles, type ProductTarget, type Workspace } from "../types";
 
 /** The Expo packages the app needs beyond the kit's (rn/package.json): the router and what it stands on, the secure
@@ -1057,8 +1058,9 @@ export const mobileTarget: ProductTarget = {
     for (const [path, bytes] of Object.entries(pictures.files)) files[path] = generated(bytes);
     /* what the app does not do as the design says (a part drawn as its atoms or as a placeholder, a binding the kit
        keeps at the design's value): listed beside the screens for the author, as the mini-program lists its own */
-    files["src/generated/warnings.json"] = generated(`${JSON.stringify(screens.warnings, null, 1)}\n`);
-    ctx.differences.push(...screens.warnings.map((w) => ({ app: "mobile" as const, ...w })));
+    const warnings = [...screens.warnings, ...boundaryDifferences(doc, "mobile", ctx.widths).map(({ app: _app, ...w }) => w)];
+    files["src/generated/warnings.json"] = generated(`${JSON.stringify(warnings, null, 1)}\n`);
+    ctx.differences.push(...warnings.map((w) => ({ app: "mobile" as const, ...w })));
 
     /* the routes */
     const routes = routesOf(screens);

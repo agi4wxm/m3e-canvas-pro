@@ -40,6 +40,7 @@ import { withDocStyles } from "../../styles";
 import { pinOf } from "../../tidy";
 import { footOf } from "../../foot";
 import { isOverlayPart } from "../../interact";
+import { isPlaceKey } from "../../partContract";
 import { endpointOf } from "../../bindings/contract";
 import { answerShape, fillCode, formRules, listCode, okStatus, pageSizeOf, paneState, partNames, readCode, readOf, regionOptions } from "../bindCode";
 import { NATIVE, INPUT_PROPS, isNative, kitPropName } from "../../../miniapp-kit/src/kit/coverage";
@@ -422,7 +423,8 @@ class ScreenPrinter {
     }
     const tap = this.tap(it.action, it.id, at);
     if (tap) out.push(["onPress", tap]);
-    const wired = Object.entries(it.actions ?? {}).filter(([, a]) => !!a);
+    /* an event or a family of places is not printed yet: lib/export/boundary.ts reports it */
+    const wired = Object.entries(it.actions ?? {}).filter(([k, a]) => !!a && isPlaceKey(k));
     if (wired.length && !slots) this.warn("slot", "a tap on a place inside a part drawn as atoms is not kept", it.id);
     const taps = slots ? wired.map(([slot, a]) => [slot, this.tap(a, it.id, at)] as const).filter((x): x is readonly [string, string] => !!x[1]) : [];
     /* a part open over the screen closes once one of its places is tapped */

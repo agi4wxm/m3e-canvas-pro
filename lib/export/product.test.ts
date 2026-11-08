@@ -49,13 +49,14 @@ describe("the prototype export", () => {
   /* The single-app export stays as it was, to the byte, beside the product. These digests were taken from the export
      before the product existed; one that changes on purpose is written again here (last: the components saying their
      own words in Chinese, Japanese and Korean too, after the icons asking again and the ripple under reduced motion; in
-     parts, form fields keyed by their item and resizable sizes as percentages). */
+     parts, form fields keyed by their item and resizable sizes as percentages; then the widgets' host contract,
+     parts/widgets/host.ts, copied beside them, and a rating an input wired to its variable). */
   const DIGESTS: Record<string, [number, string]> = {
-    proof: [77, "bd31acaf13e5190fe39d7bb10aa87686e5b0aa073db287b93329b255625716de"],
+    proof: [78, "2c4b50697628d989b64e6dc8ea4051faab767a3edaf7ab05c4f50f63483b5046"],
     systems: [40, "fe350b28dee0e667c6a33665a619f74599695020dda85b6107a334d8079e82af"],
     reuse: [30, "c927332adcf650e2ccfdb707beb22ea9c1064ed2aa51a5ad2f598cf1ae813aa2"],
-    sweep: [83, "f6689151ca84fb6fa95dd7cd234d1bcb1e46823abf1e883d0ad175305326ef7b"],
-    parts: [136, "c806bb12162f2b0408b9f53f2f30c181aed118f064e67430aa5ecafbe3f5b37d"],
+    sweep: [84, "ab652e7880b49618e5183f57a1a59a0a87c2d78f263d2b0b127ffc0b3738c4b9"],
+    parts: [137, "1b90a2fceb852889c50ee0432c97a332467dee0054140a37d3071bacbf8a8dfc"],
   };
   const DOCS: Record<string, () => { doc: Doc; widths: Record<string, number> }> = { proof: proofDoc, systems: systemsDoc, reuse: reuseDoc, sweep: sweepDoc, parts: () => ({ doc: allPartsDoc(), widths: {} }) };
   it.each(Object.keys(DIGESTS))("is byte for byte what it was: %s", async (name) => {

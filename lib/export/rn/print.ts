@@ -43,6 +43,7 @@ import { pinOf } from "../../tidy";
 import { footOf } from "../../foot";
 import { templateOf } from "../../collections";
 import { INPUT_PROP } from "../../interact";
+import { isPlaceKey } from "../../partContract";
 import { endpointOf, formFields } from "../../bindings/contract";
 import { fillCode, holdsCode, isApiEffect, listCode, pageSizeOf, paneState, partNames, readCode, readOf, regionOptions } from "../bindCode";
 import { formsOf } from "../../bindings/view";
@@ -536,7 +537,8 @@ class ScreenPrinter {
     }
     const tap = this.action(it.action, it.id);
     if (tap) out.push(["onPress", tap]);
-    const wired = Object.entries(it.actions ?? {}).filter(([, a]) => !!a);
+    /* an event or a family of places is not printed yet: lib/export/boundary.ts reports it */
+    const wired = Object.entries(it.actions ?? {}).filter(([k, a]) => !!a && isPlaceKey(k));
     if (wired.length && !slots) this.warn("slot", "a tap on a place inside a part drawn as atoms is not kept", it.id);
     const taps = slots
       ? wired.map(([slot, a]) => [slot, this.action(a, it.id)] as const).filter((x): x is readonly [string, string] => !!x[1])
