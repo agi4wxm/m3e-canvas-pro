@@ -31,7 +31,7 @@ export function InputsScreen() {
         />
       </At>
       <At x={16} y={294}>
-        <Button label="Pick large" width={160} onPress={s.tap(A1, { $: $ })} testID="button16" />
+        <Button label="Pick large" width={160} onPress={() => s.run(A1, { $: $ })} testID="button16" />
       </At>
       <At x={16} y={348}>
         <Text text="Note" testID="text11" />

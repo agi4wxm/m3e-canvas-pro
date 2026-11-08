@@ -400,13 +400,17 @@ export function ButtonGroup(props: ButtonGroupProps) {
 
 /* ---------- a menu ---------- */
 
-export type MenuProps = PartBase & { label?: string; variant?: string; items?: ListRow[]; destructive?: string };
+/** `open` with `onOpenChange`: whether its menu is open is the app's (a tap's open and close effects), the visitor's
+ *  opening and shutting handed to it; without them the menu keeps that to itself */
+export type MenuProps = PartBase & { label?: string; variant?: string; items?: ListRow[]; destructive?: string; open?: boolean; onOpenChange?: (open: boolean) => void };
 
 /** a button that opens a menu of actions over the screen */
 export function Menu(props: MenuProps) {
   const p = withDefaults<MenuProps>("dropdown-menu", props);
   const kit = useKit();
-  const [open, setOpen] = useState(false);
+  const [own, setOwn] = useState(false);
+  const open = p.onOpenChange ? !!p.open : own;
+  const setOpen = (on: boolean) => (p.onOpenChange ? p.onOpenChange(on) : setOwn(on));
   const look = buttonColors(kit, p.variant ?? "outlined");
   const items = p.items ?? [];
   const run = (slot: string) => {

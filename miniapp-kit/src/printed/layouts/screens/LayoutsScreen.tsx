@@ -23,7 +23,7 @@ export function LayoutsScreen() {
             <Text text="Overview words" testID="text5" />
           </DockPane>
           <DockPane pane={1}>
-            <Button label="Activity button" onPress={s.tap(A1, { $: $ })} testID="button" />
+            <Button label="Activity button" onPress={() => s.run(A1, { $: $ })} testID="button" />
           </DockPane>
         </Dock>
       </At>

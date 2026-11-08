@@ -14,13 +14,13 @@ export function BarsTwoScreen() {
         <Text text="Second bars" testID="text17" />
       </At>
       <At x={16} y={78}>
-        <Button label="Bars back" width={160} onPress={s.tap(A1, { $: $ })} testID="button18" />
+        <Button label="Bars back" width={160} onPress={() => s.run(A1, { $: $ })} testID="button18" />
       </At>
       <Pin edge="bottom">
         <NavigationBar
           items={[{ label: "Home", icon: "home" }, { label: "Search", icon: "search" }, { label: "Inbox", icon: "inbox" }]}
           selected={1}
-          taps={{ "tab:0": s.tap(A2, { $: $ }) }}
+          taps={{ "tab:0": () => s.run(A2, { $: $ }) }}
           testID="navigationBar2"
         />
       </Pin>

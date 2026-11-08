@@ -6,6 +6,7 @@ import type { KitRow } from "./types";
 export const ROWS: (KitRow & {
   appVars: { id: string; name: string; type: "text" | "number" | "bool" | "color"; value: string | number | boolean }[];
   hidden: string[];
+  triggers: string[];
   initial: string;
   auth: Record<string, "required" | "login">;
 })[] = [
@@ -33,9 +34,7 @@ export const ROWS: (KitRow & {
   },
   "known": {
    "webPrototype": "原型 Web 导出没有接口：调用、刷新、提交、退出登录整个丢掉，也不报告（报告 6.2、9.4）",
-   "webProduct": "接口参数读的是屏幕渲染时的作用域，看不到同一次点击里前面效果写入的值（报告 6.2：Web `printBindings.ts`、手机端 `mobile.ts`、小程序 `env.$`）",
-   "rn": "接口参数读的是屏幕渲染时的作用域，看不到同一次点击里前面效果写入的值（报告 6.2：Web `printBindings.ts`、手机端 `mobile.ts`、小程序 `env.$`）",
-   "miniapp": "接口参数读的是屏幕渲染时的作用域，看不到同一次点击里前面效果写入的值（报告 6.2：Web `printBindings.ts`、手机端 `mobile.ts`、小程序 `env.$`）"
+   "webProduct": "接口参数读的是屏幕渲染时的作用域，看不到同一次点击里前面效果写入的值（报告 6.2：Web `printBindings.ts`、手机端 `mobile.ts`、小程序 `env.$`）"
   },
   "vars": [
    "qty"
@@ -52,6 +51,7 @@ export const ROWS: (KitRow & {
    }
   ],
   "hidden": [],
+  "triggers": [],
   "initial": "Home",
   "auth": {}
  },
@@ -95,6 +95,7 @@ export const ROWS: (KitRow & {
    }
   ],
   "hidden": [],
+  "triggers": [],
   "initial": "Home",
   "auth": {}
  },
@@ -115,8 +116,7 @@ export const ROWS: (KitRow & {
   },
   "known": {
    "webPrototype": "原型 Web 导出忽略“设为变量”的表达式，不报告（报告 6.2：`printBehaviour.ts` setVar）",
-   "webProduct": "产品 Web 的“设为变量”表达式读屏幕渲染时的作用域（`$`），读不到同一次点击里前面效果写入的值（报告 6.2）",
-   "miniapp": "小程序的“设为变量”表达式读屏幕渲染时的作用域（`env.$`），读不到同一次点击里前面效果写入的值（报告 6.2）"
+   "webProduct": "产品 Web 的“设为变量”表达式读屏幕渲染时的作用域（`$`），读不到同一次点击里前面效果写入的值（报告 6.2）"
   },
   "vars": [
    "n",
@@ -140,6 +140,7 @@ export const ROWS: (KitRow & {
    }
   ],
   "hidden": [],
+  "triggers": [],
   "initial": "Home",
   "auth": {}
  },
@@ -161,9 +162,7 @@ export const ROWS: (KitRow & {
   },
   "known": {
    "webPrototype": "原型 Web 导出没有屏幕参数（参数只属于绑定接口的产品）",
-   "webProduct": "产品 Web 的跳转参数读屏幕渲染时的作用域，读不到同一次点击里写入的值（报告 6.3：跳转参数在所有效果之后读）",
-   "rn": "手机端：没有接口的设计不打印屏幕参数和跳转参数（`lib/export/rn/print.ts` 只在 `doc.api` 存在时打印绑定）",
-   "miniapp": "小程序的跳转参数读屏幕渲染时的作用域（`env.$`），读不到同一次点击里写入的值（报告 6.3）"
+   "webProduct": "产品 Web 的跳转参数读屏幕渲染时的作用域，读不到同一次点击里写入的值（报告 6.3：跳转参数在所有效果之后读）"
   },
   "vars": [
    "pick"
@@ -181,6 +180,7 @@ export const ROWS: (KitRow & {
    }
   ],
   "hidden": [],
+  "triggers": [],
   "initial": "Home",
   "auth": {}
  },
@@ -227,6 +227,7 @@ export const ROWS: (KitRow & {
    }
   ],
   "hidden": [],
+  "triggers": [],
   "initial": "Home",
   "auth": {}
  },
@@ -266,6 +267,7 @@ export const ROWS: (KitRow & {
    }
   ],
   "hidden": [],
+  "triggers": [],
   "initial": "Home",
   "auth": {}
  },
@@ -298,6 +300,7 @@ export const ROWS: (KitRow & {
    }
   ],
   "hidden": [],
+  "triggers": [],
   "initial": "Home",
   "auth": {}
  },
@@ -337,6 +340,7 @@ export const ROWS: (KitRow & {
    }
   ],
   "hidden": [],
+  "triggers": [],
   "initial": "Home",
   "auth": {}
  },
@@ -373,6 +377,7 @@ export const ROWS: (KitRow & {
    }
   ],
   "hidden": [],
+  "triggers": [],
   "initial": "Home",
   "auth": {}
  },
@@ -395,9 +400,7 @@ export const ROWS: (KitRow & {
    }
   },
   "known": {
-   "webProduct": "表单里的输入框在产品 Web 里由表单保管，没有自己的变量，“已填写”永远不成立（报告 6.2：`printBehaviour.ts` inputVar）",
-   "rn": "手机端表单里的输入框由表单保管，“已填写”读的是套件自己的输入记录，读不到（`rn/src/kit/app.tsx` holds）",
-   "miniapp": "小程序表单里的输入框由表单保管，“已填写”读的是屏幕自己的输入记录，读不到（`screen.tsx` holdsOver）"
+   "webProduct": "表单里的输入框在产品 Web 里由表单保管，没有自己的变量，“已填写”永远不成立（报告 6.2：`printBehaviour.ts` inputVar）"
   },
   "vars": [
    "r"
@@ -414,6 +417,7 @@ export const ROWS: (KitRow & {
    }
   ],
   "hidden": [],
+  "triggers": [],
   "initial": "Home",
   "auth": {}
  },
@@ -429,9 +433,6 @@ export const ROWS: (KitRow & {
   "expect": {
    "screen": "next"
   },
-  "known": {
-   "miniapp": "小程序把延迟触发印成点击，不点就不运行（报告 6.2：`lib/export/miniapp/print.ts` trigger）"
-  },
   "vars": [],
   "screens": {
    "Home": "home",
@@ -439,6 +440,7 @@ export const ROWS: (KitRow & {
   },
   "appVars": [],
   "hidden": [],
+  "triggers": [],
   "initial": "Home",
   "auth": {}
  },
@@ -460,6 +462,7 @@ export const ROWS: (KitRow & {
   },
   "appVars": [],
   "hidden": [],
+  "triggers": [],
   "initial": "Home",
   "auth": {}
  },
@@ -485,9 +488,7 @@ export const ROWS: (KitRow & {
   },
   "known": {
    "webPrototype": "导出还不运行组件的事件和槽位族的动作，只在差异报告里列出（`lib/export/boundary.ts`，第二批 B1）；表的运行器也还没有替它们发出事件、点某一项",
-   "webProduct": "导出还不运行组件的事件和槽位族的动作，只在差异报告里列出（`lib/export/boundary.ts`，第二批 B1）；表的运行器也还没有替它们发出事件、点某一项",
-   "rn": "导出还不运行组件的事件和槽位族的动作，只在差异报告里列出（`lib/export/boundary.ts`，第二批 B1）；表的运行器也还没有替它们发出事件、点某一项",
-   "miniapp": "导出还不运行组件的事件和槽位族的动作，只在差异报告里列出（`lib/export/boundary.ts`，第二批 B1）；表的运行器也还没有替它们发出事件、点某一项"
+   "webProduct": "导出还不运行组件的事件和槽位族的动作，只在差异报告里列出（`lib/export/boundary.ts`，第二批 B1）；表的运行器也还没有替它们发出事件、点某一项"
   },
   "vars": [
    "entered"
@@ -504,6 +505,7 @@ export const ROWS: (KitRow & {
    }
   ],
   "hidden": [],
+  "triggers": [],
   "initial": "Home",
   "auth": {}
  },
@@ -529,9 +531,7 @@ export const ROWS: (KitRow & {
   },
   "known": {
    "webPrototype": "导出还不运行组件的事件和槽位族的动作，只在差异报告里列出（`lib/export/boundary.ts`，第二批 B1）；表的运行器也还没有替它们发出事件、点某一项",
-   "webProduct": "导出还不运行组件的事件和槽位族的动作，只在差异报告里列出（`lib/export/boundary.ts`，第二批 B1）；表的运行器也还没有替它们发出事件、点某一项",
-   "rn": "导出还不运行组件的事件和槽位族的动作，只在差异报告里列出（`lib/export/boundary.ts`，第二批 B1）；表的运行器也还没有替它们发出事件、点某一项",
-   "miniapp": "导出还不运行组件的事件和槽位族的动作，只在差异报告里列出（`lib/export/boundary.ts`，第二批 B1）；表的运行器也还没有替它们发出事件、点某一项"
+   "webProduct": "导出还不运行组件的事件和槽位族的动作，只在差异报告里列出（`lib/export/boundary.ts`，第二批 B1）；表的运行器也还没有替它们发出事件、点某一项"
   },
   "vars": [
    "picked",
@@ -555,6 +555,7 @@ export const ROWS: (KitRow & {
    }
   ],
   "hidden": [],
+  "triggers": [],
   "initial": "Home",
   "auth": {}
  },
@@ -579,6 +580,7 @@ export const ROWS: (KitRow & {
   },
   "appVars": [],
   "hidden": [],
+  "triggers": [],
   "initial": "Home",
   "auth": {}
  },
@@ -604,6 +606,7 @@ export const ROWS: (KitRow & {
   "hidden": [
    "n2"
   ],
+  "triggers": [],
   "initial": "Home",
   "auth": {}
  },
@@ -630,6 +633,7 @@ export const ROWS: (KitRow & {
   },
   "appVars": [],
   "hidden": [],
+  "triggers": [],
   "initial": "Home",
   "auth": {}
  },
@@ -651,16 +655,15 @@ export const ROWS: (KitRow & {
     "Rename": false
    }
   },
-  "known": {
-   "rn": "手机端把“关闭”当成隐藏整个部件，下拉菜单连触发按钮一起消失（报告 6.2：`rn/src/kit/app.tsx`）",
-   "miniapp": "小程序把“关闭”当成隐藏整个部件，下拉菜单连触发按钮一起消失（`miniapp-kit/src/kit/app/screen.tsx` close）"
-  },
   "vars": [],
   "screens": {
    "Home": "home"
   },
   "appVars": [],
   "hidden": [],
+  "triggers": [
+   "n2"
+  ],
   "initial": "Home",
   "auth": {}
  },
@@ -679,16 +682,15 @@ export const ROWS: (KitRow & {
     "Duplicate": true
    }
   },
-  "known": {
-   "rn": "手机端的“打开”只让部件出现，不打开菜单的弹出层（套件的 Menu 自己管开合，不读 opened）",
-   "miniapp": "小程序的“打开”只让部件出现，不打开菜单的弹出层（套件的 Menu 自己管开合，不读 opened）"
-  },
   "vars": [],
   "screens": {
    "Home": "home"
   },
   "appVars": [],
   "hidden": [],
+  "triggers": [
+   "n2"
+  ],
   "initial": "Home",
   "auth": {}
  },
@@ -738,6 +740,7 @@ export const ROWS: (KitRow & {
    }
   ],
   "hidden": [],
+  "triggers": [],
   "initial": "Home",
   "auth": {}
  },
@@ -770,6 +773,7 @@ export const ROWS: (KitRow & {
    }
   ],
   "hidden": [],
+  "triggers": [],
   "initial": "Home",
   "auth": {}
  },
@@ -808,6 +812,7 @@ export const ROWS: (KitRow & {
    }
   ],
   "hidden": [],
+  "triggers": [],
   "initial": "Home",
   "auth": {}
  },
@@ -840,6 +845,7 @@ export const ROWS: (KitRow & {
    }
   ],
   "hidden": [],
+  "triggers": [],
   "initial": "Home",
   "auth": {}
  },
@@ -873,6 +879,7 @@ export const ROWS: (KitRow & {
    }
   ],
   "hidden": [],
+  "triggers": [],
   "initial": "Home",
   "auth": {}
  },
@@ -897,6 +904,7 @@ export const ROWS: (KitRow & {
   },
   "appVars": [],
   "hidden": [],
+  "triggers": [],
   "initial": "Home",
   "auth": {}
  },
@@ -947,6 +955,7 @@ export const ROWS: (KitRow & {
    }
   ],
   "hidden": [],
+  "triggers": [],
   "initial": "Home",
   "auth": {}
  },
@@ -977,6 +986,7 @@ export const ROWS: (KitRow & {
   },
   "appVars": [],
   "hidden": [],
+  "triggers": [],
   "initial": "Home",
   "auth": {}
  },
@@ -1004,6 +1014,7 @@ export const ROWS: (KitRow & {
   },
   "appVars": [],
   "hidden": [],
+  "triggers": [],
   "initial": "Home",
   "auth": {}
  },
@@ -1043,6 +1054,7 @@ export const ROWS: (KitRow & {
   },
   "appVars": [],
   "hidden": [],
+  "triggers": [],
   "initial": "Home",
   "auth": {}
  },
@@ -1072,8 +1084,7 @@ export const ROWS: (KitRow & {
   },
   "known": {
    "webPrototype": "原型 Web 导出没有接口：调用、刷新、提交、退出登录整个丢掉，也不报告（报告 6.2、9.4）",
-   "webProduct": "接口参数读的是屏幕渲染时的作用域，看不到同一次点击里前面效果写入的值（报告 6.2：Web `printBindings.ts`、手机端 `mobile.ts`、小程序 `env.$`）",
-   "miniapp": "接口参数读的是屏幕渲染时的作用域，看不到同一次点击里前面效果写入的值（报告 6.2：Web `printBindings.ts`、手机端 `mobile.ts`、小程序 `env.$`）"
+   "webProduct": "接口参数读的是屏幕渲染时的作用域，看不到同一次点击里前面效果写入的值（报告 6.2：Web `printBindings.ts`、手机端 `mobile.ts`、小程序 `env.$`）"
   },
   "vars": [
    "n",
@@ -1097,6 +1108,7 @@ export const ROWS: (KitRow & {
    }
   ],
   "hidden": [],
+  "triggers": [],
   "initial": "Home",
   "auth": {}
  },
@@ -1135,8 +1147,7 @@ export const ROWS: (KitRow & {
   },
   "known": {
    "webPrototype": "原型 Web 导出没有接口：调用、刷新、提交、退出登录整个丢掉，也不报告（报告 6.2、9.4）",
-   "webProduct": "产品 Web 不限层数（报告 6.2）",
-   "rn": "手机端打印到第 6 层（`rn/print.ts` depth > 6）（报告 6.2）"
+   "webProduct": "产品 Web 不限层数（报告 6.2）"
   },
   "vars": [],
   "screens": {
@@ -1144,6 +1155,7 @@ export const ROWS: (KitRow & {
   },
   "appVars": [],
   "hidden": [],
+  "triggers": [],
   "initial": "Home",
   "auth": {}
  },
@@ -1189,6 +1201,7 @@ export const ROWS: (KitRow & {
    }
   ],
   "hidden": [],
+  "triggers": [],
   "initial": "Home",
   "auth": {}
  },
@@ -1227,9 +1240,7 @@ export const ROWS: (KitRow & {
   },
   "known": {
    "webPrototype": "原型 Web 导出没有接口：调用、刷新、提交、退出登录整个丢掉，也不报告（报告 6.2、9.4）",
-   "webProduct": "lib/app 的 Runtime.call 只在重新开始后丢弃回答，同一组件同一接口的旧回答照样运行（报告 7.2，整改计划第一批遗留）",
-   "rn": "lib/app 的 Runtime.call 只在重新开始后丢弃回答，同一组件同一接口的旧回答照样运行（报告 7.2，整改计划第一批遗留）",
-   "miniapp": "lib/app 的 Runtime.call 只在重新开始后丢弃回答，同一组件同一接口的旧回答照样运行（报告 7.2，整改计划第一批遗留）"
+   "webProduct": "lib/app 的 Runtime.call 只在重新开始后丢弃回答，同一组件同一接口的旧回答照样运行（报告 7.2，整改计划第一批遗留）"
   },
   "vars": [
    "last"
@@ -1246,6 +1257,7 @@ export const ROWS: (KitRow & {
    }
   ],
   "hidden": [],
+  "triggers": [],
   "initial": "Home",
   "auth": {}
  },
@@ -1275,9 +1287,7 @@ export const ROWS: (KitRow & {
   },
   "known": {
    "webPrototype": "原型 Web 导出没有接口：调用、刷新、提交、退出登录整个丢掉，也不报告（报告 6.2、9.4）",
-   "webProduct": "回答到达时访客已经离开，lib/app 宿主仍执行 then/catch 里的跳转，把访客拽走（报告 7.1、7.2）",
-   "rn": "回答到达时访客已经离开，lib/app 宿主仍执行 then/catch 里的跳转，把访客拽走（报告 7.1、7.2）",
-   "miniapp": "回答到达时访客已经离开，lib/app 宿主仍执行 then/catch 里的跳转，把访客拽走（报告 7.1、7.2）"
+   "webProduct": "回答到达时访客已经离开，lib/app 宿主仍执行 then/catch 里的跳转，把访客拽走（报告 7.1、7.2）"
   },
   "vars": [
    "saved"
@@ -1296,6 +1306,7 @@ export const ROWS: (KitRow & {
    }
   ],
   "hidden": [],
+  "triggers": [],
   "initial": "Home",
   "auth": {}
  },
@@ -1332,6 +1343,7 @@ export const ROWS: (KitRow & {
   },
   "appVars": [],
   "hidden": [],
+  "triggers": [],
   "initial": "Home",
   "auth": {}
  },
@@ -1368,6 +1380,7 @@ export const ROWS: (KitRow & {
   },
   "appVars": [],
   "hidden": [],
+  "triggers": [],
   "initial": "Home",
   "auth": {}
  },
@@ -1390,6 +1403,7 @@ export const ROWS: (KitRow & {
   },
   "appVars": [],
   "hidden": [],
+  "triggers": [],
   "initial": "Home",
   "auth": {}
  },
@@ -1435,6 +1449,7 @@ export const ROWS: (KitRow & {
   },
   "appVars": [],
   "hidden": [],
+  "triggers": [],
   "initial": "Home",
   "auth": {}
  },
@@ -1479,6 +1494,7 @@ export const ROWS: (KitRow & {
   },
   "appVars": [],
   "hidden": [],
+  "triggers": [],
   "initial": "Home",
   "auth": {}
  },
@@ -1520,6 +1536,7 @@ export const ROWS: (KitRow & {
   },
   "appVars": [],
   "hidden": [],
+  "triggers": [],
   "initial": "Home",
   "auth": {
    "Account": "required",
@@ -1574,6 +1591,7 @@ export const ROWS: (KitRow & {
    }
   ],
   "hidden": [],
+  "triggers": [],
   "initial": "Home",
   "auth": {}
  },
@@ -1623,6 +1641,7 @@ export const ROWS: (KitRow & {
    }
   ],
   "hidden": [],
+  "triggers": [],
   "initial": "Home",
   "auth": {}
  },
@@ -1663,6 +1682,7 @@ export const ROWS: (KitRow & {
    }
   ],
   "hidden": [],
+  "triggers": [],
   "initial": "Home",
   "auth": {}
  },
@@ -1709,6 +1729,7 @@ export const ROWS: (KitRow & {
    }
   ],
   "hidden": [],
+  "triggers": [],
   "initial": "Home",
   "auth": {}
  },
@@ -1736,9 +1757,7 @@ export const ROWS: (KitRow & {
   },
   "known": {
    "webPrototype": "原型 Web 导出没有能力层：能力调用整个丢掉（第三批只给产品的三端接上能力注册表；原型导出第四批改为打印 Action 数据，报告 6.2、9.4）",
-   "webProduct": "接口参数读的是屏幕渲染时的作用域，看不到同一次点击里前面效果写入的值（报告 6.2：Web `printBindings.ts`、手机端 `mobile.ts`、小程序 `env.$`）",
-   "rn": "接口参数读的是屏幕渲染时的作用域，看不到同一次点击里前面效果写入的值（报告 6.2：Web `printBindings.ts`、手机端 `mobile.ts`、小程序 `env.$`）",
-   "miniapp": "接口参数读的是屏幕渲染时的作用域，看不到同一次点击里前面效果写入的值（报告 6.2：Web `printBindings.ts`、手机端 `mobile.ts`、小程序 `env.$`）"
+   "webProduct": "接口参数读的是屏幕渲染时的作用域，看不到同一次点击里前面效果写入的值（报告 6.2：Web `printBindings.ts`、手机端 `mobile.ts`、小程序 `env.$`）"
   },
   "vars": [
    "text"
@@ -1755,6 +1774,7 @@ export const ROWS: (KitRow & {
    }
   ],
   "hidden": [],
+  "triggers": [],
   "initial": "Home",
   "auth": {}
  },
@@ -1814,6 +1834,7 @@ export const ROWS: (KitRow & {
    }
   ],
   "hidden": [],
+  "triggers": [],
   "initial": "Home",
   "auth": {}
  },
@@ -1846,9 +1867,7 @@ export const ROWS: (KitRow & {
   },
   "known": {
    "webPrototype": "原型 Web 导出没有能力层：能力调用整个丢掉（第三批只给产品的三端接上能力注册表；原型导出第四批改为打印 Action 数据，报告 6.2、9.4）",
-   "webProduct": "回答到达时访客已经离开，lib/app 宿主仍执行 then/catch 里的跳转，把访客拽走（报告 7.1、7.2）",
-   "rn": "回答到达时访客已经离开，lib/app 宿主仍执行 then/catch 里的跳转，把访客拽走（报告 7.1、7.2）",
-   "miniapp": "回答到达时访客已经离开，lib/app 宿主仍执行 then/catch 里的跳转，把访客拽走（报告 7.1、7.2）"
+   "webProduct": "回答到达时访客已经离开，lib/app 宿主仍执行 then/catch 里的跳转，把访客拽走（报告 7.1、7.2）"
   },
   "vars": [
    "got"
@@ -1867,6 +1886,7 @@ export const ROWS: (KitRow & {
    }
   ],
   "hidden": [],
+  "triggers": [],
   "initial": "Home",
   "auth": {}
  },
@@ -1914,6 +1934,7 @@ export const ROWS: (KitRow & {
    }
   ],
   "hidden": [],
+  "triggers": [],
   "initial": "Home",
   "auth": {}
  },
@@ -1939,6 +1960,7 @@ export const ROWS: (KitRow & {
   },
   "appVars": [],
   "hidden": [],
+  "triggers": [],
   "initial": "Home",
   "auth": {}
  },
@@ -1968,6 +1990,7 @@ export const ROWS: (KitRow & {
   },
   "appVars": [],
   "hidden": [],
+  "triggers": [],
   "initial": "Home",
   "auth": {}
  }

@@ -8,11 +8,11 @@ const A1: Action = { to: "Done", effects: [{ do: "call", operationId: "ping", th
 export function NextScreen({ params: given }: { params?: Record<string, unknown> }) {
   const params = useParams(PARAMS, given);
   const $ = useScreenScope(params);
-  const act = useAct();
+  const act = useAct({ key: "Next", params });
   return (
     <Screen width={412} height={892}>
       <At x={16} y={88}>
-        <Button label="Ping and go" onPress={() => act(A1, { scope: $.scope })} />
+        <Button label="Ping and go" onPress={() => act(A1, { scope: $.scope, part: "button2" })} />
       </At>
     </Screen>
   );

@@ -30,7 +30,7 @@ export function FormScreen() {
         ) : null}
       </At>
       <At x={16} y={240}>
-        <Button label="Continue" width={160} onPress={s.tap(A2, { $: $ })} testID="button8" />
+        <Button label="Continue" width={160} onPress={() => s.run(A2, { $: $ })} testID="button8" />
       </At>
       {s.layer}
     </Screen>

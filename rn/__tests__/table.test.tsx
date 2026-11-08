@@ -3,27 +3,28 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType }
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { RuntimeProvider, useRequireAuth, type Runtime } from "@m3e/app-runtime";
 
-import { AppProvider, MATERIAL, NavProvider, SnackHost, ThemeProvider, useApp, type AppState, type EffectHandler, type Nav, type Reader } from "../src/kit";
+import { AppProvider, MATERIAL, NavProvider, SnackHost, ThemeProvider, useApp, type AppState, type Interpreter, type Nav, type Reader } from "../src/kit";
 import { answerWith } from "./table/backend";
 import { Backend, drive, turns, verdict, type Driver } from "./table/check";
 import { ROWS } from "./table/rows";
 
 /* The consistency table (lib/actions/consistency, docs/交互规则.md) on the React Native kit: each row's design as the
  * exported phone app has it (__tests__/table/<row>: the screens, bindings, effects and contract lib/export printed,
- * written by `bun run gen:rn`), run by the kit (src/kit/app.tsx) over the shared runtime (lib/app), drawn by React
+ * written by `bun run gen:rn`), its taps run by the interpreter every host runs (lib/actions, through the printed
+ * effects.ts) over the kit's memory (src/kit/app.tsx) and the shared runtime (lib/app), drawn by React
  * Native as the kit's other tests draw it. Expo Router is stood in for by a stack that does what the app's routes do: a
  * screen pushed, put in place of another, laid over the one on show, and a screen that needs a session guarded. A row
  * the kit does not do yet passes only while the row says so (`known.rn`). */
 
 type Row = (typeof ROWS)[number];
 type Place = { key: string; params?: Record<string, unknown> };
-type Modules = { SCREENS: Record<string, ComponentType<{ params?: Record<string, unknown> }>>; handleEffect: EffectHandler; reader: Reader; runtime: Runtime };
+type Modules = { SCREENS: Record<string, ComponentType<{ params?: Record<string, unknown> }>>; interpret: Interpreter; reader: Reader; runtime: Runtime };
 
 const load = (id: string): Modules => ({
   // eslint-disable-next-line @typescript-eslint/no-require-imports -- each row's printed app, loaded when its row runs
   ...(require(`./table/${id}/screens`) as Pick<Modules, "SCREENS">),
   // eslint-disable-next-line @typescript-eslint/no-require-imports -- as above
-  ...(require(`./table/${id}/effects`) as Pick<Modules, "handleEffect" | "reader">),
+  ...(require(`./table/${id}/effects`) as Pick<Modules, "interpret" | "reader">),
   // eslint-disable-next-line @typescript-eslint/no-require-imports -- as above
   ...(require(`./table/${id}/runtime`) as Pick<Modules, "runtime">),
 });
@@ -83,6 +84,19 @@ function Routes({ row, m }: { row: Row; m: Modules }) {
   );
 }
 
+/** a React fiber, as far as the runner reads one: its props and what holds it */
+type Fiber = { memoizedProps?: Record<string, unknown> | null; return: Fiber | null };
+
+/** The part drawn with these words, found up from them through what React holds them in (a kit component's props are
+ *  no host element's): the first component above them whose props say it is the part. */
+function partWith(words: string, is: (props: Record<string, unknown>) => boolean): { props: Record<string, unknown> } {
+  const host = screen.getAllByText(words).at(-1) as unknown as { unstable_fiber: Fiber | null };
+  let at = host.unstable_fiber;
+  while (at && !(at.memoizedProps && is(at.memoizedProps))) at = at.return;
+  if (!at?.memoizedProps) throw new Error(`no part with the words "${words}" handles that`);
+  return { props: at.memoizedProps };
+}
+
 /** every piece of words drawn */
 function wordsIn(node: unknown, out: string[] = []): string[] {
   if (Array.isArray(node)) for (const x of node) wordsIn(x, out);
@@ -104,7 +118,7 @@ describe("the consistency table on the React Native kit", () => {
         <SafeAreaProvider initialMetrics={{ frame: { x: 0, y: 0, width: 412, height: 892 }, insets: { top: 24, left: 0, right: 0, bottom: 24 } }}>
           <RuntimeProvider runtime={m.runtime}>
             <ThemeProvider theme={MATERIAL} dark={false}>
-              <AppProvider vars={row.appVars} hidden={row.hidden} reader={m.reader} handle={m.handleEffect}>
+              <AppProvider vars={row.appVars} hidden={row.hidden} triggers={row.triggers} reader={m.reader} interpret={m.interpret}>
                 <Probe />
                 <Routes row={row} m={m} />
                 <SnackHost />
@@ -116,6 +130,18 @@ describe("the consistency table on the React Native kit", () => {
       return {
         tap: async (words) => {
           await fireEvent.press(screen.getAllByText(words).at(-1)!);
+        },
+        tapSlot: async (words, slot) => {
+          /* the part with these words, and what it does with a press on one of its places */
+          const at = partWith(words, (props) => !!props.taps);
+          await flush(async () => (at.props.taps as Record<string, (() => void) | undefined>)[slot]?.());
+        },
+        emit: async (words, event, payload = {}) => {
+          /* the part's callback for the event: its one value where it takes one (the number pad's words), else the payload */
+          const prop = `on${event.charAt(0).toUpperCase()}${event.slice(1)}`;
+          const at = partWith(words, (props) => typeof props[prop] === "function");
+          const fields = Object.keys(payload);
+          await flush(async () => (at.props[prop] as (v: unknown) => void)(fields.includes("value") ? payload.value : payload));
         },
         type: async (words, value) => {
           /* the field with these words: its label, or what it shows while empty */

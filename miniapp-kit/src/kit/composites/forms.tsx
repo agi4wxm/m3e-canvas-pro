@@ -1,6 +1,6 @@
 import { Input as TaroInput, Picker, Textarea as TaroTextarea, View } from "@tarojs/components";
 import Taro from "@tarojs/taro";
-import { useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 
 import type { PartBase } from "../atoms/basics";
 import { Button, buttonColors, inkCss, keyboardOf, RadioMark } from "../atoms/controls";
@@ -309,7 +309,9 @@ export function SegmentedButton(props: SegmentedButtonProps) {
 
 /* ---------- a menu ---------- */
 
-export type MenuProps = PartBase & { label?: string; variant?: string; items?: ListRow[]; destructive?: string };
+/** `open` with `onOpenChange`: whether its menu is open is the app's (a tap's open and close effects), the visitor's
+ *  opening and its sheet's closing handed to it; without them the button opens the sheet itself */
+export type MenuProps = PartBase & { label?: string; variant?: string; items?: ListRow[]; destructive?: string; open?: boolean; onOpenChange?: (open: boolean) => void };
 
 /** a button that opens the platform's action sheet of the menu's actions */
 export function Menu(props: MenuProps) {
@@ -318,12 +320,27 @@ export function Menu(props: MenuProps) {
   const look = buttonColors(kit, p.variant ?? "outlined");
   const items = p.items ?? [];
   const labels = [...items.map((it) => it.label), ...(p.destructive ? [p.destructive] : [])].slice(0, 6);
-  const open = () => {
-    if (!labels.length) return;
+  const sheet = () => {
+    if (!labels.length) return void p.onOpenChange?.(false);
     Taro.showActionSheet({ itemList: labels })
-      .then((r) => tapOf(p, `tab:${r.tapIndex}`)?.())
-      .catch(() => {});
+      .then((r) => {
+        p.onOpenChange?.(false);
+        tapOf(p, `tab:${r.tapIndex}`)?.();
+      })
+      .catch(() => p.onOpenChange?.(false));
   };
+  const controlled = !!p.onOpenChange;
+  const asked = controlled && !!p.open;
+  const latest = useRef(sheet);
+  useEffect(() => {
+    latest.current = sheet;
+  });
+  /* the app opened it: the sheet comes up once (a sheet the platform shows is not taken down from outside: closing it
+     is the visitor's) */
+  useEffect(() => {
+    if (asked) latest.current();
+  }, [asked]);
+  const open = () => (controlled ? p.onOpenChange?.(true) : sheet());
   return (
     <Surface base={{ ...ROW, height: 40, paddingLeft: 16, paddingRight: 16, borderRadius: controlRadius(kit, 40), columnGap: 8, alignSelf: "flex-start", ...look.box }} appearance={p} testID={p.testID} onPress={open} label={p.label} ink={look.ink}>
       <Words text={p.label} style={{ ...typeStyle(kit, "label-large"), color: inkCss(look.ink) }} />
@@ -370,7 +387,9 @@ export function RadioGroup(props: RadioGroupProps) {
 /** a file as the platform hands one over: its temporary path, name, type and size */
 export type PickedFile = { path: string; name: string; type: string; size: number };
 
-export type FileUploadProps = PartBase & FieldProps & { title?: string; hint?: string; action?: string; multiple?: boolean; accept?: string; width?: number; error?: boolean; disabled?: boolean; value?: PickedFile | PickedFile[]; onChange?: (files: PickedFile | PickedFile[] | undefined) => void };
+/** `pick`: how the app asks for the files (an exported app's capability registry, file.pick); the platform's own
+ *  pickers (`pickFiles`) without it */
+export type FileUploadProps = PartBase & FieldProps & { title?: string; hint?: string; action?: string; multiple?: boolean; accept?: string; width?: number; error?: boolean; disabled?: boolean; value?: PickedFile | PickedFile[]; onChange?: (files: PickedFile | PickedFile[] | undefined) => void; pick?: (o: { multiple?: boolean; accept?: string }) => Promise<PickedFile[]> };
 
 const mimeOf = (path: string) => {
   const ext = /\.([a-z0-9]+)(?:\?|$)/i.exec(path)?.[1]?.toLowerCase();
@@ -399,7 +418,7 @@ export function FileUpload(props: FileUploadProps) {
   const [files, setFiles] = useValue<PickedFile | PickedFile[] | undefined>(p.value, p.onChange);
   const list = files === undefined ? [] : Array.isArray(files) ? files : [files];
   const choose = () => {
-    pickFiles({ multiple: p.multiple, accept: p.accept })
+    (p.pick ?? pickFiles)({ multiple: p.multiple, accept: p.accept })
       .then((picked) => {
         if (picked.length) setFiles(p.multiple ? picked : picked[0]);
         (tapOf(p, "action") ?? p.onPress)?.();

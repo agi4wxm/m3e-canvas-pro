@@ -11,7 +11,13 @@ export function CartScreen() {
   return (
     <Screen screen="cart" width={412} height={892} length={896}>
       <Pin edge="top">
-        <AppBar title="Cart" leading="arrow_back" trailing="" taps={{ "icon": s.tap(A1, { $: $ }) }} testID="appBar3" />
+        <AppBar
+          title="Cart"
+          leading="arrow_back"
+          trailing=""
+          taps={{ "icon": () => s.run(A1, { $: $ }) }}
+          testID="appBar3"
+        />
       </Pin>
       <At x={16} y={80}>
         <Container
@@ -314,7 +320,7 @@ export function CartScreen() {
                     <Text text="Total" styleVariant="tiny" color="muted" fit="auto" testID="text38" />
                     <Text text={"$68.00"} styleVariant="heading" color="primary" fit="auto" testID="text39" />
                   </Box>
-                  <Button label="Checkout (4)" onPress={s.tap(A2, { $: $ })} testID="button20" />
+                  <Button label="Checkout (4)" onPress={() => s.run(A2, { $: $ })} testID="button20" />
                 </Box>
               </Cell>
             </Box>

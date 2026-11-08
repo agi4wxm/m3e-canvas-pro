@@ -330,6 +330,9 @@ describe("the mobile app", () => {
     expect(form).toContain("disabled={form1.submitting}");
     const photo = text(shop, "apps/mobile/src/generated/screens/PhotoScreen.tsx");
     expect(photo).toContain('onPress={() => void pickFile("").then((file) => file && form1.set("file", file))}');
+    /* the file is asked for through the capability registry (file.pick), the device's pickers without an adapter */
+    expect(text(shop, "apps/mobile/src/generated/files.ts")).toContain('const asked = await runtime.invoke("file.pick", { accept })');
+    expect(text(shop, "apps/miniapp/src/generated/screens/PhotoScreen.tsx")).toMatch(/<FileUpload[\s\S]*pick=\{s\.pickFiles\}/);
     expect(photo).toContain('params: { productId: "params.productId" }');
     expect(text(shop, "apps/mobile/src/generated/screens/SignInScreen.tsx")).toContain("login: true");
     expect(text(shop, "apps/mobile/src/generated/contract.ts")).toContain('"media": "multipart/form-data"');

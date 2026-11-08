@@ -16,6 +16,7 @@ const SOURCES = import.meta.glob(
     "/lib/api/transport.ts",
     "/lib/api/body.ts",
     "/lib/capabilities/{types,catalog,registry,mock}.ts",
+    "/lib/actions/{model,host,run}.ts",
     "/miniapp-kit/src/kit/*.{ts,tsx,css}",
     "/miniapp-kit/src/kit/app/*.{ts,tsx}",
     "/miniapp-kit/src/kit/atoms/*.tsx",

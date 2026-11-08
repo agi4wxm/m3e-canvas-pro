@@ -96,6 +96,14 @@ describe("the capabilities a product uses", () => {
     for (const app of ["web", "mobile", "miniapp"]) expect(text(p, `apps/${app}/src/custom/capabilities.ts`), app).not.toMatch(/apiKey|secret|appId\s*[:=]/i);
   });
 
+  it("name an unnamed view's slot clear of the web's own widget of that name, and leave every other name as it was", () => {
+    const doc = payingDoc();
+    /* a map and a camera with no name of their own: their default slot names are the web widgets' (MapView, CameraView) */
+    const bare = { ...doc, groups: [...doc.groups.map((g) => ({ ...g, name: undefined, items: g.items.map((it) => (it.id === "map" ? { ...it, label: "" } : it)) })), { id: "g9", x: 16, y: 600, axis: "x" as const, items: [{ ...makeItem("camera"), id: "cam", label: "" }] }] };
+    expect(slotsOf(bare).map((s) => s.name)).toEqual(["MapView2", "CameraView2"]);
+    expect(slotsOf(doc).map((s) => s.name)).toEqual(["StoreMap"]);
+  });
+
   it("draw each capability view with a slot the product writes once, its stand-in until then", () => {
     expect(slotsOf(payingDoc()).map((s) => s.name)).toEqual(["StoreMap"]);
     for (const app of ["web", "mobile", "miniapp"]) {
@@ -123,7 +131,11 @@ describe("the capabilities a product uses", () => {
 
   it("run the invoke on every app", () => {
     expect(text(p, "apps/web/src/generated/screens/CheckoutScreen.tsx")).toMatch(/void invoke\("payment\.pay", \{ orderId: \$\.ev\("'o1'"\) \}, \{ then: \(result\) =>/);
-    expect(text(p, "apps/mobile/src/generated/effects.ts")).toContain('case "invoke": {');
+    /* the phone and the mini-program run it with the one interpreter, through the runtime's registry */
+    expect(text(p, "apps/mobile/src/generated/effects.ts")).toContain("invoke: (capability, args) => runtime.invoke(capability, args),");
+    /* an address outside the app opens through the registry too (link.open), the platform's way without an adapter */
+    expect(text(p, "apps/mobile/src/generated/effects.ts")).toContain('const out = await runtime.invoke("link.open", { url })');
+    expect(text(p, "apps/mobile/src/generated/screens/CheckoutScreen.tsx")).toContain('do: "invoke", capability: "payment.pay"');
   });
 
   it("are reported where the product has code to write", () => {

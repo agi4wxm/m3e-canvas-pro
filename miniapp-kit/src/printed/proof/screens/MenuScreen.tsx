@@ -16,25 +16,25 @@ export function MenuScreen() {
   return (
     <Screen screen="menu" width={412} height={892}>
       <At x={16} y={24}>
-        <Button label="Shop" width={160} onPress={s.tap(A1, { $: $ })} testID="button" />
+        <Button label="Shop" width={160} onPress={() => s.run(A1, { $: $ })} testID="button" />
       </At>
       <At x={16} y={78}>
-        <Button label="Form" width={160} onPress={s.tap(A2, { $: $ })} testID="button2" />
+        <Button label="Form" width={160} onPress={() => s.run(A2, { $: $ })} testID="button2" />
       </At>
       <At x={16} y={132}>
-        <Button label="Counter" width={160} onPress={s.tap(A3, { $: $ })} testID="button3" />
+        <Button label="Counter" width={160} onPress={() => s.run(A3, { $: $ })} testID="button3" />
       </At>
       <At x={16} y={186}>
-        <Button label="Inputs" width={160} onPress={s.tap(A4, { $: $ })} testID="button4" />
+        <Button label="Inputs" width={160} onPress={() => s.run(A4, { $: $ })} testID="button4" />
       </At>
       <At x={16} y={240}>
-        <Button label="Dock" width={160} onPress={s.tap(A5, { $: $ })} testID="button5" />
+        <Button label="Dock" width={160} onPress={() => s.run(A5, { $: $ })} testID="button5" />
       </At>
       <At x={16} y={294}>
-        <Button label="Bars" width={160} onPress={s.tap(A6, { $: $ })} testID="button6" />
+        <Button label="Bars" width={160} onPress={() => s.run(A6, { $: $ })} testID="button6" />
       </At>
       <At x={16} y={348}>
-        <Button label="Long" width={160} onPress={s.tap(A7, { $: $ })} testID="button7" />
+        <Button label="Long" width={160} onPress={() => s.run(A7, { $: $ })} testID="button7" />
       </At>
       {s.layer}
     </Screen>

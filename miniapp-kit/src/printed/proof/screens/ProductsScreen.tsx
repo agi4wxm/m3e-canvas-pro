@@ -60,7 +60,7 @@ export function ProductsScreen() {
                   testID="productCard"
                 >
                   <Cell dir="column" fillWidth>
-                    <Image height={186} radius={0} onPress={s.tap(A1, { $: $ })} />
+                    <Image height={186} radius={0} onPress={() => s.run(A1, { $: $ })} />
                   </Cell>
                   <Cell dir="column" fillWidth>
                     <Box gap={4} align="stretch" hugWidth={false} width={120}>
@@ -114,7 +114,7 @@ export function ProductsScreen() {
                   testID="productCard2"
                 >
                   <Cell dir="column" fillWidth>
-                    <Image height={186} radius={0} onPress={s.tap(A1, { $: $ })} />
+                    <Image height={186} radius={0} onPress={() => s.run(A1, { $: $ })} />
                   </Cell>
                   <Cell dir="column" fillWidth>
                     <Box gap={4} align="stretch" hugWidth={false} width={120}>
@@ -156,7 +156,7 @@ export function ProductsScreen() {
                   testID="productCard3"
                 >
                   <Cell dir="column" fillWidth>
-                    <Image height={186} radius={0} onPress={s.tap(A1, { $: $ })} />
+                    <Image height={186} radius={0} onPress={() => s.run(A1, { $: $ })} />
                   </Cell>
                   <Cell dir="column" fillWidth>
                     <Box gap={4} align="stretch" hugWidth={false} width={120}>
@@ -210,7 +210,7 @@ export function ProductsScreen() {
                   testID="productCard4"
                 >
                   <Cell dir="column" fillWidth>
-                    <Image height={186} radius={0} onPress={s.tap(A1, { $: $ })} />
+                    <Image height={186} radius={0} onPress={() => s.run(A1, { $: $ })} />
                   </Cell>
                   <Cell dir="column" fillWidth>
                     <Box gap={4} align="stretch" hugWidth={false} width={120}>

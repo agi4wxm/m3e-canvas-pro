@@ -16,7 +16,7 @@ export function MachinesScreen() {
         <MoneyTree testID="moneyTree" />
       </At>
       <At x={16} y={420}>
-        <EggSmash taps={{ "egg:1": s.tap(A1, { $: $ }) }} testID="eggSmash" />
+        <EggSmash taps={{ "egg:1": () => s.run(A1, { $: $ }) }} testID="eggSmash" />
       </At>
       {s.layer}
     </Screen>

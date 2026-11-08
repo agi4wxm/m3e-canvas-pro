@@ -6,11 +6,11 @@ const A1: Action = { to: "Next", effects: [{ do: "call", operationId: "slow" }, 
 
 export function HomeScreen() {
   const $ = useScreenScope({});
-  const act = useAct();
+  const act = useAct({ key: "Home" });
   return (
     <Screen width={412} height={892}>
       <At x={16} y={88}>
-        <Button label="Send and go" onPress={() => act(A1, { scope: $.scope })} />
+        <Button label="Send and go" onPress={() => act(A1, { scope: $.scope, part: "button" })} />
       </At>
     </Screen>
   );
