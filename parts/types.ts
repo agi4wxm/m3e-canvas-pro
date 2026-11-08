@@ -118,6 +118,8 @@ export type PartDemo = { what: string; takenOverBy: string[] };
 export type PartRetired = {
   /** what to build instead, in a sentence: the kits and atoms, where the data goes, what the taps call */
   use: string;
+  /** the kits and parts that replace it, by slug: what the palette shows for a search by the retired part's name */
+  with?: string[];
 };
 
 /** the part's place on a screen: a bar pinned to an edge, a corner FAB, a centered overlay.

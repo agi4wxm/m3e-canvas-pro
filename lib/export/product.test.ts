@@ -52,14 +52,14 @@ describe("the prototype export", () => {
      loader asking for each root's family; with it the widgets' host contract, parts/widgets/host.ts, copied beside
      them, and a rating an input wired to its variable; before them an icon counted as drawn only with both its glyphs, the components saying their own words in Chinese, Japanese and Korean too, the
      icons asking again and the ripple under reduced motion; in parts, form fields keyed by their item and resizable
-     sizes as percentages; last of all, retired parts: parts/types.ts, which ships, says what `retired` is, and the shop
-     template's cart is the atoms the retired cart-list splits into). */
+     sizes as percentages; last of all, retired parts: parts/types.ts, which ships, says what `retired` is and what
+     replaces one, and the shop template's cart is the atoms the retired cart-list splits into). */
   const DIGESTS: Record<string, [number, string]> = {
-    proof: [78, "53f533e9a39e444fbb4140684488ec8e0e6686970d39ee82711ee8c16e670564"],
+    proof: [78, "f538fc939e0baf22354648bef665f0a342142c3e2c968de4d6af7ca912580463"],
     systems: [40, "58807e81f5714322a5a6a60c6bd52007dd8f794c6d8e51804d642a637d315fef"],
     reuse: [30, "c927332adcf650e2ccfdb707beb22ea9c1064ed2aa51a5ad2f598cf1ae813aa2"],
-    sweep: [84, "96bd7958ec20173db4915b3ee0d25e13a2fb4f04c8204aba78b705abeab33df6"],
-    parts: [137, "0d778f2edef1524406943284aeb8854f93858a2b93b10f1d3bfe652c70fd23b8"],
+    sweep: [84, "59e05326437a6eec653445a015d5abcf9bc57c4b034b721b79398cc5dd7daee3"],
+    parts: [137, "e1054ab9f646e9ae0fbc825dea62a6e6ea4ff91649468706a1179f9a7798b652"],
   };
   const DOCS: Record<string, () => { doc: Doc; widths: Record<string, number> }> = { proof: proofDoc, systems: systemsDoc, reuse: reuseDoc, sweep: sweepDoc, parts: () => ({ doc: allPartsDoc(), widths: {} }) };
   it.each(Object.keys(DIGESTS))("is byte for byte what it was: %s", async (name) => {

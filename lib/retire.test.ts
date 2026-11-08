@@ -9,6 +9,7 @@ import { executeTool, toolGuide } from "./tools";
 import { setGlobalLang } from "./i18n";
 import { OFFERED_PARTS, PARTS, partBySlug, reader, tierOf, viewOf } from "../parts/registry";
 import { partCatalog } from "../parts/catalog";
+import { kitBySlug } from "../parts/kits";
 import { TEMPLATES } from "../parts/templates";
 import { seedGroups } from "../parts/templates/kit";
 import { buildCode } from "./codegen";
@@ -70,6 +71,15 @@ describe("the retired parts", () => {
       expect(def.atoms, slug).toBeTruthy();
       expect(def.retired!.use.length, slug).toBeGreaterThan(20);
       expect(OFFERED_PARTS.includes(def), slug).toBe(false);
+    }
+  });
+
+  it("name what replaces them, every one a kit or a part that is offered, for the palette to find by the old name", () => {
+    for (const slug of SLUGS) {
+      const use = partBySlug(slug)!.retired!.with ?? [];
+      /* a pull to refresh is a data source's setting, no part */
+      expect(use.length > 0, slug).toBe(slug !== "pull-to-refresh");
+      for (const x of use) expect(!!kitBySlug(x) || OFFERED_PARTS.some((d) => d.slug === x), `${slug}: ${x}`).toBe(true);
     }
   });
 

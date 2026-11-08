@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { Palette } from "@/lib/tokens";
 import { kitGroups } from "@/lib/kits";
-import { CATEGORY_ICON, CATEGORY_TEXT, OFFERED_PARTS, categoriesOf, partBySlug, type PartCategory, type PartTier } from "@/parts/registry";
+import { CATEGORY_ICON, CATEGORY_TEXT, OFFERED_PARTS, PARTS, categoriesOf, partBySlug, type PartCategory, type PartTier } from "@/parts/registry";
 import { KITS, kitBySlug, kitKey, kitOfKey, pickVariant, type KitDef, type KitLook } from "@/parts/kits";
 import { fetchNow, modulesOfGroups, modulesOfPart, usePrefetchInView } from "@/parts/prefetch";
 import { nameIn, nameOf } from "@/parts/labels";
@@ -28,6 +28,9 @@ const categoryWords = (c: string) => Object.values(CATEGORY_TEXT[c as PartCatego
 const wordsOfPart = (d: PartDef) => [d.slug, d.slug.replace(/-/g, " "), d.name, ...LANGS.map((l) => nameOf(d, l.key)), ...categoryWords(d.category)].join("\n").toLowerCase();
 const wordsOfKit = (k: KitDef) => [k.slug, k.slug.replace(/-/g, " "), k.name, ...Object.values(k.labels), ...k.variants.flatMap((v) => [v.name, ...Object.values(v.labels)]), ...categoryWords(k.category)].join("\n").toLowerCase();
 const WORDS = new Map<string, string>([...OFFERED_PARTS.map((d) => [d.slug, wordsOfPart(d)] as const), ...KITS.map((k) => [kitKey(k.slug), wordsOfKit(k)] as const)]);
+/** the names a retired part went by, in every language, and what replaces it (parts/defs/retired.ts): a search for an
+ *  old name finds those instead, since the part itself is no longer offered */
+const RETIRED_NAMES = PARTS.filter((d) => d.retired?.with?.length).map((d) => ({ words: [d.slug, d.slug.replace(/-/g, " "), d.name, ...LANGS.map((l) => nameOf(d, l.key))].join("\n").toLowerCase(), with: d.retired!.with! }));
 
 /** the modules what a tile adds is drawn with: a part as it comes from the palette, a kit as the style composes it */
 function modulesOfTile(el: Element, look: KitLook, lang: Lang): readonly string[] {
@@ -116,7 +119,14 @@ export function PartsPalette({
       return words.includes(terms[0]) ? 0 : terms.some((w) => words.includes(w)) ? 1 : 2;
     };
     const keep = <T,>(list: T[], key: (x: T) => string) => list.map((x) => ({ x, r: rank(key(x)) })).filter((e) => e.r < 2).sort((a, b) => a.r - b.r).map((e) => e.x);
-    return { parts: keep(OFFERED_PARTS, (d) => d.slug), kits: keep(KITS, (k) => kitKey(k.slug)) };
+    /* what replaces a retired part called what was typed comes after what is itself called so */
+    const instead = new Set(RETIRED_NAMES.filter((r) => terms.some((w) => r.words.includes(w))).flatMap((r) => r.with));
+    const parts = keep(OFFERED_PARTS, (d) => d.slug);
+    const kits = keep(KITS, (k) => kitKey(k.slug));
+    return {
+      parts: [...parts, ...OFFERED_PARTS.filter((d) => instead.has(d.slug) && !parts.includes(d))],
+      kits: [...kits, ...KITS.filter((k) => instead.has(k.slug) && !kits.includes(k))],
+    };
   }, [q]);
 
   const grid: React.CSSProperties = {

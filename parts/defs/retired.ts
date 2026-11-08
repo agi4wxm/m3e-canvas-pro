@@ -12,17 +12,17 @@ import type { P, PartRetired } from "../types";
  * are, or, where a list's rows are alike, one row repeated over a data collection that holds them. */
 
 export const RETIRED: Record<string, PartRetired> = {
-  inventory: { use: "a grid box of item cells (the item-cell part, or atoms), repeated over the inventory's data; the item a tap picks is the screen's to say" },
-  "task-row": { use: "the quest-row kit, repeated over the tasks' data; Claim calls the API and the row shows the claimed state the answer gives" },
+  inventory: { use: "a grid box of item cells (the item-cell part, or atoms), repeated over the inventory's data; the item a tap picks is the screen's to say", with: ["item-cell"] },
+  "task-row": { use: "the quest-row kit, repeated over the tasks' data; Claim calls the API and the row shows the claimed state the answer gives", with: ["quest-row"] },
   "pull-to-refresh": { use: "turn on pull to refresh on the screen's data source (pullToRefresh): every target refreshes natively" },
-  "cart-list": { use: "cart-row kits repeated over the cart's data with a buy-bar kit at the foot; each check, step, remove and select-all calls the API, and the total and count come from the cart's data" },
-  "contact-list": { use: "a search-bar kit over contact-row kits repeated over the contacts' data; the search words go into a variable the data source reads, and follow calls the API" },
-  "comment-list": { use: "rows of atoms (an avatar, name, time and words, a like button) repeated over the comments' data, then the chat-input kit; like and send call the API, reply sets a variable" },
-  "notification-list": { use: "a header row over notification-row kits repeated over the notifications' data; a tap opens one and calls mark-read, mark-all-read calls the API and refreshes" },
-  "settings-group": { use: "settings-row kits in an inset-group kit; each switch and check is a real input whose value goes into a variable or a form" },
-  "todo-list": { use: "rows of a checkbox, words and a remove button repeated over the tasks' data, and an input with an add button (or make_form) for a new one" },
-  "auth-form": { use: "the login-form kit (with password-field and terms-row) bound with make_form to the sign-in endpoint, a sign-up screen of its own; the rules come from the API's schema" },
-  "chat-composer": { use: "the chat-input kit: the entry's words go into a variable, send calls the API and then clears it" },
+  "cart-list": { use: "cart-row kits repeated over the cart's data with a buy-bar kit at the foot; each check, step, remove and select-all calls the API, and the total and count come from the cart's data", with: ["cart-row", "price-summary", "buy-bar"] },
+  "contact-list": { use: "a search-bar kit over contact-row kits repeated over the contacts' data; the search words go into a variable the data source reads, and follow calls the API", with: ["search-bar", "contact-row"] },
+  "comment-list": { use: "rows of atoms (an avatar, name, time and words, a like button) repeated over the comments' data, then the chat-input kit; like and send call the API, reply sets a variable", with: ["chat-input"] },
+  "notification-list": { use: "a header row over notification-row kits repeated over the notifications' data; a tap opens one and calls mark-read, mark-all-read calls the API and refreshes", with: ["see-all-header", "notification-row"] },
+  "settings-group": { use: "settings-row kits in an inset-group kit; each switch and check is a real input whose value goes into a variable or a form", with: ["inset-group", "settings-row"] },
+  "todo-list": { use: "rows of a checkbox, words and a remove button repeated over the tasks' data, and an input with an add button (or make_form) for a new one", with: ["checkbox", "input"] },
+  "auth-form": { use: "the login-form kit (with password-field and terms-row) bound with make_form to the sign-in endpoint, a sign-up screen of its own; the rules come from the API's schema", with: ["login-form", "password-field", "terms-row"] },
+  "chat-composer": { use: "the chat-input kit: the entry's words go into a variable, send calls the API and then clears it", with: ["chat-input"] },
 };
 
 const px = (p: P, key = "width") => Math.round(p.n(key));
