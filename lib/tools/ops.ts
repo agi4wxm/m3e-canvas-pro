@@ -105,6 +105,7 @@ const isRec = (v: unknown): v is Rec => !!v && typeof v === "object" && !Array.i
  *  as the nesting limit lets them go. */
 const tapOf = (a: unknown, depth = 0): unknown => {
   if (!isRec(a) || depth > 8) return a;
+  // eslint-disable-next-line unicorn/no-thenable -- an action body, never a function: nothing awaits it
   const effects = Array.isArray(a.effects) ? a.effects.map((e) => (isRec(e) && (e.do === "call" || e.do === "invoke") ? { ...e, ...(isRec(e.then) ? { then: tapOf(e.then, depth + 1) } : {}), ...(isRec(e.catch) ? { catch: tapOf(e.catch, depth + 1) } : {}) } : e)) : a.effects;
   return { ...a, ...(a.to === undefined ? { to: "none" } : {}), ...(effects !== a.effects ? { effects } : {}), ...(isRec(a.else) ? { else: tapOf(a.else, depth + 1) } : {}) };
 };

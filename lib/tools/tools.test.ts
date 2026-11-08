@@ -419,6 +419,7 @@ describe("errors a model can act on", () => {
     const pay = { do: "invoke", capability: "payment.pay", args: { orderId: "response.id" }, then: { effects: [{ do: "setVar", var: "dark", value: false }] }, catch: { effects: [{ do: "snackbar", message: "x" }] } };
     // eslint-disable-next-line unicorn/no-thenable -- an action body, never a function: nothing awaits it
     ok(await executeTool(store, "set_action", { id: "sw", action: { effects: [{ do: "call", operationId: "createOrder", then: { effects: [pay] } }] } }, { origin: "ai" }));
+    // eslint-disable-next-line unicorn/no-thenable -- an action body, never a function: nothing awaits it
     expect(tap()).toMatchObject({ to: "none", effects: [{ do: "call", then: { to: "none", effects: [{ do: "invoke", then: { to: "none" }, catch: { to: "none" } }] } }] });
   });
 
