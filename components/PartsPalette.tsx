@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { Palette } from "@/lib/tokens";
 import { kitGroups } from "@/lib/kits";
-import { CATEGORY_ICON, CATEGORY_TEXT, PARTS, categoriesOf, partBySlug, type PartCategory, type PartTier } from "@/parts/registry";
+import { CATEGORY_ICON, CATEGORY_TEXT, OFFERED_PARTS, categoriesOf, partBySlug, type PartCategory, type PartTier } from "@/parts/registry";
 import { KITS, kitBySlug, kitKey, kitOfKey, pickVariant, type KitDef, type KitLook } from "@/parts/kits";
 import { fetchNow, modulesOfGroups, modulesOfPart, usePrefetchInView } from "@/parts/prefetch";
 import { nameIn, nameOf } from "@/parts/labels";
@@ -27,7 +27,7 @@ const categoryWords = (c: string) => Object.values(CATEGORY_TEXT[c as PartCatego
 /** every word a part or a kit is known by, in every language, with its slug's words and its section's names */
 const wordsOfPart = (d: PartDef) => [d.slug, d.slug.replace(/-/g, " "), d.name, ...LANGS.map((l) => nameOf(d, l.key)), ...categoryWords(d.category)].join("\n").toLowerCase();
 const wordsOfKit = (k: KitDef) => [k.slug, k.slug.replace(/-/g, " "), k.name, ...Object.values(k.labels), ...k.variants.flatMap((v) => [v.name, ...Object.values(v.labels)]), ...categoryWords(k.category)].join("\n").toLowerCase();
-const WORDS = new Map<string, string>([...PARTS.map((d) => [d.slug, wordsOfPart(d)] as const), ...KITS.map((k) => [kitKey(k.slug), wordsOfKit(k)] as const)]);
+const WORDS = new Map<string, string>([...OFFERED_PARTS.map((d) => [d.slug, wordsOfPart(d)] as const), ...KITS.map((k) => [kitKey(k.slug), wordsOfKit(k)] as const)]);
 
 /** the modules what a tile adds is drawn with: a part as it comes from the palette, a kit as the style composes it */
 function modulesOfTile(el: Element, look: KitLook, lang: Lang): readonly string[] {
@@ -116,7 +116,7 @@ export function PartsPalette({
       return words.includes(terms[0]) ? 0 : terms.some((w) => words.includes(w)) ? 1 : 2;
     };
     const keep = <T,>(list: T[], key: (x: T) => string) => list.map((x) => ({ x, r: rank(key(x)) })).filter((e) => e.r < 2).sort((a, b) => a.r - b.r).map((e) => e.x);
-    return { parts: keep(PARTS, (d) => d.slug), kits: keep(KITS, (k) => kitKey(k.slug)) };
+    return { parts: keep(OFFERED_PARTS, (d) => d.slug), kits: keep(KITS, (k) => kitKey(k.slug)) };
   }, [q]);
 
   const grid: React.CSSProperties = {
@@ -127,7 +127,8 @@ export function PartsPalette({
 
   const partTile = (slug: string) => {
     const d = partBySlug(slug);
-    if (!d) return null;
+    /* a retired part is not offered, even where it was starred before it retired */
+    if (!d || d.retired) return null;
     const tile = (
       <Tile
         key={slug}
@@ -172,6 +173,8 @@ export function PartsPalette({
     const kit = kitOfKey(key);
     return kit ? kitTile(kit) : partTile(key);
   };
+  /* what stays starred: a part that retired since it was starred is no longer offered */
+  const starred = favorites.filter((key) => kitOfKey(key) || !partBySlug(key)?.retired);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", position: "relative" }}>
@@ -193,9 +196,9 @@ export function PartsPalette({
       </div>
 
       <div ref={scroller} onPointerOver={onTilePointer} className="no-scrollbar" style={{ flex: 1, overflowY: "auto", overflowX: "hidden", padding: "0 8px" }}>
-        {!q && favorites.length > 0 && (
+        {!q && starred.length > 0 && (
           <Section id="fav" icon="star" title={t("favorites", lang)} p={p}>
-            <div style={grid}>{favorites.map(favorite)}</div>
+            <div style={grid}>{starred.map(favorite)}</div>
           </Section>
         )}
         {found ? (
@@ -211,7 +214,7 @@ export function PartsPalette({
           </div>
         ) : (
           categoriesOf(tier).map((c: PartCategory) => {
-            const parts = PARTS.filter((d) => d.category === c);
+            const parts = OFFERED_PARTS.filter((d) => d.category === c);
             const kits = KITS.filter((k) => k.category === c);
             if (parts.length + kits.length === 0) return null;
             return (

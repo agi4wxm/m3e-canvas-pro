@@ -80,6 +80,7 @@ const L: Record<string, Four> = {
   wrap_in_auto_layout: ["Wrap in auto layout", "转为自动布局", "オートレイアウトで包む", "자동 레이아웃으로 감싸기"],
   auto_layout_screen: ["Auto layout a screen", "整屏转为自动布局", "画面をオートレイアウトに", "화면 자동 레이아웃"],
   split_into_atoms: ["Split into atoms", "拆成原子", "アトムに分解", "원자로 분해"],
+  split_retired: ["Split retired parts", "拆分退役组件", "廃止したパーツを分解", "단종된 파트 분해"],
   place_in_screen: ["Place on the screen", "放到屏幕位置", "画面に配置", "화면에 배치"],
   combine_buttons: ["Combine buttons", "合并按钮", "ボタンをまとめる", "버튼 합치기"],
   relayout: ["Lay out again", "重新排版", "再レイアウト", "다시 배치"],

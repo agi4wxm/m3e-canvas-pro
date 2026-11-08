@@ -1,5 +1,5 @@
 import { choiceValueOf } from "./labels";
-import { CATEGORY_TEXT, TIERS, TIER_TEXT, categoriesOf, PARTS } from "./registry";
+import { CATEGORY_TEXT, TIERS, TIER_TEXT, categoriesOf, OFFERED_PARTS, PARTS } from "./registry";
 import type { PartDef, PropDef } from "./types";
 
 /* Every part and what it takes, in words an AI agent can write a document from. public/agent.md holds
@@ -38,12 +38,28 @@ const TIER_NOTE = {
   composite: "Ready-made, each one part. The ones marked *(splits)* can be split into atoms in the editor.",
 };
 
+/** The retired parts, which an old design may still hold: not to be written, each with what to build instead
+ *  (parts/defs/retired.ts). */
+function retiredCatalog(): string {
+  const rows = PARTS.filter((d) => d.retired).map((d) => `| \`${d.slug}\` | ${d.name} | ${d.retired!.use} |`);
+  return [
+    "#### Retired",
+    "",
+    "Old designs may still hold these whole-screen parts; they draw as they did, but never write one. Build what each did from atoms and kits, its rows as data and its taps as actions. In the editor, `split_retired` turns an old design's into atoms.",
+    "",
+    "| component | what it was | build instead |",
+    "|---|---|---|",
+    ...rows,
+  ].join("\n");
+}
+
 export function partCatalog(): string {
-  return TIERS.map((tier) => {
+  const tiers = TIERS.map((tier) => {
     const sections = categoriesOf(tier).map((category) => {
-      const rows = PARTS.filter((d) => d.category === category).map((d) => `| \`${d.slug}\` | ${d.name}${d.atoms ? " *(splits)*" : ""}${outletsOf(d)} | ${d.props.map(propOf).join("; ").replaceAll("|", "\\|")} |`);
+      const rows = OFFERED_PARTS.filter((d) => d.category === category).map((d) => `| \`${d.slug}\` | ${d.name}${d.atoms ? " *(splits)*" : ""}${outletsOf(d)} | ${d.props.map(propOf).join("; ").replaceAll("|", "\\|")} |`);
       return [`##### ${CATEGORY_TEXT[category].en}`, "", "| component | what it is | props (all optional) |", "|---|---|---|", ...rows].join("\n");
     });
     return [`#### ${TIER_TEXT[tier].en}`, "", TIER_NOTE[tier], "", sections.join("\n\n")].join("\n");
-  }).join("\n\n");
+  });
+  return [...tiers, retiredCatalog()].join("\n\n");
 }

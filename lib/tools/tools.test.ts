@@ -123,6 +123,8 @@ function opCalls(): [string, Record<string, unknown>][] {
     ["add_tree", { screen: "detail", at: { x: 16, y: 120 }, tree: { part: "box", id: "tree", props: { layout: "row", gap: 8 }, children: [{ part: "icon", props: { name: "star" } }, { part: "text", props: { text: "Starred" } }] } }],
     ["add_part", { slug: splittable, id: "comp", screen: "detail", at: { x: 16, y: 200 } }],
     ["split_into_atoms", { id: "comp" }],
+    /* an old design's retired parts: there are none in one built by the tools, which cannot add them (lib/retire.test.ts splits some) */
+    ["split_retired", {}],
     ["add_part", { slug: dock, id: "dock", screen: "detail", at: { x: 16, y: 500 } }],
     ["reorder_panes", { id: "dock", order: [1, 0] }],
     ["wrap_in_auto_layout", { ids: ["b4"], id: "wrap" }],

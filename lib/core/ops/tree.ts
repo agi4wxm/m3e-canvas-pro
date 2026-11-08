@@ -5,7 +5,8 @@
  * against its part's props and the fields a part may carry, with the path of the node in the message. */
 
 import { settleSizes } from "../../../parts/atoms";
-import { partBySlug, PARTS, tierOf } from "../../../parts/registry";
+import { OFFERED_PARTS, partBySlug, tierOf } from "../../../parts/registry";
+import { retiredRefusal } from "../../retire";
 import { arranged, defaultMeasures, seedGroups, type Node } from "../../../parts/templates/kit";
 import { settleInFlow } from "../../flow";
 import { landTree, moveTo, roomOn, treeSize } from "../../kits";
@@ -59,8 +60,8 @@ const NODE_KEYS = new Set<string>(["part", "id", "name", "props", "children", "g
 /** the slugs a caller most likely meant, for a part that does not exist */
 function near(slug: string): string {
   const s = slug.toLowerCase();
-  const atoms = PARTS.filter((d) => tierOf(d) === "atom").map((d) => d.slug);
-  const like = PARTS.map((d) => d.slug).filter((x) => x.includes(s) || s.includes(x));
+  const atoms = OFFERED_PARTS.filter((d) => tierOf(d) === "atom").map((d) => d.slug);
+  const like = OFFERED_PARTS.map((d) => d.slug).filter((x) => x.includes(s) || s.includes(x));
   return [...new Set([...like.slice(0, 6), ...atoms])].slice(0, 24).join(", ");
 }
 
@@ -80,6 +81,7 @@ function checked(s: CoreState, root: unknown, strict: boolean): Flat[] {
     if (typeof node.part !== "string") throw new OpError("invalid_value", `${path}.part is required: the part's slug (box, text, icon, svg, image, button…).`, `${path}.part`);
     const def = partBySlug(node.part);
     if (!def) throw new OpError("not_found", `${path}: there is no part "${node.part}". Parts that may be meant: ${near(node.part)}.`, `${path}.part`);
+    if (def.retired) throw new OpError("refused", `${path}: ${retiredRefusal(def)}`, `${path}.part`);
     const kids = node.children ?? [];
     if (!Array.isArray(kids)) throw new OpError("invalid_value", `${path}.children should be a list of nodes.`, `${path}.children`);
     if (kids.length && !(def.holds && def.flow)) throw new OpError("invalid_value", `${path}: a ${node.part} holds no parts; put children in a box.`, `${path}.children`);

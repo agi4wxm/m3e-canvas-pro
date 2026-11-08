@@ -2,6 +2,7 @@ import { useContext, useEffect, useState } from "react";
 import { BLEND_MODES } from "@/lib/look";
 import { Frame, Item, PHONE_W, Palette, frameSizeOf, uniformRadii, type BlendMode, type FlowSizing } from "@/lib/tokens";
 import { t, useLang, type UIKey } from "@/lib/i18n";
+import { retireText } from "@/lib/i18n/retire";
 import { partBySlug } from "@/parts/registry";
 import { axisValue, axisWrite, resizeOf, type PartAxis } from "@/parts/resize";
 import type { PartDef } from "@/parts/types";
@@ -400,6 +401,11 @@ export function PartDesign({ item, frame, onChange, inFlow, flowParent, selfRect
               <Icon name="view_quilt" size={16} />
               {t("suggestLayout", lang)}
             </button>
+          )}
+          {onSplit && def.retired && (
+            <div data-retired-part style={{ fontSize: 12, lineHeight: 1.4, color: p.onSurfaceVariant }}>
+              {retireText("panelRetired", lang)}
+            </div>
           )}
           {onSplit && def.atoms && (
             <button onClick={onSplit} data-split-atoms title={t("splitAtomsHint", lang)} className="m3-press" style={actionBtn(p)}>

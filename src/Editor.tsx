@@ -152,6 +152,8 @@ import { usePhoneLayout } from "./editor/usePhoneLayout";
 import { usePanels } from "./editor/usePanels";
 import { useOutsideImages } from "./editor/useOutsideImages";
 import { OutsideBanner } from "@/components/OutsideBanner";
+import { RetiredBanner } from "@/components/RetiredBanner";
+import { retireText } from "@/lib/i18n/retire";
 import { isOutside } from "@/lib/outside";
 import { useRememberUi } from "./editor/useRememberUi";
 import {
@@ -686,6 +688,11 @@ export default function Editor({ initialLang, onReady, persist = editorProjects(
   const project = useProject({ store, persist, docRef, framesRef, lang, loaded, editable: editAccess === "editable", frameThumb, importDoc, pickFallback: () => projectFileRef.current?.click(), showToast });
   /* pictures from other sites in a project from elsewhere wait for the author to allow them */
   const outside = useOutsideImages(store, persist);
+  /* an old design's retired parts are split into atoms only when the author asks, in one step (components/RetiredBanner.tsx) */
+  const splitRetired = () => {
+    const out = runOp(ops.splitRetired, {}, { history: "step", refused: () => {} });
+    if (out) showToast(retireText("splitDone", lang).replace("{n}", String(out.split.length)));
+  };
 
   /* the in-app agent: its eyes (src/editor/useScreenshots.ts), its conversation and turns (src/editor/useAgent.ts) */
   const { shotFrame, shotDoc, shotWidths, renderer: shotRenderer } = useScreenshots(store);
@@ -2001,6 +2008,7 @@ export default function Editor({ initialLang, onReady, persist = editorProjects(
           </AnimatePresence>
 
           {outside.show && <OutsideBanner p={p} lang={lang} onAllow={outside.allow} onLater={outside.later} />}
+          {editAccess === "editable" && previewId === null && <RetiredBanner p={p} lang={lang} groups={doc.groups} design={(loaded && persist instanceof ProjectsPersist ? persist.id : null) ?? "doc"} top={outside.show ? 148 : 76} onSplit={splitRetired} />}
           {toast && (
             <div
               role="status"
