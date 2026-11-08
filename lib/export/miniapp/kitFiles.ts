@@ -59,10 +59,8 @@ export const MINIAPP_KIT_FILES = [
 export const MINIAPP_KIT_DIR = "miniapp-kit/src/kit";
 
 /** A kit file as an app has it: the shared runtime under the product's own name. The kit names it `@m3e/app-runtime`
- *  (its own app maps that to the editor's lib/app); only whole import lines naming it are changed. */
+ *  (its own app maps that to the editor's lib/app); only the module of an import or export statement naming it is
+ *  changed, the statement on one line or on several (`import {\n  a,\n  b,\n} from "@m3e/app-runtime";`). */
 export function kitFileFor(text: string, runtimePackage: string): string {
-  return text
-    .split("\n")
-    .map((line) => (/^(import|export)\s.*\sfrom\s"@m3e\/app-runtime";$/.test(line) ? line.replace('"@m3e/app-runtime"', JSON.stringify(runtimePackage)) : line))
-    .join("\n");
+  return text.replace(/^((?:import|export)\s[^;]*?\sfrom\s)"@m3e\/app-runtime";$/gm, (_, head: string) => `${head}${JSON.stringify(runtimePackage)};`);
 }
