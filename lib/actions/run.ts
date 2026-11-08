@@ -6,6 +6,7 @@
  *   2. The effects run in order. Each reads the state as the one before it left it: a step reads the scope again.
  *      A call is sent at its step, with its arguments read then; nothing after it waits for its answer.
  *   3. Then the tap goes where it goes, its params read after every effect.
+ *      An invoke of a capability is sent the same way, and answered the same way.
  *   4. An answer runs its `then` or `catch` where the tap was made (its screen, params, row, form), reading the data,
  *      the variables and the session as they are when it comes. It runs nothing once its host has started over, and
  *      nothing when the same part has made the same call again since. When the visitor has moved on since the tap,
@@ -14,7 +15,7 @@
 
 import { display, evaluate, fillTemplate, holds, type Scope } from "../bindings/expr";
 import { BACK_TARGET, LINK_TARGET, MAX_CALL_DEPTH, STAY_TARGET, linkUrlOf, type Action, type ActionBody, type Condition, type Effect, type Trigger, type VarType, type VarValue } from "./model";
-import type { Change, FormRef, Host, Outcome, Tap } from "./host";
+import type { Change, FormRef, Host, InvokeOutcome, Outcome, Tap } from "./host";
 
 /* ---------- values ---------- */
 
@@ -219,6 +220,9 @@ function effect(e: Effect, r: Run, tap: Tap, extra: Scope | undefined, depth: nu
     case "call":
       if (depth <= MAX_CALL_DEPTH && typeof e.operationId === "string" && e.operationId) call(e, r, tap, extra, depth);
       return;
+    case "invoke":
+      if (depth <= MAX_CALL_DEPTH && typeof e.capability === "string" && e.capability) invoke(e, r, tap, extra, depth);
+      return;
     case "refresh":
       host.refresh(e.source, tap);
       return;
@@ -282,6 +286,47 @@ function call(e: Extract<Effect, { do: "call" }>, r: Run, tap: Tap, extra: Scope
       if (ledger.get(key) !== n) return;
       if (!out.ok) undo?.();
       answered(out, e.operationId, e.then, e.catch, r, tap, extra, depth);
+    }),
+  );
+}
+
+/** what a host's invoke came to, even when it threw */
+async function invokeOutcomeOf(capability: string, p: () => Promise<InvokeOutcome>): Promise<InvokeOutcome> {
+  try {
+    return await p();
+  } catch (err) {
+    return { ok: false, error: { type: "failed", capability, ...(err instanceof Error ? { message: err.message.slice(0, 200) } : {}) } };
+  }
+}
+
+/* An invoke runs as a call does (docs/交互规则.md, “调用能力”): its arguments read at its step, nothing after it waits, its
+   answer runs `then` (reading `result`) or `catch` (reading `error`) where the tap was made, with the same rules for an
+   answer that comes late. It shares the calls' depth: an invoke in a call's `then` is one deeper. */
+function invoke(e: Extract<Effect, { do: "invoke" }>, r: Run, tap: Tap, extra: Scope | undefined, depth: number) {
+  const { host } = r;
+  const scope = scopeOf(host, tap, extra);
+  const ctx = host.ctx();
+  const args: Record<string, unknown> = {};
+  for (const [k, x] of Object.entries(e.args ?? {})) {
+    const v = typeof x === "string" ? evaluate(x, scope, ctx) : undefined;
+    if (v !== undefined) args[k] = v;
+  }
+  const ledger = ledgers.get(host) ?? new Map<string, number>();
+  ledgers.set(host, ledger);
+  const key = `${tap.screen}\u0000${tap.part ?? ""}\u0000invoke:${e.capability}`;
+  const n = (ledger.get(key) ?? 0) + 1;
+  ledger.set(key, n);
+  const asked = host.invoke(e.capability, args, tap);
+  r.pending.push(
+    invokeOutcomeOf(e.capability, () => asked).then((out) => {
+      if (!out.ok && out.dropped) return;
+      if (ledger.get(key) !== n) return;
+      const here = stillThere(r);
+      if (out.ok) {
+        if (e.then) runBody(e.then, r, tap, { ...extra, result: out.result }, depth + 1, here);
+        return;
+      }
+      if (e.catch) runBody(e.catch, r, tap, { ...extra, error: out.error }, depth + 1, here);
     }),
   );
 }

@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { PALETTES, type Doc, type Item } from "../../tokens";
 import type { Transport } from "../../api/transport";
+import type { CapabilityHost, FailureKind } from "../../capabilities/types";
 import type { PreviewState } from "../../interact";
 import { drive, givenOf, turns, verdict, type Backend, type Driver } from "./check";
 import { designDoc } from "./design";
@@ -41,10 +42,18 @@ function previewOf(doc: Doc, backend: Backend): Driver {
       return { status: a.status, headers: { "content-type": "application/json" }, body: a.body };
     },
   });
+  /* the platform's adapters: each invoke goes to the row's back end */
+  const capabilitiesOf = (): CapabilityHost => ({
+    invoke: async (name, args) => {
+      const a = await backend.invoke(name, args);
+      return a.ok ? { ok: true, result: a.result } : { ok: false, error: { type: a.type as FailureKind, capability: name } };
+    },
+  });
   let transport = transportOf();
+  let capabilities = capabilitiesOf();
   let tree: unknown;
   const draw = () => {
-    tree = tiny.render(tiny.react.createElement(Preview, { doc, widths: {}, palette: PALETTES[0], startId: doc.frames[0].id, onClose: () => {}, transport }), drawn);
+    tree = tiny.render(tiny.react.createElement(Preview, { doc, widths: {}, palette: PALETTES[0], startId: doc.frames[0].id, onClose: () => {}, transport, capabilities }), drawn);
   };
   /** the screens drawn: the one on show, and the overlay over it (drawn after it); no swipe is under way here */
   const screens = (): Element[] => tiny.elements(tree).filter((e) => typeof e.type === "function" && "frame" in e.props && "onAction" in e.props);
@@ -90,6 +99,7 @@ function previewOf(doc: Doc, backend: Backend): Driver {
     restart: () => {
       /* another transport is another session of the back end: the preview's bindings start over with it */
       transport = transportOf();
+      capabilities = capabilitiesOf();
       draw();
     },
     settle: async () => {

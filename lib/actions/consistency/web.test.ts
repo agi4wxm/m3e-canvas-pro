@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Transport } from "../../api/transport";
+import type { CapabilityHost, FailureKind } from "../../capabilities/types";
 import { createRuntime, RuntimeProvider, type AuthConfig, type Runtime } from "../../app";
 import { buildScreens } from "../../codegen";
 import { apiModelOf } from "../../export/api";
@@ -138,7 +139,14 @@ async function webOf(doc: Doc, backend: Backend, product: boolean): Promise<Driv
   };
   // eslint-disable-next-line no-new-func -- the printer's own auth configuration, read as the app reads it
   const auth = (doc.api ? new Function(`return ${authSource(doc.api)}`)() : undefined) as AuthConfig | undefined;
-  const runtime = createRuntime({ transport: base, ...(auth ? { auth } : {}), lang: "en", now: () => 0 });
+  /* the product's registry of capabilities: each invoke reaches the row's back end, as an adapter would the platform */
+  const capabilities: CapabilityHost = {
+    invoke: async (name, args) => {
+      const a = await backend.invoke(name, args);
+      return a.ok ? { ok: true, result: a.result } : { ok: false, error: { type: a.type as FailureKind, capability: name } };
+    },
+  };
+  const runtime = createRuntime({ transport: base, ...(auth ? { auth } : {}), lang: "en", now: () => 0, capabilities });
   const { rt, screens, spec } = await printed(doc, product, () => runtime);
   let app: App | undefined;
   let tree: unknown;

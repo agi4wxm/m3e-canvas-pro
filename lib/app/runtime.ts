@@ -1,6 +1,6 @@
 /* The runtime every exported front end runs on (the web app, the React Native app, the Taro mini-program): one object
  * holding the transport the API client is made over (with the session's tokens on it), the session, the data sources'
- * cache and the app's language, plus the calls a tap makes. Nothing here touches a platform: storage, the transport
+ * cache and the app's language, plus the calls and the invokes of platform capabilities a tap makes. Nothing here touches a platform: storage, the transport
  * and where to go on a 401 are handed in. The React layer (react.tsx) reads it through hooks. */
 
 import type { Transport, TransportRequest } from "../api/transport";
@@ -10,6 +10,7 @@ import { FormController, type CallResult, type FormFields } from "./forms";
 import { SessionStore, sessionTransport, type AuthConfig, type TokenStorage } from "./session";
 import { SourceCache } from "./sources";
 import { Store } from "./store";
+import type { CapabilityError, CapabilityHost, InvokeOutcome } from "../capabilities/types";
 
 export type RuntimeOptions = {
   /** the back end: fetch, the mocks, a mini-program's request; it can be swapped later (`setTransport`) */
@@ -28,6 +29,14 @@ export type RuntimeOptions = {
   currency?: string;
   /** the time now, in ms (a test pins it) */
   now?: () => number;
+  /** what a tap invokes platform capabilities through (packages/capabilities' registry); `setCapabilities` changes it */
+  capabilities?: CapabilityHost;
+};
+
+/** what a tap's invoke does around its outcome */
+export type InvokeOptions = {
+  then?: (result: unknown) => void;
+  catch?: (error: CapabilityError) => void;
 };
 
 /** what a tap's call does around its answer */
@@ -60,6 +69,7 @@ export class Runtime {
   onUnauthorized?: (request: TransportRequest) => void;
 
   private base: Transport;
+  private capabilities?: CapabilityHost;
   private returnTo: unknown;
   /** the forms by their id: what is typed in one outlives its screen (a sign-in in between), as in the preview */
   private readonly forms = new Map<string, FormController>();
@@ -68,6 +78,7 @@ export class Runtime {
   constructor(o: RuntimeOptions) {
     this.o = o;
     this.base = o.transport;
+    this.capabilities = o.capabilities;
     this.language = new Store(o.lang ?? "en");
     this.session = new SessionStore({ storage: o.storage, key: o.storageKey, presumed: o.presumed });
     this.sources = new SourceCache({ lang: () => this.lang, errorOf: (e) => this.errorOf(e) });
@@ -150,6 +161,30 @@ export class Runtime {
       undo?.();
       if (!out.unauthorized) o.catch?.(out.error, out.status);
     }
+    return out;
+  }
+
+  /** what invokes go through from now on: the app's registry of capabilities, the mocks' in development */
+  setCapabilities(next: CapabilityHost) {
+    this.capabilities = next;
+  }
+
+  /** An invoke a tap makes of a platform capability (lib/capabilities): its result, or how it failed. `then` runs with
+   *  the result, `catch` with the error (`error.type`: cancelled, failed, unavailable, not-implemented, denied,
+   *  timeout). With no registry every capability is `not-implemented`. Never rejects; one made before the runtime
+   *  started over answers into nothing (and comes back `dropped`). */
+  async invoke(name: string, given: Record<string, unknown>, o: InvokeOptions = {}): Promise<InvokeOutcome> {
+    const epoch = this.epoch.get();
+    const args = Object.fromEntries(Object.entries(given).filter(([, v]) => v !== undefined));
+    let out: InvokeOutcome;
+    try {
+      out = this.capabilities ? await this.capabilities.invoke(name, args) : { ok: false, error: { type: "not-implemented", capability: name } };
+    } catch (e) {
+      out = { ok: false, error: { type: "failed", capability: name, ...(e instanceof Error && e.message ? { message: e.message.slice(0, 200) } : {}) } };
+    }
+    if (epoch !== this.epoch.get() || (!out.ok && out.dropped)) return out.ok ? { ok: false, error: { type: "failed", capability: name }, dropped: true } : { ...out, dropped: true };
+    if (out.ok) o.then?.(out.result);
+    else o.catch?.(out.error);
     return out;
   }
 

@@ -5,6 +5,7 @@
  * expressions' scope, so the file can go into an exported app's runtime as it is. */
 
 import type { EvalContext, Scope } from "../bindings/expr";
+import type { InvokeOutcome } from "../capabilities/types";
 import type { Motion, Transition } from "../screenMotion";
 import type { ActionBody, VarType, VarValue } from "./model";
 
@@ -34,6 +35,8 @@ export type Tap = {
    *  A tap carries none. */
   event?: unknown;
 };
+
+export type { InvokeOutcome };
 
 /** what a call came to: its answer (2XX), or the problem; `unauthorized` when the refusal sent the app to sign in (no
  *  `catch` then), `dropped` when the host started over while it was out (another scenario, a restarted runtime) */
@@ -84,6 +87,9 @@ export interface Host {
   scrollTo(part: string): void;
   /** sends a call; never rejects */
   call(operationId: string, args: CallArgs, tap: Tap): Promise<Outcome>;
+  /** Invokes a platform capability (lib/capabilities): the preview's mocks, an exported app's registry. Never rejects;
+   *  `dropped` when the host started over while it was out. */
+  invoke(capability: string, args: Record<string, unknown>, tap: Tap): Promise<InvokeOutcome>;
   /** changes a data source of the tap's screen before the answer; what it gives back undoes it */
   optimistic(source: string, change: Change, tap: Tap): (() => void) | undefined;
   /** loads a data source of the tap's screen again, or its next page */

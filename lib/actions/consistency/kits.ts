@@ -11,6 +11,7 @@ import { callsModule, printMiniApp, screensIndex, specModule } from "../../expor
 import { contractOf } from "../../export/product";
 import { authSource } from "../../export/targets/webSources";
 import type { Doc } from "../../tokens";
+import { CAPABILITY_OP } from "./check";
 import { designDoc } from "./design";
 import { ROWS } from "./rows";
 import type { KitRow, Row } from "./types";
@@ -83,21 +84,31 @@ export function createApi(t: Transport): Api {
 /** the runtime of a row's app, made as the exported app makes it, over the table's back end */
 const runtimeModule = (doc: Doc, head: string) => `${head}
 import { createRuntime, type AuthConfig } from "@m3e/app-runtime";
-import { transport } from "../backend";
+import { capabilities, transport } from "../backend";
 
 /** what the session needs of the contract, as the exported app writes it */
 const AUTH: AuthConfig = ${authSource(doc.api ?? {})};
 
-export const runtime = createRuntime({ transport, auth: AUTH, lang: "en", now: () => 0 });
+export const runtime = createRuntime({ transport, auth: AUTH, lang: "en", now: () => 0, capabilities });
 `;
 
 const backendModule = (head: string) => `${head}
-import type { Transport, TransportRequest, TransportResponse } from "@m3e/app-runtime";
+import type { CapabilityHost, FailureKind, Transport, TransportRequest, TransportResponse } from "@m3e/app-runtime";
 
 let send: (r: TransportRequest) => Promise<TransportResponse> = async () => ({ status: 404, headers: {}, body: undefined });
 
 /** where the rows' runtimes send their calls: the back end of the row being run */
 export const transport: Transport = { request: (r) => send(r) };
+
+/** The platform's adapters, as the rows' runtimes invoke them: each invoke goes to the row's back end the way a call
+ *  does, under ${JSON.stringify(CAPABILITY_OP)} and its name (check.ts), and its answer is read back as the outcome. */
+export const capabilities: CapabilityHost = {
+  invoke: async (name, args) => {
+    const r = await send({ operationId: ${JSON.stringify(CAPABILITY_OP)} + name, method: "POST", path: "/__capabilities/" + name, body: args });
+    if (r.status >= 200 && r.status < 300) return { ok: true, result: r.body };
+    return { ok: false, error: { type: ((r.body as { type?: string } | undefined)?.type ?? "failed") as FailureKind, capability: name } };
+  },
+};
 
 export function answerWith(fn: typeof send) {
   send = fn;
@@ -145,10 +156,10 @@ export async function rnTable(): Promise<Record<string, string>> {
     files[`${dir}/client.ts`] = clientModule(api.operations, head);
     files[`${dir}/runtime.ts`] = `${head}
 import { createRuntime } from "@m3e/app-runtime";
-import { transport } from "../backend";
+import { capabilities, transport } from "../backend";
 import { AUTH } from "./contract";
 
-export const runtime = createRuntime({ transport, auth: AUTH, lang: "en", now: () => 0 });
+export const runtime = createRuntime({ transport, auth: AUTH, lang: "en", now: () => 0, capabilities });
 `;
     files[`${dir}/files.ts`] = `${head}
 /* the device's file pickers: no row picks a file */

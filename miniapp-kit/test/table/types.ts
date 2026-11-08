@@ -81,8 +81,9 @@ export type Step =
   /** words typed into the field with these words */
   | { type: string; value: string }
   /** The oldest call of this operation that is being held is answered (`status` 200 and `{}` unless said). Calls of the
-   *  operations in `Row.hold` wait for this; every other call is answered at once. */
-  | { answer: string; status?: number; body?: unknown; which?: "oldest" | "newest" }
+   *  operations in `Row.hold` wait for this; every other call is answered at once. A capability in `Row.hold` is
+   *  answered the same way: with `body` as its result, or failing as `fail` says. */
+  | { answer: string; status?: number; body?: unknown; fail?: string; which?: "oldest" | "newest" }
   /** the host starts over: another scenario of the mocks, a restarted runtime */
   | { restart: true }
   /** the pointer comes over the part with these words; a host with no pointer taps it instead (docs/交互规则.md 触发方式) */
@@ -109,6 +110,8 @@ export type Expect = {
   screen?: string;
   /** the calls the back end received, in order; each compared on the fields given */
   calls?: SeenCall[];
+  /** the capabilities invoked, in order (`op` the capability, `in` its arguments); each compared on the fields given */
+  invokes?: SeenCall[];
 };
 
 export type Row = {
@@ -122,6 +125,8 @@ export type Row = {
   hold?: string[];
   /** how the back end answers what it is not told to hold: by operation, `{ status: 200, body: {} }` otherwise */
   answers?: Record<string, { status: number; body?: unknown }>;
+  /** how the capabilities answer what is not held: by capability, a result (`{}` unless said) or a failure */
+  capabilities?: Record<string, { result?: unknown; fail?: string }>;
   steps: Step[];
   expect: Expect;
   /** Hosts that do not do this today, each with why (and the report's section): the divergences the hosts' move onto
@@ -137,6 +142,8 @@ export type Observed = {
   toast: string | null;
   screen: string;
   calls: SeenCall[];
+  /** the capabilities invoked (the table's runner fills it from the back end when a host's runner does not) */
+  invokes?: SeenCall[];
 };
 
 /** a row as a kit's runner has it (lib/actions/consistency/kits.ts): no design, which the kit's printer has printed
