@@ -14,16 +14,18 @@ export const FILES_DIR = "lib/export/files";
 /** the packages of a product the files name, by their names in the files */
 const PACKAGE_IMPORT = /^((?:import|export)\s[^;]*?\sfrom\s)"@m3e\/(api|app-runtime|mocks)((?:\/[\w./-]+)?)"$/gm;
 
-/** A file as a product has it: the editor's notes left out, the product's packages under its scope. Only the module of
- *  an import or export statement is changed, as the mini-program kit's are (lib/export/miniapp/kitFiles.ts). */
-export function productFile(text: string, scope: string): string {
+/** a file without what it says only to the editor: its first lines that start with `//!` */
+export function editorNotesOut(text: string): string {
   const lines = text.split("\n");
   let at = 0;
   while (at < lines.length && lines[at].startsWith("//!")) at++;
-  return lines
-    .slice(at)
-    .join("\n")
-    .replace(PACKAGE_IMPORT, (_, head: string, pkg: string, sub: string) => `${head}${JSON.stringify(`${scope}/${pkg}${sub}`)}`);
+  return lines.slice(at).join("\n");
+}
+
+/** A file as a product has it: the editor's notes left out, the product's packages under its scope. Only the module of
+ *  an import or export statement is changed, as the mini-program kit's are (lib/export/miniapp/kitFiles.ts). */
+export function productFile(text: string, scope: string): string {
+  return editorNotesOut(text).replace(PACKAGE_IMPORT, (_, head: string, pkg: string, sub: string) => `${head}${JSON.stringify(`${scope}/${pkg}${sub}`)}`);
 }
 
 /** where the mobile app's are */

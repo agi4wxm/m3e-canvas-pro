@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -10,7 +10,7 @@ import { buildScreens } from "../../codegen";
 import { apiModelOf } from "../../export/api";
 import { contractOf } from "../../export/product";
 import { authSource } from "../../export/targets/webSources";
-import { runtimeSource } from "../../runtimeSource";
+import { RUNTIME_TEMPLATE, runtimeSource } from "../../runtimeSource";
 import type { Doc } from "../../tokens";
 import { drive, givenOf, turns, verdict, type Backend, type Driver } from "./check";
 import { designDoc } from "./design";
@@ -73,7 +73,7 @@ async function printed(doc: Doc, product: boolean, runtime: () => Runtime) {
   const binds = product ? { runtime: "@/lib/app", api: doc.api ?? {}, operations: apiModelOf("Consistency", contractOf(doc, "Consistency")).operations } : undefined;
   const out = buildScreens(doc, {}, { live: true, ...(binds ? { binds } : {}) });
   /* the widgets' host contract is parts/widgets/host.ts, which an export copies to src/components/widgets */
-  writeFileSync(join(dir, "runtime.tsx"), runtimeSource(out.runtime).replace('"@/components/widgets/host"', JSON.stringify(fileURLToPath(new URL("../../../parts/widgets/host.ts", import.meta.url)))));
+  writeFileSync(join(dir, "runtime.tsx"), runtimeSource(out.runtime, readFileSync(fileURLToPath(new URL(`../../../${RUNTIME_TEMPLATE}`, import.meta.url)), "utf8")).replace('"@/components/widgets/host"', JSON.stringify(fileURLToPath(new URL("../../../parts/widgets/host.ts", import.meta.url)))));
   (globalThis as { __tableApi?: unknown }).__tableApi = clientOf(doc, runtime);
   writeFileSync(join(dir, "api.ts"), "export const api = (globalThis as { __tableApi?: never }).__tableApi as never\n");
   const at = (source: string) => (source === "@/runtime" ? "./runtime" : source === "@/api" ? "./api" : source);
