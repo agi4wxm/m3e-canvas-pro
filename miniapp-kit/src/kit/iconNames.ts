@@ -27,4 +27,9 @@ export const KIT_ICONS = [
   "star",
   "unfold_more",
   "upload_file",
+  /* D4: a money tree, a split button's arrow, the sign-in and pay buttons */
+  "park",
+  "keyboard_arrow_down",
+  "login",
+  "payments",
 ] as const;

@@ -40,4 +40,9 @@ export const KIT_ICONS = [
   "unfold_more",
   "upload_file",
   "warning",
+  /* D4: a money tree, a locked level, the sign-in and pay buttons */
+  "park",
+  "lock",
+  "login",
+  "payments",
 ] as const;

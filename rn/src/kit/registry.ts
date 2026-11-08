@@ -10,6 +10,9 @@ import { Accordion, CodeBlock, FileUpload, IconGrid, InputGroup, RadioGroup, Sce
 import { ActionSheet, AlertDialog, Dialog, Sheet } from "./composites/overlays";
 import { NATIVE, type NativeName, type NativeSlug } from "./coverage";
 import { SplitView } from "./split";
+/* D4: the game parts, and actions, menus and search */
+import { BrandButton, CascadingMenu, Command, ContextMenu, FabMenu, FilterBar, SplitButton } from "./composites/actions";
+import { EggSmash, Gacha, GameBoard, GridDraw, Joystick, LevelMap, MoneyTree, PrizeWheel, SkillButton, SlotMachine } from "./composites/games";
 
 /* Every component the kit draws a part with, by the name coverage.ts gives it, and by the part's id. */
 
@@ -77,6 +80,24 @@ export const BY_NAME = {
   FileUpload,
   Scene,
   Sidebar,
+  /* D4: the game parts, and actions, menus and search */
+  PrizeWheel,
+  GridDraw,
+  Gacha,
+  SlotMachine,
+  MoneyTree,
+  EggSmash,
+  Joystick,
+  SkillButton,
+  LevelMap,
+  GameBoard,
+  SplitButton,
+  FabMenu,
+  BrandButton,
+  Command,
+  ContextMenu,
+  FilterBar,
+  CascadingMenu,
 } satisfies Record<NativeName, ComponentType<never>>;
 
 /** the component that draws each part the kit covers, by the part's id */
