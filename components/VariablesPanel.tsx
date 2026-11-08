@@ -63,7 +63,7 @@ export function VarValueControl({ type, value, onChange, label, p }: { type: Var
     return (
       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
         <span style={{ flex: 1, fontSize: 12, color: p.onSurfaceVariant, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{label}</span>
-        <Num value={typeof value === "number" ? value : 0} min={-99999} max={99999} title={label} onChange={onChange} p={p} />
+        <Num value={typeof value === "number" ? value : 0} min={-99999} max={99999} step="any" title={label} onChange={onChange} p={p} />
       </div>
     );
   return <LazyField value={String(value ?? "")} onCommit={onChange} label={label || t("effectValue", lang)} p={p} />;

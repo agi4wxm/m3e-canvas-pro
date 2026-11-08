@@ -4,6 +4,7 @@ import { createPortal } from "react-dom";
 import { PLACES, Palette, Place, R_INNER, SETTLE_MS, clamp, draftGradient } from "@/lib/tokens";
 import { AnimatePresence, animate, motion, useReducedMotion } from "motion/react";
 import { t, useLang } from "@/lib/i18n";
+import { decimalsOf, inputStep, onStep, typedNumber } from "@/lib/numbers";
 import { Icon } from "./Icon";
 import { useLayer } from "./layers";
 
@@ -1029,7 +1030,8 @@ export function Field({
 }
 
 /** Slider with a typed-in number beside it. The slider moves in `step`s; the
- *  field accepts any whole number and is clamped to min..max when it commits. */
+ *  field accepts any number to the step's precision (any whole number for a whole
+ *  step, 4.5 for a step of 0.1: lib/numbers.ts) and is clamped to min..max when it commits. */
 export function Slider({
   icon = "tune",
   value,
@@ -1057,8 +1059,8 @@ export function Slider({
     if (!editing) setText(String(value));
   }, [value, editing]);
   const commit = () => {
-    const n = Math.round(Number(text));
-    if (Number.isFinite(n) && text.trim() !== "") onChange(clamp(n, min, max));
+    const n = typedNumber(text, step);
+    if (n !== undefined) onChange(clamp(n, min, max));
     setEditing(false);
     setText(String(value));
   };
@@ -1127,16 +1129,17 @@ export function Slider({
            ticking from one stop to the next; the author's own drag keeps the step */
         step={travelling ? "any" : step}
         value={shown}
-        onChange={(e) => emit(clamp(Math.round(Number(e.target.value) / step) * step, min, max))}
+        onChange={(e) => emit(clamp(onStep(Number(e.target.value), step), min, max))}
         style={{ "--track": p.secondaryContainer, "--thumb": p.primary } as React.CSSProperties}
       />
       <span style={{ position: "relative", flex: "0 0 auto", display: "inline-flex", alignItems: "center" }}>
         <input
           type="number"
-          inputMode="numeric"
+          inputMode={decimalsOf(step) ? "decimal" : "numeric"}
           aria-label={title}
           min={min}
           max={max}
+          step={inputStep(step)}
           value={editing ? text : String(value)}
           onFocus={(e) => {
             setEditing(true);
@@ -1146,8 +1149,8 @@ export function Slider({
           onChange={(e) => {
             setText(e.target.value);
             // apply as you type once the number is already in range, so the canvas follows
-            const n = Math.round(Number(e.target.value));
-            if (e.target.value.trim() !== "" && Number.isFinite(n) && n >= min && n <= max) emit(n);
+            const n = typedNumber(e.target.value, step);
+            if (n !== undefined && n >= min && n <= max) emit(n);
           }}
           onBlur={commit}
           onKeyDown={(e) => {
