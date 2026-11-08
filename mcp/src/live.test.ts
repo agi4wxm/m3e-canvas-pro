@@ -14,6 +14,7 @@ import { EditorBridge, type BridgeView } from "../../lib/mcp/editorBridge";
 import { PAIRING_TRIES } from "../../lib/mcp/protocol";
 import { memoryTrusted, type TrustedStore } from "../../lib/mcp/trusted";
 import type { AiSettings } from "../../lib/ai";
+import type { Renderer } from "../../lib/tools/types";
 import { ToolListChangedNotificationSchema } from "@modelcontextprotocol/sdk/types.js";
 import { connect, errorOf, scratchDir, textOf } from "./testkit";
 import type { LiveBackend } from "./live";
@@ -70,11 +71,11 @@ async function server(o: Parameters<typeof connect>[0] = {}, clientName?: string
   return { ...s, live, port: live.port! };
 }
 
-function tab(port: number, o: { store?: DocStore; storage?: Map<string, string>; origin?: string; sent?: string[]; trusted?: TrustedStore } = {}) {
+function tab(port: number, o: { store?: DocStore; storage?: Map<string, string>; origin?: string; sent?: string[]; trusted?: TrustedStore; renderer?: Renderer } = {}) {
   const store = o.store ?? editorStore();
   const kept = o.storage ?? new Map<string, string>();
   const storage = { getItem: (k: string) => kept.get(k) ?? null, setItem: (k: string, v: string) => void kept.set(k, v), removeItem: (k: string) => void kept.delete(k) };
-  const bridge = new EditorBridge({ store, WebSocket: tabSocket(o.origin, o.sent) as never, ports: [port], storage, retryMs: 100, ...(o.trusted ? { trusted: o.trusted } : {}) });
+  const bridge = new EditorBridge({ store, WebSocket: tabSocket(o.origin, o.sent) as never, ports: [port], storage, retryMs: 100, renderer: o.renderer, ...(o.trusted ? { trusted: o.trusted } : {}) });
   const views: BridgeView[] = [];
   bridge.subscribe(() => views.push(bridge.view()));
   bridge.start();
@@ -269,6 +270,35 @@ describe("the live bridge", () => {
     expect(errorOf(r)?.code).toBe("refused");
     expect(t.store.get().doc.frames).toHaveLength(1);
     expect(textOf(await call("find_nodes", { text: "hello" }))).toContain("hello");
+  });
+
+  it("never runs a call its client stopped while it waited its turn in the tab, and the next call runs", async () => {
+    const { port, call, client, live } = await server();
+    /* a screenshot the test lets finish: a long call that holds the tab's queue */
+    const waiting: (() => void)[] = [];
+    const renderer: Renderer = { screenshot: () => new Promise<string>((resolve) => waiting.push(() => resolve("data:image/png;base64,AAAA"))) };
+    const t = tab(port, { renderer });
+    await until(() => t.view().asks.length > 0);
+    t.bridge.approve(port, "edit", { code: live.code });
+    await until(() => t.view().conns[0]?.phase === "paired");
+    const long = call("screenshot", { id: "home" });
+    await until(() => waiting.length === 1);
+    const stop = new AbortController();
+    const stopped = client.callTool({ name: "add_screen", arguments: { id: "cart", name: "Cart" } }, undefined, { signal: stop.signal }).then(
+      () => "answered",
+      () => "stopped",
+    );
+    await until(() => t.view().log.some((e) => e.name === "add_screen"));
+    stop.abort();
+    expect(await stopped).toBe("stopped");
+    /* the tab hears the cancel while the call still waits behind the screenshot */
+    await until(() => t.view().log.find((e) => e.name === "add_screen")?.state === "error");
+    waiting.splice(0).forEach((f) => f());
+    expect((await long).isError).toBeFalsy();
+    await new Promise((r) => setTimeout(r, 100));
+    expect(t.store.get().doc.frames.map((f) => f.id)).toEqual(["home"]);
+    expect((await call("add_screen", { id: "more", name: "More" })).isError).toBeFalsy();
+    expect(t.store.get().doc.frames.map((f) => f.id)).toEqual(["home", "more"]);
   });
 
   it("refuses a destructive call nobody confirms in time, and does one the author allows", async () => {
