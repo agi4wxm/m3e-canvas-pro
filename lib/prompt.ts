@@ -11,6 +11,7 @@ import { roleOf } from "../parts/role";
 import { inlineNode } from "../parts/print";
 import { Lang, SWIPE_TEXT, TRANSITION_TEXT, getLang } from "./i18n";
 import { isStrict, styleOf, styleTextOf, uxOf, withDocStyles } from "./styles";
+import { outletsOf } from "./partContract";
 import {
   Place,
   Action,
@@ -198,6 +199,13 @@ const MENU_PARTS = new Set(["context-menu", "dropdown-menu", "menubar", "split-b
 function slotName(it: Item, slot: string, lang: Lang): string {
   const s = actionSlotsOf(it).find((x) => x.key === slot);
   const q = quote(lang);
+  /* an event the part sends, with what it carries; a family of places, any of them (lib/partContract.ts) */
+  const outlet = outletsOf(it, lang).find((o) => o.key === slot && o.kind !== "slot");
+  if (outlet?.kind === "event") {
+    const reads = Object.keys(outlet.event?.payload ?? {}).map((k) => `event.${k}`).join(", ");
+    return { ja: `イベント ${q(outlet.label)}（${slot}${reads ? `、${reads}` : ""}）`, en: `the ${q(outlet.label)} event (${slot}${reads ? `, reading ${reads}` : ""})`, zh: `${q(outlet.label)}事件（${slot}${reads ? `，可读 ${reads}` : ""}）`, ko: `${q(outlet.label)} 이벤트(${slot}${reads ? `, ${reads}` : ""})` }[lang];
+  }
+  if (outlet?.kind === "family") return { ja: `どの項目（${slot}、slot.index）`, en: `any entry (${slot}, reading slot.index)`, zh: `任意一项（${slot}，可读 slot.index）`, ko: `모든 항목(${slot}, slot.index)` }[lang];
   /* slots that carry no destination label name their button instead */
   if (slot === "icon" || slot === "icon2" || slot === "menu" || slot === "rail") {
     const named = s?.label && s.label !== "Menu" && s.label !== "More" ? ` ${q(s.label)}` : "";

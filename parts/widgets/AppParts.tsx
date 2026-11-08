@@ -10,6 +10,7 @@ import { Switch } from "@/components/m3e/switch";
 import { ensureIcons, useIconVersion } from "../icons";
 import type { Look } from "./look";
 import { amountOf, stop, useSeeded } from "./seed";
+import { useHost, type HostProps } from "./host";
 import { Tap } from "./Tap";
 import { WidgetIcon } from "./WidgetIcon";
 
@@ -164,8 +165,12 @@ export function CartList({ rows = [], currency = "", selectAll = "", total = "",
 
 const STUB = 104;
 
-export function Coupon({ amount = "", condition = "", title = "", expiry = "", action = "", done = "", width = 340, className, style }: { amount?: string; condition?: string; title?: string; expiry?: string; action?: string; done?: string; width?: number } & Look) {
-  const [claimed, setClaimed] = useState(false);
+/* Whether the coupon is claimed is the back end's to say (`claimed`): its button only asks. A prototype's demo shows
+ * it claimed at once; a product waits for `claimed`, so a refused claim never looks like a success. */
+export function Coupon({ amount = "", condition = "", title = "", expiry = "", action = "", done = "", claimed: given = false, width = 340, demo, onValueChange, onEvent, className, style }: { amount?: string; condition?: string; title?: string; expiry?: string; action?: string; done?: string; claimed?: boolean; width?: number } & HostProps & Look) {
+  const host = useHost({ demo, onValueChange, onEvent });
+  const [claimedHere, setClaimedHere] = useState(false);
+  const claimed = given || (host.demo && claimedHere);
   /* the ticket's two bites are cut from the part itself, so they show whatever is behind it */
   const bite = (y: string) => `radial-gradient(circle 8px at ${STUB}px ${y}, transparent 7.5px, black 8px)`;
   return (
@@ -180,7 +185,7 @@ export function Coupon({ amount = "", condition = "", title = "", expiry = "", a
           {expiry && <div data-slot="coupon-meta" className={`text-body-small truncate ${Soft}`}>{expiry}</div>}
         </div>
         {action && (
-          <Button variant={claimed ? "tonal" : "filled"} size="xs" data-tap="action" disabled={claimed} className="shrink-0" onClick={() => setClaimed(true)}>
+          <Button variant={claimed ? "tonal" : "filled"} size="xs" data-tap="action" disabled={claimed} className="shrink-0" onClick={host.demo ? () => setClaimedHere(true) : undefined}>
             {claimed ? done || action : action}
           </Button>
         )}

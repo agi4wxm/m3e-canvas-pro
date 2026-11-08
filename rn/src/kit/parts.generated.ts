@@ -2990,6 +2990,7 @@ export const PARTS: Record<string, PartInfo> = {
    "expiry": "Until Dec 31",
    "action": "Claim",
    "done": "Claimed",
+   "claimed": false,
    "width": 340
   }
  },
@@ -3788,6 +3789,8 @@ export const PARTS: Record<string, PartInfo> = {
    "length": 6,
    "action": "Confirm",
    "done": "Sent",
+   "value": "",
+   "sent": false,
    "width": 320
   }
  },

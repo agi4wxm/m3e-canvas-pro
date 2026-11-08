@@ -43,6 +43,7 @@ import {
 import { DeviceBars } from "./DeviceBars";
 import { Icon } from "./Icon";
 import { PartView } from "./PartView";
+import { PartHostContext, type PartHost } from "@/parts/widgets/host";
 import { partBySlug, reader } from "@/parts/registry";
 import { PartThemeContext, usePartTheme } from "@/parts/theme";
 import { roleOf } from "@/parts/role";
@@ -68,6 +69,7 @@ import { flowStarts } from "@/lib/prototype";
 import { EASE, SLIDE_S as SLIDE_MS, screenPoses, type ScreenMove } from "@/lib/screenMotion";
 import type { BindingContext } from "@/lib/bindings/scope";
 import { composing, goesBack } from "./previewKeys";
+import { demoRuns, eventAction, eventOfKey, eventsOf, payloadOf, slotAction } from "@/lib/partContract";
 
 /** room reserved for the wide preview controls: panel, right margin and breathing space */
 const WIDE_CONTROL_SPACE = 220;
@@ -95,9 +97,6 @@ const screenVariants: Variants = {
   exit: (c: ScreenMove) => screenPoses(c).exit,
 };
 
-/* the destination bars: a tap on their destination is shared with the bar of the same entries on
- * every other screen */
-const NAV_PARTS = new Set(["navigation-bar", "navigation-rail", "tabs"]);
 
 /** the buttons inside an overlay that dismiss it, whichever overlay it is */
 const CLOSERS = '[data-slot$="-close"], [data-slot="alert-dialog-cancel"], [data-slot="alert-dialog-action"]';
@@ -151,7 +150,7 @@ async function readFiles(root: HTMLElement): Promise<TransportFile[]> {
  *  on a place the part marked `data-tap` (a destination, a menu item) it fires that slot's
  *  action; anywhere else it is the part's own tap. An input says what it now holds, a button
  *  inside an overlay that dismisses it closes it. */
-function LivePart({ item, widths, screen, onTap, onSlot, onHover, easeWidth, onField, onFiles, onClose, held }: { item: Item; widths: Record<string, number>; screen?: { w: number; h: number }; onTap?: () => void; onSlot?: (slot: string) => void; /** the pointer came over it: an interaction that starts so */ onHover?: () => void; easeWidth?: boolean; onField?: (value: VarValue) => void; /** a file input took files */ onFiles?: (files: TransportFile[]) => void; onClose?: () => void; held?: boolean }) {
+function LivePart({ item, widths, screen, onTap, onSlot, onHover, easeWidth, onField, onFiles, onClose, onEvent, demo = false, held }: { item: Item; widths: Record<string, number>; screen?: { w: number; h: number }; onTap?: () => void; onSlot?: (slot: string) => void; /** the pointer came over it: an interaction that starts so */ onHover?: () => void; easeWidth?: boolean; onField?: (value: VarValue) => void; /** a file input took files */ onFiles?: (files: TransportFile[]) => void; onClose?: () => void; /** the part sent one of its named events */ onEvent?: (name: string, payload?: Record<string, unknown>) => void; /** its prototype demo runs (lib/partContract.ts demoRuns) */ demo?: boolean; held?: boolean }) {
   const size = sizeOf(item, widths);
   const input = !!INPUT_PROP[item.component ?? ""];
   const click = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -168,8 +167,8 @@ function LivePart({ item, widths, screen, onTap, onSlot, onHover, easeWidth, onF
     if ((onTap || onSlot) && !input) e.preventDefault();
   };
   const box = useRef<HTMLDivElement>(null);
-  const live = useRef({ item, onField });
-  live.current = { item, onField };
+  const live = useRef({ item, onField, onEvent });
+  live.current = { item, onField, onEvent };
   /* the value this input last reported, told apart from one a button put in its variable: an input
    * is uncontrolled, so that one only reaches it by drawing it afresh */
   const key = INPUT_PROP[item.component ?? ""];
@@ -184,6 +183,22 @@ function LivePart({ item, widths, screen, onTap, onSlot, onHover, easeWidth, onF
       redraw.current++;
     }
   }
+  /* What a widget is handed (parts/widgets/host.ts): the preview is an explicit prototype, so a demo runs where nothing
+     takes it over; an input says what it holds, an event goes to the part's on:<name> action. */
+  const host = useMemo<PartHost>(
+    () => ({
+      demo,
+      input: input
+        ? (v) => {
+            if (typeof v !== "string" && typeof v !== "number" && typeof v !== "boolean") return;
+            own.current = v;
+            live.current.onField?.(v);
+          }
+        : undefined,
+      emit: (name, payload) => live.current.onEvent?.(name, payload),
+    }),
+    [demo, input],
+  );
   const slug = item.component;
   const files = useRef(onFiles);
   files.current = onFiles;
@@ -234,7 +249,9 @@ function LivePart({ item, widths, screen, onTap, onSlot, onHover, easeWidth, onF
           : undefined
       }
       style={{ position: "relative", display: "flex", flex: "0 0 auto", width: easeWidth ? "max-content" : size.w, height: size.h }}>
-      <PartView key={`${redraw.current}:${held ? 1 : 0}`} item={item} live screen={screen} held={held} />
+      <PartHostContext.Provider value={host}>
+        <PartView key={`${redraw.current}:${held ? 1 : 0}`} item={item} live screen={screen} held={held} />
+      </PartHostContext.Provider>
     </div>
   );
 }
@@ -280,7 +297,7 @@ function Screen({
   /** the theme in the mode this preview shows, for what the style draws behind a screen */
   styled: Theme;
   /** a tap on a part: its row, its element and its form go with it; the preview adds the screen it is on */
-  onAction: (a: Action, it?: Item) => void;
+  onAction: (a: Action, it?: Item, extra?: Scope) => void;
   values: Record<string, number>;
   onValue: (id: string, v: number) => void;
   /** the overlays an effect holds open, by item id */
@@ -517,15 +534,16 @@ function Screen({
             const on = act?.trigger?.on;
             /* a part that does nothing of its own, inside a container that is tapped (a list's row), is a press on that
                container, as it is in the exported app where it is inside it */
-            const held = !act && !it.actions ? heldTap(g) : undefined;
+            /* an event's action is no tap: what is wired to a place in the part is */
+            const slotActions = it.actions && Object.keys(it.actions).some((k) => eventOfKey(k) === null) ? it.actions : undefined;
+            const held = !act && !slotActions ? heldTap(g) : undefined;
             const tap = act && !on ? () => onAction(act, it) : held ? () => onAction(held.action, held.item) : undefined;
             const hover = act && on === "hover" ? () => onAction(act, it) : undefined;
-            const slotActions = it.actions;
             /* a part says which prop is its chosen entry (`selectKey`): a tap moves it. Destination
              *  bars share the choice across screens */
             const def = partBySlug(it.component);
             const selectKey = def?.selectKey;
-            const navKey = def && selectKey && NAV_PARTS.has(def.slug) ? `nav:${def.slug}:${actionSlotsOf(it).map((s) => s.label).join("|")}` : "";
+            const navKey = def && selectKey && def.nav ? `nav:${def.slug}:${actionSlotsOf(it).map((s) => s.label).join("|")}` : "";
             if (selectKey) {
               const live = navKey
                 ? values[navKey] !== undefined && values[navKey] >= 0
@@ -553,6 +571,17 @@ function Screen({
                 /* an overlay with its own trigger opens by itself; only one an effect opened is held */
                 held={!!opened[it.id] && !!def?.open && def.open.trigger !== "hide"}
                 onClose={isOverlayPart(it) ? () => onCloseOverlay(it.id) : undefined}
+                demo={demoRuns(it, "prototype")}
+                onEvent={
+                  eventsOf(it).length
+                    ? (name, payload) => {
+                        const e = eventsOf(it).find((x) => x.name === name);
+                        const a = eventAction(it, name);
+                        /* an action that runs on an event reads its payload as `event` (B3's interpreter takes this over) */
+                        if (e && a) onAction(a, it, { event: payloadOf(e, payload) });
+                      }
+                    : undefined
+                }
                 onTap={tap}
                 onHover={hover}
                 onSlot={
@@ -564,7 +593,9 @@ function Screen({
                           onValue(`${it.id}:expanded`, shown.props?.expanded === true ? 0 : 1);
                           return;
                         }
-                        const a = slotActions?.[slot];
+                        /* the slot's own action, else its family's, which reads the slot as `slot` */
+                        const wired = slotAction(it, slot);
+                        const a = wired?.action;
                         /* a tapped destination lights up where it opens nothing; where it opens a
                            screen, that screen's bar shows the destination its author chose, or the
                            tapped one when the author chose none */
@@ -574,7 +605,7 @@ function Screen({
                           onValue(navKey || it.id, opens ? -1 : Number(slot.slice(4)));
                           if (opens && navKey) onValue(`${navKey}:opened:${a.to}`, Number(slot.slice(4)));
                         }
-                        if (a) onAction(a, it);
+                        if (wired) onAction(wired.action, it, wired.scope);
                         else tap?.();
                       }
                     : undefined
@@ -989,15 +1020,15 @@ export function Preview({
   /* A tap on a screen (the one on show, or the overlay over it): its condition picks what runs, its effects run in
      order, and then it goes where it goes. Everything it starts reads that screen, whatever is on show by then. */
   const fire = useCallback(
-    (a: Action, it: Item | undefined, on: TapScreen) => {
+    (a: Action, it: Item | undefined, on: TapScreen, extra?: Scope) => {
       if (swiped.current) return;
       const tap: Tap = { ...on, it, ctx: boundRef.current[on.frame.id]?.ctx, at: { nav: moves.current } };
       /* a tap from a repeated part reads its row's fields as `row.field`, and only for this tap; the variables read as
          its screen has them */
       const scoped: PreviewState = { ...inRow(screenVars(stateRef.current, doc, on.frame, darkRef.current), it?.row), ...(tap.ctx ? { ctx: tap.ctx } : {}) };
-      const body = chooseBranch(a, scoped, doc, it);
+      const body = chooseBranch(a, scoped, doc, it, extra);
       if (!body) return;
-      runBody.current(body, tap, undefined, 0);
+      runBody.current(body, tap, extra, 0);
     },
     [doc],
   );
@@ -1445,7 +1476,7 @@ export function Preview({
                   exit="exit"
                   style={{ position: "absolute", inset: 0 }}
                 >
-                  <Screen frame={current} groups={groups} {...screenProps} onAction={(a, it) => fire(a, it, { frame: current, params: top?.params })} widths={live.widths} {...dataHandlers(current, top?.params)} active={!overlayFrame} bound={boundFor(current)} />
+                  <Screen frame={current} groups={groups} {...screenProps} onAction={(a, it, extra) => fire(a, it, { frame: current, params: top?.params }, extra)} widths={live.widths} {...dataHandlers(current, top?.params)} active={!overlayFrame} bound={boundFor(current)} />
                 </motion.div>
               </AnimatePresence>
             </motion.div>
@@ -1460,7 +1491,7 @@ export function Preview({
                     animate="animate"
                     style={{ position: "relative", width: frameSizeOf(overlayFrame).w, height: frameSizeOf(overlayFrame).h, borderRadius: frameRadius(overlayFrame) / 2, overflow: "hidden", boxShadow: "0 12px 40px rgba(0,0,0,0.3)" }}
                   >
-                    <Screen frame={overlayFrame} groups={overlayLive.groups} {...screenProps} onAction={(a, it) => fire(a, it, { frame: overlayFrame, params: overlay.params })} widths={overlayLive.widths} {...dataHandlers(overlayFrame, overlay?.params)} bound={boundFor(overlayFrame)} />
+                    <Screen frame={overlayFrame} groups={overlayLive.groups} {...screenProps} onAction={(a, it, extra) => fire(a, it, { frame: overlayFrame, params: overlay.params }, extra)} widths={overlayLive.widths} {...dataHandlers(overlayFrame, overlay?.params)} bound={boundFor(overlayFrame)} />
                   </motion.div>
                 </motion.div>
               )}
@@ -1476,7 +1507,7 @@ export function Preview({
                   pointerEvents: "none",
                 }}
               >
-                <Screen {...screenProps} onAction={(a, it) => fire(a, it, { frame: peekFrame })} active={false} frame={peekFrame} groups={peekLive.groups} widths={peekLive.widths} bound={boundFor(peekFrame)} />
+                <Screen {...screenProps} onAction={(a, it, extra) => fire(a, it, { frame: peekFrame }, extra)} active={false} frame={peekFrame} groups={peekLive.groups} widths={peekLive.widths} bound={boundFor(peekFrame)} />
               </motion.div>
             )}
             <AnimatePresence>

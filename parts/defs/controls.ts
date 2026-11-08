@@ -31,6 +31,7 @@ export const controls: PartDef[] = [
   },
   {
     slug: "rating",
+    input: { prop: "value", kind: "number" },
     appearance: { radius: 8 },
     name: "Rating",
     labels: { ja: "評価", zh: "评分", ko: "평점" },
