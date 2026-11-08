@@ -5,7 +5,7 @@ import { axisValue, axisWrite, resizeOf } from "../parts/resize";
 import { roleOf } from "../parts/role";
 import type { ListItem } from "../parts/types";
 import type { Motion, Transition } from "./screenMotion";
-import { STAY_TARGET, linkUrlOf, type Action, type ActionBody, type Condition, type Effect, type VarType, type VarValue } from "./actions/model";
+import { STAY_TARGET, linkUrlOf, type Action, type ActionBody, type Condition, type VarType, type VarValue } from "./actions/model";
 import { normalizeRecipes, normalizeUx, styleOf, stylePalette, stylePatch, styleSeed, type CustomStyle, type Recipes, type StyleUX } from "./styles";
 import type { ApiSpec } from "./api/types";
 import type { MockSpec } from "./mocks/types";
