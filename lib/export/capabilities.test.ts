@@ -85,6 +85,17 @@ describe("the capabilities a product uses", () => {
     expect(text(p, "apps/mobile/src/generated/platformCapabilities.ts")).not.toContain('"clipboard.write"');
   });
 
+  it("embed no SDK, key or permission declaration: those are the product's to add", () => {
+    const sdk = /maps|camera|location|notification|firebase|stripe|alipay|wechat|apple-auth|google-sign|purchase|payment|agora|webrtc|twilio|biometric|local-auth|barcode|scanner/i;
+    for (const app of ["web", "mobile", "miniapp"]) {
+      const pkg = JSON.parse(text(p, `apps/${app}/package.json`)) as { dependencies?: Record<string, string>; devDependencies?: Record<string, string> };
+      expect(Object.keys({ ...pkg.dependencies, ...pkg.devDependencies }).filter((d) => sdk.test(d)), app).toEqual([]);
+    }
+    expect(text(p, "apps/mobile/app.json")).not.toMatch(/permissions|UsageDescription|NSLocation|NSCamera|ACCESS_FINE_LOCATION/);
+    expect(text(p, "apps/miniapp/src/app.config.ts")).not.toMatch(/permission|requiredPrivateInfos/);
+    for (const app of ["web", "mobile", "miniapp"]) expect(text(p, `apps/${app}/src/custom/capabilities.ts`), app).not.toMatch(/apiKey|secret|appId\s*[:=]/i);
+  });
+
   it("draw each capability view with a slot the product writes once, its stand-in until then", () => {
     expect(slotsOf(payingDoc()).map((s) => s.name)).toEqual(["StoreMap"]);
     for (const app of ["web", "mobile", "miniapp"]) {
