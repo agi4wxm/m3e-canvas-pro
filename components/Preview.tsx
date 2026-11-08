@@ -55,6 +55,7 @@ import { FOOT_GAP, footOf } from "@/lib/foot";
 import { INPUT_PROP, PreviewState, applyEffects, chooseBranch, closeOpened, inRow, isOverlayPart, leftRow, liveGroups, scopeOf, screenVars, startState, writeField } from "@/lib/interact";
 import type { Effect, Group as DocGroup } from "@/lib/tokens";
 import { groupBounds } from "@/lib/tokens";
+import { paneClips } from "@/lib/flow";
 import type { Transport, TransportFile } from "@/lib/api/transport";
 import { BindingEngine, emptyBindings, screenScope, type BindingState } from "@/lib/bindings/runtime";
 import { boundScreen, formsOf, readForm, type BoundScreen } from "@/lib/bindings/view";
@@ -188,6 +189,8 @@ function LivePart({ item, widths, screen, onTap, onSlot, onHover, easeWidth, onF
   const host = useMemo<PartHost>(
     () => ({
       demo,
+      /* each opening of the preview is a first visit: nothing the visitor does here is kept on the device */
+      remember: false,
       input: input
         ? (v) => {
             if (typeof v !== "string" && typeof v !== "number" && typeof v !== "boolean") return;
@@ -381,6 +384,8 @@ function Screen({
   if (seen.ids) for (const g of groups) if (g.inFlow && !seen.ids.has(g.id)) seen.at.set(g.id, now);
   seen.ids = new Set(groups.map((g) => g.id));
   const entering = (g: Group) => now - (seen.at.get(g.id) ?? -Infinity) < 400;
+  /* what a split's pane holds is seen within the pane, as in the exported app */
+  const clips = useMemo(() => paneClips(groups, widths), [groups, widths]);
   const hasFoldingFab = groups.some((g) => g.items.some((it) => canCollapseFab(it) && it.collapseOnScroll));
   const onBodyScroll = (e: { currentTarget: { scrollTop: number; scrollHeight?: number; clientHeight?: number } }) => {
     const top = e.currentTarget.scrollTop;
@@ -510,12 +515,16 @@ function Screen({
           data-in-flow={g.inFlow ? "" : undefined}
           style={
             g.free
-              ? { position: "absolute", left: g.x - frame.x, top: g.y - frame.y - lift(g), zIndex: isOpen(g) ? 2 : undefined }
+              ? { position: "absolute", left: g.x - frame.x, top: g.y - frame.y - lift(g), zIndex: isOpen(g) ? 2 : undefined, clipPath: clips.get(g.id) }
               : {
                   position: "absolute",
                   left: g.x - frame.x,
                   top: g.y - frame.y - lift(g),
                   zIndex: isOpen(g) ? 2 : undefined,
+                  clipPath: clips.get(g.id),
+                  /* a split's pane is drawn over the split, not inside it: a press near the divider goes through it to
+                     the divider, unless the pane does something of its own when tapped */
+                  pointerEvents: g.splitPane && !g.items.some((it) => it.action || it.actions) ? "none" : undefined,
                   display: "flex",
                   flexDirection: g.axis === "x" ? "row" : "column",
                   alignItems: g.axis === "x" ? "center" : "stretch",
@@ -1235,6 +1244,9 @@ export function Preview({
 
   const onScreenPointerDown = (e: React.PointerEvent) => {
     if (peekRef.current || e.button !== 0) return;
+    /* a split view's divider is dragged, not swiped: the library takes the press (and marks it) where it lands near one */
+    const at = e.target as Element;
+    if (at.closest?.('[role="separator"]') || (e.nativeEvent.defaultPrevented && at.closest?.('[data-slot="resizable-panel-group"]'))) return;
     gesture.current = { id: e.pointerId, x0: e.clientX, y0: e.clientY, phase: "idle", size: frameW, last: 0, lastT: e.timeStamp, vel: 0, body: e.pointerType !== "mouse" && !!(e.target as Element).closest("[data-scroll-body]") };
     swiped.current = false;
   };

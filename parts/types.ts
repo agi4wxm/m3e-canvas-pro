@@ -85,7 +85,13 @@ export type InputKind = "text" | "number" | "bool" | "choice" | "choices" | "fil
 
 /** What the visitor enters into a part: the prop that holds it, and its kind. The value is UI state (a draft until
  *  something submits it): a host keeps it, binds it to a variable or a form field, and draws the part with it again. */
-export type PartInput = { prop: string; kind: InputKind };
+export type PartInput = {
+  prop: string;
+  kind: InputKind;
+  /** props of the design's start that the visitor's value takes over from (a split view's `collapsed`: once the divider
+   *  has been moved, the share says whether a pane is folded) */
+  resets?: string[];
+};
 
 /** the kind of a field of an event's payload */
 export type PayloadKind = "text" | "number" | "bool" | "list" | "object";

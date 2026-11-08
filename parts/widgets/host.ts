@@ -13,12 +13,18 @@ export type PartHost = {
   input?: (value: unknown) => void;
   /** a named event sent out with its payload (the part's `events` declare them) */
   emit?: (name: string, payload?: Record<string, unknown>) => void;
+  /** The part may keep the visitor's UI state on their device (the share a split view was dragged to, when it asks to
+   *  remember it). An exported app may; the editor's preview says no, so each opening of it is a first visit. */
+  remember?: boolean;
 };
 
 export const PartHostContext = createContext<PartHost>({});
 
 /** the contract as props, for code that draws a widget without the context */
 export type HostProps = { demo?: boolean; onValueChange?: (value: unknown) => void; onEvent?: (name: string, payload?: Record<string, unknown>) => void };
+
+/** whether the host lets a part keep the visitor's UI state on their device: unless it says no, it does */
+export const useRemember = (): boolean => useContext(PartHostContext).remember !== false;
 
 /** What the widget may do: run its demo or not, hand out its value, send an event. Props and context both reach it. */
 export function useHost(p: HostProps) {
