@@ -953,8 +953,7 @@ export const ROWS: KitRow[] = [
    ]
   },
   "known": {
-   "webPrototype": "原型 Web 导出没有接口：调用、刷新、提交、退出登录整个丢掉，也不报告（报告 6.2、9.4）",
-   "rn": "手机端表单的 then 和 catch 读屏幕的作用域，里面没有 form：`form.values.*` 读不到（`mobile.ts` 的 useFormFor）"
+   "webPrototype": "原型 Web 导出没有接口：调用、刷新、提交、退出登录整个丢掉，也不报告（报告 6.2、9.4）"
   },
   "vars": [],
   "screens": {
