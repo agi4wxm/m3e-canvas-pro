@@ -6,13 +6,16 @@
 import { cleanApi } from "../../api/clean";
 import { cleanMocks } from "../../mocks/clean";
 import type { Doc } from "../../tokens";
+import { linkGame } from "../../game/link";
 import type { TemplateContract } from "../../../parts/templates/kit";
 
 export function withContract<D extends Doc>(doc: D, c: TemplateContract | undefined): D {
   if (!c) return doc;
-  let out = doc;
+  /* the gameplay contract is the game loop's: a template's example one comes in only where the document links none,
+     and brings the operations and scenarios it makes (lib/game) */
+  let out = c.game && !doc.game ? (linkGame(doc as D & Record<string, unknown>, c.game, { example: true }).doc as D) : doc;
   if (c.api) {
-    const api = doc.api ?? {};
+    const api = out.api ?? {};
     const models = new Set((api.models ?? []).map((m) => m.name));
     const ops = new Set((api.endpoints ?? []).map((e) => e.operationId));
     const routes = new Set((api.endpoints ?? []).map((e) => `${e.method} ${e.path}`));
@@ -24,7 +27,7 @@ export function withContract<D extends Doc>(doc: D, c: TemplateContract | undefi
     out = { ...out, api: cleanApi(next) };
   }
   if (c.mocks) {
-    const mocks = doc.mocks ?? {};
+    const mocks = out.mocks ?? {};
     const scenarios = new Set((mocks.scenarios ?? []).map((s) => s.id));
     const next = {
       ...mocks,
@@ -34,10 +37,10 @@ export function withContract<D extends Doc>(doc: D, c: TemplateContract | undefi
     out = { ...out, mocks: cleanMocks(next) };
   }
   if (c.vars?.length) {
-    const ids = new Set((doc.vars ?? []).map((v) => v.id));
-    const names = new Set((doc.vars ?? []).map((v) => v.name));
+    const ids = new Set((out.vars ?? []).map((v) => v.id));
+    const names = new Set((out.vars ?? []).map((v) => v.name));
     const more = c.vars.filter((v) => !ids.has(v.id) && !names.has(v.name));
-    if (more.length) out = { ...out, vars: [...(doc.vars ?? []), ...more] };
+    if (more.length) out = { ...out, vars: [...(out.vars ?? []), ...more] };
   }
   return out;
 }

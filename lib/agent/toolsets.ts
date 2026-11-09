@@ -51,12 +51,14 @@ const DRAWING = new Set(["set_icon", "remove_icon", "list_assets", "set_asset", 
 const API = new Set([
   "get_api", "describe_endpoint", "describe_model", "get_spec",
   "add_model", "update_model", "rename_model", "remove_model", "add_endpoint", "update_endpoint", "remove_endpoint", "set_auth", "add_channel", "update_channel", "remove_channel", "set_servers", "set_api_info", "import_openapi", "import_asyncapi",
+  /* the gameplay contract: the game loop's operations in the API, read and linked */
+  "get_game_contract", "import_game_contract", "remove_game_contract",
 ]);
 
 /** the mock library: its operations and the tools that read and try it */
 const MOCKS = new Set([
   "get_mocks", "list_mock_records", "try_mock",
-  "set_mocks", "set_mock_model", "pin_mock_records", "unpin_mock_records", "add_mock_scenario", "update_mock_scenario", "remove_mock_scenario", "add_mock_file", "generate_mock_files", "update_mock_file", "remove_mock_file", "set_mock_realtime", "remove_mock_realtime", "set_mock_auth", "set_mock_route", "fill_mocks", "clear_mocks", "set_mock_capability",
+  "set_mocks", "set_mock_model", "pin_mock_records", "unpin_mock_records", "add_mock_scenario", "update_mock_scenario", "remove_mock_scenario", "add_mock_file", "generate_mock_files", "update_mock_file", "remove_mock_file", "set_mock_realtime", "remove_mock_realtime", "set_mock_world", "remove_mock_world", "set_mock_auth", "set_mock_route", "fill_mocks", "clear_mocks", "set_mock_capability",
 ]);
 
 /** the set a tool belongs to */

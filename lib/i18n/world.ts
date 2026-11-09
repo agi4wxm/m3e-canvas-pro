@@ -10,6 +10,9 @@ export const WORLD_UI = {
   worldAction: { ja: "入力アクション", en: "Input action", zh: "输入动作" },
   worldVector: { ja: "方向（x,y、例: event）", en: "Direction (x,y; e.g. event)", zh: "方向（x,y，例如 event）" },
   worldNoViews: { ja: "画面にワールドビューがありません。", en: "No world view is on a screen.", zh: "屏幕上还没有世界视口。" },
+  /* the preview bar's choice of a mock world (docs/模拟库.md “世界脚本”) */
+  worldScript: { ja: "ワールドのスクリプト", en: "World script", zh: "世界脚本" },
+  worldScriptNone: { ja: "スクリプトなし", en: "No script", zh: "不用脚本" },
 };
 
 type Keys = keyof typeof WORLD_UI;
@@ -22,4 +25,6 @@ export const WORLD_KO: Record<Keys, string> = {
   worldAction: "입력 동작",
   worldVector: "방향(x,y, 예: event)",
   worldNoViews: "화면에 월드 뷰가 없습니다.",
+  worldScript: "월드 스크립트",
+  worldScriptNone: "스크립트 없음",
 };

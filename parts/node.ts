@@ -51,6 +51,10 @@ export const raw = (code: string, ...uses: string[]): PRaw => (uses.length ? { $
 /** a list's rows as places to tap: each answers to the `data-tap` a tree gives it */
 export const listSlots = (items: ListItem[]): PartSlot[] => items.map((it, i) => ({ key: `tab:${i}`, label: it.label || `${i + 1}`, icon: it.icon }));
 
-export const isNode = (v: unknown): v is PNode => typeof v === "object" && v !== null && !Array.isArray(v) && typeof (v as PNode).type === "string";
+/** A node is what `h` builds: a `type` and at most its props and children. A value that carries a `type` beside other
+ *  keys is data (a world view's input `{ name: "move", type: "vec2" }`, a row of the design's data with a Type column):
+ *  read as a node, the canvas would draw it and the code print it as an element `<vec2 />`. */
+const NODE_KEYS = new Set(["type", "props", "children"]);
+export const isNode = (v: unknown): v is PNode => typeof v === "object" && v !== null && !Array.isArray(v) && typeof (v as PNode).type === "string" && Object.keys(v).every((k) => NODE_KEYS.has(k));
 export const isWrap = (v: unknown): v is PWrap => typeof v === "object" && v !== null && typeof (v as PWrap).$wrap === "string";
 export const isRaw = (v: unknown): v is PRaw => typeof v === "object" && v !== null && typeof (v as PRaw).$raw === "string";

@@ -195,6 +195,10 @@ jobs:
         run: bun scripts/check-product.ts "${{ runner.temp }}/product"
       - name: Export the shop (its own contract, its screens bound to it) and check its server, web app, mobile app and mini-program for real
         run: bun scripts/check-product.ts "${{ runner.temp }}/product" shop
+      # The document with every part (lib/codegen.fixture.ts allPartsDoc): each part, capability and world view through
+      # the product's typecheck, lint, build and tests on every app, which no other product draws. No browser: ~5 minutes.
+      - name: Export the document with every part and check it for real
+        run: bun scripts/check-product.ts "${{ runner.temp }}/product" parts
       - name: Screenshots of the shop's web and mobile apps and mini-program (H5)
         if: always()
         uses: actions/upload-artifact@v4

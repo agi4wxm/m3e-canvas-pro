@@ -244,6 +244,8 @@ function opCalls(): [string, Record<string, unknown>][] {
     ["remove_mock_file", { id: "dot" }],
     ["set_mock_realtime", { channel: "chat", steps: [{ at: 500, message: "said" }] }],
     ["remove_mock_realtime", { id: "chat-script" }],
+    ["set_mock_world", { from: "meadow" }],
+    ["remove_mock_world", { id: "meadow" }],
     ["set_mock_auth", { signedIn: false, tokenTtl: 60 }],
     ["set_mock_route", { operationId: "listItems", kind: "list", model: "Item" }],
     /* the platform capabilities (lib/core/ops/capabilities.ts) */
@@ -252,6 +254,9 @@ function opCalls(): [string, Record<string, unknown>][] {
     ["set_mock_capability", { capability: "payment.pay", fail: "cancelled" }],
     ["set_mock_capability", { capability: "payment.pay", clear: true }],
     ["remove_capability", { name: "acme.ticket.scan" }],
+    /* the gameplay contract (lib/core/ops/game.ts): the game loop's file linked, then unlinked */
+    ["import_game_contract", { text: readFileSync(new URL("../game/fixtures/example.m3e-game.json", import.meta.url), "utf8"), path: "game-loop/contract.m3e-game.json" }],
+    ["remove_game_contract", {}],
     ["clear_mocks", {}],
     ["remove_channel", { id: "chat" }],
     /* screens bound to the contract (lib/core/ops/bindings.ts) */

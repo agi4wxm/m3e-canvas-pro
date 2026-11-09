@@ -5,7 +5,7 @@
  * (packages/api) through a Taro.request transport, tokens in Taro's storage, and the mocks (packages/mocks) answering in
  * development only. src/custom is the custom code's. docs/小程序.md says all of it. */
 
-import { capabilityFiles, slotFiles, slotNames, slotsOf } from "../appCapabilities";
+import { capabilityFiles, docWorldContract, slotFiles, slotNames, slotsOf } from "../appCapabilities";
 import miniPackage from "../../../miniapp-kit/package.json";
 import { str } from "../../../parts/print";
 import { fromBase64 } from "../../mocks/bytes";
@@ -218,10 +218,10 @@ if (process.env.NODE_ENV !== "production" && process.env.TARO_APP_API_MOCKS !== 
 }
 `;
 
-const MOCKS = (scope: string) => `${GENERATED}
-import { createMockTransport, startsSignedIn, type ScenarioName } from ${str(`${scope}/mocks`)}
-import type { Runtime } from ${str(`${scope}/app-runtime`)}
-import { withFileData } from "../kit"
+const MOCKS = (scope: string, world = false) => `${GENERATED}
+import { createMockTransport, ${world ? "MOCK_WORLD, " : ""}startsSignedIn, type ScenarioName } from ${str(`${scope}/mocks`)}
+import { ${world ? "createScriptedWorld, " : ""}type Runtime } from ${str(`${scope}/app-runtime`)}
+import { ${world ? "kitNow, setStandInWorld, " : ""}withFileData } from "../kit"
 
 /** the scenario asked for: on the web ?scenario= in the page's address (?scenario=new-user), else TARO_APP_MOCK_SCENARIO */
 function asked(): string | undefined {
@@ -235,7 +235,10 @@ function asked(): string | undefined {
 /** Development only (runtime.ts reads this behind process.env.NODE_ENV): the API answers from the mocks, the same the
  *  design editor's preview answers from, signed in as their session starts. A file the platform handed over is read
  *  into the data URL the mocks take. On the web, \`m3eMocks.start("network-error")\` plays another scenario. */
-export function startMocks(runtime: Runtime) {
+export function startMocks(runtime: Runtime) {${world ? `
+  /* the world views' stand-ins play the design's world script, on the app's clock, until an engine is plugged in */
+  const world = MOCK_WORLD
+  if (world) setStandInWorld((start) => createScriptedWorld(world, { now: kitNow, base: start }))` : ""}
   const scenario = asked()
   const mock = createMockTransport(scenario !== undefined ? { scenario: scenario as ScenarioName } : {})
   const start = (id?: string) => {
@@ -365,8 +368,9 @@ export const miniappTarget: ProductTarget = {
     files["src/generated/calls.ts"] = generated(callsModule(ctx.api, { apiImport: `${ctx.scope}/api`, kitImport: "../kit", runtimeFrom: "./runtime" }));
     files["src/generated/spec.ts"] = generated(specModule(ctx.doc, printed, ctx.api, { kitImport: "../kit", callsFrom: "./calls" }));
     files["src/generated/runtime.ts"] = generated(RUNTIME(ctx, authSource(specOf(ctx)), !!capabilities));
-    Object.assign(files, capabilities?.files ?? {}, slotFiles(ctx.scope, slots, "miniapp"));
-    files["src/generated/mocks.ts"] = generated(MOCKS(ctx.scope));
+    Object.assign(files, capabilities?.files ?? {}, slotFiles(ctx.scope, slots, "miniapp", undefined, { world: docWorldContract(ctx.doc) }));
+    /* a development build's world views play the design's world script (docs/模拟库.md “世界脚本”) */
+    files["src/generated/mocks.ts"] = generated(MOCKS(ctx.scope, ctx.doc.groups.some((g) => g.items.some((it) => it.component === "world-view")) && !!ctx.doc.mocks?.world));
     files["src/generated/root.tsx"] = generated(ROOT(ctx.scope, dark));
     if (printed.tabBar) {
       files["src/generated/tabBar.tsx"] = generated(tabBarModule(printed.tabBar, { kitImport: "../kit", specFrom: "./spec" }));

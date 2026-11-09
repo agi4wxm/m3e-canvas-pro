@@ -66,7 +66,7 @@ describe("a product with a world view", () => {
   it("is no platform capability: the product has no capabilities package for it", () => {
     expect(Object.keys(p.files).some((f) => f.startsWith("packages/capabilities/"))).toBe(false);
     /* the channel, the contract and the example engine are the app runtime's */
-    for (const f of ["types", "contract", "hostContract", "channel", "example"]) expect(p.files[`packages/app-runtime/src/engine/world/${f}.ts`]?.kind, f).toBe("generated");
+    for (const f of ["types", "contract", "hostContract", "channel", "example", "script", "scripted"]) expect(p.files[`packages/app-runtime/src/engine/world/${f}.ts`]?.kind, f).toBe("generated");
   });
 
   it("hands the slot the world's state, the channel and the world's events on every app", () => {
@@ -142,6 +142,49 @@ describe("the web app's world view code", () => {
   }, 120_000);
 });
 
+describe("a design with a world script chosen (docs/模拟库.md “世界脚本”)", () => {
+  /* the battle the design's preview starts with: what a development build's world views play until an engine is in */
+  const battleDoc = () => {
+    const { doc, widths } = worldDoc();
+    return { doc: { ...doc, mocks: { world: "battle" } }, widths };
+  };
+
+  it("hands a development build's stand-ins the script, through the mocks, on every app; a production build never", async () => {
+    const { doc, widths } = battleDoc();
+    const p = await buildProduct(doc, widths, { read: fromDisk, fetchIcons: noNetwork, lang: "en" });
+    const world = text(p, "packages/mocks/src/generated/world.ts");
+    expect(world).toContain("export const MOCK_WORLD: WorldScript | null = {");
+    expect(world).toContain('"contract": "battle"');
+    expect(world).toContain("data:image/svg+xml;base64,");
+    expect(p.files["packages/mocks/src/engine/world/script.ts"]?.kind).toBe("generated");
+    expect(text(p, "packages/mocks/src/index.ts")).toContain('export { MOCK_WORLD } from "./generated/world"');
+    /* only the mocks (development only) hand it in */
+    const web = text(p, "apps/web/src/generated/mocks.ts");
+    expect(web).toContain('import { setMockWorld } from "@/components/widgets/mockWorld"');
+    expect(web).toContain("if (MOCK_WORLD) setMockWorld({ script: MOCK_WORLD })");
+    expect(text(p, "apps/web/src/main.tsx")).toContain('import.meta.env.DEV && import.meta.env.VITE_API_MOCKS !== "off" ? await (await import("./generated/mocks")).startMocks(');
+    expect(text(p, "apps/mobile/src/generated/mocks.ts")).toContain("setStandInWorld((start) => createScriptedWorld(world, { now: kitNow, base: start }))");
+    expect(text(p, "apps/miniapp/src/generated/mocks.ts")).toContain("setStandInWorld((start) => createScriptedWorld(world, { now: kitNow, base: start }))");
+    /* with none chosen, nothing of it */
+    const plain = await buildProduct(worldDoc().doc, widths, { read: fromDisk, fetchIcons: noNetwork, lang: "en" });
+    expect(text(plain, "packages/mocks/src/generated/world.ts")).toContain("MOCK_WORLD: WorldScript | null = null");
+    expect(text(plain, "apps/web/src/generated/mocks.ts")).not.toContain("setMockWorld");
+    expect(text(plain, "apps/miniapp/src/generated/mocks.ts")).not.toContain("setStandInWorld");
+  }, 60_000);
+
+  it("is played by a prototype", async () => {
+    const { doc, widths } = battleDoc();
+    const { files } = await buildProject(doc, widths, { read: fromDisk, fetchIcons: noNetwork, lang: "en" });
+    const runtime = files["src/runtime.tsx"] as string;
+    expect(runtime).toContain('import { setMockWorld } from "@/components/widgets/mockWorld"');
+    expect(runtime).toContain("setMockWorld({ script: MOCK_WORLD })");
+    expect(runtime).toContain(`const MOCK_WORLD: WorldScript = { id: "battle", name: "Battle: 20 enemies"`);
+    for (const f of ["src/components/widgets/mockWorld.ts", "src/components/widgets/mesh.ts", "src/lib/world/scripted.ts", "src/lib/world/script.ts"]) expect(f in files, f).toBe(true);
+    const plain = await buildProject(worldDoc().doc, widths, { read: fromDisk, fetchIcons: noNetwork, lang: "en" });
+    expect(plain.files["src/runtime.tsx"] as string).not.toContain("MOCK_WORLD");
+  }, 60_000);
+});
+
 describe("the app runtime's world files", () => {
   /* packages/app-runtime types no DOM (lib ES2022, no types): the world's files have to stand on that */
   it("typecheck with no DOM", async () => {
@@ -153,7 +196,7 @@ describe("the app runtime's world files", () => {
     const repo = fileURLToPath(new URL("../../", import.meta.url));
     const dir = mkdtempSync(join(tmpdir(), "m3e-world-runtime-"));
     try {
-      const files = ["types", "contract", "hostContract", "channel", "example"].map((f) => join(repo, `lib/world/${f}.ts`));
+      const files = ["types", "contract", "hostContract", "channel", "example", "script", "scripted"].map((f) => join(repo, `lib/world/${f}.ts`));
       writeFileSync(join(dir, "tsconfig.json"), JSON.stringify({ compilerOptions: { target: "ES2022", lib: ["ES2022"], types: [], strict: true, noEmit: true, module: "esnext", moduleResolution: "bundler", skipLibCheck: true, verbatimModuleSyntax: true }, files }));
       const run = spawnSync(join(repo, "node_modules/.bin/tsc"), ["--noEmit", "-p", join(dir, "tsconfig.json")], { encoding: "utf8" });
       expect(`${run.stdout}${run.stderr}`).toBe("");

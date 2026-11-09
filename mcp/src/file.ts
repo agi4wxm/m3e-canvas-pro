@@ -22,6 +22,9 @@ import { FileConflict, NotAProject, ProjectFileStore, type ProjectFormat } from 
 import type { Log } from "./log";
 import { readEditorSource } from "./sources";
 import { DiskAssets } from "./assets";
+import { refreshGame } from "../../lib/game/folder";
+import type { Doc } from "../../lib/tokens";
+import { readFile } from "node:fs/promises";
 
 export type FileBackendOptions = {
   path: string;
@@ -58,7 +61,7 @@ export class FileBackend implements Backend {
   /** Reads the file (none yet is an empty document, written on the first change). Throws when it is not a project. */
   async open(): Promise<void> {
     const doc = await this.file.read();
-    if (doc) this.store.load(doc, true);
+    if (doc) this.store.load(await this.withGame(doc), true);
     this.opened = true;
     this.o.log.info(doc ? `Opened ${this.o.path}: ${doc.frames.length} screen(s), ${doc.groups.length} group(s).` : `${this.o.path} does not exist yet: it is written on the first change.`);
     const newer = this.store.readOnlyVersion();
@@ -82,6 +85,18 @@ export class FileBackend implements Backend {
     return { mode: "file", file: this.o.path, ...(newer !== null ? { newerFormat: newer } : {}), ...assets, layout: this.file.layout === "folder" ? "folder (m3e-project.json, pictures in m3e-assets/)" : "one file", access: this.access(), writes: this.writes, screenshots: this.renderer ? "headless Chromium, when Playwright is installed" : "off" };
   }
 
+  /** The document with the gameplay contract beside the project read again (lib/game/folder.ts), as a folder project
+   *  opened in the editor reads it: a changed one is linked in its place (and written with the next change), one that is
+   *  gone or no contract any more leaves the last one read, and either is said in the log. */
+  private async withGame(doc: Doc): Promise<Doc> {
+    const dir = this.file.projectDir;
+    const out = await refreshGame(doc as Doc & Record<string, unknown>, (p) => readFile(resolve(dir, p), "utf8").catch(() => null));
+    const r = out.refresh;
+    if (r.status === "updated") this.o.log.info(`The gameplay contract was read again: ${r.report.namespace} ${r.report.contractVersion}${r.report.gaps.length ? `, ${r.report.gaps.length} reference(s) in the design no longer match it (get_game_contract lists them)` : ""}.`);
+    else if (r.status === "missing" || r.status === "invalid") this.o.log.warn(`The gameplay contract ${r.path} ${r.status === "missing" ? "is not beside the project" : `cannot be read (${r.problems.slice(0, 3).join("; ")})`}: the one read last is kept.`);
+    return out.doc;
+  }
+
   /** the asset manifest beside the project, read again when it changed; a failure leaves the last one read */
   private async readAssets() {
     try {
@@ -103,7 +118,7 @@ export class FileBackend implements Backend {
     else if (!(await this.file.changed())) return null;
     else {
       const doc = await this.file.read();
-      if (doc) this.store.load(doc, true);
+      if (doc) this.store.load(await this.withGame(doc), true);
       /* the states the session could go back to are not the file's any more: undo starts again from here */
       this.store.clearHistory();
       this.changes.emit("document");

@@ -11,6 +11,7 @@ import { DEFAULT_THEME, normalizeTheme, PHONE_W, type Collection, type Component
 import { translateDefaultFrameName, type Lang } from "../i18n";
 import { cleanDocIcons } from "../docIcons";
 import { cleanDocMaterials } from "../materials";
+import { cleanGameLink } from "../game/link";
 import { cleanApi } from "../api/clean";
 import { cleanMocks } from "../mocks/clean";
 import { translateComponentProps } from "../../parts/registry";
@@ -18,7 +19,7 @@ import { fields, withUnknown } from "../keep";
 
 /** The fields of a document this version knows. Any other a document brings (a newer version's, a tool's own) goes
  *  into the state as it came and is saved with it, after these: the store never drops what it does not understand. */
-export const DOC_FIELDS = fields("groups", "frames", "paletteKey", "customPalette", "dynamicColor", "frame", "title", "brief", "promptEdit", "promptOptions", "theme", "vars", "varCollections", "varModes", "components", "componentSets", "collections", "styles", "icons", "api", "mocks", "materials");
+export const DOC_FIELDS = fields("groups", "frames", "paletteKey", "customPalette", "dynamicColor", "frame", "title", "brief", "promptEdit", "promptOptions", "theme", "vars", "varCollections", "varModes", "components", "componentSets", "collections", "styles", "icons", "api", "mocks", "materials", "game");
 
 export type Widths = Record<string, number>;
 
@@ -69,6 +70,7 @@ export const emptySession = (): Session => ({ selection: [], frameId: null, widt
 export function stateOf(doc: Partial<Doc> & Pick<Doc, "groups" | "frames">, session: Partial<Session> = {}): CoreState {
   const icons = cleanDocIcons(doc.icons);
   const materials = cleanDocMaterials(doc.materials);
+  const game = cleanGameLink(doc.game);
   return {
     doc: withUnknown(doc, {
       groups: doc.groups,
@@ -90,6 +92,7 @@ export function stateOf(doc: Partial<Doc> & Pick<Doc, "groups" | "frames">, sess
       ...(doc.varModes ? { varModes: doc.varModes } : {}),
       ...(icons ? { icons } : {}),
       ...(materials ? { materials } : {}),
+      ...(game ? { game } : {}),
       ...(doc.api ? { api: doc.api } : {}),
       ...(doc.mocks ? { mocks: doc.mocks } : {}),
     } as DocState, DOC_FIELDS),
@@ -127,6 +130,7 @@ export function savedDoc(s: CoreState): Doc {
     api: doc.api,
     mocks: doc.mocks,
     materials: doc.materials?.length ? doc.materials : undefined,
+    game: doc.game,
   };
   return withUnknown(doc, saved, DOC_FIELDS);
 }
@@ -239,6 +243,8 @@ function readInto(s: CoreState, doc: Partial<Doc>, reset: boolean): Record<strin
   if (doc.mocks !== undefined || reset) set("mocks", cleanMocks(doc.mocks));
   /* and the materials as the material format allows them (lib/materials.ts) */
   if (doc.materials !== undefined || reset) set("materials", cleanDocMaterials(doc.materials));
+  /* and the link to the gameplay contract, its contract read again as the format allows (lib/game) */
+  if (doc.game !== undefined || reset) set("game", cleanGameLink(doc.game));
   return out;
 }
 
