@@ -35,6 +35,7 @@ export function ArenaScreen() {
             label="Arena"
             entities={{ columns: ["Id", "Kind", "X", "Y", "Label"], rows: [["hero", "player", "20", "40", "Hero"], ["coin", "coin", "32", "40", ""], ["slime", "enemy", "25", "52", "Slime"]] }}
             follow="hero"
+            inputs="move, attack"
             channel={app.world("arena")}
           />
         </Arena>
