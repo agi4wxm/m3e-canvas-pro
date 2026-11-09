@@ -18,7 +18,7 @@ import { fields, withUnknown } from "./keep";
 import { bindRule, conditionRule } from "./rules";
 /* how deep a call's `then` and `catch` may hold calls of their own: the interpreter's own limit */
 import { MAX_CALL_DEPTH, WORLD_ACTION } from "./actions/model";
-import { cleanFrameFocus, cleanItemFocus } from "./focus/clean";
+import { cleanFrameFocus, cleanInputMap, cleanItemFocus } from "./focus/clean";
 
 /* A project file is the Doc as JSON, nothing more. Reading one back only checks
  * the shape the editor relies on. */
@@ -552,6 +552,12 @@ export function cleanBehavior(doc: Doc): Doc {
     const external = cleanExternal(out.external);
     if (external) out.external = external;
     else delete out.external;
+  }
+  /* the keys and buttons the input actions are on (lib/focus/clean.ts): what is no key goes, and the whole when nothing is left */
+  if (out.inputs !== undefined) {
+    const inputs = cleanInputMap(out.inputs);
+    if (inputs) out.inputs = inputs;
+    else delete out.inputs;
   }
   const instances = (list: Group[]) => list.map((g) => cleanInstance(g, out.components)).filter((g): g is Group => g !== undefined && g.items.length > 0);
   out.groups = instances(out.groups);

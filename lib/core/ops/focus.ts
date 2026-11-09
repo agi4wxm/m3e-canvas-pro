@@ -1,12 +1,15 @@
-/* The operation that sets a screen's keyboard and gamepad focus (lib/focus, docs/焦点与输入.md): where the focus starts,
+/* The operations that set a screen's keyboard and gamepad focus, and the keys and buttons that drive the input actions
+ * (`set_input_keys`, `Doc.inputs`). The first sets (lib/focus, docs/焦点与输入.md): where the focus starts,
  * what cancel runs there, whether directions wrap round, and, per part, whether it takes the focus and where each
  * direction goes from it over what the layout gives. One undo step, and through OPS a tool of the in-app AI and of MCP. */
 
 import { frameOfPart, type Frame, type Group, type Item } from "../../tokens";
-import { FOCUS_DIRS, FOCUS_NONE, type FocusDir, type FrameFocus, type ItemFocus } from "../../focus/model";
-import { focusMap, type FocusMap } from "../../focus/design";
+import { FOCUS_DIRS, FOCUS_NONE, UI_ACTIONS, type FocusDir, type FrameFocus, type ItemFocus, type UiAction } from "../../focus/model";
+import { declaredInputs, focusMap, inputTable, type FocusMap } from "../../focus/design";
+import { PAD_DIRECTIONS, keyName, type DirKeys, type InputBinding, type InputMap } from "../../focus/inputs";
+import { cleanInputMap } from "../../focus/clean";
 import { op, OpError, S } from "../op";
-import { withFrames, withGroups, type CoreState } from "../state";
+import { withDoc, withFrames, withGroups, type CoreState } from "../state";
 import { frameById } from "./common";
 
 type PartFocusArgs = { focusable?: boolean | null; next?: Partial<Record<FocusDir, string | null>> | null } | null;
@@ -102,5 +105,81 @@ export const setFocus = op<SetFocusArgs, FocusMap>({
       );
     }
     return { state, result: focusMap(state.doc, frame, ctx.widths) };
+  },
+});
+
+type KeysArg = string[] | Partial<Record<FocusDir, string[]>> | null;
+
+export const setInputKeys = op<{ action: string; keys?: KeysArg; pad?: string[] | null }, { actions: ReturnType<typeof inputTable> }>({
+  name: "set_input_keys",
+  summary:
+    "Sets the keyboard keys and gamepad buttons that drive an input action: one a world view declares (its inputs, \"move: vec2, attack: bool\"; a direction takes keys {up, down, left, right: [keys]} and pad stick:left, stick:right or dpad; a button takes keys [keys] and pad [pad:0 the bottom face button (A, ✕), pad:2 X, pad:3 Y, pad:4/5 the shoulders, pad:6/7 the triggers]), or a UI action (up, down, left, right, confirm, cancel: keys are what the keyboard's keys are named, \"ArrowUp\", \"Enter\", \" \", \"w\"; pad is pad:N or stick:±x/±y). Keys are KeyboardEvent.key names, a letter in small. null puts the default back (WASD and the arrows and the left stick for the first direction, Space or J and A for the first button, then K and X, L and Y…). Keys and buttons drive the world while its screen has nothing laid over it; a menu or a dialog takes them back for the focus and lets go of what the world held. Returns every declared action as it is driven, with its hint per device (what {{input.hint.<action>}} shows).",
+  args: S.obj(
+    {
+      action: S.str("an input action a world view declares, or a UI action"),
+      keys: { type: ["array", "object", "null"], description: "a button's keys, or a direction's {up, down, left, right}; null for the default" },
+      pad: { type: ["array", "null"], items: { type: "string" }, description: "gamepad buttons or sticks; null for the default" },
+    },
+    ["action"],
+  ),
+  label: () => "Input keys",
+  run(s, a) {
+    const map: InputMap = { ...s.doc.inputs };
+    const keyList = (v: unknown, what: string): string[] => {
+      if (!Array.isArray(v) || !v.every((k) => typeof k === "string" && k.length > 0 && k.length <= 24)) throw new OpError("invalid_value", `${what} should be a list of key names ("w", "ArrowUp", " ", "Enter").`, what);
+      return [...new Set((v as string[]).map(keyName))].slice(0, 8);
+    };
+    if ((UI_ACTIONS as readonly string[]).includes(a.action)) {
+      const ui = { ...map.ui };
+      const own = { ...ui[a.action as UiAction] };
+      if (a.keys === null) delete own.keyboard;
+      else if (a.keys !== undefined) own.keyboard = keyList(a.keys, "keys");
+      if (a.pad === null) delete own.gamepad;
+      else if (a.pad !== undefined) {
+        const pad = keyList(a.pad, "pad");
+        if (!pad.every((k) => /^pad:\d{1,2}$|^stick:[+-][xy]$/.test(k))) throw new OpError("invalid_value", "A UI action's pad is pad:N (a button of the standard mapping) or stick:+x, stick:-x, stick:+y, stick:-y.", "pad");
+        own.gamepad = pad;
+      }
+      if (Object.keys(own).length) ui[a.action as UiAction] = own;
+      else delete ui[a.action as UiAction];
+      map.ui = Object.keys(ui).length ? ui : undefined;
+    } else {
+      const decl = declaredInputs(s.doc).decls.find((d) => d.name === a.action);
+      if (!decl) {
+        const names = declaredInputs(s.doc).decls.map((d) => d.name);
+        throw new OpError("not_found", `No world view declares an input action ${JSON.stringify(a.action)}${names.length ? ` (they declare ${names.join(", ")})` : " (there is no world view: add_part world-view, its inputs prop declares them)"}; the UI actions are ${UI_ACTIONS.join(", ")}.`, "action");
+      }
+      const dir = (decl.type ?? (decl.name === "move" ? "vec2" : "bool")) === "vec2";
+      const actions = { ...map.actions };
+      const own: InputBinding = { ...actions[a.action] };
+      if (a.keys === null) delete own.keys;
+      else if (a.keys !== undefined) {
+        if (dir) {
+          if (Array.isArray(a.keys) || typeof a.keys !== "object") throw new OpError("invalid_value", `${a.action} is a direction: its keys are {up, down, left, right: [keys]}.`, "keys");
+          const d: DirKeys = {};
+          for (const [k, v] of Object.entries(a.keys)) {
+            if (!(FOCUS_DIRS as readonly string[]).includes(k)) throw new OpError("invalid_value", `keys.${k}: a direction is up, down, left or right.`, k);
+            d[k as FocusDir] = keyList(v, `keys.${k}`);
+          }
+          own.keys = d;
+        } else {
+          if (!Array.isArray(a.keys)) throw new OpError("invalid_value", `${a.action} is a button: its keys are a list (["j", " "]).`, "keys");
+          own.keys = keyList(a.keys, "keys");
+        }
+      }
+      if (a.pad === null) delete own.pad;
+      else if (a.pad !== undefined) {
+        const pad = keyList(a.pad, "pad");
+        const ok = dir ? pad.every((k) => (PAD_DIRECTIONS as readonly string[]).includes(k)) : pad.every((k) => /^pad:\d{1,2}$/.test(k));
+        if (!ok) throw new OpError("invalid_value", dir ? `${a.action} is a direction: its pad is stick:left, stick:right or dpad.` : `${a.action} is a button: its pad is pad:N (pad:0 the bottom face button).`, "pad");
+        own.pad = pad;
+      }
+      if (Object.keys(own).length) actions[a.action] = own;
+      else delete actions[a.action];
+      map.actions = Object.keys(actions).length ? actions : undefined;
+    }
+    const clean = cleanInputMap(map);
+    const state = withDoc(s, { inputs: clean });
+    return { state, result: { actions: inputTable(state.doc) } };
   },
 });

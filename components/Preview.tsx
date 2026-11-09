@@ -64,6 +64,8 @@ import { PreviewStore, usePreviewState } from "./preview/store";
 import { useSwipe, type Peek } from "./preview/swipe";
 import { startFocus, type DomLayer } from "@/lib/focus/dom";
 import { baseId, inputScope, type InputDevice, type PadKind } from "@/lib/focus/model";
+import { actionHint, uiBindings } from "@/lib/focus/inputs";
+import { declaredInputs, inputTable, viewActions } from "@/lib/focus/design";
 import { PreviewWorlds } from "./preview/worlds";
 import { createWorlds } from "@/lib/world/channel";
 
@@ -164,7 +166,9 @@ export function Preview({
   /* The input device in use (lib/focus): a pointer until a direction key or a gamepad's button is pressed. What
      expressions read as `input` (the device, the hint for each UI action on it) follows it. */
   const [inputNow, setInputNow] = useState<{ device: InputDevice; pad: PadKind }>({ device: "touch", pad: "generic" });
-  const input = useMemo(() => inputScope(inputNow.device, inputNow.pad), [inputNow]);
+  /* the world views' input actions as the keys and buttons drive them (lib/focus/inputs.ts): their hints are `input.hint.<action>` */
+  const inputs = useMemo(() => inputTable(doc), [doc]);
+  const input = useMemo(() => inputScope(inputNow.device, inputNow.pad, Object.fromEntries(inputs.map((a) => [a.name, actionHint(a, inputNow.device, inputNow.pad)])), uiBindings(doc.inputs)), [inputNow, inputs, doc.inputs]);
   const inputRef = useRef(input);
   inputRef.current = input;
   /* the width the visitor switched to; until then each screen shows at its own size */
@@ -616,11 +620,28 @@ export function Preview({
   };
   const shownIdRef = useRef(shownId);
   shownIdRef.current = shownId;
-  const focusHost = useRef({ focusLayers, dismissFocus, ring: p.secondary });
-  focusHost.current = { focusLayers, dismissFocus, ring: p.secondary };
+  /** The world views on the screen on top whose input actions the keys and buttons drive: none while a screen is laid
+   *  over it (the driver also hands every key back to the focus while a menu or a dialog is open on it). */
+  const worldsOn = () => {
+    if (overlayRef.current) return [];
+    const base = focusLayers()[0]?.root;
+    if (!base) return [];
+    const d = docRef.current;
+    return [...declaredInputs(d).views]
+      .filter(([id]) => base.querySelector(`[data-part="${CSS.escape(id)}"]`))
+      .map(([id, it]) => ({ part: id, actions: viewActions(d, it) }))
+      .filter((w) => w.actions.length);
+  };
+  const focusHost = useRef({ focusLayers, dismissFocus, worldsOn, ring: p.secondary });
+  focusHost.current = { focusLayers, dismissFocus, worldsOn, ring: p.secondary };
   useEffect(() => {
     const items = new Map(docRef.current.groups.flatMap((g) => g.items.map((it) => [it.id, it] as const)));
     const driver = startFocus({
+      ui: uiBindings(docRef.current.inputs),
+      /* a world view's input actions from the keys and the gamepad, on the same channel the design's own move, press and
+         release are sent on */
+      worlds: () => focusHost.current.worldsOn(),
+      worldInput: (part, action, value) => worlds.send(part, action, value),
       layers: () => focusHost.current.focusLayers(),
       /* the screens under the one on show, by the same keys: going back finds the focus where it was left */
       history: () => stackRef.current.slice(0, -1).map((e, i) => `screen:${shownIdRef.current(e.id)}:${i + 1}`),

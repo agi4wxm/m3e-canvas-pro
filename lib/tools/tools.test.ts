@@ -278,6 +278,9 @@ function opCalls(): [string, Record<string, unknown>][] {
     // eslint-disable-next-line unicorn/no-thenable -- an action body, never a function: nothing awaits it
     ["set_action", { id: "go", action: { to: "detail", params: { itemId: "'i1'" }, when: { expr: "auth.signedIn || true" }, effects: [{ do: "call", operationId: "login", args: { email: "'a@b.co'" }, then: { to: "none", effects: [{ do: "refresh", source: "items" }] } }, { do: "signOut" }] } }],
     ["set_focus", { screen: "home", first: "go", cancel: "go", wrap: true, parts: { go: { focusable: true, next: { down: "none" } } } }],
+    ["add_part", { slug: "world-view", id: "arena", screen: "home", at: { x: 16, y: 300 }, props: { inputs: "move: vec2, attack: bool" } }],
+    ["set_input_keys", { action: "attack", keys: ["k"], pad: ["pad:2"] }],
+    ["set_input_keys", { action: "confirm", keys: ["Enter"] }],
     ["remove_data_source", { screen: "shop", name: "more" }],
     ["remove_endpoint", { operationId: "listItems" }],
     ["import_openapi", { text: "openapi: 3.1.0\ninfo: {title: X, version: '1'}\npaths:\n  /ping:\n    get:\n      operationId: ping\n      responses:\n        '204': {description: No Content}\n" }],

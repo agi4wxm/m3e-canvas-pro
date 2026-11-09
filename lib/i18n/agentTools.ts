@@ -173,6 +173,7 @@ const L: Record<string, Four> = {
   remove_data_source: ["Remove a data source", "删除数据源", "データソースを削除", "데이터 소스 삭제"],
   set_subscription: ["Subscribe to a realtime channel", "订阅实时通道", "リアルタイムチャネルを購読", "실시간 채널 구독"],
   set_focus: ["Set the keyboard and gamepad focus", "设置键盘和手柄焦点", "キーボードとゲームパッドのフォーカスを設定", "키보드와 게임패드 포커스 설정"],
+  set_input_keys: ["Set the keys of an input action", "设置输入动作的按键", "入力アクションのキーを設定", "입력 동작의 키 설정"],
   describe_focus: ["Read a screen's focus order", "读取屏幕的焦点顺序", "画面のフォーカス順を読む", "화면의 포커스 순서 읽기"],
   remove_subscription: ["Remove a subscription", "取消订阅", "購読を解除", "구독 해제"],
   set_screen_params: ["Set a screen's params", "设置屏幕参数", "画面のパラメーターを設定", "화면 매개변수 설정"],

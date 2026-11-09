@@ -62,3 +62,49 @@ describe("set_focus", () => {
     expect(s.get().doc.frames[0].focus).toBeUndefined();
   });
 });
+
+describe("set_input_keys", () => {
+  const withWorld = () => {
+    const world: Group = { id: "g-w", x: 16, y: 400, axis: "x", items: [{ ...makeItem("world-view"), id: "w", props: { inputs: "move: vec2, attack: bool" } }] };
+    return new DocStore(stateOf({ groups: [world], frames: screens }), { ids: counterIds("n"), measurer: guessMeasurer, lang: () => "en" });
+  };
+  type Table = { actions: { name: string; keys: unknown; pad: string[]; hints: Record<string, string> }[] };
+  const keys = (s: DocStore, args: object) => s.run(opByName("set_input_keys")!, args as never, ai) as unknown as Table;
+
+  it("sets a world's action's keys and buttons, puts the defaults back with null, and returns the table with its hints", () => {
+    const s = withWorld();
+    const out = keys(s, { action: "attack", keys: ["F"], pad: ["pad:3"] });
+    expect(s.get().doc.inputs).toEqual({ actions: { attack: { keys: ["f"], pad: ["pad:3"] } } });
+    expect(out.actions.find((a) => a.name === "attack")).toMatchObject({ keys: ["f"], pad: ["pad:3"], hints: { keyboard: "F", gamepad: "Y" } });
+    expect(out.actions.find((a) => a.name === "move")?.hints.keyboard).toBe("WASD");
+    keys(s, { action: "move", keys: { up: ["ArrowUp"], down: ["ArrowDown"], left: ["ArrowLeft"], right: ["ArrowRight"] } });
+    keys(s, { action: "attack", keys: null, pad: null });
+    expect(s.get().doc.inputs).toEqual({ actions: { move: { keys: { up: ["ArrowUp"], down: ["ArrowDown"], left: ["ArrowLeft"], right: ["ArrowRight"] } } } });
+    keys(s, { action: "move", keys: null });
+    expect(s.get().doc.inputs).toBeUndefined();
+  });
+
+  it("sets a UI action's keys over the defaults", () => {
+    const s = withWorld();
+    keys(s, { action: "confirm", keys: ["e", "Enter"], pad: ["pad:0"] });
+    expect(s.get().doc.inputs).toEqual({ ui: { confirm: { keyboard: ["e", "Enter"], gamepad: ["pad:0"] } } });
+  });
+
+  it("refuses an action no world declares, and keys of the wrong shape", () => {
+    const s = withWorld();
+    const fails = (args: object) => {
+      try {
+        keys(s, args);
+      } catch (e) {
+        return e instanceof OpError ? e.message : String(e);
+      }
+      return "";
+    };
+    expect(fails({ action: "jump", keys: ["x"] })).toMatch(/declare move, attack/);
+    expect(fails({ action: "move", keys: ["x"] })).toMatch(/direction/);
+    expect(fails({ action: "attack", keys: { up: ["x"] } })).toMatch(/button/);
+    expect(fails({ action: "move", pad: ["pad:0"] })).toMatch(/stick:left/);
+    expect(fails({ action: "attack", pad: ["stick:left"] })).toMatch(/pad:N/);
+    expect(s.get().doc.inputs).toBeUndefined();
+  });
+});

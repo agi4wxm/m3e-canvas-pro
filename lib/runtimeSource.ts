@@ -114,6 +114,8 @@ function runtimeValues(spec: RuntimeSpec, on: Record<string, boolean>): Record<s
     overlayGone: on.overlay ? "overlay: null, " : "",
     focusScreens: literal(spec.focus?.screens ?? {}),
     focusParts: literal(spec.focus?.parts ?? {}),
+    focusWorlds: literal(spec.focus?.worlds ?? {}),
+    focusUi: literal(spec.focus?.ui ?? {}),
   };
 }
 

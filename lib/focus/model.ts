@@ -255,8 +255,8 @@ export const UI_BINDINGS: Record<UiAction, { keyboard: InputKey[]; gamepad: Inpu
 };
 
 /** the UI action a keyboard key is, by the default bindings */
-export function uiActionOfKey(key: string): UiAction | null {
-  for (const a of UI_ACTIONS) if (UI_BINDINGS[a].keyboard.includes(key)) return a;
+export function uiActionOfKey(key: string, bindings: typeof UI_BINDINGS = UI_BINDINGS): UiAction | null {
+  for (const a of UI_ACTIONS) if (bindings[a].keyboard.includes(key)) return a;
   return null;
 }
 
@@ -288,24 +288,25 @@ export function padKindOf(id: string): PadKind {
 
 /** The hint for an action on a device: the words of the first key or button it is on (`Enter`, `A`, `✕`), "" for touch,
  *  where nothing is pressed but the part itself. */
-export function hintOf(action: UiAction, device: InputDevice, pad: PadKind = "generic"): string {
+export function hintOf(action: UiAction, device: InputDevice, pad: PadKind = "generic", bindings: typeof UI_BINDINGS = UI_BINDINGS): string {
   if (device === "touch") return "";
-  const keys = UI_BINDINGS[action][device];
+  const keys = bindings[action][device];
   return keys.length ? keyWords(keys[0], pad) : "";
 }
 
 /** What an expression reads as `input` (lib/bindings/expr.ts): the device in use, a yes or no for each, and the hint for
  *  each UI action on it, so words can say `{{input.hint.confirm}} 购买` and a part show only for a gamepad
- *  (`showWhen: input.gamepad`). */
-export type InputScope = { device: InputDevice; keyboard: boolean; gamepad: boolean; touch: boolean; pad: PadKind; hint: Record<UiAction, string> };
+ *  (`showWhen: input.gamepad`). A world's input actions have their hints there too (`input.hint.attack`), handed in as
+ *  words by the action's name (lib/focus/inputs.ts `actionHint`). */
+export type InputScope = { device: InputDevice; keyboard: boolean; gamepad: boolean; touch: boolean; pad: PadKind; hint: Record<string, string> };
 
-export function inputScope(device: InputDevice, pad: PadKind = "generic"): InputScope {
+export function inputScope(device: InputDevice, pad: PadKind = "generic", more: Record<string, string> = {}, bindings: typeof UI_BINDINGS = UI_BINDINGS): InputScope {
   return {
     device,
     keyboard: device === "keyboard",
     gamepad: device === "gamepad",
     touch: device === "touch",
     pad,
-    hint: Object.fromEntries(UI_ACTIONS.map((a) => [a, hintOf(a, device, pad)])) as Record<UiAction, string>,
+    hint: { ...more, ...Object.fromEntries(UI_ACTIONS.map((a) => [a, hintOf(a, device, pad, bindings)])) },
   };
 }

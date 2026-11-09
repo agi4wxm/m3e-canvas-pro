@@ -111,7 +111,7 @@ describe("the layers", () => {
 
 describe("keys, devices and hints", () => {
   it("knows the UI actions of the keyboard", () => {
-    expect(["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Enter", " ", "Escape", "Backspace", "a"].map(uiActionOfKey)).toEqual(["up", "down", "left", "right", "confirm", "confirm", "cancel", "cancel", null]);
+    expect(["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Enter", " ", "Escape", "Backspace", "a"].map((k) => uiActionOfKey(k))).toEqual(["up", "down", "left", "right", "confirm", "confirm", "cancel", "cancel", null]);
   });
 
   it("says each action's key for the device in use, nothing for touch", () => {

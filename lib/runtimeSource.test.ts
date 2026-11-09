@@ -82,6 +82,7 @@ function configurations(): Record<string, RuntimeSpec> {
     "a product with everything and a dark variable": { ...base, families: true, vars: darkVars, dark: "night", bound, acts, proto, modes, flows: [{ key: "main", name: "Main", screen: "home" }], exprs: { vars: { count: ["Count"] } } },
     "a prototype walked with a keyboard, no overlay": { ...base, acts, proto: { overlay: false, scroll: false, hover: false, delay: false }, focus: { screens: { home: { first: "menu", wrap: true } }, parts: { menu: { next: { down: "nav" } } } } },
     "a still prototype with focus": { ...base, focus: { screens: {}, parts: { card: { focusable: false } } } },
+    "a prototype whose keys drive a world, no overlay": { ...base, worlds: true, acts, proto: { overlay: false, scroll: false, hover: false, delay: false }, focus: { screens: {}, parts: {}, worlds: { home: [{ part: "card", actions: [{ name: "move", type: "vec2", keys: { up: ["w"] }, pad: ["stick:left"] }] }] }, ui: { confirm: { keyboard: ["e"] } } } },
     "the systems prototype": buildScreens(systemsDoc().doc, systemsDoc().widths, { live: true }).runtime,
     "the proof prototype": buildScreens(proofDoc().doc, proofDoc().widths, { live: true }).runtime,
     "the proof product": buildScreens(product.doc, product.widths, { live: true, binds: binds(product.doc) }).runtime,

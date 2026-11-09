@@ -12,14 +12,15 @@ import { demoRuns, familiesOf, isPlaceKey, optionsOf } from "./partContract";
 import { collectionIdOf, collectionsOf, cssNameOf, isBindField, modeFor, valueIn, varValues } from "./variables";
 import { cleanMotion, cleanTrigger, flowStarts } from "./prototype";
 import type { BoundPrint } from "./printBindings";
-import { BACK_TARGET, LINK_TARGET, STAY_TARGET, actionSlotsOf, presetOf, actionsOf, darkVarOf, heldBy, holdsParts, linkUrlOf, type Action, type ActionBody, type Condition, type Doc, type Effect, type Frame, type Group, type Item, type VarType, type VarValue } from "./tokens";
+import { BACK_TARGET, LINK_TARGET, STAY_TARGET, groupsInFrame, actionSlotsOf, presetOf, actionsOf, darkVarOf, heldBy, holdsParts, linkUrlOf, type Action, type ActionBody, type Condition, type Doc, type Effect, type Frame, type Group, type Item, type VarType, type VarValue } from "./tokens";
 import { WORLD_EFFECTS, eventKey, familyKey, type Answer } from "./actions/model";
 import { evaluate, parseExpr, rootsOf, truthy } from "./bindings/expr";
 import { boundVar, comparisonOf, fieldVarOf, type Comparison } from "./bindings/bind";
 import { inlineReads } from "./refs";
 import { literal } from "./export/code";
 import { screenToken, screenWords } from "./export/ir/names";
-import { usesFocus } from "./focus/design";
+import { usesFocus, viewActions } from "./focus/design";
+import type { DrivenAction, InputMap } from "./focus/inputs";
 import { FOCUS_NONE, type FrameFocus, type ItemFocus } from "./focus/model";
 
 /* What a tap does and what state a part reads, as source text over the generated runtime
@@ -68,7 +69,7 @@ export type RuntimeSpec = {
   /** the screens draw world views, which the taps' input actions reach on a channel each (lib/world) */
   worlds?: true;
   /** a keyboard's and a gamepad's focus (lib/focus): what each screen and part says of it, by their keys in the app */
-  focus?: { screens: Record<string, FrameFocus>; parts: Record<string, ItemFocus> };
+  focus?: { screens: Record<string, FrameFocus>; parts: Record<string, ItemFocus>; worlds?: Record<string, { part: string; actions: DrivenAction[] }[]>; ui?: InputMap["ui"] };
 };
 
 /** What the runtime runs the taps over (lib/actions' `Host`, src/runtime.tsx): where each part an effect reaches stands,
@@ -392,6 +393,7 @@ export class Behaviour {
   private partNow = "part";
   /** the document says something about the focus: a whole app carries the keyboard's and the gamepad's focus with it */
   private readonly focus: boolean;
+  private readonly widths: Record<string, number>;
 
   constructor(doc: Doc, widths: Record<string, number>, o: Options) {
     this.doc = doc;
@@ -402,6 +404,7 @@ export class Behaviour {
     this.bound = o.binds;
     this.groupById = new Map(doc.groups.map((g) => [g.id, g]));
     this.focus = o.live && usesFocus(doc);
+    this.widths = widths;
     const screenKeys = new Set<string>();
     /* a screen's key (its address, lib/export/targets/webSources.ts) is its words, else the English the templates give
        them, else its id's (lib/export/ir/names.ts), as on the phone and in the mini-program */
@@ -609,7 +612,19 @@ export class Behaviour {
         const own: ItemFocus = { ...(it.focus.focusable !== undefined ? { focusable: it.focus.focusable } : {}), ...(Object.keys(next).length ? { next } : {}) };
         if (Object.keys(own).length) parts[key] = own;
       }
-    return { screens, parts };
+    /* the world views on each screen, with the keys and buttons that drive their input actions (lib/focus/inputs.ts) */
+    const worlds: Record<string, { part: string; actions: DrivenAction[] }[]> = {};
+    for (const f of this.shown) {
+      const key = this.screens.get(f.id);
+      if (!key) continue;
+      const views = groupsInFrame(this.doc.groups, f, this.doc.frames, this.widths)
+        .flatMap((g) => g.items)
+        .filter((it) => partBySlug(it.component)?.world && this.partKeys.has(it.id))
+        .map((it) => ({ part: this.partKeys.get(it.id)!, actions: viewActions(this.doc, it) }))
+        .filter((w) => w.actions.length);
+      if (views.length) worlds[key] = views;
+    }
+    return { screens, parts, ...(Object.keys(worlds).length ? { worlds } : {}), ...(this.doc.inputs?.ui ? { ui: this.doc.inputs.ui } : {}) };
   }
 
   /** what the runtime runs the taps over */

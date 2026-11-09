@@ -7,7 +7,9 @@ import { groupsInFrame, layoutOf, type Doc, type Frame, type Group, type Item } 
 import { partBySlug } from "../../parts/registry";
 import { INPUT_PROP } from "../interact";
 import { eventOfKey } from "../actions/model";
-import { FOCUS_DIRS, firstOf, neighbourOf, readingOrder, type FocusDir, type FocusLayer, type FocusTarget, type FrameFocus, type ItemFocus } from "./model";
+import { worldInputsOf } from "../world/design";
+import { actionHint, drivenActions, type DrivenAction } from "./inputs";
+import { FOCUS_DIRS, firstOf, neighbourOf, readingOrder, type FocusDir, type FocusLayer, type FocusTarget, type FrameFocus, type InputDevice, type ItemFocus } from "./model";
 
 /** Whether a part does something a press can start: a tap of its own (not one that starts on the pointer or on time), a
  *  place with a tap, places that pick themselves (tabs), an input, a menu with a trigger of its own. */
@@ -76,8 +78,8 @@ export function focusMap(doc: Pick<Doc, "groups" | "frames">, frame: Frame, widt
 }
 
 /** whether a document says anything about the focus: an exported web app that does carries the focus with it */
-export const usesFocus = (doc: Pick<Doc, "groups" | "frames" | "components">): boolean =>
-  doc.frames.some((f) => !!f.focus) || [...doc.groups, ...(doc.components ?? []).flatMap((c) => c.groups)].some((g) => g.items.some((it) => !!it.focus));
+export const usesFocus = (doc: Pick<Doc, "groups" | "frames" | "components" | "inputs">): boolean =>
+  !!doc.inputs || doc.frames.some((f) => !!f.focus) || [...doc.groups, ...(doc.components ?? []).flatMap((c) => c.groups)].some((g) => g.items.some((it) => !!it.focus));
 
 
 /** What an app that cannot measure its page is given of the focus (`src/generated/focus.json` of the phone app and the
@@ -86,4 +88,30 @@ export const usesFocus = (doc: Pick<Doc, "groups" | "frames" | "components">): b
 export function focusData(doc: Pick<Doc, "groups" | "frames" | "components">, widths: Record<string, number>): { version: 1; screens: (FocusMap & { name: string })[] } | null {
   if (!usesFocus(doc)) return null;
   return { version: 1, screens: doc.frames.map((f) => ({ ...focusMap(doc, f, widths), name: f.name })) };
+}
+
+/** The input actions the document's world views take, each once, in the order the views declare them (a name declared by
+ *  two views with two types takes the first), and the world views that take each. */
+export function declaredInputs(doc: Pick<Doc, "groups" | "components">): { decls: { name: string; type?: "vec2" | "bool" }[]; views: Map<string, Item> } {
+  const decls = new Map<string, { name: string; type?: "vec2" | "bool" }>();
+  const views = new Map<string, Item>();
+  for (const g of [...doc.groups, ...(doc.components ?? []).flatMap((c) => c.groups)])
+    for (const it of g.items) {
+      if (!partBySlug(it.component)?.world) continue;
+      views.set(it.id, it);
+      for (const d of worldInputsOf(it)) if (!decls.has(d.name)) decls.set(d.name, d);
+    }
+  return { decls: [...decls.values()], views };
+}
+
+/** The actions a world view's keys and buttons drive: its own declared actions, keyed as the document's table says (the
+ *  defaults dealt out in the document's order, so every view and every hint agree). */
+export function viewActions(doc: Pick<Doc, "groups" | "components" | "inputs">, it: Item): DrivenAction[] {
+  const mine = new Set(worldInputsOf(it).map((d) => d.name));
+  return drivenActions(declaredInputs(doc).decls, doc.inputs).filter((a) => mine.has(a.name));
+}
+
+/** every declared action as it is driven, the document's table over the defaults, with its hint on each device */
+export function inputTable(doc: Pick<Doc, "groups" | "components" | "inputs">): (DrivenAction & { hints: Record<InputDevice, string> })[] {
+  return drivenActions(declaredInputs(doc).decls, doc.inputs).map((a) => ({ ...a, hints: { keyboard: actionHint(a, "keyboard"), gamepad: actionHint(a, "gamepad"), touch: "" } }));
 }

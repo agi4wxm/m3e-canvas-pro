@@ -14,7 +14,7 @@ import { buildProduct } from "../export/product";
 import { setGlobalLang } from "../i18n";
 import { instantiate, defaultMeasures } from "../../parts/templates/kit";
 import { templateBySlug } from "../../parts/templates";
-import type { Doc } from "../tokens";
+import { makeItem, type Doc } from "../tokens";
 
 beforeAll(() => setGlobalLang("en"));
 
@@ -104,6 +104,21 @@ describe("the exported web app's focus", () => {
     const plain = await buildProduct(menus("game-flow").doc, menus("game-flow").widths, { read: fromDisk, fetchIcons: noNetwork, lang: "en" });
     expect(Object.keys(plain.files).some((p) => p.endsWith("focus.json"))).toBe(false);
   }, 180_000);
+
+  it("drives a world view's input actions from the keys in the app, by its table", async () => {
+    const { doc, widths } = menus("game-flow");
+    const lobby = doc.frames[1];
+    const world = { id: "gw", x: lobby.x + 16, y: lobby.y + 200, axis: "x" as const, items: [{ ...makeItem("world-view"), id: "arena", props: { label: "Arena", inputs: "move: vec2, attack: bool" } }] };
+    const withWorld: Doc = { ...doc, groups: [...doc.groups, world], inputs: { actions: { attack: { keys: ["f"] } }, ui: { confirm: { keyboard: ["e"] } } } };
+    const { files } = await buildProject(withWorld, widths, { read: fromDisk, fetchIcons: noNetwork, lang: "en" });
+    const runtime = files["src/runtime.tsx"] as string;
+    const worlds = /const FOCUS_WORLDS[^=]*= (\{.*\})/.exec(runtime)?.[1] ?? "";
+    expect(worlds).toMatch(/name: "move", type: "vec2"/);
+    expect(worlds).toMatch(/name: "attack", type: "bool", keys: \["f"\]/);
+    expect(runtime).toMatch(/const FOCUS_UI[^=]*= \{ confirm: \{ keyboard: \["e"\] \} \}/);
+    expect(runtime).toContain("worldInput: (part, action, value) => worlds.send(part, action, value)");
+    expect(typeof files["src/lib/focus/inputs.ts"]).toBe("string");
+  }, 120_000);
 
   it("leaves a document that says nothing of the focus as it was", async () => {
     const { doc, widths } = menus("game-flow");

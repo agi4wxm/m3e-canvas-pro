@@ -11,8 +11,9 @@
  * A text field, a switch or a slider standing on its own takes it as it is. No React; imports the model and the
  * gamepad reader only, so it is copied into an exported app as it is. */
 
-import { FocusNav, cancelOf, inputScope, readingOrder, uiActionOfKey, type Box, type FocusDir, type FocusLayer, type FocusTarget, type FrameFocus, type InputDevice, type ItemFocus, type PadKind, type UiAction } from "./model";
+import { FocusNav, UI_ACTIONS, UI_BINDINGS, cancelOf, inputScope, readingOrder, uiActionOfKey, type Box, type FocusDir, type FocusLayer, type FocusTarget, type FrameFocus, type InputDevice, type ItemFocus, type PadKind, type UiAction } from "./model";
 import { PadReader, type PadState } from "./gamepad";
+import { ActionReader, keyName, keysOf, type DrivenAction, type HeldValue } from "./inputs";
 
 /** A layer the host has on show: its root element (a screen, a screen laid over one) and its screen's focus. */
 export type DomLayer = { key: string; root: Element; screen?: FrameFocus };
@@ -34,6 +35,15 @@ export type DomFocusHost = {
   reveal?: readonly string[];
   /** the device in use changed: the hints follow it */
   onDevice?(device: InputDevice, pad: PadKind): void;
+  /** the UI actions' keys and buttons: the defaults, or the design's table over them (lib/focus/inputs.ts `uiBindings`) */
+  ui?: typeof UI_BINDINGS;
+  /** The world views on the screen on top whose input actions keys and buttons drive (lib/focus/inputs.ts): none while
+   *  anything is laid over that screen. While one is there its keys and buttons are the world's, before the focus's (the
+   *  HUD's own controls still take a pointer first, docs/世界宿主契约.md); a menu or a dialog opening over it hands
+   *  every key back to the focus and lets go of all the world held. */
+  worlds?(): { part: string; actions: DrivenAction[] }[];
+  /** an input for a world view, on its channel: a direction (`move`), a button held or let go */
+  worldInput?(part: string, action: string, value: HeldValue): void;
 };
 
 /** what stands in a layer's way: a menu, a dialog, a list a select opened */
@@ -161,7 +171,10 @@ type Win = Window & typeof globalThis;
 export function startFocus(host: DomFocusHost, win: Win = window): FocusDriver {
   const doc = win.document;
   const nav = new FocusNav();
-  const pads = new PadReader();
+  const ui = host.ui ?? UI_BINDINGS;
+  const pads = new PadReader(ui);
+  /* the world views driven now, each with what it reads of the keys and pads */
+  const readers = new Map<string, { reader: ActionReader; actions: DrivenAction[] }>();
   let device: InputDevice = "touch";
   let pad: PadKind = "generic";
   let found = new Map<string, Found>();
@@ -310,16 +323,70 @@ export function startFocus(host: DomFocusHost, win: Win = window): FocusDriver {
     return el && typeof el.closest === "function" ? el.closest(TYPING) : null;
   };
 
+  /** the worlds that take keys now: those the host has on the screen on top, with no menu or dialog open over it */
+  const worldsNow = (): { part: string; actions: DrivenAction[] }[] => {
+    if (!host.worlds) return [];
+    const doms = host.layers();
+    const top = doms[doms.length - 1];
+    if (!top || [...top.root.querySelectorAll(POPUPS)].some((p) => p !== top.root && visible(boxOf(p)))) return [];
+    return host.worlds();
+  };
+  const send = (part: string, changes: { action: string; value: HeldValue }[]) => {
+    for (const c of changes) host.worldInput?.(part, c.action, c.value);
+  };
+  /** lets go of what each world no longer driven held (an overlay over it, a screen left), or every one's */
+  const releaseWorlds = (keep: ReadonlySet<string> = new Set()) => {
+    for (const [part, r] of readers) {
+      if (keep.has(part)) continue;
+      send(part, r.reader.release());
+      readers.delete(part);
+    }
+  };
+  const readerOf = (w: { part: string; actions: DrivenAction[] }) => {
+    const had = readers.get(w.part);
+    if (had) {
+      had.actions = w.actions;
+      return had;
+    }
+    const made = { reader: new ActionReader(), actions: w.actions };
+    readers.set(w.part, made);
+    loop();
+    return made;
+  };
+  /** A key a world's action is on, on a screen showing it: the world's, before the focus's. True when it took it. */
+  const worldKey = (e: KeyboardEvent, down: boolean): boolean => {
+    const ws = down ? worldsNow() : [...readers].map(([part, r]) => ({ part, actions: r.actions }));
+    let took = false;
+    for (const w of ws) {
+      if (!keysOf(w.actions).has(keyName(e.key))) continue;
+      took = true;
+      const r = readerOf(w);
+      send(w.part, r.reader.key(r.actions, e.key, down));
+    }
+    return took;
+  };
+
+  const onKeyUp = (e: KeyboardEvent) => {
+    if (readers.size && worldKey(e, false)) e.preventDefault();
+  };
+  const onBlur = () => releaseWorlds();
+
   const onKey = (e: KeyboardEvent) => {
     if (synthetic || e.isComposing || e.keyCode === 229 || e.altKey || e.ctrlKey || e.metaKey) return;
-    const action = uiActionOfKey(e.key);
-    if (!action) return;
-    const dir = action !== "confirm" && action !== "cancel";
     /* a key meant for something beside the screens (the preview's own bar, a menu of the page's) is not the focus's */
     const at = e.target as Element | null;
     if (at && typeof at.closest === "function" && at !== doc.body && at !== doc.documentElement && !host.layers().some((l) => l.root.contains(at))) return;
     const typing = typingIn(e.target);
     if (!typing && e.key !== "Escape" && at && typeof at.closest === "function" && at.closest(OWNS_ARROWS)) return;
+    if (host.worlds && !typing && worldKey(e, true)) {
+      e.preventDefault();
+      e.stopPropagation();
+      if (device !== "keyboard") setDevice("keyboard");
+      return;
+    }
+    const action = uiActionOfKey(e.key, ui);
+    if (!action) return;
+    const dir = action !== "confirm" && action !== "cancel";
     if (device === "touch") {
       /* a pointer leaves every key as it was, but a direction shows the focus where it is */
       const reveals = (host.reveal ?? ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"]).includes(e.key);
@@ -365,8 +432,23 @@ export function startFocus(host: DomFocusHost, win: Win = window): FocusDriver {
   let lastRead = 0;
   const tick = (now: number) => {
     raf = 0;
-    const list = win.navigator?.getGamepads?.() ?? [];
-    const got = pads.poll([...list] as (PadState | null)[], now);
+    const list = [...(win.navigator?.getGamepads?.() ?? [])] as (PadState | null)[];
+    /* the worlds driven now: what the pads push goes to them, and one no longer on show lets go of all it held */
+    const ws = host.worlds ? worldsNow() : [];
+    releaseWorlds(new Set(ws.map((w) => w.part)));
+    const claimed = new Set<string>();
+    if (list.some((p) => !!p))
+      for (const w of ws) {
+        const r = readerOf(w);
+        const changes = r.reader.pads(r.actions, list);
+        if (changes.some((c) => c.value !== false && !(typeof c.value === "object" && c.value.x === 0 && c.value.y === 0))) setDevice("gamepad");
+        send(w.part, changes);
+        for (const a of w.actions) for (const k of a.pad) claimed.add(k);
+      }
+    /* a button or a stick a world's action is on is the world's, not the focus's, while the world is on show */
+    const covers = (k: string) => claimed.has(k) || (claimed.has("dpad") && /^pad:1[2-5]$/.test(k)) || (claimed.has("stick:left") && k.startsWith("stick:"));
+    const free = claimed.size ? (Object.fromEntries(UI_ACTIONS.map((a) => [a, { ...ui[a], gamepad: ui[a].gamepad.filter((k) => !covers(k)) }])) as typeof UI_BINDINGS) : undefined;
+    const got = pads.poll(list, now, free);
     if (got.actions.length) {
       const first = device === "touch";
       setDevice("gamepad", got.pad ?? pad);
@@ -387,13 +469,15 @@ export function startFocus(host: DomFocusHost, win: Win = window): FocusDriver {
   const padsOn = () => [...(win.navigator?.getGamepads?.() ?? [])].some((p) => !!p);
   function loop() {
     if (raf || stopped) return;
-    if (device === "touch" && !padsOn()) return;
+    if (device === "touch" && !padsOn() && !readers.size) return;
     raf = win.requestAnimationFrame?.(tick) ?? 0;
   }
   let stopped = false;
   const onPad = () => loop();
 
   win.addEventListener("keydown", onKey, true);
+  win.addEventListener("keyup", onKeyUp, true);
+  win.addEventListener("blur", onBlur);
   win.addEventListener("pointerdown", onPointer, true);
   win.addEventListener("gamepadconnected", onPad);
   loop();
@@ -402,7 +486,10 @@ export function startFocus(host: DomFocusHost, win: Win = window): FocusDriver {
     stop() {
       stopped = true;
       win.removeEventListener("keydown", onKey, true);
+      win.removeEventListener("keyup", onKeyUp, true);
+      win.removeEventListener("blur", onBlur);
       win.removeEventListener("pointerdown", onPointer, true);
+      releaseWorlds();
       win.removeEventListener("gamepadconnected", onPad);
       if (raf) win.cancelAnimationFrame?.(raf);
       mark(null);

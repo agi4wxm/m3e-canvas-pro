@@ -71,6 +71,33 @@ async function walkTo(page: Page, key: string, words: string, max = 8) {
   throw new Error(`${key} never reached ${JSON.stringify(words)}: the focus is on ${JSON.stringify(at.words)}`);
 }
 
+/** An arena: a world view (M3E's example engine plays it in the preview) taking `move` and `attack`, words showing the
+ *  keys for each on the device in use, a menu button that lays a pause screen over it and is what cancel runs there. */
+function arenaDoc(): Doc {
+  const store = new DocStore(stateOf({ groups: [], frames: [] }), { ids: counterIds("n"), measurer: guessMeasurer, lang: () => "en" });
+  store.transact("Arena", "mcp", (tx) => {
+    tx.run(ops.addScreen, { id: "arena", name: "Arena" });
+    tx.run(ops.addScreen, { id: "pause", name: "Pause" });
+    const entities = { columns: ["Id", "Kind", "X", "Y", "Label"], rows: [["hero", "player", "20", "40", "Hero"], ["slime", "enemy", "80", "80", "Slime"]] };
+    tx.run(ops.addPart, { slug: "world-view", id: "world", screen: "arena", at: { x: 26, y: 80 }, props: { label: "Arena", entities, inputs: "move, attack" } });
+    tx.run(ops.addPart, { slug: "text", id: "hints", screen: "arena", at: { x: 26, y: 340 }, props: { text: "{{input.hint.move}} to move, {{input.hint.attack}} to attack" } });
+    tx.run(ops.addPart, { slug: "button", id: "menu", screen: "arena", at: { x: 26, y: 400 }, props: { label: "Menu" } });
+    tx.run(ops.setAction, { id: "menu", action: { to: "pause", overlay: true } as never });
+    tx.run(ops.addPart, { slug: "button", id: "resume", screen: "pause", at: { x: 26, y: 120 }, props: { label: "Resume" } });
+    tx.run(ops.setAction, { id: "resume", action: { to: "back" } as never });
+    tx.run(ops.addPart, { slug: "button", id: "quit", screen: "pause", at: { x: 26, y: 200 }, props: { label: "Quit" } });
+    tx.run(ops.setAction, { id: "quit", action: { to: "back" } as never });
+    tx.run(ops.setFocus, { screen: "arena", cancel: "menu" });
+  });
+  return savedDoc(store.get());
+}
+
+const worldPart = (page: Page) => page.locator('[data-preview-active] [data-part="world"]').first();
+/** the inputs a world view's stand-in lists, the newest last; `scope` picks the view under an overlay too */
+const inputsListed = (page: Page, scope: string) => page.evaluate((sel) => [...document.querySelectorAll(`${sel} [data-part="world"] [data-world-input]`)].map((el) => (el.textContent ?? "").trim()), scope);
+const heardInputs = (page: Page) => inputsListed(page, "[data-preview-active]");
+const heroAt = async (page: Page) => Number(await worldPart(page).locator('[data-entity="hero"]').first().getAttribute("data-x"));
+
 export const tests: E2ETest[] = [
   {
     name: "focus: the keyboard alone walks the lobby, the shop, the bag and the pause menu",
@@ -162,6 +189,50 @@ export const tests: E2ETest[] = [
       await page.mouse.click(5, 5);
       await settle(page, 200);
       equal((await focused(page)).ring, false, "a click hides the ring");
+    },
+  },
+  {
+    name: "inputs: the keyboard drives a world's move and attack, the hints say its keys, and a pause laid over it takes the keys back and lets go",
+    async run({ page, base, out }) {
+      await openDoc(page, base, arenaDoc(), "arena");
+      await preview(page, "arena");
+      await until("the world view is drawn", async () => (await worldPart(page).locator('[data-slot="world-view"]').count()) > 0);
+      equal(await heroAt(page), 20, "the hero starts where the design puts it");
+      /* D held: the world hears move 1,0 and the example engine walks the hero right; let go, the direction goes back */
+      await page.keyboard.down("d");
+      await until("the world hears the direction", async () => (await heardInputs(page)).includes("move 1,0"));
+      await until("the hero walks right", async () => (await heroAt(page)) > 24);
+      await page.keyboard.up("d");
+      await until("letting go stops it", async () => (await heardInputs(page)).at(-1) === "move 0,0");
+      /* Space presses and lets go of attack */
+      await page.keyboard.press(" ");
+      await until("the world hears attack", async () => (await heardInputs(page)).includes("attack ↓") && (await heardInputs(page)).includes("attack ↑"));
+      /* the words say the keyboard's keys now */
+      const words = (await page.locator('[data-preview-active] [data-part="hints"]').textContent()) ?? "";
+      check(words.includes("WASD to move") && words.includes("Space to attack"), `the hints say the keys (${words})`);
+      await page.screenshot({ path: `${out}/inputs-1-arena.png` });
+
+      /* W held, then Escape: cancel runs the menu button, the pause screen lies over the world, and what the world held is let go */
+      await page.keyboard.down("w");
+      await until("the world hears up", async () => (await heardInputs(page)).includes("move 0,-1"));
+      await page.keyboard.press("Escape");
+      await page.waitForSelector("[data-preview-overlay]", { timeout: 5000 });
+      await page.keyboard.up("w");
+      await settle(page, 400);
+      const afterPause = await inputsListed(page, "[data-preview-screen]");
+      equal(afterPause.at(-1), "move 0,0", "the overlay let go of the direction the world held");
+      /* the arrows move the focus in the pause menu now, not the world */
+      await press(page, "ArrowDown");
+      await press(page, "ArrowDown");
+      const f = await focused(page);
+      check(f.inOverlay && f.words.includes("Quit"), `the arrows move the focus in the pause menu (${f.words})`);
+      equal(await inputsListed(page, "[data-preview-screen]"), afterPause, "and the world hears nothing");
+      /* closed, the keys are the world's again */
+      await press(page, "Escape");
+      await until("the pause closes", async () => (await page.locator("[data-preview-overlay]").count()) === 0);
+      await page.keyboard.down("ArrowLeft");
+      await until("the arrows drive the world again", async () => (await heardInputs(page)).includes("move -1,0"));
+      await page.keyboard.up("ArrowLeft");
     },
   },
   {

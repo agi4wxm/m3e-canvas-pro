@@ -15,6 +15,7 @@ import type { MaterialDef, MaterialLayer } from "./material";
 import { fields, withUnknown } from "./keep";
 import { mapAction, mapBody, mapCondition, type RefMap } from "./refs";
 import type { FrameFocus, ItemFocus } from "./focus/model";
+import type { InputMap } from "./focus/inputs";
 
 /* the API section's model (lib/api): data models, endpoints, auth, channels, servers */
 export type * from "./api/types";
@@ -1577,6 +1578,10 @@ export type Doc = {
   /** the document's materials (lib/material.ts, docs/m3e-material.md), imported from material packs; a `material` layer
    *  of a look (`ItemLook.fills`) names one by id */
   materials?: MaterialDef[];
+  /** The keys and gamepad buttons that drive the world views' input actions (`move: vec2`, `attack: bool`), and the UI
+   *  actions' own over the defaults (lib/focus/inputs.ts, docs/焦点与输入.md); left out, each action takes the defaults
+   *  in turn (WASD and the arrows, the left stick; Space, J, K…; A, X, Y…). */
+  inputs?: InputMap;
 };
 
 /** where the files of the outside modules are, by what they are (lib/assetCatalog.ts `assetManifestPathOf`) */

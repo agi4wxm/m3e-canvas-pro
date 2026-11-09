@@ -139,6 +139,7 @@ export const OPS: Op<never, unknown>[] = [
   data.setVarMode,
   data.setAction,
   focus.setFocus,
+  focus.setInputKeys,
   data.bindProp,
   data.reorderPanes,
   api.addModel,

@@ -31,6 +31,7 @@ import type { Motion, Transition } from "@/lib/screenMotion"
 //#if focus
 import { startFocus } from "@/lib/focus/dom"
 import type { FrameFocus, ItemFocus } from "@/lib/focus/model"
+import { uiBindings, type DrivenAction, type InputMap } from "@/lib/focus/inputs"
 //#end
 //#if worlds && product
 import { createWorlds, type WorldChannel } from /*$runtime*/"@m3e/app-runtime"/*$*/
@@ -87,6 +88,10 @@ const SNACK_MS = 4000
 const FOCUS_SCREENS: Partial<Record<ScreenId, FrameFocus>> = /*$focusScreens*/{}/*$*/
 /** what each part says of it, by its key: whether it takes it, where each direction goes from it */
 const FOCUS_PARTS: Partial<Record<string, ItemFocus>> = /*$focusParts*/{}/*$*/
+/** the world views on each screen, with the keys and buttons that drive their input actions (src/lib/focus/inputs.ts) */
+const FOCUS_WORLDS: Partial<Record<ScreenId, { part: string; actions: DrivenAction[] }[]>> = /*$focusWorlds*/{}/*$*/
+/** the UI actions' own keys and buttons over the defaults */
+const FOCUS_UI: InputMap["ui"] = /*$focusUi*/{}/*$*/
 //#end
 
 type Value = string | number | boolean
@@ -775,6 +780,18 @@ export function AppProvider({ children/*#if !mocks*//*#else , capabilities#end*/
         return true
       },
       part: (id) => FOCUS_PARTS[id],
+      ui: uiBindings({ ui: FOCUS_UI }),
+//#if worlds
+      /* the keys and buttons drive the world views on the screen on show, while nothing is laid over it */
+      worlds: () => {
+        const s = stateNow.current
+//#if overlay
+        if (s.overlay) return []
+//#end
+        return FOCUS_WORLDS[s.stack[s.stack.length - 1].screen] ?? []
+      },
+      worldInput: (part, action, value) => worlds.send(part, action, value),
+//#end
       /* M3's focus ring is drawn in the secondary color */
       ringColor: () => getComputedStyle(document.documentElement).getPropertyValue("--md-sys-color-secondary").trim() || "#625b71",
     })

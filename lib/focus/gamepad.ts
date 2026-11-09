@@ -35,9 +35,11 @@ function held(pad: PadState, key: string, was: boolean): boolean {
 /** Reads pads frame by frame. `poll(pads, now)` gives the UI actions that started (or repeat) at `now`, and the family of
  *  the pad they came from, for the hints. */
 export class PadReader {
+  /** the UI actions' buttons: the defaults, or a design's table over them (lib/focus/inputs.ts `uiBindings`) */
+  constructor(private bindings: typeof UI_BINDINGS = UI_BINDINGS) {}
   private down = new Map<string, { since: number; last: number }>();
 
-  poll(pads: readonly (PadState | null | undefined)[], now: number): { actions: UiAction[]; pad?: PadKind } {
+  poll(pads: readonly (PadState | null | undefined)[], now: number, bindings: typeof UI_BINDINGS = this.bindings): { actions: UiAction[]; pad?: PadKind } {
     const actions: UiAction[] = [];
     let pad: PadKind | undefined;
     const seen = new Set<string>();
@@ -46,7 +48,7 @@ export class PadReader {
       for (const a of UI_ACTIONS) {
         const id = `${i}:${a}`;
         const was = this.down.get(id);
-        const on = UI_BINDINGS[a].gamepad.some((k) => held(p, k, !!was));
+        const on = bindings[a].gamepad.some((k) => held(p, k, !!was));
         if (!on) continue;
         seen.add(id);
         if (!was) {
