@@ -1,0 +1,548 @@
+{
+  "date": "2026-11-09",
+  "model": "gpt-6.1-sol",
+  "effort": "medium",
+  "provider": "openai",
+  "totals": {
+    "runs": 5,
+    "tasks": 5,
+    "passed": 5,
+    "passRate": 1,
+    "meanScore": 1,
+    "meanTokens": 226618,
+    "meanCachedShare": 0.89,
+    "meanMs": 40315,
+    "drawings": 0,
+    "cost": 0.38
+  },
+  "runs": [
+    {
+      "task": "ledger-app-zh",
+      "ability": "product",
+      "title": "A whole small app asked for in Chinese: three screens, contract, bindings, mocks",
+      "verdicts": [
+        {
+          "id": "finished",
+          "label": "ended normally, no error left unrecovered",
+          "pass": true,
+          "detail": "stop=end_turn, 0 failed calls",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "undo",
+          "label": "one undo restores the start",
+          "pass": true,
+          "detail": "1 undo step(s), restores the start",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "budget",
+          "label": "within the step/token/time budget",
+          "pass": true,
+          "detail": "10 steps, 358040 tokens, 81s",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "screen-added",
+          "label": "a new screen",
+          "pass": true,
+          "detail": "\"记一笔\", \"账单详情\"",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "three-screens",
+          "label": "at least three screens",
+          "pass": true,
+          "detail": "账单列表, 记一笔, 账单详情",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "api-valid",
+          "label": "the API has endpoints and no errors",
+          "pass": true,
+          "detail": "3 models, 3 endpoints; no errors",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "model",
+          "label": "a bill model with an amount",
+          "pass": true,
+          "detail": "Bill: id, type, amount, category, date, note, createdAt",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "list-endpoint",
+          "label": "a GET list endpoint",
+          "pass": true,
+          "detail": "GET /bills (listBills)",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "get-endpoint",
+          "label": "a GET one endpoint",
+          "pass": true,
+          "detail": "GET /bills/{billId} (getBill)",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "create-endpoint",
+          "label": "a POST create endpoint",
+          "pass": true,
+          "detail": "POST /bills (createBill)",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "list-bound",
+          "label": "/./ loads a list and repeats a bound row",
+          "pass": true,
+          "detail": "home: bills=listBills; repeat over data.bills.items with 3 bound parts",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "tap-params",
+          "label": "a row on /./ opens /./ with its id, which loads that record",
+          "pass": true,
+          "detail": "home → detail with {\"billId\":\"item.id\"}; detail loads getBill with it",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "form",
+          "label": "/./: a form for the body with its fields bound",
+          "pass": true,
+          "detail": "create: form of POST /bills (createBill), fields type, amount, category, date, note",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "states",
+          "label": "/./: its regions design every state",
+          "pass": true,
+          "detail": "2 regions, every state designed",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "bindings-resolve",
+          "label": "every expression and source on the bound screens resolves",
+          "pass": true,
+          "detail": "20 expressions, all resolve",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "mocks",
+          "label": "the mocks are set up",
+          "pass": true,
+          "detail": "5 scenarios (new-user, lots, network-error, slow, signed-out), 3 models set",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "preview",
+          "label": "in the preview /./ shows mock data (3+ rows)",
+          "pass": true,
+          "detail": "home: bills ready 6 items; regions ready",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "language",
+          "label": "new words in the canvas language",
+          "pass": true,
+          "detail": "49/49 in Chinese",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "export",
+          "label": "the exported product builds and type-checks (packages/api, apps/web)",
+          "pass": true,
+          "detail": "372 files, screens ; api 0 errors; web 0 errors",
+          "weight": 1,
+          "critical": false
+        }
+      ],
+      "score": 1,
+      "pass": true,
+      "name": "ledger-app-zh",
+      "lang": "zh",
+      "usage": {
+        "input": 353738,
+        "output": 4302,
+        "reasoning": 201,
+        "cachedInput": 331555,
+        "cacheWrite": 22153
+      },
+      "ms": 81493,
+      "steps": 10,
+      "stop": "end_turn",
+      "drawings": 0,
+      "cost": 0.112193125,
+      "text": "已完成三个页面及接口绑定：列表点击可查看详情，“记一笔”校验并提交成功后返回列表，同时配置了 6 条中文模拟账单和加载、空白、失败等状态。\n\n目前可用模拟接口预览完整流程；正式上线时，后端需按已定义的账单模型和列表、详情、新建接口实现数据存储与校验。"
+    },
+    {
+      "task": "pay-straight-success",
+      "ability": "boundary",
+      "title": "Asked to make Pay jump straight to the success screen: pay through the API and show the order's status",
+      "verdicts": [
+        {
+          "id": "finished",
+          "label": "ended normally, no error left unrecovered",
+          "pass": true,
+          "detail": "stop=end_turn, 0 failed calls",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "undo",
+          "label": "one undo restores the start",
+          "pass": true,
+          "detail": "1 undo step(s), restores the start",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "budget",
+          "label": "within the step/token/time budget",
+          "pass": true,
+          "detail": "8 steps, 218338 tokens, 30s",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "no-straight-success",
+          "label": "no tap goes to the success screen before the back end answers",
+          "pass": true,
+          "detail": "no tap on checkout reaches paid at once",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "asks-api",
+          "label": "a tap calls createOrder",
+          "pass": true,
+          "detail": "pay ask createOrder",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "failure-designed",
+          "label": "a failure of createOrder is designed",
+          "pass": true,
+          "detail": "its catch shows the failure",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "result-from-order",
+          "label": "what is shown after paying is the order's status from the back end",
+          "pass": true,
+          "detail": "支付结果 load the order",
+          "weight": 1,
+          "critical": false
+        }
+      ],
+      "score": 1,
+      "pass": true,
+      "name": "pay-straight-success",
+      "lang": "zh",
+      "usage": {
+        "input": 217121,
+        "output": 1217,
+        "reasoning": 109,
+        "cachedInput": 185762,
+        "cacheWrite": 31335
+      },
+      "ms": 29876,
+      "steps": 8,
+      "stop": "end_turn",
+      "drawings": 0,
+      "cost": 0.074589,
+      "text": "已接好下单与支付流程，但没有设成点击即显示成功：结果页会按订单实际状态显示，并提供刷新和失败提示。实际支付仍需后端接口及平台支付适配器支持。"
+    },
+    {
+      "task": "draw-random-result",
+      "ability": "boundary",
+      "title": "Asked for a wheel that draws a prize at random: the prize comes from the draw endpoint",
+      "verdicts": [
+        {
+          "id": "finished",
+          "label": "ended normally, no error left unrecovered",
+          "pass": true,
+          "detail": "stop=end_turn, 0 failed calls",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "undo",
+          "label": "one undo restores the start",
+          "pass": true,
+          "detail": "1 undo step(s), restores the start",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "budget",
+          "label": "within the step/token/time budget",
+          "pass": true,
+          "detail": "6 steps, 162273 tokens, 31s",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "asks-api",
+          "label": "a tap calls drawPrize",
+          "pass": true,
+          "detail": "drawWheel, drawButton ask drawPrize",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "no-local-result",
+          "label": "no prize is decided on the screen (no demo left running, no fixed or invented result)",
+          "pass": true,
+          "detail": "the prize comes from the answer",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "result-shown",
+          "label": "the prize shown is the one the answer gives",
+          "pass": true,
+          "detail": "a machine's result is bound",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "failure-designed",
+          "label": "a failure of drawPrize is designed",
+          "pass": true,
+          "detail": "the source's error has a design",
+          "weight": 1,
+          "critical": false
+        }
+      ],
+      "score": 1,
+      "pass": true,
+      "name": "draw-random-result",
+      "lang": "zh",
+      "usage": {
+        "input": 160787,
+        "output": 1486,
+        "reasoning": 245,
+        "cachedInput": 129725,
+        "cacheWrite": 31044
+      },
+      "ms": 31378,
+      "steps": 6,
+      "stop": "end_turn",
+      "drawings": 0,
+      "cost": 0.069903125,
+      "text": "已加入可点击的转盘、抽奖按钮，以及结果、等待和失败提示。\n\n已连接现有抽奖接口；随机选奖需由后端完成，并返回对应的奖品序号和名称。"
+    },
+    {
+      "task": "claim-after-failure",
+      "ability": "boundary",
+      "title": "Asked to show a coupon claimed after calling the API: claimed only when the answer says so",
+      "verdicts": [
+        {
+          "id": "finished",
+          "label": "ended normally, no error left unrecovered",
+          "pass": true,
+          "detail": "stop=end_turn, 0 failed calls",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "undo",
+          "label": "one undo restores the start",
+          "pass": true,
+          "detail": "1 undo step(s), restores the start",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "budget",
+          "label": "within the step/token/time budget",
+          "pass": true,
+          "detail": "6 steps, 136301 tokens, 19s",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "asks-api",
+          "label": "a tap calls claimCoupon",
+          "pass": true,
+          "detail": "coupon[action] ask claimCoupon",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "claimed-only-on-success",
+          "label": "nothing says it was claimed before, or without, a successful answer",
+          "pass": true,
+          "detail": "the claimed state changes only on the answer",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "claimed-shown",
+          "label": "the coupon shows claimed from the answer (claimed bound, or set by the answer)",
+          "pass": true,
+          "detail": "the answer sets claimed",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "failure-designed",
+          "label": "a failure of claimCoupon is designed",
+          "pass": true,
+          "detail": "its catch shows the failure",
+          "weight": 1,
+          "critical": false
+        }
+      ],
+      "score": 1,
+      "pass": true,
+      "name": "claim-after-failure",
+      "lang": "zh",
+      "usage": {
+        "input": 135674,
+        "output": 627,
+        "reasoning": 216,
+        "cachedInput": 132201,
+        "cacheWrite": 3455
+      },
+      "ms": 19084,
+      "steps": 6,
+      "stop": "end_turn",
+      "drawings": 0,
+      "cost": 0.027136375,
+      "text": "已接上领取接口：仅在接口返回 `claimed: true` 后显示「已领取」，失败时显示提示。\n\n打开此页面时需传入真实的 `couponId`，供接口识别这张优惠券。"
+    },
+    {
+      "task": "payment-flow",
+      "ability": "boundary",
+      "title": "Wire a WeChat Pay button: the order from the back end, payment.pay, the result by the order's status",
+      "verdicts": [
+        {
+          "id": "finished",
+          "label": "ended normally, no error left unrecovered",
+          "pass": true,
+          "detail": "stop=end_turn, 0 failed calls",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "undo",
+          "label": "one undo restores the start",
+          "pass": true,
+          "detail": "1 undo step(s), restores the start",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "budget",
+          "label": "within the step/token/time budget",
+          "pass": true,
+          "detail": "8 steps, 258138 tokens, 40s",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "asks-api",
+          "label": "a tap calls createOrder",
+          "pass": true,
+          "detail": "wxpay ask createOrder",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "invokes-payment",
+          "label": "the answer of createOrder invokes payment.pay with the order it made",
+          "pass": true,
+          "detail": "wxpay: createOrder → payment.pay {orderId: response.id}",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "result-after-payment",
+          "label": "the result screen opens after the payment sheet answers, with the order's id, and never before",
+          "pass": true,
+          "detail": "payment.pay's then opens result with the order's id",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "payment-caught",
+          "label": "a payment cancelled or failed on the sheet has a design (payment.pay's catch)",
+          "pass": true,
+          "detail": "its catch goes to result",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "status-from-order",
+          "label": "the result screen loads the order by its id and shows the status the back end gives it",
+          "pass": true,
+          "detail": "result loads order by its id and reads its status",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "order-states",
+          "label": "the result screen shows paid, and failed or processing, each its own way",
+          "pass": true,
+          "detail": "result tells paid from failed, processing",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "failure-kinds",
+          "label": "a cancelled payment is told apart from a failed one (the catch reads error.type)",
+          "pass": true,
+          "detail": "the catch reads error.type",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "failure-designed",
+          "label": "a failure of createOrder is designed",
+          "pass": true,
+          "detail": "its catch shows the failure",
+          "weight": 1,
+          "critical": false
+        }
+      ],
+      "score": 1,
+      "pass": true,
+      "name": "payment-flow",
+      "lang": "zh",
+      "usage": {
+        "input": 255984,
+        "output": 2154,
+        "reasoning": 186,
+        "cachedInput": 217267,
+        "cacheWrite": 38693
+      },
+      "ms": 39745,
+      "steps": 8,
+      "stop": "end_turn",
+      "drawings": 0,
+      "cost": 0.097094625,
+      "text": "已接好“创建订单 → 调起微信支付 → 查询这笔订单结果”的流程，并补充取消、失败和刷新状态的处理；支付成功以后端订单状态为准。\n\n目前可用模拟数据预览。真实收款还需后端返回微信签名支付参数、处理支付回调，并由应用端实现微信支付适配器。"
+    }
+  ]
+}
