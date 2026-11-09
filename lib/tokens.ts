@@ -1543,7 +1543,14 @@ export type Doc = {
   /** the platform capabilities the product uses beyond those its designs invoke, and its own (lib/capabilities,
    *  docs/平台能力.md); the standard ones are the catalog's */
   capabilities?: CapabilitySpec;
+  /** Where the files of the modules outside M3E are read from, each a path from the project file's folder: only
+   *  their format is depended on, never where they live (docs/游戏阶段整改计划.md). `assetManifest`: the asset
+   *  pipeline's manifest (lib/assetManifest.ts), `asset-manifest.json` beside the project file when left out. */
+  external?: ExternalFiles;
 };
+
+/** where the files of the outside modules are, by what they are (lib/assetCatalog.ts `assetManifestPathOf`) */
+export type ExternalFiles = { assetManifest?: string };
 
 export const defaultTabs = (): NavTab[] => NAV_TABS[getLang()].map((t) => ({ ...t }));
 

@@ -5,10 +5,14 @@
  * the document takes in. The editor's own panels are not held to this: what the author pastes is theirs. */
 
 import { cleanToMarkup, sanitizeSvg } from "../../parts/svg";
+import { ASSET_ID } from "../assetManifest";
 
 const RASTER = /^data:image\/(png|jpe?g|gif|webp|avif|bmp)(;[\w=.+-]+)*;base64,[A-Za-z0-9+/\s]+=*$/i;
 const SVG = /^data:image\/svg\+xml/i;
 const ASSET = /^m3e-asset:/;
+/** one of the asset pipeline's, by its id in the manifest (lib/assetRefs.ts): whether the manifest has it is the
+ *  export's report to say, not a reason to refuse it here */
+const PIPELINE = (url: string) => url.startsWith("asset:") && ASSET_ID.test(url.slice(6));
 
 /** what to do instead of an outside picture */
 export const PICTURE_HINT = "generate_image paints a picture (a photo, an illustration) into the document, generate_svg draws a vector one; or use an icon or an image placeholder (\"\").";
@@ -39,11 +43,11 @@ export function cleanSvgUrl(url: string): string | null {
 export function pictureError(v: unknown): string | null {
   if (typeof v !== "string") return "should be a picture's address (a data:image URL) or \"\"";
   const url = v.trim();
-  if (!url || ASSET.test(url) || RASTER.test(url)) return null;
+  if (!url || ASSET.test(url) || PIPELINE(url) || RASTER.test(url)) return null;
   if (SVG.test(url)) return cleanSvgUrl(url) ? null : "is an SVG with nothing left that draws once cleaned (no scripts, no outside links)";
   if (/^https?:/i.test(url)) return `is an outside address, which is not accepted (it may not load, be drawn or be exported). ${PICTURE_HINT}`;
   if (/^data:image\//i.test(url)) return "is a data:image URL that cannot be read: use base64 PNG, JPEG, GIF or WebP, or SVG";
-  return "should be a data:image URL or one of the project's pictures";
+  return "should be a data:image URL, one of the project's pictures, or asset:<id> for one of the asset manifest's";
 }
 
 /** Arguments with every SVG data URL in them run through the sanitizer; one with nothing left that draws stays as it
