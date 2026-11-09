@@ -119,8 +119,8 @@ const quest = kit(
     ),
     variant("done", "Claimed", ["已领取", "受取済み", "받음"], () =>
       hbox({ surface: "panel", width: W, hugWidth: false, padX: 12, padY: 12, gap: 12 }, [
-        box({ layout: "row", align: "center", justify: "center", padX: 0, padY: 0, width: 44, height: 44, hugWidth: false, hugHeight: false }, [icon("check_circle", { size: 26, filled: true, color: "muted" })], { fill: "surfaceContainerHigh", corners: round(10) }),
-        vbox({ gap: 2, hugWidth: false, width: 160 }, [para(say("Open 2 chests", "打开 2 个宝箱", "宝箱を 2 つ開ける", "상자 2개 열기"), "label", { color: "muted", maxLines: 1 }), muted("2/2", "caption")], { grow: true }),
+        box({ layout: "row", align: "center", justify: "center", padX: 0, padY: 0, width: 44, height: 44, hugWidth: false, hugHeight: false }, [icon("check_circle", { size: 26, filled: true, color: "on-surface-variant" })], { fill: "surfaceContainerHigh", corners: round(10) }),
+        vbox({ gap: 2, hugWidth: false, width: 160 }, [para(say("Open 2 chests", "打开 2 个宝箱", "宝箱を 2 つ開ける", "상자 2개 열기"), "label", { color: "on-surface-variant", maxLines: 1 }), muted("2/2", "caption")], { grow: true }),
         button(T.claimed, { variant: "tonal", size: "xs", disabled: true }),
       ], { corners: round(14), look: { opacity: 80 } }),
     ),
@@ -152,7 +152,7 @@ const shopItem = kit(
     variant("bundle", "Bundle row", ["礼包行", "パックの行", "패키지 행"], () =>
       hbox({ surface: "panel", width: W, hugWidth: false, padX: 12, padY: 12, gap: 12 }, [
         box({ surface: "well", layout: "row", align: "center", justify: "center", padX: 0, padY: 0, width: 72, height: 72, hugWidth: false, hugHeight: false }, [svg("starburst", { width: 56, height: 56, color: "tertiary" })], { corners: round(12), look: GOLD }),
-        vbox({ gap: 4, hugWidth: false, width: 140, align: "stretch" }, [para(say("Starter pack", "新手礼包", "スターターパック", "스타터 팩"), "label", { bold: true, maxLines: 1 }), para(say("Gems ×300 · Coins ×5,000", "宝石 ×300 · 金币 ×5,000", "ジェム ×300 · コイン ×5,000", "보석 ×300 · 코인 ×5,000"), "caption", { color: "muted", maxLines: 2 }), hbox({ gap: 0 }, [tag(say("Once only", "限购一次", "1 回限り", "1회 한정"), "tertiary")])], { grow: true }),
+        vbox({ gap: 4, hugWidth: false, width: 140, align: "stretch" }, [para(say("Starter pack", "新手礼包", "スターターパック", "스타터 팩"), "label", { bold: true, maxLines: 1 }), para(say("Gems ×300 · Coins ×5,000", "宝石 ×300 · 金币 ×5,000", "ジェム ×300 · コイン ×5,000", "보석 ×300 · 코인 ×5,000"), "caption", { color: "on-surface-variant", maxLines: 2 }), hbox({ gap: 0 }, [tag(say("Once only", "限购一次", "1 回限り", "1회 한정"), "tertiary")])], { grow: true }),
         button(say("$4.99", "¥30", "¥600", "₩6,500"), { variant: "filled", size: "sm" }, { look: LIP }),
       ], { corners: round(14) }),
     ),
@@ -231,7 +231,7 @@ const dialogue = kit(
 /** a level on the path: done (its number on the filled disc, three stars), here (ringed), or locked */
 const node = (n: number, state: "done" | "here" | "locked", got = 3): Node => {
   const disc = state === "locked"
-    ? box({ surface: "well", layout: "row", align: "center", justify: "center", padX: 0, padY: 0, width: 48, height: 48, hugWidth: false, hugHeight: false }, [icon("lock_person", { size: 20, filled: true, color: "muted" })], { corners: round(24) })
+    ? box({ surface: "well", layout: "row", align: "center", justify: "center", padX: 0, padY: 0, width: 48, height: 48, hugWidth: false, hugHeight: false }, [icon("lock_person", { size: 20, filled: true, color: "on-surface-variant" })], { corners: round(24) })
     : /* a disc of the primary color rather than a button surface: a style that draws its buttons as bare words would
        * leave the number on nothing */
       box({ layout: "row", align: "center", justify: "center", padX: 0, padY: 0, width: 48, height: 48, hugWidth: false, hugHeight: false }, [text(String(n), "heading", { bold: true, color: "on-primary" })], { fill: "primary", corners: round(24), ...(state === "here" ? { look: LIP } : {}) });
@@ -273,9 +273,9 @@ const result = kit(
     ),
     variant("defeat", "Defeat", ["失败", "敗北", "패배"], () =>
       vbox({ surface: "panel", width: 320, hugWidth: false, padX: 20, padY: 20, gap: 12, align: "center" }, [
-        text(say("DEFEAT", "失败", "敗北", "패배"), "display", { align: "center", color: "muted" }),
+        text(say("DEFEAT", "失败", "敗北", "패배"), "display", { align: "center", color: "on-surface-variant" }),
         stars(0, 3, 32, 6),
-        para(say("Tip: upgrade your shield before the next try.", "提示：下次挑战前先升级盾牌。", "ヒント：次の挑戦の前に盾を強化しよう。", "팁: 다음 도전 전에 방패를 강화하세요."), "body", { color: "muted", align: "center", width: 280 }),
+        para(say("Tip: upgrade your shield before the next try.", "提示：下次挑战前先升级盾牌。", "ヒント：次の挑戦の前に盾を強化しよう。", "팁: 다음 도전 전에 방패를 강화하세요."), "body", { color: "on-surface-variant", align: "center", width: 280 }),
         hbox({ gap: 10, hugWidth: false, width: 280 }, [button(say("Upgrade", "强化", "強化", "강화"), { variant: "tonal", size: "md" }, { grow: true }), button(say("Retry", "重试", "リトライ", "다시"), { variant: "filled", size: "md" }, { grow: true, look: LIP })]),
       ], { corners: round(20) }),
     ),
@@ -314,7 +314,7 @@ const wish = kit(
       ], { corners: round(16) }),
     ),
     variant("compact", "Compact row", ["紧凑行", "コンパクトな行", "컴팩트 행"], () =>
-      hbox({ surface: "panel", width: W, hugWidth: false, padX: 10, padY: 10, gap: 12 }, [image({ width: 72, height: 72, alt: "" }), vbox({ gap: 2, hugWidth: false, width: 140 }, [para(say("Starlit Wishes", "星光祈愿", "星降る願い", "별빛 소원"), "label", { bold: true, maxLines: 1 }), para(say("Ends in 6d 12h", "剩余 6 天 12 小时", "残り 6 日 12 時間", "6일 12시간 남음"), "caption", { color: "muted", maxLines: 1 })], { grow: true }), button(say("Wish", "祈愿", "ガチャ", "뽑기"), { variant: "filled", size: "sm" }, { look: LIP })], { corners: round(16) }),
+      hbox({ surface: "panel", width: W, hugWidth: false, padX: 10, padY: 10, gap: 12 }, [image({ width: 72, height: 72, alt: "" }), vbox({ gap: 2, hugWidth: false, width: 140 }, [para(say("Starlit Wishes", "星光祈愿", "星降る願い", "별빛 소원"), "label", { bold: true, maxLines: 1 }), para(say("Ends in 6d 12h", "剩余 6 天 12 小时", "残り 6 日 12 時間", "6일 12시간 남음"), "caption", { color: "on-surface-variant", maxLines: 1 })], { grow: true }), button(say("Wish", "祈愿", "ガチャ", "뽑기"), { variant: "filled", size: "sm" }, { look: LIP })], { corners: round(16) }),
     ),
   ],
 );

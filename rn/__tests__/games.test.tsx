@@ -222,13 +222,13 @@ describe("a skill", () => {
 describe("a level map", () => {
   it("locks the levels past the current one and picks the one tapped", async () => {
     const second = jest.fn();
-    const view = await draw(<LevelMap levels={6} current={3} perRow={3} taps={{ "tab:1": second }} />);
+    const view = await draw(<LevelMap levels={6} level={2} perRow={3} taps={{ "tab:1": second }} />);
     expect(screen.getByRole("button", { name: "5" }).props.accessibilityState).toMatchObject({ disabled: true });
     await fireEvent.press(screen.getByRole("button", { name: "2" }));
     expect(second).toHaveBeenCalled();
     expect(screen.getByRole("button", { name: "2" }).props.accessibilityState).toMatchObject({ selected: true });
     /* the design picking another starts the visitor's pick again from it */
-    await view.rerender(themed(<LevelMap levels={6} current={3} perRow={3} selected={0} />));
+    await view.rerender(themed(<LevelMap levels={6} level={2} perRow={3} selected={0} />));
     expect(screen.getByRole("button", { name: "1" }).props.accessibilityState).toMatchObject({ selected: true });
     expect(screen.getByRole("button", { name: "2" }).props.accessibilityState).toMatchObject({ selected: false });
   });

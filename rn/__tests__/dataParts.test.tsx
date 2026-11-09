@@ -114,7 +114,7 @@ describe("charts", () => {
 
 describe("a table", () => {
   it("draws the design's rows as they are without a structure, the last column to the right when asked", async () => {
-    await draw(<Table alignLast selected={2} caption="Q3" />);
+    await draw(<Table alignLast selectedRow={1} caption="Q3" />);
     expect(screen.getByText("Invoices")).toBeTruthy();
     expect(styleOf(screen.getByText("$150.00"))).toMatchObject({ textAlign: "right", color: colors["on-secondary-container"] });
     expect(styleOf(screen.getByText("INV-001"))).toMatchObject({ textAlign: "left" });

@@ -13,7 +13,7 @@ export function SlotsScreen() {
         <SalesToday width={190} height={120}>
           <Box surface="panel" gap={4} padX={16} padY={16} align="stretch" hugWidth={false} width={190}>
             <Cell dir="column" fillWidth>
-              <Text text="Revenue" styleVariant="label" fit="auto" color="muted" />
+              <Text text="Revenue" styleVariant="label" fit="auto" color="on-surface-variant" />
             </Cell>
             <Cell dir="column" fillWidth>
               <Text text={"$48,200"} styleVariant="headline" fit="auto" />

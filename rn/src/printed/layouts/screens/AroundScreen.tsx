@@ -12,7 +12,7 @@ export function AroundScreen() {
         <NavigationMenu menus={[{ label: "Guides" }]} pages={[{ label: "Start here" }]} />
       </At>
       <At x={16} y={240}>
-        <Pagination pages={8} current={3} width={380} taps={{ "tab:3": () => nav.go("Layouts") }} />
+        <Pagination pages={8} page={2} width={380} taps={{ "tab:3": () => nav.go("Layouts") }} />
       </At>
       <At x={16} y={300}>
         <TableOfContents

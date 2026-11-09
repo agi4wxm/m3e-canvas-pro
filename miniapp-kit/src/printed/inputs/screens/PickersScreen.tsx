@@ -2,7 +2,7 @@
 import { At, Calendar, ColorField, ColorPalette, Combobox, ItemPicker, MultiSelect, NativeSelect, NumberPicker, RegionPicker, Screen, SeatMap, TransferList, WheelPicker, useScreen } from "../../../kit";
 
 export function PickersScreen() {
-  const s = useScreen("pickers", { inputs: { "colorField": { value: "#6750A4", var: "color" }, "itemPicker": { value: 0, var: "trip", labels: ["Home", "Work", "Travel", "Food"] }, "multipleChoice": { value: "1,3" }, "colorPalette": { value: 0, var: "swatch", labels: ["#6750A4", "#625B71", "#7D5260", "#B3261E", "#386A20", "#006A6A"] }, "numberPicker": { value: 5 }, "transferList": { value: "4" }, "regionPicker": { value: "", var: "area" }, "seatMap": { value: "", var: "seats" } } });
+  const s = useScreen("pickers", { inputs: { "colorField": { value: "#6750A4", var: "color" }, "itemPicker": { value: 0, var: "trip", labels: ["Home", "Work", "Travel", "Food"] }, "multipleChoice": { value: "0,2" }, "colorPalette": { value: 0, var: "swatch", labels: ["#6750A4", "#625B71", "#7D5260", "#B3261E", "#386A20", "#006A6A"] }, "numberPicker": { value: 5 }, "transferList": { value: "4" }, "regionPicker": { value: "", var: "area" }, "seatMap": { value: "", var: "seats" } } });
   return (
     <Screen screen="pickers" width={412} height={3000}>
       <At x={16} y={24}>
@@ -29,7 +29,7 @@ export function PickersScreen() {
       </At>
       <At x={16} y={1024}>
         <MultiSelect
-          selected={s.value<string>("multipleChoice", "1,3")}
+          picked={s.value<string>("multipleChoice", "0,2")}
           onChange={s.setter("multipleChoice")}
           testID="multipleChoice"
         />

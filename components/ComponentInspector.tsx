@@ -16,10 +16,11 @@ import { segmentedFits } from "@/lib/choices";
 import { tableOf, tableText } from "@/lib/collections";
 import { occludes } from "@/lib/interact";
 import { FlowControl } from "./FlowPanel";
+import { ColorPick } from "./LookPanel";
 import { PartDesign } from "./DesignPanel";
 import { FLOW_KEYS } from "@/parts/flow";
 import { type Flow } from "@/lib/flow";
-import { Field, ImageRow, NamedSizes, PanelShell, Segmented, Select, Slider, Toggle, useDraft } from "./ui";
+import { Field, IconBtn, ImageRow, NamedSizes, PanelShell, Segmented, Select, Slider, Toggle, useDraft } from "./ui";
 
 /* The panel of a part that is a real shadcn M3E component. It is built from the part's own prop
  * definitions: text, choices, switches, numbers, icons and lists, each drawn with the controls
@@ -70,6 +71,29 @@ function TableField({ value, onChange, label, p, structured, declared }: { value
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+/** A list of colors (a palette's swatches): each row a color of the one color value and the name it is read out by. A
+ *  row keeps its place's tap and choice through `onRows`, as any list's rows do. */
+function ColorRows({ rows, onRows, bounds, p, lang }: { rows: ListItem[]; onRows: (rows: ListItem[], order: number[]) => void; bounds: { min: number; max: number }; p: Palette; lang: Lang }) {
+  const same = rows.map((_, i) => i);
+  const set = (i: number, patch: Partial<ListItem>) => onRows(rows.map((r, j) => (j === i ? { ...r, ...patch } : r)), same);
+  return (
+    <div data-color-rows style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+      {rows.map((r, i) => (
+        <div key={i} style={{ display: "flex", gap: 6, alignItems: "flex-start" }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <ColorPick value={r.color || undefined} onChange={(c) => c && set(i, { color: c, ...(r.label === r.color ? { label: c } : {}) })} label={r.label || String(i + 1)} p={p} />
+          </div>
+          <div style={{ width: 96 }}>
+            <Field value={r.label} onChange={(label) => set(i, { label })} placeholder={t("colorRowName", lang)} label={t("colorRowName", lang)} p={p} height={36} />
+          </div>
+          {rows.length > bounds.min && <IconBtn icon="close" size={36} p={p} title={t("colorRowRemove", lang)} onClick={() => onRows(rows.filter((_, j) => j !== i), same.filter((j) => j !== i))} />}
+        </div>
+      ))}
+      {rows.length < bounds.max && <IconBtn icon="add" size={36} p={p} title={t("colorRowAdd", lang)} onClick={() => onRows([...rows, { label: "#6750A4", color: "#6750A4" }], [...same, -1])} />}
     </div>
   );
 }
@@ -138,6 +162,9 @@ function PropRow({ def, value, onChange, onRows, item, p, frameW, lang }: { def:
           <ImageRow value={typeof value === "string" && value ? value : undefined} onChange={(src) => onChange(src ?? "")} p={p} />
         </div>
       );
+    case "color":
+      /* one color value (parts/color.ts): the part's own roles first, any role, a share of one, a hex; cleared is none */
+      return <ColorPick value={typeof value === "string" && value ? value : undefined} onChange={(c) => onChange(c ?? "")} label={labelText} p={p} clearable roles={def.roles} />;
     case "table":
       return (
         <div>
@@ -147,6 +174,13 @@ function PropRow({ def, value, onChange, onRows, item, p, frameW, lang }: { def:
       );
     case "list": {
       const list = (value as ListItem[]) ?? [];
+      if (def.colors)
+        return (
+          <div>
+            {label}
+            <ColorRows rows={list} onRows={onRows} bounds={{ min: def.min ?? 1, max: def.max ?? 64 }} p={p} lang={lang} />
+          </div>
+        );
       const icons = def.icons === true;
       /* a bar adds more destinations; any other list adds tabs */
       const bar = icons && (def.min ?? 0) >= 3;
@@ -206,7 +240,7 @@ export function ComponentProps({ item, palette: p, onChange, frame, layoutApart,
   const def = partBySlug(item.component);
   if (!def) return null;
   const values = reader(def, item.props);
-  const read = (d: PropDef) => (d.kind === "text" || d.kind === "icon" || d.kind === "enum" || d.kind === "image" ? values.s(d.key) : d.kind === "bool" ? values.b(d.key) : d.kind === "number" ? values.n(d.key) : d.kind === "table" ? values.table(d.key) : values.list(d.key));
+  const read = (d: PropDef) => (d.kind === "text" || d.kind === "icon" || d.kind === "enum" || d.kind === "color" || d.kind === "image" ? values.s(d.key) : d.kind === "bool" ? values.b(d.key) : d.kind === "number" ? values.n(d.key) : d.kind === "table" ? values.table(d.key) : values.list(d.key));
   const set = (key: string, v: unknown) => onChange({ props: { ...item.props, [key]: v } });
   const tabs = def.panes ? def.slots?.(values) : undefined;
   /* a part's choice counts the rows of its first list */
@@ -216,7 +250,12 @@ export function ComponentProps({ item, palette: p, onChange, frame, layoutApart,
   const rowsToPick = tabs?.map((s) => s.label) ?? (firstList ? values.list(firstList.key).map((r) => r.label) : firstTable ? values.table(firstTable.key).rows.map((r) => r[0] ?? "") : undefined);
   /* a choice input is picked among the options it declares (a palette's colors), the way a chosen row is */
   const choice = def.input?.kind === "choice" ? def.input.prop : undefined;
-  const rowsOf = (d: PropDef) => (d.key === choice ? optionsOf(item) : d.key === def.selectKey ? rowsToPick : undefined);
+  /* a place among another prop's rows (`of`, parts/rows.ts) is picked by its row's first cell, as a chosen row is */
+  const placeAmong = (key: string) => {
+    const rowsProp = def.props.find((x) => x.key === key);
+    return rowsProp?.kind === "list" ? values.list(key).map((r) => r.label) : rowsProp?.kind === "table" ? values.table(key).rows.map((r) => r[0] ?? "") : undefined;
+  };
+  const rowsOf = (d: PropDef) => (d.key === choice ? optionsOf(item) : d.key === def.selectKey ? rowsToPick : d.kind === "number" && d.of ? placeAmong(d.of) : undefined);
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
       {def.props

@@ -4,6 +4,8 @@
  * is not near anything is left for the operation to refuse with its own error. Shared by the in-app agent and MCP. */
 
 import { defaultValues, partBySlug } from "../../parts/registry";
+import { colorRowsOf, colorValue } from "../../parts/color";
+import { COLOR_WORDS_6 } from "../converge";
 import { actionSlotsOf, type Item } from "../tokens";
 import { opByName, type CoreState } from "../core";
 
@@ -38,9 +40,29 @@ const PROP_ALIASES: Record<string, Record<string, string>> = {
   "number-ticker": { size: "style" },
 };
 
-/** a part's props with the names it does not have read as the ones meant, where the meant one is not given too */
-export function propsAliased(slug: string, props: Rec): Rec {
+/** A part's color props with the words its colors had before version 6 (lib/converge.ts `COLOR_WORDS_6`: `muted`,
+ *  `default`, `none`…) read as the colors they drew, and a palette's colors given as words as its rows: one color value
+ *  (parts/color.ts), whatever a model remembers. */
+function colorsAliased(slug: string, props: Rec): Rec {
   const def = partBySlug(slug);
+  if (!def) return props;
+  let out: Rec | null = null;
+  for (const d of def.props) {
+    const v = props[d.key];
+    if (typeof v !== "string") continue;
+    const words = d.kind === "color" ? COLOR_WORDS_6[`${slug}.${d.key}`] : undefined;
+    const meant = words && Object.prototype.hasOwnProperty.call(words, v) && colorValue(v) === undefined ? words[v] : d.kind === "list" && d.colors ? colorRowsOf(v) : undefined;
+    if (meant === undefined) continue;
+    out ??= { ...props };
+    out[d.key] = meant;
+  }
+  return out ?? props;
+}
+
+/** a part's props with the names it does not have read as the ones meant, where the meant one is not given too */
+export function propsAliased(slug: string, given: Rec): Rec {
+  const def = partBySlug(slug);
+  const props = colorsAliased(slug, given);
   const table = PROP_ALIASES[slug];
   if (!def || !table) return props;
   const has = (k: string) => def.props.some((d) => d.key === k);

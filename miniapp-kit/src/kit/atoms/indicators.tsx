@@ -1,6 +1,6 @@
 import { Image as TaroImage, View } from "@tarojs/components";
 
-import { c, ca, st } from "../color";
+import { c, ca, css, st } from "../color";
 import { Glyph, svgUrl } from "../icons";
 import { useFill } from "../layout";
 import { clampInt, withDefaults, type ListRow } from "../parts";
@@ -171,7 +171,8 @@ export type SpinnerProps = PartBase & { size?: string; color?: string };
 export function Spinner(props: SpinnerProps) {
   const p = withDefaults<SpinnerProps>("spinner", props);
   const s = SPINNER[p.size ?? "sm"] ?? 20;
-  const ink = /^[a-z-]+$/.test(p.color ?? "") && p.color !== "primary" ? c(p.color!) : st("primaryText");
+  /* "" and primary are the style's accent; any other color of the one color value is drawn as it is */
+  const ink = p.color && p.color !== "primary" && css(p.color) ? css(p.color)! : st("primaryText");
   const t = Math.max(2, Math.round(s / 10));
   return (
     <View {...tagOf(p.testID)} ariaRole="progressbar" ariaLabel="Loading" className="m3e-spin" style={sx({ boxSizing: "border-box", width: s, height: s, borderRadius: s / 2, border: `${t}px solid transparent`, borderTopColor: ink, borderRightColor: ink, flexShrink: 0 })} />
@@ -197,12 +198,13 @@ export function LoadingIndicator(props: PartBase & { variant?: "default" | "cont
 
 /* ---------- small marks ---------- */
 
-const DOT: Record<string, string> = { primary: "primary", secondary: "secondary", tertiary: "tertiary", error: "error", outline: "outline", muted: "on-surface-variant", surface: "surface-container-highest" };
+/* by the one color value: any other color is drawn as it is */
+const DOT: Record<string, string> = { primary: "primary", secondary: "secondary", tertiary: "tertiary", error: "error", outline: "outline", "on-surface-variant": "on-surface-variant", "surface-container-highest": "surface-container-highest" };
 
 export function Dot(props: PartBase & { color?: string; size?: number; ring?: boolean }) {
   const p = withDefaults<{ color?: string; size?: number; ring?: boolean; testID?: string }>("dot", props);
   const s = Math.round(p.size ?? 8);
-  return <View {...tagOf(p.testID)} style={sx({ width: s, height: s, borderRadius: s / 2, flexShrink: 0, backgroundColor: c(DOT[p.color ?? "primary"] ?? "primary"), ...(p.ring ? { boxShadow: `0 0 0 2px ${c("surface")}` } : null) })} />;
+  return <View {...tagOf(p.testID)} style={sx({ width: s, height: s, borderRadius: s / 2, flexShrink: 0, backgroundColor: DOT[p.color ?? "primary"] ? c(DOT[p.color ?? "primary"]) : (css(p.color) ?? "transparent"), ...(p.ring ? { boxShadow: `0 0 0 2px ${c("surface")}` } : null) })} />;
 }
 
 export function PageDots(props: PartBase & { count?: number; current?: number }) {

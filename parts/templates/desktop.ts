@@ -43,9 +43,9 @@ const PANE = {
   work: say("Work area", "工作区", "作業領域", "작업 영역"),
 };
 
-const feature = (icon: string, title: Say, description: Say): Node => panel({ gap: 8, padY: 20 }, [part("icon", { name: icon, size: 32, color: "primary" }), txt(title, "title"), txt(description, "body", { color: "muted" })]);
+const feature = (icon: string, title: Say, description: Say): Node => panel({ gap: 8, padY: 20 }, [part("icon", { name: icon, size: 32, color: "primary" }), txt(title, "title"), txt(description, "body", { color: "on-surface-variant" })]);
 
-const plan = (title: Say, price: string, description: Say, action: Say, variant: string): Node => panel({ gap: 8, padY: 20 }, [txt(title, "title"), txt(price, "headline", { bold: true }), txt(description, "body", { color: "muted" }), part("button", { label: action, variant })]);
+const plan = (title: Say, price: string, description: Say, action: Say, variant: string): Node => panel({ gap: 8, padY: 20 }, [txt(title, "title"), txt(price, "headline", { bold: true }), txt(description, "body", { color: "on-surface-variant" }), part("button", { label: action, variant })]);
 
 /** a row of icon buttons, as tight as it is wide */
 const actions = (icons: [string, Say][]): Node => row({ gap: 4, hugWidth: true }, icons.map(([icon, label]) => part("icon-button", { icon, label })));
@@ -171,7 +171,7 @@ export const desktop: Template[] = [
           ]),
           panel({ padX: 24, padY: 12 }, [
             row({ justify: "between" }, [
-              col({ gap: 4, width: 560 }, [txt(say("Delete account", "注销账号", "アカウントを削除", "계정 삭제"), "label"), txt(say("This removes your data and cannot be undone.", "将删除你的数据，且无法恢复。", "データが削除され、元に戻せません。", "데이터가 삭제되며 되돌릴 수 없습니다."), "caption", { color: "muted" })]),
+              col({ gap: 4, width: 560 }, [txt(say("Delete account", "注销账号", "アカウントを削除", "계정 삭제"), "label"), txt(say("This removes your data and cannot be undone.", "将删除你的数据，且无法恢复。", "データが削除され、元に戻せません。", "데이터가 삭제되며 되돌릴 수 없습니다."), "caption", { color: "on-surface-variant" })]),
               part("button", { label: say("Delete", "注销", "削除", "삭제"), variant: "outlined" }),
             ]),
           ]),
@@ -234,7 +234,7 @@ export const desktop: Template[] = [
               col({ gap: 12 }, [
                 row({ justify: "end" }, [actions([["archive", ACT.archive], ["delete", ACT.remove], ["mark_email_unread", ACT.unread], ["more_vert", ACT.more]])]),
                 txt(say("Notes from the review", "评审记录", "レビューのメモ", "리뷰 메모"), "headline"),
-                row({ gap: 12 }, [part("avatar", { initials: say("NB", "思远", "蓮", "서준") }), txt(PEOPLE.grace, "label", {}, { fill: true }), txt("09:41", "caption", { color: "muted", width: 60, align: "end" })]),
+                row({ gap: 12 }, [part("avatar", { initials: say("NB", "思远", "蓮", "서준") }), txt(PEOPLE.grace, "label", {}, { fill: true }), txt("09:41", "caption", { color: "on-surface-variant", width: 60, align: "end" })]),
                 txt(
                   say(
                     "Hi,\n\nHere are the notes from this morning's review. The main points are in the attached file, and the next steps are listed at the end.\n\nLet me know if anything is missing.\n\nBest regards",
@@ -465,7 +465,7 @@ export const desktop: Template[] = [
         ]),
         body: [
           row({ justify: "between" }, [
-            row({ gap: 12, hugWidth: true }, [part("avatar", { initials: say("NB", "思远", "蓮", "서준") }), col({ gap: 0, width: 320 }, [txt(PEOPLE.grace, "label"), txt(say("Online", "在线", "オンライン", "온라인"), "caption", { color: "muted" })])]),
+            row({ gap: 12, hugWidth: true }, [part("avatar", { initials: say("NB", "思远", "蓮", "서준") }), col({ gap: 0, width: 320 }, [txt(PEOPLE.grace, "label"), txt(say("Online", "在线", "オンライン", "온라인"), "caption", { color: "on-surface-variant" })])]),
             actions([["call", ACT.call], ["videocam", ACT.video], ["more_vert", ACT.more]]),
           ]),
           col({ gap: 8, justify: "end", hugHeight: false }, [
@@ -543,7 +543,7 @@ export const desktop: Template[] = [
           split(
             { split: 20, minFirst: 180, maxFirst: 400, divider: "gap" },
             panel({ gap: 8, padX: 8, padY: 12 }, [
-              txt(say("Files", "文件", "ファイル", "파일"), "label", { color: "muted" }),
+              txt(say("Files", "文件", "ファイル", "파일"), "label", { color: "on-surface-variant" }),
               part("tree", {
                 selected: 1,
                 items: [
@@ -603,7 +603,7 @@ export const desktop: Template[] = [
           ]),
           col({ align: "center", gap: 16, padY: 16 }, [
             txt(say("Say what your product does in one line", "一句话说清你的产品", "製品の価値を一文で", "제품이 하는 일을 한 줄로"), "display", { align: "center", width: 900 }),
-            txt(say("One or two sentences on who it is for and why it helps.", "用一两句话说明它适合谁、解决什么问题。", "誰のための製品で、どう役立つのかを一、二文で。", "누구를 위한 제품이고 어떻게 도움이 되는지 한두 문장으로."), "title", { align: "center", color: "muted", width: 720 }),
+            txt(say("One or two sentences on who it is for and why it helps.", "用一两句话说明它适合谁、解决什么问题。", "誰のための製品で、どう役立つのかを一、二文で。", "누구를 위한 제품이고 어떻게 도움이 되는지 한두 문장으로."), "title", { align: "center", color: "on-surface-variant", width: 720 }),
             row({ justify: "center", gap: 12, width: 720 }, [
               part("button", { label: say("Start free", "免费开始", "無料で始める", "무료로 시작"), size: "md" }),
               part("button", { label: say("See how it works", "了解原理", "仕組みを見る", "작동 방식 보기"), variant: "outlined", size: "md" }),
@@ -623,7 +623,7 @@ export const desktop: Template[] = [
             plan(say("Company", "企业版", "企業", "기업"), "$29", say("For many teams, with support.", "适合多个团队，含支持服务。", "複数のチームに、サポート付き。", "여러 팀을 위한 지원 포함."), say("Talk to us", "联系我们", "問い合わせる", "문의하기"), "tonal"),
           ]),
           row({ justify: "between" }, [
-            txt(say("© 2026 Product", "© 2026 产品名称", "© 2026 製品名", "© 2026 제품명"), "caption", { color: "muted", width: 240 }),
+            txt(say("© 2026 Product", "© 2026 产品名称", "© 2026 製品名", "© 2026 제품명"), "caption", { color: "on-surface-variant", width: 240 }),
             /* a layout is never shorter than this: the links stand in the middle of it, in line with the words */
             row({ gap: 24, hugWidth: true, height: 40, hugHeight: false }, [part("link", { label: say("Privacy", "隐私", "プライバシー", "개인정보"), href: "#" }), part("link", { label: say("Terms", "条款", "利用規約", "약관"), href: "#" })]),
           ]),

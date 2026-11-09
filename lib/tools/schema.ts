@@ -17,7 +17,7 @@ export function propSchema(d: PropDef): Schema {
   const description = d.label;
   switch (d.kind) {
     case "text":
-      return { type: "string", description };
+      return { type: "string", description: d.of ? `${description}: the rows of ${d.of} picked, their places from 0 with commas between` : description };
     case "icon":
       return { type: "string", description: `${description}: a Material Symbols name in snake_case ("" for none)` };
     case "enum":
@@ -25,13 +25,16 @@ export function propSchema(d: PropDef): Schema {
     case "bool":
       return { type: "boolean", description };
     case "number":
-      return { type: "number", minimum: d.min, maximum: d.max, description: d.unit ? `${description} (${d.unit})` : description };
+      return { type: "number", minimum: d.min, maximum: d.max, description: `${d.unit ? `${description} (${d.unit})` : description}${d.of ? `: a row of ${d.of}, counted from 0` : ""}` };
+    case "color":
+      return { type: "string", description: `${description}: a color, a role of the scheme (${(d.roles ?? ["primary", "on-surface"]).join(", ")}, or any other role), a role at a share of itself ("primary/40") or a hex ("#7BAE7A"); "" for ${d.none === "none" ? "none" : "the part's own"}` };
     case "image":
       return { type: "string", description: `${description}: a picture drawn into the document, a data:image URL (generate_image paints one; outside https: addresses are refused), or "" for none` };
     case "list": {
       const row: Record<string, Schema> = { label: { type: "string" } };
       if (d.icons) row.icon = { type: "string", description: "a Material Symbols name" };
       if (d.images) row.image = { type: "string" };
+      if (d.colors) row.color = { type: "string", description: 'a color: a role ("primary"), a role at a share ("primary/40") or a hex ("#6750A4")' };
       for (const f of d.fields ?? []) row[f.key] = { type: "string" };
       return { type: "array", items: { type: "object", properties: row, required: ["label"] }, ...(d.min !== undefined ? { minItems: d.min } : {}), ...(d.max !== undefined ? { maxItems: d.max } : {}), description };
     }

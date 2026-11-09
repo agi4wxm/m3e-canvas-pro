@@ -1,0 +1,37 @@
+{
+  "format": "asset-manifest",
+  "version": 1,
+  "generator": "example-pipeline 0.1 (test fixture)",
+  "assets": {
+    "ui/hero": {
+      "type": "image",
+      "file": "ui/hero.png",
+      "width": 8,
+      "height": 4,
+      "variants": {
+        "web": { "file": "web/hero.png", "width": 8, "height": 4 },
+        "wechat": { "file": "wechat/hero.png", "width": 4, "height": 2 }
+      },
+      "source": "drawn for the M3E test fixtures",
+      "license": "CC0-1.0",
+      "title": "Hero banner"
+    },
+    "ui/coin": {
+      "type": "icon",
+      "file": "ui/coin.svg",
+      "width": 24,
+      "height": 24,
+      "source": "drawn for the M3E test fixtures",
+      "license": "CC0-1.0",
+      "title": "Gold coin"
+    },
+    "fx/intro": {
+      "type": "video",
+      "file": "fx/intro.mp4",
+      "width": 320,
+      "height": 180,
+      "source": "a few bytes standing in for a clip",
+      "license": "CC0-1.0"
+    }
+  }
+}

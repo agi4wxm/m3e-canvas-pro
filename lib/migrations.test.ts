@@ -19,7 +19,7 @@ import { fileURLToPath } from "node:url";
 import { beforeAll, describe, expect, it } from "vitest";
 import { applyEffects, chooseBranch, goneIds, inRow, leftRow, startState } from "./interact";
 import { expandDoc } from "./expand";
-import { asWrittenAt4, CONVERGE_PARTS } from "./converge";
+import { asWrittenAt4, asWrittenAt5, CONVERGE_PARTS } from "./converge";
 import { BARE_VERSION, MIGRATIONS, PROJECT_VERSION, migrate, migrationProblems, versionOf, type Migration, type MigrationDoc } from "./migrations";
 import { isProject, loadDocument, loadStored, newerVersionOf, PROJECT_FORMAT } from "./project";
 import { serializeProject } from "./core/projectFile";
@@ -258,7 +258,9 @@ const playedMoves = (body: ActionBody) => [false, true].flatMap((backwards) => [
 
 /** What a document does in the preview, by the preview's own rules (lib/interact.ts): what shows at the start, and for
  *  every tap (a part's and each of its places') where it goes and how, and what its effects leave behind. */
-function behaviour(source: Doc) {
+function behaviour(source: Doc, version = 4) {
+  /* what taps set, under the names of the version that wrote the file (versions 5 and 6 renamed some, lib/converge.ts) */
+  const asBefore = version <= 4 ? asWrittenAt4 : asWrittenAt5;
   /* as the preview draws it: instances and repeats drawn out, a tap on a row's part made in its row */
   const doc = expandDoc(source, {});
   const s0 = startState(doc.vars, doc.collections);
@@ -283,8 +285,7 @@ function behaviour(source: Doc) {
           params: body?.params ?? null,
           vars: s1.vars,
           hidden: s1.hidden,
-          /* what taps set on parts, under the names of version 4 (version 5 renamed some, lib/converge.ts) */
-          props: Object.fromEntries(Object.entries(s1.props).map(([id, set]) => [id, asWrittenAt4(slugs.get(id), set)])),
+          props: Object.fromEntries(Object.entries(s1.props).map(([id, set]) => [id, asBefore(slugs.get(id), set)])),
           opened: s1.opened,
           snack: s1.snack?.message ?? null,
           gone: gone(s1),
@@ -319,7 +320,7 @@ describe("project files written by earlier versions", () => {
   });
 
   it.each(OPENABLE)("behaves in the preview as it did at the version that wrote it: %s", (name, file) => {
-    expect(JSON.parse(JSON.stringify(behaviour(loadDocument(file)!.doc)))).toEqual(GOLDEN[name]);
+    expect(JSON.parse(JSON.stringify(behaviour(loadDocument(file)!.doc, versionOf(file))))).toEqual(GOLDEN[name]);
   });
 
   it.each(OPENABLE)("is the same document as the browser's copy, without its envelope, and as a bare document: %s", (_, file) => {

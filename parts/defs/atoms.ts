@@ -4,6 +4,7 @@ import { SVG_PRESETS, SVG_PRESET_KEYS, cleanPath, sanitizeSvg } from "../svg";
 import type { P, PartDef, PartRole, PropDef } from "../types";
 import { FIELD, fieldFrame, fieldValues, requiredMark } from "../fieldState";
 import { ariaLabelProp, nameFor } from "../a11y";
+import { paintOf } from "../color";
 
 /* The atoms nothing else covered: the box everything is composed in, a vector drawing, a single
  * radio button and a status dot. A box is a frame with auto layout and no words of its own; what it
@@ -70,10 +71,11 @@ const BOX_FLOW: Record<string, string | number | boolean> = { layout: "column", 
 const boxFlow = FLOW_PROPS.map((d): PropDef => (d.key in BOX_FLOW ? ({ ...d, default: BOX_FLOW[d.key] } as PropDef) : d));
 
 /** what the vector part paints with when the markup does not say: the text role, so a text color reaches it */
+/* by the one color value (parts/color.ts): "" is the color of the words around it */
 const INK: Record<string, string> = {
-  current: "",
-  default: "text-on-surface",
-  muted: "text-on-surface-variant",
+  "": "",
+  "on-surface": "text-on-surface",
+  "on-surface-variant": "text-on-surface-variant",
   primary: "text-primary",
   secondary: "text-secondary",
   tertiary: "text-tertiary",
@@ -86,12 +88,18 @@ const INK: Record<string, string> = {
   "on-primary": "text-on-primary",
 };
 
+/** the vector's ink: the class of a color it was designed around, any other color as a style */
+const ink = (ref: string) => {
+  const { className, style } = paintOf(ref, INK, "color");
+  return { className: className || undefined, ...(style ? { style } : {}) };
+};
+
 /** the drawing of the vector part: a shape of the library, one path, or cleaned markup */
 function svgTree(p: P): PNode {
   const mode = p.s("mode");
   /* a drawing it names is a picture to a screen reader; one it does not is decoration, kept from it */
   const named = p.s("label").trim();
-  const own = { "data-slot": "svg", role: named ? "img" : undefined, "aria-label": named || undefined, "aria-hidden": named ? undefined : true, className: INK[p.s("color")] || undefined, width: px(p, "width"), height: px(p, "height"), preserveAspectRatio: p.b("stretch") ? "none" : undefined };
+  const own = { "data-slot": "svg", role: named ? "img" : undefined, "aria-label": named || undefined, "aria-hidden": named ? undefined : true, ...ink(p.s("color")), width: px(p, "width"), height: px(p, "height"), preserveAspectRatio: p.b("stretch") ? "none" : undefined };
   const stroke = (w: number) => ({ fill: "none", stroke: "currentColor", strokeWidth: w, strokeLinecap: "round", strokeLinejoin: "round" });
   if (mode === "markup") {
     const clean = sanitizeSvg(p.s("markup"), p.scope);
@@ -113,8 +121,8 @@ const DOT_COLORS: Record<string, string> = {
   tertiary: "bg-tertiary",
   error: "bg-error",
   outline: "bg-outline",
-  muted: "bg-on-surface-variant",
-  surface: "bg-surface-container-highest",
+  "on-surface-variant": "bg-on-surface-variant",
+  "surface-container-highest": "bg-surface-container-highest",
 };
 
 export const atoms: PartDef[] = [
@@ -172,7 +180,7 @@ export const atoms: PartDef[] = [
       { key: "viewBox", label: "View box", labels: { ja: "ビューボックス", zh: "视图框", ko: "뷰 박스" }, kind: "text", default: "0 0 24 24", when: (p) => p.s("mode") === "path" },
       { key: "outline", label: "Outline only", labels: { ja: "線のみ", zh: "仅描边", ko: "선만" }, kind: "bool", default: false, when: (p) => p.s("mode") !== "markup" },
       { key: "strokeWidth", label: "Line width", labels: { ja: "線の太さ", zh: "线宽", ko: "선 두께" }, kind: "number", default: 2, min: 0.5, max: 24, step: 0.5, when: (p) => p.s("mode") !== "markup" && p.b("outline") },
-      { key: "color", label: "Color", kind: "enum", default: "current", options: Object.keys(INK) },
+      { key: "color", label: "Color", kind: "color", default: "", roles: Object.keys(INK).filter(Boolean), none: "default" },
       { key: "stretch", label: "Stretch to fit", labels: { ja: "引き伸ばす", zh: "拉伸填满", ko: "늘여 채우기" }, kind: "bool", default: false },
       { key: "label", label: "Name for screen readers", labels: { ja: "読み上げ名", zh: "读屏名称", ko: "스크린 리더 이름" }, kind: "text", default: "" },
       { key: "width", label: "Width", kind: "number", default: 48, min: 4, max: 1600, step: 4, unit: "px" },
@@ -221,17 +229,19 @@ export const atoms: PartDef[] = [
     w: 8,
     h: 8,
     props: [
-      { key: "color", label: "Color", kind: "enum", default: "primary", options: Object.keys(DOT_COLORS) },
+      { key: "color", label: "Color", kind: "color", default: "primary", roles: Object.keys(DOT_COLORS), none: "none" },
       { key: "size", label: "Size", kind: "number", default: 8, min: 4, max: 32, step: 2, unit: "px" },
       { key: "ring", label: "Ring", labels: { ja: "縁取り", zh: "外圈", ko: "테두리" }, kind: "bool", default: false },
     ],
-    tree: (p) =>
-      h("span", {
+    tree: (p) => {
+      const paint = paintOf(p.s("color"), DOT_COLORS, "background");
+      return h("span", {
         "data-slot": "dot",
         role: "status",
-        className: `inline-block shrink-0 rounded-full ${DOT_COLORS[p.s("color")] ?? "bg-primary"} ${p.b("ring") ? "ring-2 ring-surface" : ""}`.trim(),
-        style: { width: px(p, "size"), height: px(p, "size") },
-      }),
+        className: `inline-block shrink-0 rounded-full ${paint.className ?? ""} ${p.b("ring") ? "ring-2 ring-surface" : ""}`.replace(/\s+/g, " ").trim(),
+        style: { width: px(p, "size"), height: px(p, "size"), ...paint.style },
+      });
+    },
     guess: (p) => ({ w: px(p, "size"), h: px(p, "size") }),
   },
 ];

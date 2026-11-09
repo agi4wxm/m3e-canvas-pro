@@ -3,6 +3,7 @@ import { standIn } from "./instances";
 import { cleanLook } from "./look";
 import { cleanStyles } from "./styles";
 import { cleanDocIcons } from "./docIcons";
+import { ASSET_PATH } from "./assetManifest";
 import { cleanDocMaterials } from "./materials";
 import { cleanApi } from "./api/clean";
 import { cleanMocks } from "./mocks/clean";
@@ -10,7 +11,7 @@ import { cleanCapabilities } from "./capabilities/clean";
 import { fitsType, startValueOf } from "./variables";
 import { cleanMotion, cleanTrigger } from "./prototype";
 import { H_CONSTRAINTS, V_CONSTRAINTS } from "./constraints";
-import { COLOR_TOKENS, SCREEN_LAYERS, type Action, type ActionBody, Collection, ComponentDef, ComponentProp, ComponentSet, Condition, VarCollection, Doc, DocVar, Effect, Frame, Group, Item, Palette, VARIANTS, VarValue, isPlace, isTextToken } from "./tokens";
+import { COLOR_TOKENS, SCREEN_LAYERS, type Action, type ActionBody, Collection, ComponentDef, ComponentProp, ComponentSet, Condition, VarCollection, Doc, DocVar, Effect, ExternalFiles, Frame, Group, Item, Palette, VARIANTS, VarValue, isPlace, isTextToken } from "./tokens";
 import { cleanDataSources, cleanExpr, cleanExprMap, cleanForm, cleanRegion, cleanScreenParams, cleanSubscriptions } from "./bindings/clean";
 import { BARE_VERSION, PROJECT_VERSION, migrate, versionOf, type Migration } from "./migrations";
 import { fields, withUnknown } from "./keep";
@@ -469,6 +470,16 @@ export function cappedNesting(groups: Group[]): Group[] {
 }
 
 /** a document with what is wrong in its behaviour taken out; it always comes back whole */
+/** `Doc.external` as the format has it: each path one inside the project's folder (lib/assetManifest.ts `ASSET_PATH`) */
+function cleanExternal(v: unknown): ExternalFiles | undefined {
+  if (!isRecord(v)) return undefined;
+  const built: ExternalFiles = {};
+  if (typeof v.assetManifest === "string" && ASSET_PATH.test(v.assetManifest)) built.assetManifest = v.assetManifest;
+  const out = withUnknown(v, built, EXTERNAL_KEYS);
+  return Object.keys(out).length ? out : undefined;
+}
+const EXTERNAL_KEYS = new Set(["assetManifest"]);
+
 export function cleanBehavior(doc: Doc): Doc {
   const out: Doc = { ...doc, frames: doc.frames.map(cleanFrame), groups: cappedNesting(doc.groups.map(cleanGroup)) };
   if (out.customPalette !== undefined) {
@@ -536,6 +547,13 @@ export function cleanBehavior(doc: Doc): Doc {
     const capabilities = cleanCapabilities(out.capabilities);
     if (capabilities) out.capabilities = capabilities;
     else delete out.capabilities;
+  }
+  /* where the outside modules' files are read from: paths inside the project's folder; one that is not goes, and so
+     does the whole when nothing is left of it (what else it says, a later version's, stays) */
+  if (out.external !== undefined) {
+    const external = cleanExternal(out.external);
+    if (external) out.external = external;
+    else delete out.external;
   }
   const instances = (list: Group[]) => list.map((g) => cleanInstance(g, out.components)).filter((g): g is Group => g !== undefined && g.items.length > 0);
   out.groups = instances(out.groups);
