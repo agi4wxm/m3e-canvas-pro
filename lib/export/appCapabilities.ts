@@ -13,6 +13,8 @@ import { GENERATED, jsonCode, str } from "./code";
 import { schemaTypeTs } from "../api/typescript";
 import type { JsonSchema } from "../api/types";
 import { EXAMPLE_WORLD_CONTRACT, type WorldContract } from "../world/contract";
+import { worldContractOf } from "../game/map";
+import type { GameContract } from "../game/format";
 import { typeBase } from "./targets/capabilities";
 import { generated, seeded, type ProductContext, type ProductFiles } from "./types";
 import { NATIVE as RN_NATIVE } from "../../rn/src/kit/coverage";
@@ -176,6 +178,9 @@ ${events.join("\n")}
 `;
 }
 
+/** the world's contract a document's gameplay contract gives (lib/game), when it links one */
+export const docWorldContract = (doc: { game?: { contract: GameContract } }): WorldContract | undefined => (doc.game ? worldContractOf(doc.game.contract) : undefined);
+
 /** M3E's example engine (lib/world/example.ts) as a world view's slot draws it, on each platform: the web on a canvas
  *  in a requestAnimationFrame loop, a phone and a mini-program stepped by a timer and drawn by the kit's stand-in. Any
  *  engine plugs in the same way: create it, `connectWorld` it to the channel and `onEvent`, step it, draw it. */
@@ -304,14 +309,15 @@ export default function ${s.name}({ children }: Props) {
 /** The slots' files: each written once, and the module the screens import them from. A part drawn by its kit's
  *  component is drawn by its slot with the kit's drawing as children, both handed the same props (the screen prints
  *  them once): the module is a `.tsx` then. */
-export function slotFiles(scope: string, slots: SlotSpec[], platform: AppPlatform, paths: SlotPaths = PRODUCT_PATHS, o: { plugExample?: boolean } = {}): ProductFiles {
+export function slotFiles(scope: string, slots: SlotSpec[], platform: AppPlatform, paths: SlotPaths = PRODUCT_PATHS, o: { plugExample?: boolean; world?: WorldContract } = {}): ProductFiles {
   if (!slots.length) return {};
   const files: ProductFiles = {};
   for (const s of slots) files[`src/custom/slots/${s.name}.tsx`] = seeded(s.view === WORLD_VIEW ? WORLD_SLOT(scope, s, platform, paths, !!o.plugExample) : s.view ? VIEW_SLOT(scope, s, platform) : PART_SLOT(s, platform, paths));
   /* M3E's example engine, for a world view's slot to plug in (rewritten on every export) */
   if (slots.some((s) => s.view === WORLD_VIEW)) {
     files["src/generated/exampleWorld.tsx"] = generated(exampleWorldModule(scope, platform, paths));
-    files["src/generated/worldContract.ts"] = generated(worldContractModule(scope));
+    /* the world's contract: the game loop's, when the document links its gameplay contract (lib/game), else the example engine's */
+    files["src/generated/worldContract.ts"] = generated(worldContractModule(scope, o.world));
   }
   const wrapped = slots.filter((s) => !s.view && kitComponent(s, platform));
   const passed = slots.filter((s) => !wrapped.includes(s));

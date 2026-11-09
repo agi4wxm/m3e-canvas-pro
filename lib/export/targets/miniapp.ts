@@ -5,7 +5,7 @@
  * (packages/api) through a Taro.request transport, tokens in Taro's storage, and the mocks (packages/mocks) answering in
  * development only. src/custom is the custom code's. docs/小程序.md says all of it. */
 
-import { capabilityFiles, slotFiles, slotNames, slotsOf } from "../appCapabilities";
+import { capabilityFiles, docWorldContract, slotFiles, slotNames, slotsOf } from "../appCapabilities";
 import miniPackage from "../../../miniapp-kit/package.json";
 import { str } from "../../../parts/print";
 import { fromBase64 } from "../../mocks/bytes";
@@ -365,7 +365,7 @@ export const miniappTarget: ProductTarget = {
     files["src/generated/calls.ts"] = generated(callsModule(ctx.api, { apiImport: `${ctx.scope}/api`, kitImport: "../kit", runtimeFrom: "./runtime" }));
     files["src/generated/spec.ts"] = generated(specModule(ctx.doc, printed, ctx.api, { kitImport: "../kit", callsFrom: "./calls" }));
     files["src/generated/runtime.ts"] = generated(RUNTIME(ctx, authSource(specOf(ctx)), !!capabilities));
-    Object.assign(files, capabilities?.files ?? {}, slotFiles(ctx.scope, slots, "miniapp"));
+    Object.assign(files, capabilities?.files ?? {}, slotFiles(ctx.scope, slots, "miniapp", undefined, { world: docWorldContract(ctx.doc) }));
     files["src/generated/mocks.ts"] = generated(MOCKS(ctx.scope));
     files["src/generated/root.tsx"] = generated(ROOT(ctx.scope, dark));
     if (printed.tabBar) {

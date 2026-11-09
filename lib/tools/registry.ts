@@ -11,13 +11,14 @@ import { API_READ_TOOLS } from "./apiRead";
 import { BINDINGS_READ_TOOLS } from "./bindingsRead";
 import { MOCK_READ_TOOLS } from "./mocksRead";
 import { CAPABILITY_READ_TOOLS } from "./capabilitiesRead";
+import { GAME_READ_TOOLS } from "./gameRead";
 import { ASSET_READ_TOOLS } from "./assetsRead";
 import { REFERENCE_TOOLS } from "./reference";
 import { TOOL_GROUPS, ToolFailure, type Tool, type ToolEnv, type ToolError, type ToolGroup, type ToolOutcome } from "./types";
 import { RETIRED_SLUGS } from "../retire";
 
 /** every tool that needs nothing but a document: reading, building, styling, data */
-export const CORE_TOOLS: Tool<never>[] = [...READ_TOOLS, ...API_READ_TOOLS, ...MOCK_READ_TOOLS, ...CAPABILITY_READ_TOOLS, ...ASSET_READ_TOOLS, ...BINDINGS_READ_TOOLS, ...REFERENCE_TOOLS, applyOps as unknown as Tool<never>, ...(OP_TOOLS as unknown as Tool<never>[])];
+export const CORE_TOOLS: Tool<never>[] = [...READ_TOOLS, ...API_READ_TOOLS, ...MOCK_READ_TOOLS, ...CAPABILITY_READ_TOOLS, ...ASSET_READ_TOOLS, ...GAME_READ_TOOLS, ...BINDINGS_READ_TOOLS, ...REFERENCE_TOOLS, applyOps as unknown as Tool<never>, ...(OP_TOOLS as unknown as Tool<never>[])];
 
 export type Registry = {
   tools: Tool<never>[];
@@ -106,6 +107,7 @@ export const BOUNDARY_GUIDE = [
   "  - Never decide a result on the screen: no button that goes straight to a \"success\", \"paid\" or \"claimed\" screen or state, no random or computed outcome (prizes, wins, prices). The button calls the endpoint (effects [{do: \"call\", operationId, then, catch}]) or submits a form; `then` shows what the answer says, `catch` shows the failure, each with a design of its own.",
   "  - Platform capabilities (payment, in-app purchase, third-party sign-in, location, scanning, push, share, clipboard, links, files, analytics, biometrics, calls) are capability calls, never built here (no SDK, key or permission): the effect {do: \"invoke\", capability, args, then, catch} (list_capabilities says what each takes and returns). Maps, the camera and a call's picture are capability views: the parts map, camera and video-call, wired by their events. Every invoke has a catch that shows its failures (error.type: cancelled, failed, unavailable, not-implemented, denied, timeout); never act out a success.",
   "  - A game world (the scene, physics, camera, rules, what is hit or picked up) is an engine's, never built here: place a world-view part (its props are the world's state the HUD shows: entities, score, status, its inputs prop declares the input actions it takes with their types, \"move: vec2, attack: bool\") and wire the controls to it with input actions: a joystick's on:move {do: \"move\", part: <world-view id>, vector: \"event\"}, a skill-button or button tap {do: \"press\", part, action: \"attack\"} then {do: \"release\", …}. The world's events (on:hit, on:collected, on:ended) take the design's actions (a snackbar, the results screen); never decide a hit, a score or a win in the design.",
+  "  - A game's commands are the game loop's (its gameplay contract, get_game_contract; never write one): a summon, a check-in, a claim calls its operation (game.pull, game.checkIn) with the args it takes, then shows what the response says, and its catch branches on each refusal by its problem type (when: {expr: \"error.type == 'urn:game:problem:insufficient-resources'\"}, else: …), each refusal with a design of its own. Its operations and their scenarios change only by import_game_contract; its facts (a purchase settled) are other systems' and never called.",
   "  - A payment: the button calls the order endpoint (createOrder), its then invokes payment.pay with the order the back end made (response.id, response.amount), and payment.pay's then only means submitted: it opens a result screen that loads the order (params.orderId) and shows paid, processing or failed by the order's status from the API (showWhen data.order.value.status), with a way to load it again; its catch shows cancelled and failed. Never a button straight to a \"paid\" screen.",
   `  - The retired parts (${RETIRED_SLUGS.join(", ")}) are not offered and adding one is refused. Each but the resizable keeps its data to itself: compose atoms and kits with make_form, set_repeat and calls instead; a resizable's panels hold only words: use a split-view. An old design's still draw; before changing one, split_retired turns them into atoms (a list's rows into a data collection, a resizable into a split view).`,
   "  - A part with a `demo` (describe_part) acts out a domain behaviour only in a prototype: for a product, bind the props it names or wire its events.",

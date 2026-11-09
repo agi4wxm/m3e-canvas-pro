@@ -1,5 +1,8 @@
-import { col, deskScreen, go, grid, panel, part, row, say, screen, txt, type Anchor, type Node, type Say, type ScreenSeed, type Template } from "./kit";
+import { col, deskScreen, go, grid, panel, part, row, say, screen, txt, type Anchor, type Node, type Say, type ScreenSeed, type Template, type TemplateContract } from "./kit";
 import { atomsOf } from "./atoms";
+import { EXAMPLE_GAME_CONTRACT, gameRefusals } from "../../lib/game";
+import type { Answer } from "../../lib/actions/model";
+import type { Action, DocVar } from "../../lib/tokens";
 
 /* The screens games have in common, whatever the game. Nothing here belongs to one title: the names are the genre's own
  * words, and the picture behind a screen is a scene whose prompt the author replaces. The interface is real parts standing
@@ -314,6 +317,63 @@ const shopScreen = (): ScreenSeed =>
     ],
   });
 
+/* ---------- what the game loop answers (lib/game, docs/玩法契约.md) ----------
+   The summon and the check-in ask the game loop, through the commands of its gameplay contract (game.pull,
+   game.checkIn: M3E's example contract until the author links the game loop's own), and show what it answers: what
+   came out, or the refusal it gave, each refusal by its problem type with a design of its own. Nothing here draws a
+   prize or counts a day: those are the game loop's. */
+
+/** the condition a catch holds on for one refusal of the example contract's, as its problem type says it */
+const refused = (operationId: string, code: string): string => {
+  const r = gameRefusals(EXAMPLE_GAME_CONTRACT).find((x) => x.operationId === operationId && x.code === code);
+  if (!r) throw new Error(`the example gameplay contract has no refusal ${code} of ${operationId}`);
+  return r.condition;
+};
+
+/** the variables the summon's and the check-in's notices read: which refusal came last (a screen's state, never the
+ *  game's: the gems and the days stay the game loop's) */
+const GAME_VARS = { summon: "summonIssue", checkIn: "checkInIssue" } as const;
+const issueVar = (name: string): DocVar => ({ id: name, name, type: "text", value: "" });
+
+/** a call of a command: the notice cleared first, the answer shown in a snackbar of the game loop's own words, each
+ *  refusal setting the notice that shows it */
+const command = (operationId: string, args: Record<string, string>, issue: string, done: string, fail: Answer): Action => ({
+  to: "none",
+  effects: [
+    { do: "setVar", var: issue, value: "" },
+    // eslint-disable-next-line unicorn/no-thenable -- an action body, never a function: nothing awaits it
+    { do: "call", operationId, args, then: { to: "none", effects: [{ do: "snackbar", message: done }] }, catch: fail },
+  ],
+});
+
+/** a notice shown while the last refusal is this one */
+const gameIssue = (variable: string, value: string, icon: string, title: Say, words: Say): Node =>
+  row({ gap: 12, align: "start", padX: 16, padY: 12, fill: "surface-container-highest", radius: 12 }, [part("icon", { name: icon, size: 24, color: "error" }), col({ gap: 2 }, [txt(title, "label"), txt(words, "caption", { color: "muted" })], { fill: true })], { showWhen: { expr: `vars.${variable} == '${value}'` } });
+
+/** a summon of `count`: what came out by the game loop's names; not enough gems, the summon over, anything else */
+const pull = (count: number): Action =>
+  command("game.pull", { count: String(count) }, GAME_VARS.summon, "{{response.pulled[0].name}}", {
+    to: "none",
+    when: { expr: refused("game.pull", "insufficient-resources") },
+    effects: [{ do: "setVar", var: GAME_VARS.summon, value: "gems" }],
+    else: { to: "none", effects: [{ do: "setVar", var: GAME_VARS.summon, value: "failed", expr: `${refused("game.pull", "pool-closed")} ? 'closed' : 'failed'` }] },
+  });
+
+/** today's check-in: the day and the reward the game loop says; already done today, anything else */
+const checkIn = (): Action =>
+  command("game.checkIn", {}, GAME_VARS.checkIn, "{{response.reward.item}} ×{{response.reward.count}}", {
+    to: "none",
+    when: { expr: refused("game.checkIn", "cooldown") },
+    effects: [{ do: "setVar", var: GAME_VARS.checkIn, value: "cooldown" }],
+    else: { to: "none", effects: [{ do: "setVar", var: GAME_VARS.checkIn, value: "failed" }] },
+  });
+
+const TRY_AGAIN = say("Try again in a moment", "请稍后再试", "しばらくしてからもう一度お試しください", "잠시 후 다시 시도하세요");
+
+/** what the summon's screens lean on: the example gameplay contract, and the notice's variable */
+const summonContract = (): TemplateContract => ({ game: EXAMPLE_GAME_CONTRACT, vars: [issueVar(GAME_VARS.summon)] });
+const checkInContract = (): TemplateContract => ({ game: EXAMPLE_GAME_CONTRACT, vars: [issueVar(GAME_VARS.checkIn)] });
+
 const gachaScreen = (): ScreenSeed =>
   screen({
     id: "gacha-pull",
@@ -329,7 +389,10 @@ const gachaScreen = (): ScreenSeed =>
           row({ justify: "between" }, [txt(say("Featured", "本期奖励", "ピックアップ", "픽업"), "label", {}, { fill: true }), part("link", { label: say("Odds", "概率说明", "提供割合", "확률 안내"), href: "#" })]),
           row({ justify: "between" }, [cell("person", say("Hero", "角色", "キャラ", "캐릭터"), "", say("Epic", "史诗", "エピック", "에픽")), cell("swords", say("Gear", "装备", "装備", "장비"), ""), cell("diamond", GEM_WORD, "×50"), cell("paid", COIN_WORD, "×500")]),
           part("progress", { value: 47, label: say("A rare hero within 48 pulls", "48 抽内必得稀有角色", "あと 48 回でレア確定", "48회 내 희귀 캐릭터 확정"), showValue: false }),
-          row({ gap: 12 }, [part("button", { label: say("1 pull · 150", "单抽 · 150", "1 回 · 150", "1회 · 150"), size: "md", variant: "tonal" }, { fill: true }), part("button", { label: say("10 pulls · 1,500", "十连 · 1500", "10 回 · 1500", "10회 · 1500"), size: "md" }, { fill: true })]),
+          gameIssue(GAME_VARS.summon, "gems", "diamond", say("Not enough gems", "钻石不足", "ジェムが足りません", "보석이 부족합니다"), say("Get more in the shop, then summon again", "去商城补充后再召唤", "ショップで補充してからもう一度", "상점에서 충전한 뒤 다시 소환하세요")),
+          gameIssue(GAME_VARS.summon, "closed", "event_busy", say("This summon has ended", "本期召唤已结束", "このガチャは終了しました", "이번 소환이 종료되었습니다"), say("Look out for the next one", "敬请期待下一期", "次回をお楽しみに", "다음 소환을 기대해 주세요")),
+          gameIssue(GAME_VARS.summon, "failed", "error", say("The summon did not go through", "召唤没有成功", "召喚できませんでした", "소환하지 못했습니다"), TRY_AGAIN),
+          row({ gap: 12 }, [part("button", { label: say("1 pull · 150", "单抽 · 150", "1 回 · 150", "1회 · 150"), size: "md", variant: "tonal" }, { fill: true, action: pull(1) }), part("button", { label: say("10 pulls · 1,500", "十连 · 1500", "10 回 · 1500", "10회 · 1500"), size: "md" }, { fill: true, action: pull(10) })]),
         ]),
       ]),
     ],
@@ -353,7 +416,9 @@ const checkInScreen = (): ScreenSeed =>
           data: { columns: ["At", "Label", "Icon"], rows: [["7", COIN_WORD, "paid"], ["14", GEM_WORD, "diamond"], ["21", ENERGY_WORD, "bolt"], ["28", say("Gift", "大礼包", "ギフト", "선물"), "redeem"]] },
         }),
       ]),
-      part("button", { label: say("Check in today", "今日签到", "今日のボーナスを受け取る", "오늘 출석하기"), size: "md" }),
+      gameIssue(GAME_VARS.checkIn, "cooldown", "schedule", say("Checked in already today", "今天已经签到过了", "今日はもう受け取りました", "오늘은 이미 출석했습니다"), say("Come back tomorrow", "明天再来吧", "また明日どうぞ", "내일 다시 오세요")),
+      gameIssue(GAME_VARS.checkIn, "failed", "error", say("The check-in did not go through", "签到没有成功", "受け取れませんでした", "출석하지 못했습니다"), TRY_AGAIN),
+      part("button", { label: say("Check in today", "今日签到", "今日のボーナスを受け取る", "오늘 출석하기"), size: "md" }, { action: checkIn() }),
     ],
   });
 
@@ -763,9 +828,9 @@ export const games: Template[] = [
   game("character-upgrade", "Character upgrade", "キャラ強化", "角色升级", "캐릭터 강화", "phone", "upgrade", upgradeScreen),
   game("character-select", "Choose a hero", "キャラ選択", "角色选择", "캐릭터 선택", "phone", "group", characterSelectScreen),
   game("game-shop", "Game shop", "ショップ", "游戏商城", "상점", "phone", "storefront", shopScreen),
-  game("gacha-pull", "Summon", "ガチャ", "抽卡召唤", "소환", "phone", "casino", gachaScreen),
+  { ...game("gacha-pull", "Summon", "ガチャ", "抽卡召唤", "소환", "phone", "casino", gachaScreen), contract: summonContract },
   game("event-wheel", "Lucky wheel", "ルーレット", "活动转盘", "룰렛", "phone", "cyclone", wheelScreen),
-  game("daily-check-in", "Daily check-in", "ログインボーナス", "每日签到", "출석 체크", "phone", "calendar_month", checkInScreen),
+  { ...game("daily-check-in", "Daily check-in", "ログインボーナス", "每日签到", "출석 체크", "phone", "calendar_month", checkInScreen), contract: checkInContract },
   game("game-quests", "Quests", "クエスト", "任务", "퀘스트", "phone", "task_alt", questsScreen),
   game("battle-pass", "Season pass", "シーズンパス", "赛季通行证", "시즌 패스", "phone", "workspace_premium", passScreen),
   game("game-leaderboard", "Leaderboard", "ランキング", "排行榜", "랭킹", "phone", "leaderboard", leaderboardScreen),
