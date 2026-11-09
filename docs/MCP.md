@@ -211,7 +211,7 @@ npx playwright install chromium
 
 <!-- tools:start (bun run mcp:docs) -->
 
-共 176 个工具：服务器环境里没有 OPENAI_API_KEY 时不含“生成”组，只读会话只列出“只读”一栏为“是”的，`undo`、`redo`、`export_product` 只在文件模式里有。说明取自工具给模型看的描述。
+共 178 个工具：服务器环境里没有 OPENAI_API_KEY 时不含“生成”组，只读会话只列出“只读”一栏为“是”的，`undo`、`redo`、`export_product` 只在文件模式里有。说明取自工具给模型看的描述。
 
 | 工具 | 组 | 只读 | 需作者确认 | 说明 |
 | --- | --- | --- | --- | --- |
@@ -240,6 +240,7 @@ npx playwright install chromium
 | `try_mock` | 读取 | 是 |  | Calls the API the way the app would, answered by the mocks on a fresh session (what one call makes, the next sees: create then list), with no waiting: each call by operationId wit… |
 | `list_capabilities` | 读取 | 是 |  | The platform capabilities (payment, sign-in with another service, location, scanning, push, share, clipboard, links, files, analytics, biometrics, calls; the views of a map, a cam… |
 | `describe_bindings` | 读取 | 是 |  | How a screen is bound to the API: its params and sign-in, each data source (endpoint, params, paging, and the paths it offers: data.&lt;name>.items[], value fields), its regions w… |
+| `describe_focus` | 读取 | 是 |  | How a keyboard's or a gamepad's focus moves over a screen: first (the part it starts on), cancel (the part whose tap Escape or B runs there before going back), wrap, and each part… |
 | `sample_colors` | 读取 | 是 |  | Measures the colors of a picture: an attached reference (ref1…) or a screen or part of the canvas. |
 | `compare_to_reference` | 读取 | 是 |  | Holds a screen of the canvas against the reference picture it copies: draws the screen, hands back both pictures (the reference first), and lays them over each other in a grid, gi… |
 | `apply_ops` | 搭建 |  | 含破坏性操作时 | Runs many operations as one change: all of them or none (if any fail, the document stays as it was and the error lists each one that failed and why: fix only those), one undo step. |
@@ -331,6 +332,7 @@ npx playwright install chromium
 | `remove_var_collection` | 数据与交互 |  | 是 | Removes a collection of variables and every variable in it; what was bound to them is unbound. |
 | `set_var_mode` | 数据与交互 |  |  | Chooses the mode of a variable collection the document shows (or one screen shows, over the document's choice), by mode id or name; null goes back to the default (a screen follows… |
 | `set_action` | 数据与交互 |  |  | Sets what a tap on a part does, or what runs on one of the outlets it declares (describe_node lists them): a place, slot "tab:0" or "icon"; a family of places, slot "tab:*", one a… |
+| `set_focus` | 数据与交互 |  |  | Sets how a keyboard's or a gamepad's focus moves over a screen (arrow keys or the d-pad move it, Enter / Space / A runs the focused part's tap, Escape / Backspace / B cancels: clo… |
 | `bind_prop` | 数据与交互 |  |  | Binds a prop of a part to a variable: it is bound to the expression that reads it ("=vars.&lt;name>"), which an input writes back to as it is used (bind_expression binds any other… |
 | `reorder_panes` | 搭建 |  |  | Puts a dock's tabs in a new order; what each tab holds follows it. |
 | `add_model` | 数据与交互 |  |  | Adds a data model: a named JSON Schema 2020-12 (usually an object: {type: "object", properties: {id: {type: "string", format: "uuid"}, email: {type: "string", format: "email"}, av… |

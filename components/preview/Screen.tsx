@@ -331,9 +331,14 @@ export function Screen({
             /* a rail the visitor expanded stays expanded while the screen is up */
             const railExpanded = values[`${it.id}:expanded`] !== undefined ? values[`${it.id}:expanded`] !== 0 : undefined;
             if (railExpanded !== undefined) shown = { ...shown, props: { ...shown.props, expanded: railExpanded } };
+            /* what a keyboard's or a gamepad's focus lands on (lib/focus/dom.ts): the part, or each of its places */
+            const slotted = !!(slotActions || (selectKey && def?.slots) || def?.slug === "navigation-rail");
+            const takes = it.focus?.focusable ?? !!(tap || slotted || INPUT_PROP[it.component ?? ""] !== undefined || (def?.open && def.open.trigger !== "hide"));
             const node = (
               <LivePart
                 key={it.id}
+                focus={takes ? it.id : "off"}
+                focusSlots={takes && slotted}
                 easeWidth={foldable}
                 item={shown}
                 widths={widths}

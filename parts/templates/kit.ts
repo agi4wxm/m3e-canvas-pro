@@ -4,6 +4,7 @@ import { MATERIAL_METRICS, fillRest, lengthToHold, tidyFrame } from "../../lib/t
 import { BACK_TARGET, DESKTOP_H, DESKTOP_W, FRAME_GAP, PHONE_H, PHONE_W, TABLET_H, TABLET_W, makeItem, uid, type Action, type ApiSpec, type ColorToken, type Condition, type DataSource, type DocVar, type Frame, type Group, type Item, type ItemLook, type Place, type Radii, type RegionBinding, type ScreenParam, type TextToken, type Transition } from "../../lib/tokens";
 import { TRANSITION_MOTIONS } from "../../lib/screenMotion";
 import type { MockSpec } from "../../lib/mocks/types";
+import type { FrameFocus, ItemFocus } from "../../lib/focus/model";
 import { mapAction } from "../../lib/refs";
 import { partBySlug, reader } from "../registry";
 import { axisValue, axisWrite, resizeOf } from "../resize";
@@ -68,9 +69,13 @@ export type Node = {
   repeat?: { collection: string };
   /** one of the two panes of the split view it is in (`split`) */
   splitPane?: "first" | "second";
+  /** what it says about a keyboard's or a gamepad's focus (`Item.focus`) */
+  focus?: ItemFocus;
+  /** the screen's focus starts on it (`Frame.focus.first`), or cancel runs its tap there (`Frame.focus.cancel`) */
+  focusOf?: "first" | "cancel";
   kids?: Node[];
 };
-type Extra = Pick<Node, "name" | "fill" | "grow" | "textColor" | "corners" | "look" | "action" | "actions" | "note" | "at" | "screenMain" | "showWhen" | "states" | "pane" | "bind">;
+type Extra = Pick<Node, "name" | "fill" | "grow" | "textColor" | "corners" | "look" | "action" | "actions" | "note" | "at" | "screenMain" | "showWhen" | "states" | "pane" | "bind" | "focus" | "focusOf">;
 
 export const part = (slug: string, props: Props = {}, extra: Extra = {}): Node => ({ slug, props, ...extra });
 
@@ -107,7 +112,7 @@ export const split = (props: Props, first: Node, second: Node, extra: Extra = {}
 export const txt = (text: Say | string, style = "body", more: Props = {}, extra: Extra = {}): Node => part("text", { text, style, ...more }, extra);
 
 /** one screen of a template: its parts in the order they read, and the data it loads, by what it is opened with */
-export type ScreenSeed = { id: string; name: Say; frame: TemplateFrame; length?: number; note?: Say; bg?: ColorToken; place?: Place; data?: DataSource[]; params?: ScreenParam[]; roots: Node[] };
+export type ScreenSeed = { id: string; name: Say; frame: TemplateFrame; length?: number; note?: Say; bg?: ColorToken; place?: Place; data?: DataSource[]; params?: ScreenParam[]; focus?: FrameFocus; roots: Node[] };
 
 export type Template = {
   slug: string;
@@ -151,7 +156,7 @@ export function deskScreen({ id, name, length, note, side, body, bodyProps }: { 
 /* ---------- from seed to document ---------- */
 
 /** a group as a template keeps it: words still in every language, links still by screen id */
-export type SeedGroup = Omit<Group, "items" | "name"> & { name?: Say; at?: Anchor; items: (Omit<Item, "note" | "bind"> & { note?: Say; bind?: Record<string, string | Say> })[] };
+export type SeedGroup = Omit<Group, "items" | "name"> & { name?: Say; at?: Anchor; focusOf?: "first" | "cancel"; items: (Omit<Item, "note" | "bind"> & { note?: Say; bind?: Record<string, string | Say> })[] };
 
 /** The tree flattened into groups, outermost first: the array is the order a layout goes by, and a
  *  container has to be drawn under what it holds. Ids are stable within a build, not across adds. */
@@ -176,8 +181,9 @@ export function seedGroups(seed: ScreenSeed): SeedGroup[] {
       ...(Object.keys(actions).length ? { actions } : {}),
       ...(node.note ? { note: node.note } : {}),
       ...(node.bind ? { bind: node.bind } : {}),
+      ...(node.focus ? { focus: node.focus } : {}),
     };
-    out.push({ id, x: 0, y: 0, axis: "x", ...(node.name ? { name: node.name } : {}), ...(inFlow ? { inFlow } : {}), ...(node.at ? { at: node.at } : {}), ...(node.screenMain ? { screenMain: true } : {}), ...(node.showWhen ? { showWhen: node.showWhen } : {}), ...(node.states ? { states: node.states } : {}), ...(node.pane !== undefined ? { pane: node.pane } : {}), ...(node.splitPane && inFlow ? { splitPane: node.splitPane } : {}), ...(node.repeat ? { repeat: { collection: node.repeat.collection } } : {}), items: [item] });
+    out.push({ id, x: 0, y: 0, axis: "x", ...(node.name ? { name: node.name } : {}), ...(inFlow ? { inFlow } : {}), ...(node.at ? { at: node.at } : {}), ...(node.screenMain ? { screenMain: true } : {}), ...(node.showWhen ? { showWhen: node.showWhen } : {}), ...(node.states ? { states: node.states } : {}), ...(node.pane !== undefined ? { pane: node.pane } : {}), ...(node.splitPane && inFlow ? { splitPane: node.splitPane } : {}), ...(node.repeat ? { repeat: { collection: node.repeat.collection } } : {}), ...(node.focusOf ? { focusOf: node.focusOf } : {}), items: [item] });
     for (const kid of node.kids ?? []) visit(kid, id);
   };
   for (const root of seed.roots) visit(root);
@@ -302,6 +308,7 @@ export function instantiate(template: Pick<Template, "build">, lang: Lang, at: {
       ...(seed.place ? { place: seed.place } : {}),
       ...(seed.data?.length ? { data: seed.data } : {}),
       ...(seed.params?.length ? { params: seed.params } : {}),
+      ...(seed.focus ? { focus: seed.focus } : {}),
     };
     const seeded = seedGroups(seed);
     const groupIds = new Map(seeded.map((g) => [g.id, uid()]));
@@ -310,8 +317,10 @@ export function instantiate(template: Pick<Template, "build">, lang: Lang, at: {
     const link = (a: Action): Action => mapAction(a, { screen: (to) => frameIds.get(to) ?? to });
     /* apart from each other until they are placed: a part let go on a layout is taken in by it */
     let apart = 0;
+    /* the parts the screen's focus names, by their new ids */
+    const focus: FrameFocus = {};
     let mine: Group[] = seeded.map((g) => {
-      const { name: groupName, inFlow, items, at: anchor, ...rest } = g;
+      const { name: groupName, inFlow, items, at: anchor, focusOf, ...rest } = g;
       const id = groupIds.get(g.id)!;
       if (anchor) anchors.set(id, anchor);
       if (!inFlow) apart += 8000;
@@ -336,8 +345,10 @@ export function instantiate(template: Pick<Template, "build">, lang: Lang, at: {
           };
         }),
       };
+      if (focusOf) focus[focusOf] = made.items[0].id;
       return inFlow ? made : sizedOnScreen(made, size, anchor);
     });
+    if (Object.keys(focus).length) frame = { ...frame, focus: { ...frame.focus, ...focus } };
     mine = arranged(mine);
     /* on a smaller phone what does not fit makes the screen longer: a part left below its foot would be off the screen */
     {

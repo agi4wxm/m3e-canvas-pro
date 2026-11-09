@@ -1,6 +1,6 @@
 import { back, go, type Template } from "./kit";
 import { forgotScreen, loginScreen, onboardingScreen, resetScreen, signUpScreen, splashScreen, verifyScreen } from "./auth";
-import { battleHudScreen, levelSelectScreen, lobbyScreen, titleScreen, victoryScreen } from "./game";
+import { battleHudScreen, inventoryScreen, levelSelectScreen, lobbyScreen, pauseScreen, shopScreen, titleScreen, victoryScreen } from "./game";
 import { cartScreen, checkoutScreen, orderSuccessScreen, paymentContract, placeOrder, productDetailScreen, productListScreen } from "./shop";
 
 /* Sets of screens added together, their links already in place. A flow holds what belongs to it and nothing else:
@@ -44,5 +44,17 @@ export const flows: Template[] = [
     frame: "phone",
     icon: "sports_esports",
     build: () => [titleScreen({ start: go("lobby", "fade") }), lobbyScreen({ play: go("levels") }), levelSelectScreen({ start: go("battle", "fade"), back: back() }), battleHudScreen({ end: go("victory", "fade") }), victoryScreen({ next: go("levels", "fade") })],
+  },
+  {
+    /* The menus outside a match, wired for a keyboard and a gamepad (docs/焦点与输入.md): the lobby's focus starts on
+       play, its menu button is what cancel runs there (the pause menu, laid over it), the shop and the bag go back on
+       cancel, and the pause menu holds the focus until it closes. */
+    slug: "game-menu-flow",
+    name: "Game menus flow",
+    labels: { ja: "ゲームメニューの流れ", zh: "游戏局外菜单流程", ko: "게임 메뉴 흐름" },
+    category: "flow",
+    frame: "phone",
+    icon: "stadia_controller",
+    build: () => [lobbyScreen({ shop: go("game-shop"), bag: go("inventory"), menu: { to: "pause", overlay: true } }), shopScreen({ back: back() }), inventoryScreen({ back: back() }), pauseScreen({ resume: back() })],
   },
 ];

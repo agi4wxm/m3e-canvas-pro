@@ -62,6 +62,8 @@ import { createPreviewHost, tapOf, type TapExtra } from "./preview/host";
 import { Screen } from "./preview/Screen";
 import { PreviewStore, usePreviewState } from "./preview/store";
 import { useSwipe, type Peek } from "./preview/swipe";
+import { startFocus, type DomLayer } from "@/lib/focus/dom";
+import { baseId, inputScope, type InputDevice, type PadKind } from "@/lib/focus/model";
 
 /** room reserved for the wide preview controls: panel, right margin and breathing space */
 const WIDE_CONTROL_SPACE = 220;
@@ -157,6 +159,12 @@ export function Preview({
   /* ---------- the interaction state: the prototype's, started over each time the preview opens ---------- */
   const [store] = useState(() => PreviewStore.start(doc, theme.dark));
   const state = usePreviewState(store);
+  /* The input device in use (lib/focus): a pointer until a direction key or a gamepad's button is pressed. What
+     expressions read as `input` (the device, the hint for each UI action on it) follows it. */
+  const [inputNow, setInputNow] = useState<{ device: InputDevice; pad: PadKind }>({ device: "touch", pad: "generic" });
+  const input = useMemo(() => inputScope(inputNow.device, inputNow.pad), [inputNow]);
+  const inputRef = useRef(input);
+  inputRef.current = input;
   /* the width the visitor switched to; until then each screen shows at its own size */
   const [device, setDevice] = useState<FramePreset | null>(null);
   /** the sibling of a screen at the width chosen: navigation keeps naming the screen it was written for */
@@ -346,6 +354,7 @@ export function Preview({
       /* an effect has just said which tab is chosen: an earlier tap on the tabs no longer speaks for it */
       told: (part) => setValues((m) => (m[part] === -1 ? m : { ...m, [part]: -1 })),
       signedOut: () => queueMicrotask(() => nav.current.afterSignOut()),
+      input: () => inputRef.current,
     }),
   );
 
@@ -559,6 +568,64 @@ export function Preview({
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [back, onClose, picker, setOverlay]);
+  /* ---------- a keyboard's and a gamepad's focus (lib/focus, docs/焦点与输入.md) ---------- */
+  /* The layers on show, bottom first: the screen on top of the history, and the screen laid over it. A menu or a dialog
+     open in the top one holds the focus too; the driver finds those itself. */
+  const focusLayers = (): DomLayer[] => {
+    const s = stackRef.current;
+    const entry = s[s.length - 1];
+    if (!entry) return [];
+    const id = shownId(entry.id);
+    const screens = [...document.querySelectorAll(`[data-preview-screen="${CSS.escape(id)}"]`)].filter((el) => !el.closest("[data-preview-overlay]"));
+    const out: DomLayer[] = [];
+    const base = screens.find((el) => el.hasAttribute("data-preview-active")) ?? screens[screens.length - 1];
+    if (base) out.push({ key: `screen:${id}:${s.length}`, root: base, screen: frames.find((f) => f.id === id)?.focus });
+    const over = overlayRef.current;
+    const overRoot = over ? document.querySelector("[data-preview-overlay] [data-preview-screen]") : null;
+    if (over && overRoot) out.push({ key: `overlay:${over.id}`, root: overRoot, screen: frames.find((f) => f.id === shownId(over.id))?.focus });
+    return out;
+  };
+  /** Cancel with nothing of the screen's own to run: what is open closes first, then the overlay, then back; on the
+   *  first screen Escape closes the preview, as it always did. */
+  const dismissFocus = (popup: Element | undefined, via: string): boolean => {
+    if (picker) {
+      setPicker(false);
+      return true;
+    }
+    if (popup) {
+      const part = popup.closest("[data-part]")?.getAttribute("data-part");
+      if (part && store.get().opened[part]) {
+        store.update((st) => applyEffects(st, [{ do: "close", part }], doc));
+        return true;
+      }
+      return false;
+    }
+    if (overlayRef.current || stackRef.current.length >= 2) {
+      back();
+      return true;
+    }
+    if (via === "escape") onClose();
+    return via === "escape";
+  };
+  const shownIdRef = useRef(shownId);
+  shownIdRef.current = shownId;
+  const focusHost = useRef({ focusLayers, dismissFocus, ring: p.secondary });
+  focusHost.current = { focusLayers, dismissFocus, ring: p.secondary };
+  useEffect(() => {
+    const items = new Map(docRef.current.groups.flatMap((g) => g.items.map((it) => [it.id, it] as const)));
+    const driver = startFocus({
+      layers: () => focusHost.current.focusLayers(),
+      /* the screens under the one on show, by the same keys: going back finds the focus where it was left */
+      history: () => stackRef.current.slice(0, -1).map((e, i) => `screen:${shownIdRef.current(e.id)}:${i + 1}`),
+      dismiss: (_layer, popup, via) => focusHost.current.dismissFocus(popup, via),
+      part: (id) => (items.get(id) ?? items.get(baseId(id) ?? ""))?.focus,
+      ringColor: () => focusHost.current.ring,
+      /* ← still goes back while a pointer is in use: the other three show the focus */
+      reveal: ["ArrowUp", "ArrowDown", "ArrowRight"],
+      onDevice: (device, pad) => setInputNow({ device, pad }),
+    });
+    return () => driver.stop();
+  }, []);
   /* The control that opened the preview gets the keyboard back when it closes, whichever
    * screens were shown in between. Read
    * during the first render, before a screen's effect moves focus onto its rail. */
@@ -581,7 +648,7 @@ export function Preview({
       });
       const vars = screenVars(state, doc, f, dark);
       try {
-        const scope = data.scope({ frame: f, params, vars: vars.vars, varNames });
+        const scope = { ...data.scope({ frame: f, params, vars: vars.vars, varNames }), input };
         const form = (g: DocGroup, gs: DocGroup[], owner: Map<string, string>) => data.formView({ form: g, groups: gs, owner, fields: state.fields, files: files.current });
         const bound = boundScreen({ groups: tabbed, frame: f, doc, scope, form, vars: vars.vars, widths, ctx: { lang } });
         boundRef.current[f.id] = bound;
@@ -594,7 +661,7 @@ export function Preview({
     },
     // what the runtime holds is read through its version
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [doc, frames, widths, values, state, dark, dataVersion, data, varNames, lang, wordHeights],
+    [doc, frames, widths, values, state, dark, dataVersion, data, varNames, lang, wordHeights, input],
   );
   /** the variables as a screen shows them, for the design fields bound to them */
   const boundFor = useCallback((f: Frame | undefined) => (doc.vars?.length && f ? screenVars(state, doc, f, dark).vars : null), [doc, state, dark]);

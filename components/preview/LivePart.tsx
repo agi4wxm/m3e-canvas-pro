@@ -39,7 +39,7 @@ async function readFiles(root: HTMLElement): Promise<TransportFile[]> {
  *  on a place the part marked `data-tap` (a destination, a menu item) it fires that slot's
  *  action; anywhere else it is the part's own tap. An input says what it now holds, a button
  *  inside an overlay that dismisses it closes it. */
-export function LivePart({ item, widths, screen, onTap, onSlot, onHover, easeWidth, onField, onFiles, onClose, onEvent, demo = false, held }: { item: Item; widths: Record<string, number>; screen?: { w: number; h: number }; onTap?: () => void; onSlot?: (slot: string) => void; /** the pointer came over it: an interaction that starts so */ onHover?: () => void; easeWidth?: boolean; onField?: (value: FieldValue) => void; /** a file input took files */ onFiles?: (files: TransportFile[]) => void; onClose?: () => void; /** the part sent one of its named events */ onEvent?: (name: string, payload?: Record<string, unknown>) => void; /** its prototype demo runs (lib/partContract.ts demoRuns) */ demo?: boolean; held?: boolean }) {
+export function LivePart({ item, widths, screen, onTap, onSlot, onHover, easeWidth, onField, onFiles, onClose, onEvent, demo = false, held, focus, focusSlots }: { /** what a keyboard's or a gamepad's focus knows it by (lib/focus/dom.ts): its id, "off" for never */ focus?: string; /** each of its places takes the focus */ focusSlots?: boolean; item: Item; widths: Record<string, number>; screen?: { w: number; h: number }; onTap?: () => void; onSlot?: (slot: string) => void; /** the pointer came over it: an interaction that starts so */ onHover?: () => void; easeWidth?: boolean; onField?: (value: FieldValue) => void; /** a file input took files */ onFiles?: (files: TransportFile[]) => void; onClose?: () => void; /** the part sent one of its named events */ onEvent?: (name: string, payload?: Record<string, unknown>) => void; /** its prototype demo runs (lib/partContract.ts demoRuns) */ demo?: boolean; held?: boolean }) {
   const size = sizeOf(item, widths);
   const input = !!INPUT_PROP[item.component ?? ""];
   const click = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -93,6 +93,8 @@ export function LivePart({ item, widths, screen, onTap, onSlot, onHover, easeWid
       ref={box}
       data-live-part
       data-part={item.id}
+      data-focus={focus}
+      data-focus-slots={focusSlots ? "" : undefined}
       onClick={onTap || onSlot || onClose ? click : undefined}
       onPointerEnter={onHover ? () => onHover() : undefined}
       /* a tap on the whole part is a button for the keyboard too; what is focusable inside it answers for itself, its click reaching `click` */

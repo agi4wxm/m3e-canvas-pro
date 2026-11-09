@@ -97,17 +97,20 @@ export const titleScreen = (links: { start?: Link } = {}): ScreenSeed =>
     ],
   });
 
-export const lobbyScreen = (links: { play?: Link } = {}): ScreenSeed =>
+/** Where the lobby leads: the play button, and with a menu flow the shop (its tab in the bar), the bag (a shortcut) and
+ *  the menu (a button at the top, which cancel on the lobby runs too: Escape or B opens the pause menu). The focus starts
+ *  on the play button when the lobby is wired for the keyboard. */
+export const lobbyScreen = (links: { play?: Link; shop?: Link; bag?: Link; menu?: Link } = {}): ScreenSeed =>
   screen({
     id: "lobby",
     name: say("Lobby", "游戏大厅", "ロビー", "로비"),
     scene: backdrop(CAMP),
-    bottom: [gameNav(2)],
+    bottom: [links.shop ? { ...gameNav(2), actions: { "tab:0": links.shop } } : gameNav(2)],
     spots: [
-      row({ justify: "between" }, [playerChip(144), row({ gap: 8, width: 228, justify: "end" }, [COINS, GEMS])], { at: { l: 16, r: 16, t: 16 } }),
-      panel({ padX: 4, padY: 8, gap: 4, width: 72 }, [shortcut("sell", say("Deals", "特惠", "セール", "특가"), 40, 2), shortcut("redeem", say("Gifts", "礼包", "ギフト", "선물"))], { at: { l: 16, t: 72 } }),
+      row({ justify: "between" }, [playerChip(144), row({ gap: 8, width: 228, justify: "end" }, links.menu ? [COINS, part("icon-button", { icon: "menu", label: say("Menu", "菜单", "メニュー", "메뉴"), variant: "tonal" }, { action: links.menu, focusOf: "cancel" })] : [COINS, GEMS])], { at: { l: 16, r: 16, t: 16 } }),
+      panel({ padX: 4, padY: 8, gap: 4, width: 72 }, [shortcut("sell", say("Deals", "特惠", "セール", "특가"), 40, 2), links.bag ? { ...shortcut("backpack", say("Bag", "背包", "持ち物", "가방")), action: links.bag } : shortcut("redeem", say("Gifts", "礼包", "ギフト", "선물"))], { at: { l: 16, t: 72 } }),
       panel({ padX: 4, padY: 8, gap: 4, width: 72 }, [shortcut("calendar_month", say("Check in", "签到", "ログボ", "출석")), shortcut("task_alt", say("Quests", "任务", "クエスト", "퀘스트")), shortcut("mail", say("Mail", "邮件", "メール", "우편")), shortcut("leaderboard", say("Ranks", "排行", "ランキング", "랭킹"))], { at: { r: 16, t: 72 } }),
-      part("button", { label: say("Play", "开始游戏", "プレイ", "플레이"), size: "lg", icon: "play_arrow", width: 280 }, { at: { b: 96 }, action: links.play }),
+      part("button", { label: say("Play", "开始游戏", "プレイ", "플레이"), size: "lg", icon: "play_arrow", width: 280 }, { at: { b: 96 }, action: links.play, ...(links.menu ? { focusOf: "first" as const, ...(links.play ? {} : { focus: { focusable: true } }) } : {}) }),
     ],
   });
 
@@ -183,23 +186,33 @@ const puzzleScreen = (): ScreenSeed =>
     ],
   });
 
-const pauseScreen = (): ScreenSeed =>
-  screen({
-    id: "pause",
-    name: say("Paused", "暂停菜单", "ポーズ", "일시정지"),
-    scene: backdrop(ARENA, "full"),
-    spots: [
-      stage({ justify: "center", padX: 48 }, [
-        panel({ gap: 12, padY: 24 }, [
-          txt(say("Paused", "已暂停", "一時停止中", "일시정지"), "headline", { align: "center" }),
-          part("button", { label: say("Resume", "继续", "再開", "계속하기"), size: "md", icon: "play_arrow" }),
-          part("button", { label: say("Restart", "重新开始", "やり直す", "다시 시작"), size: "md", variant: "tonal", icon: "replay" }),
-          part("button", { label: say("Settings", "设置", "設定", "설정"), size: "md", variant: "tonal", icon: "settings" }),
-          part("button", { label: say("Quit", "退出", "終了", "나가기"), size: "md", variant: "text" }),
+/** The pause menu. Laid over a screen by a menu flow, its resume button goes back (closing it) and the rest take the
+ *  focus though the game wires them later; the focus starts on resume and goes round the menu. */
+export const pauseScreen = (links: { resume?: Link } = {}): ScreenSeed => {
+  const wired = !!links.resume;
+  const later = wired ? { focus: { focusable: true } } : {};
+  return {
+    ...screen({
+      id: "pause",
+      name: say("Paused", "暂停菜单", "ポーズ", "일시정지"),
+      scene: backdrop(ARENA, "full"),
+      spots: [
+        stage({ justify: "center", padX: 48 }, [
+          panel({ gap: 12, padY: 24 }, [
+            txt(say("Paused", "已暂停", "一時停止中", "일시정지"), "headline", { align: "center" }),
+            part("button", { label: say("Resume", "继续", "再開", "계속하기"), size: "md", icon: "play_arrow" }, wired ? { action: links.resume, focusOf: "first" } : {}),
+            part("button", { label: say("Restart", "重新开始", "やり直す", "다시 시작"), size: "md", variant: "tonal", icon: "replay" }, later),
+            part("button", { label: say("Settings", "设置", "設定", "설정"), size: "md", variant: "tonal", icon: "settings" }, later),
+            part("button", { label: say("Quit", "退出", "終了", "나가기"), size: "md", variant: "text" }, later),
+            /* the keys of the device in use, shown while one with keys is (a finger needs no hint) */
+            ...(wired ? [txt(say("{{input.hint.confirm}} Select   {{input.hint.cancel}} Back", "{{input.hint.confirm}} 选择   {{input.hint.cancel}} 返回", "{{input.hint.confirm}} 決定   {{input.hint.cancel}} 戻る", "{{input.hint.confirm}} 선택   {{input.hint.cancel}} 뒤로"), "caption", { align: "center", color: "muted" }, { showWhen: { expr: "!input.touch" } })] : []),
+          ]),
         ]),
-      ]),
-    ],
-  });
+      ],
+    }),
+    ...(wired ? { focus: { wrap: true } } : {}),
+  };
+};
 
 export const victoryScreen = (links: { next?: Link } = {}): ScreenSeed =>
   screen({
@@ -253,11 +266,11 @@ const itemDetail = (): Node =>
     row({ gap: 8, justify: "end" }, [part("button", { label: say("Sell", "出售", "売却", "판매"), variant: "tonal", size: "sm" }), part("button", { label: say("Equip", "装备", "装備", "장착"), size: "sm" })]),
   ]);
 
-const inventoryScreen = (): ScreenSeed =>
+export const inventoryScreen = (links: WithBack = {}): ScreenSeed =>
   screen({
     id: "inventory",
     name: say("Inventory", "背包", "持ち物", "가방"),
-    top: [title(say("Inventory", "背包", "持ち物", "가방"))],
+    top: [title(say("Inventory", "背包", "持ち物", "가방"), links.back)],
     body: [
       tabsOf(say("All", "全部", "すべて", "전체"), say("Gear", "装备", "装備", "장비"), say("Materials", "材料", "素材", "재료"), say("Items", "道具", "道具", "도구")),
       grow({}, [atomsOf("inventory", { columns: 5, rows: 7, filled: 23 })]),
@@ -299,11 +312,11 @@ const COIN_WORD = say("Coins", "金币", "コイン", "코인");
 const GEM_WORD = say("Gems", "钻石", "ジェム", "보석");
 const ENERGY_WORD = say("Energy", "体力", "スタミナ", "에너지");
 
-const shopScreen = (): ScreenSeed =>
+export const shopScreen = (links: WithBack = {}): ScreenSeed =>
   screen({
     id: "game-shop",
     name: say("Game shop", "游戏商城", "ショップ", "상점"),
-    top: [title(say("Shop", "商城", "ショップ", "상점"))],
+    top: [title(say("Shop", "商城", "ショップ", "상점"), links.back)],
     body: [
       purse(),
       tabsOf(say("Featured", "推荐", "おすすめ", "추천"), GEM_WORD, say("Packs", "礼包", "パック", "패키지")),

@@ -50,6 +50,8 @@ export type PreviewHostDeps = {
   told?: (part: string) => void;
   /** the visitor signed out: a screen that needs a session cannot stay on show */
   signedOut?: () => void;
+  /** the input device in use and its hints, what expressions read as `input` (lib/focus) */
+  input?: () => unknown;
 };
 
 /** where in the document a part is: its group */
@@ -88,7 +90,7 @@ export function createPreviewHost(d: PreviewHostDeps): Host {
       const part = partOf(tap);
       if (!f) return scopeFor({ ...NO_BINDINGS, varNames: varNames(), eval: host.ctx() }, s.vars, part);
       const b = d.bound(f.id);
-      const base: BindingContext = { scope: d.data.scope(atScreen(f, tap.params, s)), varNames: varNames(), forms: b?.ctx.forms ?? {}, eval: host.ctx() };
+      const base: BindingContext = { scope: { ...d.data.scope(atScreen(f, tap.params, s)), ...(d.input ? { input: d.input() } : {}) }, varNames: varNames(), forms: b?.ctx.forms ?? {}, eval: host.ctx() };
       /* the form of the tap as it is now: what is typed in it, what its submission has come to */
       const group = tap.form ? b?.groups.find((g) => g.id === tap.form) : undefined;
       const form = b && group?.form ? d.data.formView(formAt(b, group)) : undefined;
