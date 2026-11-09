@@ -2,7 +2,7 @@
  * calls and input actions a design makes, each refusal with the condition a catch branches on, its events, snapshot,
  * clock and facts, and what in the design no longer matches it. It changes nothing. */
 
-import { apiCommands, gameContractPathOf, gameGaps, gameInputsText, gameOperationId, gapWhere, refusalsOf, type GameContract } from "../game";
+import { apiCommands, fixtureSummaries, gameContractPathOf, gameGaps, gameInputsText, gameOperationId, gapWhere, refusalsOf, type GameContract } from "../game";
 import type { JsonSchema } from "../api/types";
 import { tool, type Tool } from "./types";
 
@@ -52,10 +52,29 @@ const getGameContract = tool<Record<string, never>>({
     const link = doc.game;
     if (!link) return { result: "The document links no gameplay contract. A game loop's contract file (format m3e-game) is linked with import_game_contract; the game templates (gacha-pull, daily-check-in) bring M3E's example one." };
     const gaps = gameGaps(doc);
+    const fixtures = link.fixtures?.length ? [`Fixtures (known states of the game, each a mock scene; list_game_fixtures, screenshot {fixture}): ${link.fixtures.map((l) => `${l.fixture.id} (${l.fixture.name})`).join(", ")}.`] : [];
     return {
-      result: [...gameOutline(link.contract, gameContractPathOf(doc), !!link.example), "", gaps.length ? `Gaps (${gaps.length}):\n${gaps.slice(0, 40).map((g) => `- ${g.kind} ${g.ref} (${g.reason}) at ${gapWhere(g.where)}: ${g.detail}`).join("\n")}` : "Gaps: none, the design matches the contract."].join("\n"),
+      result: [...gameOutline(link.contract, gameContractPathOf(doc), !!link.example), ...fixtures, "", gaps.length ? `Gaps (${gaps.length}):\n${gaps.slice(0, 40).map((g) => `- ${g.kind} ${g.ref} (${g.reason}) at ${gapWhere(g.where)}: ${g.detail}`).join("\n")}` : "Gaps: none, the design matches the contract."].join("\n"),
     };
   },
 });
 
-export const GAME_READ_TOOLS: Tool<never>[] = [getGameContract as unknown as Tool<never>];
+const listGameFixtures = tool<Record<string, never>>({
+  name: "list_game_fixtures",
+  group: "read",
+  description:
+    "The game loop's fixtures the document has imported (import_game_fixture): known states of the game, each a mock scene fixture.<id> (a scenario its game.* calls answer in, and a world script whose start is its snapshot). For each: its id and name, the scene, what each command answers in it, the contract version it was written for (versionMismatch when the linked contract is another), where its file is, and what in it the linked contract no longer takes. set_mocks {scenario, world} with the scene makes the preview start in it; screenshot {id, fixture} draws a screen in it.",
+  input: { type: "object", properties: {}, required: [], additionalProperties: false },
+  output: "{fixtures: [{id, name, summary?, scene, contractVersion, path?, answers: {operationId: what it answers}, problems: [], versionMismatch?}], startsIn: the scene the preview starts in, if a fixture's}",
+  readOnly: true,
+  destructive: false,
+  run(_a, env) {
+    const doc = env.store.get().doc;
+    const fixtures = fixtureSummaries(doc);
+    if (!doc.game) return { result: { fixtures, note: "The document links no gameplay contract: a fixture is held to one (import_game_contract links the game loop's)." } };
+    const starts = doc.mocks?.scenario?.startsWith("fixture.") ? doc.mocks.scenario : doc.mocks?.world?.startsWith("fixture.") ? doc.mocks.world : undefined;
+    return { result: { fixtures, ...(starts ? { startsIn: starts } : {}), ...(fixtures.length ? {} : { note: "No fixtures yet: import_game_fixture imports one of the game loop's fixture files (format m3e-game-fixture)." }) } };
+  },
+});
+
+export const GAME_READ_TOOLS: Tool<never>[] = [getGameContract as unknown as Tool<never>, listGameFixtures as unknown as Tool<never>];

@@ -94,6 +94,11 @@ export class FileBackend implements Backend {
     const r = out.refresh;
     if (r.status === "updated") this.o.log.info(`The gameplay contract was read again: ${r.report.namespace} ${r.report.contractVersion}${r.report.gaps.length ? `, ${r.report.gaps.length} reference(s) in the design no longer match it (get_game_contract lists them)` : ""}.`);
     else if (r.status === "missing" || r.status === "invalid") this.o.log.warn(`The gameplay contract ${r.path} ${r.status === "missing" ? "is not beside the project" : `cannot be read (${r.problems.slice(0, 3).join("; ")})`}: the one read last is kept.`);
+    /* and the game loop's fixtures imported from files beside it (lib/game/fixture.ts), read again the same way */
+    for (const f of out.fixtures ?? []) {
+      if (f.status === "updated") this.o.log.info(`The game fixture ${f.id} was read again from ${f.path}: its scene is made again${f.report.changed.length ? ` (${f.report.changed.join(", ")} changed)` : ""}.`);
+      else if (f.status === "missing" || f.status === "invalid") this.o.log.warn(`The game fixture ${f.id} at ${f.path} ${f.status === "missing" ? "is not beside the project" : `cannot be taken (${f.problems.slice(0, 3).join("; ")})`}: the one read last is kept.`);
+    }
     return out.doc;
   }
 

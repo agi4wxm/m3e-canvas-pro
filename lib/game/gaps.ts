@@ -9,8 +9,9 @@ import type { Gap, GapPlace } from "../export/gaps";
 import { groupsInFrame, type Action, type ActionBody, type Doc, type Effect, type Group, type Item } from "../tokens";
 import { apiCommands, inputCommands, type GameContract } from "./format";
 import { gameOperationId, refusalsOf, rejectionType } from "./map";
+import { fixtureGaps, type GameFixtureLink } from "./fixture";
 
-export type GameGapKind = "command" | "fact" | "param" | "rejection" | "input" | "event";
+export type GameGapKind = "command" | "fact" | "param" | "rejection" | "input" | "event" | "fixture";
 
 /** One reference of the design's that the contract does not answer: what kind, what it names (`game.pull`,
  *  `game.pull count`, `urn:game:problem:cooldown`, `input jump`, `event dodged`), why in a word (`missing`, `not-a-call`,
@@ -132,7 +133,7 @@ function groupsGaps(groups: Group[], place: (g: Group) => GapPlace, ctx: Ctx): v
 }
 
 /** Everything in the document that names its gameplay contract and is not in it; none without a contract. */
-export function gameGaps(doc: Pick<Doc, "groups" | "frames" | "components"> & { game?: { contract: GameContract } }, widths: Record<string, number> = {}): GameGap[] {
+export function gameGaps(doc: Pick<Doc, "groups" | "frames" | "components"> & { game?: { contract: GameContract; fixtures?: GameFixtureLink[] } }, widths: Record<string, number> = {}): GameGap[] {
   const c = doc.game?.contract;
   if (!c) return [];
   const base = rejectionType(c, "");
@@ -154,7 +155,8 @@ export function gameGaps(doc: Pick<Doc, "groups" | "frames" | "components"> & { 
     }
   /* one line for each reference: the same one met twice (a family's slot and an action under it) is said once */
   const seen = new Set<string>();
-  return ctx.gaps.filter((g) => {
+  /* and the game loop's own fixtures that the contract no longer takes (fixture.ts) */
+  return [...ctx.gaps, ...fixtureGaps(doc)].filter((g) => {
     const k = `${g.kind}|${g.ref}|${JSON.stringify(g.where)}`;
     return seen.has(k) ? false : (seen.add(k), true);
   });

@@ -256,6 +256,9 @@ function opCalls(): [string, Record<string, unknown>][] {
     ["remove_capability", { name: "acme.ticket.scan" }],
     /* the gameplay contract (lib/core/ops/game.ts): the game loop's file linked, then unlinked */
     ["import_game_contract", { text: readFileSync(new URL("../game/fixtures/example.m3e-game.json", import.meta.url), "utf8"), path: "game-loop/contract.m3e-game.json" }],
+    /* a fixture of the game loop's, held to that contract, as a mock scene (lib/core/ops/gameFixture.ts) */
+    ["import_game_fixture", { text: readFileSync(new URL("../game/fixtures/example.m3e-fixture.json", import.meta.url), "utf8"), path: "game-loop/fixtures/day-12.m3e-fixture.json" }],
+    ["remove_game_fixture", { id: "day-12" }],
     ["remove_game_contract", {}],
     ["clear_mocks", {}],
     ["remove_channel", { id: "chat" }],

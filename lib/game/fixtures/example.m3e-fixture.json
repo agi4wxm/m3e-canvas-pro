@@ -1,0 +1,28 @@
+{
+  "format": "m3e-game-fixture",
+  "version": 1,
+  "namespace": "game",
+  "contractVersion": "1.0.0",
+  "id": "day-12",
+  "name": "Day 12: checked in, one coin left",
+  "summary": "The smallest fixture of M3E's example contract: the hero has picked up one coin and stands by the slime, today's check-in is done, and a summon gives the Aurora Knight with 1240 gems left.",
+  "snapshot": {
+    "entities": [
+      { "id": "hero", "kind": "player", "x": 42, "y": 40, "label": "Hero" },
+      { "id": "coin2", "kind": "coin", "x": 60, "y": 40 },
+      { "id": "slime", "kind": "enemy", "x": 48, "y": 52, "label": "Slime" }
+    ],
+    "follow": "hero",
+    "score": 7,
+    "status": "paused"
+  },
+  "answers": {
+    "pull": {
+      "result": {
+        "pulled": [{ "id": "h-aurora", "name": "Aurora Knight", "rarity": "epic" }],
+        "gems": 1240
+      }
+    },
+    "checkIn": { "rejection": "cooldown", "detail": "Day 12 is claimed; day 13 opens at the game's midnight" }
+  }
+}

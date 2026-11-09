@@ -19,12 +19,12 @@ export const MOCK_OPS = new Set(["set_mocks", "set_mock_model", "pin_mock_record
 /** the operations on the platform capabilities (lib/core/ops/capabilities.ts): the product's own, the ones it uses */
 export const CAPABILITY_OPS = new Set(["declare_capability", "remove_capability", "use_capabilities"]);
 /** the operations on the gameplay contract (lib/core/ops/game.ts): the game loop's, linked and unlinked */
-export const GAME_OPS = new Set(["import_game_contract", "remove_game_contract"]);
+export const GAME_OPS = new Set(["import_game_contract", "remove_game_contract", "import_game_fixture", "remove_game_fixture"]);
 /** the operations that bind screens to the contract (lib/core/ops/bindings.ts) */
 export const BINDING_OPS = new Set(["add_data_source", "update_data_source", "remove_data_source", "set_subscription", "remove_subscription", "set_screen_params", "rename_screen_param", "set_screen_auth", "bind_expression", "set_region", "remove_region", "set_form", "make_form", "bind_field", "wire_screen"]);
 const DATA_OPS = new Set([...BINDING_OPS, "add_collection", "update_collection", "remove_collection", "set_repeat", "add_var", "update_var", "remove_var", "set_action", "bind_prop", "add_var_collection", "update_var_collection", "remove_var_collection", "set_var_mode", ...API_OPS, ...MOCK_OPS, ...CAPABILITY_OPS, ...GAME_OPS]);
 /** what takes away something the author made: a client asks the author first */
-export const DESTRUCTIVE_OPS = new Set(["clear", "remove_screen", "remove_nodes", "remove_component", "remove_collection", "remove_var", "remove_var_collection", "set_custom_styles", "remove_icon", "remove_model", "remove_endpoint", "remove_channel", "unpin_mock_records", "remove_mock_scenario", "remove_mock_file", "remove_mock_realtime", "clear_mocks", "remove_data_source", "remove_subscription", "remove_region", "remove_capability", "remove_game_contract"]);
+export const DESTRUCTIVE_OPS = new Set(["clear", "remove_screen", "remove_nodes", "remove_component", "remove_collection", "remove_var", "remove_var_collection", "set_custom_styles", "remove_icon", "remove_model", "remove_endpoint", "remove_channel", "unpin_mock_records", "remove_mock_scenario", "remove_mock_file", "remove_mock_realtime", "clear_mocks", "remove_data_source", "remove_subscription", "remove_region", "remove_capability", "remove_game_contract", "remove_game_fixture"]);
 
 const groupOf = (name: string): ToolGroup => (STYLE_OPS.has(name) ? "style" : DATA_OPS.has(name) ? "data" : "edit");
 
@@ -84,6 +84,7 @@ const MORE: Record<string, string> = {
   set_mock_world: 'For a HUD over a world view (hp bars, damage numbers, cooldowns): from "battle" gives twenty enemies to design against. get_mocks lists the scripts and their contracts. Returns {id, steps, contract}.',
   set_mock_capability: "list_capabilities lists the capabilities and how the mocks answer them now. For a shop: one scenario per outcome of a payment (cancelled, failed) and the order's status from the API per scenario (its getOrder answering status paid, pending or failed).",
   import_game_contract: "Only with a file the game loop wrote, as the author gave it. get_game_contract then lists each command's call and refusals.",
+  import_game_fixture: "Only with a file the game loop wrote, as the author gave it; the contract it was written for is linked first (import_game_contract). Then screenshot {id, fixture} checks each screen in that state. Returns {id, name, scene, contractVersion, versionMismatch?, replaced, same, changed, answers, used}.",
   declare_capability: "Only for a capability the catalog does not have (list_capabilities): the standard ones are used as they are.",
   wire_screen:
     "The quickest way to a working screen: one call per screen and endpoint (a list with detail: the screen a row opens, given the row's id as its params, in either order). It composes a region of its own below what the screen holds: a list already designed is bound in place instead (set_repeat, bind_expression, set_region). Restyle what it made like any parts. Returns {source, region, template, states}.",

@@ -16,6 +16,7 @@ import { ASSET_PATH } from "../assetManifest";
 import { apiCommands, inputCommands, readGameContract, type GameContract } from "./format";
 import { gameEndpoints, gameModels, gameRefusals, gameScenarios, isGameEndpoint, refusalScenarioId } from "./map";
 import { gameGaps, type GameGap } from "./gaps";
+import { cleanFixtureLinks, withFixtureScenes, withoutFixtureScenes, type GameFixtureLink } from "./fixture";
 
 export type GameLink = {
   /** the hash of the contract as last read: a file that reads the same is not imported again */
@@ -24,6 +25,8 @@ export type GameLink = {
   contract: GameContract;
   /** M3E's example contract (a template brought it), until a game loop's own is linked */
   example?: true;
+  /** the game loop's fixtures imported against it (fixture.ts): known states of the game, each a mock scene */
+  fixtures?: GameFixtureLink[];
 };
 
 /** the hash of a contract: of what it says, not of how its file is spaced */
@@ -46,7 +49,8 @@ export function cleanGameLink(v: unknown): GameLink | undefined {
   const o = v as Record<string, unknown>;
   const read = readGameContract(o.contract);
   if (!read.contract) return undefined;
-  return { hash: contractHash(read.contract), contract: read.contract, ...(o.example === true ? { example: true as const } : {}) };
+  const fixtures = cleanFixtureLinks(o.fixtures);
+  return { hash: contractHash(read.contract), contract: read.contract, ...(o.example === true ? { example: true as const } : {}), ...(fixtures ? { fixtures } : {}) };
 }
 
 /** What changed between two contracts, in words a person and a model read: each a command, a rejection, an input, an
@@ -121,8 +125,12 @@ export function linkGame<D extends LinkTarget & Record<string, unknown>>(doc: D,
   const mocks = withoutGameMocks(doc.mocks, was) ?? {};
   const taken = new Set((mocks.scenarios ?? []).map((s) => s.id));
   const scenarios = gameScenarios(contract).filter((s) => !taken.has(s.id) && endpoints.some((e) => s.ops?.[e.operationId]));
-  const nextMocks = scenarios.length || doc.mocks ? cleanMocks({ ...mocks, scenarios: [...(mocks.scenarios ?? []), ...scenarios] }) : undefined;
-  const game: GameLink = { hash, contract, ...(o.example ? { example: true as const } : {}) };
+  /* the fixtures stay, held to the contract as it is now: their scenes are made again from it (what no longer
+     matches is a gap), so a world script never keeps the world's contract of the one before */
+  const fixtures = doc.game?.fixtures;
+  const withScenarios = scenarios.length || doc.mocks ? cleanMocks({ ...mocks, scenarios: [...(mocks.scenarios ?? []), ...scenarios] }) : undefined;
+  const nextMocks = fixtures?.length ? withFixtureScenes(withScenarios, fixtures, contract) : withScenarios;
+  const game: GameLink = { hash, contract, ...(o.example ? { example: true as const } : {}), ...(fixtures?.length ? { fixtures } : {}) };
   const next = { ...doc, api: nextApi, mocks: nextMocks, game } as D & LinkTarget & { game: GameLink };
   if (!nextApi) delete (next as LinkTarget).api;
   if (!nextMocks) delete (next as LinkTarget).mocks;
@@ -141,10 +149,11 @@ export function linkGame<D extends LinkTarget & Record<string, unknown>>(doc: D,
   };
 }
 
-/** The document with its contract unlinked: the operations and scenarios it made go, and so does the link. What in the
- *  design called them is then a gap of the API's own (a call to no endpoint). */
+/** The document with its contract unlinked: the operations and scenarios it made go, and so do the link and the
+ *  fixtures held to it, with their scenes. What in the design called them is then a gap of the API's own (a call to no
+ *  endpoint). */
 export function unlinkGame<D extends LinkTarget & Record<string, unknown>>(doc: D): D {
-  const next = { ...doc, api: withoutGameApi(doc.api), mocks: withoutGameMocks(doc.mocks, doc.game?.contract) } as D;
+  const next = { ...doc, api: withoutGameApi(doc.api), mocks: withoutFixtureScenes(withoutGameMocks(doc.mocks, doc.game?.contract), (doc.game?.fixtures ?? []).map((l) => l.fixture.id)) } as D;
   delete (next as LinkTarget).game;
   if (!next.api) delete (next as LinkTarget).api;
   if (!next.mocks) delete (next as LinkTarget).mocks;

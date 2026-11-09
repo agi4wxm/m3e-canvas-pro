@@ -3,8 +3,8 @@
  * bound to expressions read in — the same engine (lib/app's Runtime, read from the document by lib/bindings/design.ts),
  * view (view.ts) and live parts (lib/interact.ts) the preview runs, and every exported app runs that engine too. What comes out is the document with that screen's parts as they would show, for a screenshot of it,
  * and a short report of what each data source got. The agent's and MCP's screenshot tool draws a screen this way
- * (`scenario`), the evaluation suite reads the reports, and a region can be drawn in any one of its states instead
- * (`regionsShowing`). Plain TypeScript: the mock library is loaded the first time it is needed. */
+ * (`scenario`), or at a fixture of the game loop's, a known state of the game (`previewFixture`), the evaluation suite
+ * reads the reports, and a region can be drawn in any one of its states instead (`regionsShowing`). Plain TypeScript: the mock library is loaded the first time it is needed. */
 
 import type { MockTransport } from "../mocks/transport";
 import { conditionHolds, inRow, isHidden, liveItem, screenVars, startState } from "../interact";
@@ -240,4 +240,30 @@ export async function worldAt(doc: Doc, o: { script?: string; at?: number; scree
   const round = roundTime(script, at);
   const events = eventsBetween(script, -1, round).slice(-20).map((e) => `${e.at}ms ${e.name} ${JSON.stringify(e.payload)}`);
   return { doc: { ...doc, groups }, moment: { script: script.id, at: round, views, events } };
+}
+
+/** The mock scene a fixture of the game loop's made (lib/game/fixture.ts): the scenario its commands answer in and the
+ *  world script its world views stand in, both `fixture.<id>`; it says which fixtures there are when there is none of
+ *  that id. */
+export async function fixtureScene(doc: Doc, id: string): Promise<{ id: string; name: string; scenario: string; world: string }> {
+  const { fixtureSceneId } = await import("../game/fixture");
+  const link = doc.game?.fixtures?.find((l) => l.fixture.id === id);
+  const ids = (doc.game?.fixtures ?? []).map((l) => l.fixture.id);
+  if (!link) throw new Error(`There is no fixture ${JSON.stringify(id)}${ids.length ? ` (the fixtures are ${ids.join(", ")})` : " (import_game_fixture imports the game loop's)"}.`);
+  const scene = fixtureSceneId(id);
+  if (!doc.mocks?.scenarios?.some((s) => s.id === scene) || !doc.mocks?.worlds?.some((s) => s.id === scene)) throw new Error(`The scene of the fixture ${id} is gone from the mocks: import_game_fixture with its file makes it again.`);
+  return { id, name: link.fixture.name, scenario: scene, world: scene };
+}
+
+/** One screen as the preview shows it at a fixture of the game loop's (docs/玩法契约.md “fixture”): its data and calls
+ *  answered as the fixture says (`previewScreen` under its scenario), its world views standing in the fixture's
+ *  snapshot (`worldAt` its world script, when the screen has any), for a screenshot of the whole screen, HUD and all,
+ *  in that state. */
+export async function previewFixture(doc: Doc, screen: string, o: { fixture: string; params?: Record<string, unknown>; lang: Lang; widths: Widths; now?: number }): Promise<{ doc: Doc; widths: Widths; report: PreviewReport; world?: WorldMoment; fixture: { id: string; name: string; scene: string } }> {
+  const scene = await fixtureScene(doc, o.fixture);
+  const shown = await previewScreen(doc, screen, { scenario: scene.scenario, params: o.params, lang: o.lang, widths: o.widths, now: o.now });
+  const widths = { ...o.widths, ...shown.widths };
+  const fixture = { id: scene.id, name: scene.name, scene: scene.scenario };
+  const world = await worldAt(shown.doc, { script: scene.world, at: 0, screen, widths });
+  return world.moment.views.length ? { doc: world.doc, widths, report: shown.report, world: world.moment, fixture } : { doc: shown.doc, widths, report: shown.report, fixture };
 }

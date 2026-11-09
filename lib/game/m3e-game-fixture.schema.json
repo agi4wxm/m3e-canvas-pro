@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:m3e:schema:m3e-game-fixture:1",
+  "title": "M3E game fixture (m3e-game-fixture, version 1)",
+  "description": "One known state of a game, written by its game loop for M3E to show: the world's snapshot as its view() gives it, and what each of the contract's commands sent as calls answers in that state (the low-frequency state: the gems left, what a summon gives, a check-in that is cooling down). Written against one gameplay contract (m3e-game), named by its namespace and version. M3E reads it and never writes it (docs/玩法契约.md, “fixture”).",
+  "type": "object",
+  "properties": {
+    "format": { "const": "m3e-game-fixture" },
+    "version": { "const": 1 },
+    "namespace": { "type": "string", "pattern": "^[a-z][a-zA-Z0-9]{0,31}$", "description": "The namespace of the gameplay contract it was written against: game." },
+    "contractVersion": { "type": "string", "minLength": 1, "maxLength": 64, "description": "The version of that contract (its contractVersion): a fixture of another version is still read, and the difference said." },
+    "id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,47}$", "description": "What names it among the game loop's fixtures: low-gems, day-12. Importing one of the same id again replaces it." },
+    "name": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "summary": { "type": "string", "maxLength": 2000 },
+    "snapshot": { "type": "object", "description": "The world's snapshot in this state, as the contract's snapshot schema says it." },
+    "answers": {
+      "type": "object",
+      "description": "By command (one the contract sends as a call): what it answers in this state, its result or one of its rejections. A command left out is answered as the mock library makes its answers.",
+      "maxProperties": 200,
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "result": { "description": "What the command answers, as the contract's result schema says it." },
+          "rejection": { "type": "string", "pattern": "^[a-z][a-z0-9-]{0,47}$", "description": "The code it refuses with: one of the command's rejections." },
+          "detail": { "type": "string", "maxLength": 2000, "description": "With a rejection: the problem's detail, in the game loop's words." }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": ["format", "version", "namespace", "contractVersion", "id", "name", "snapshot"],
+  "additionalProperties": false
+}
