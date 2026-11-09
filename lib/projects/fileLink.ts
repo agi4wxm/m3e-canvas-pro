@@ -115,9 +115,9 @@ export async function readFromDisk(handle: FileSystemHandle): Promise<{ doc: Doc
     if (!main) return { doc: null, text: null, name: dir.name };
     const text = await (await main.getFile()).text();
     const doc = await readProjectText(text, (p) => readBytes(dir, p));
-    if (!doc?.game?.path) return { doc, text, name: dir.name };
+    if (!doc) return { doc, text, name: dir.name };
     const read = await refreshGame(doc as Doc & Record<string, unknown>, (p) => readInFolder(dir as unknown as FolderLike, p));
-    return { doc: read.doc, text, name: dir.name, game: read.refresh };
+    return { doc: read.doc, text, name: dir.name, ...(read.refresh.status === "none" ? {} : { game: read.refresh }) };
   }
   const file = await (handle as FileHandle).getFile();
   const text = await file.text();

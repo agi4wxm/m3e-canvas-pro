@@ -471,10 +471,11 @@ function cleanExternal(v: unknown): ExternalFiles | undefined {
   if (!isRecord(v)) return undefined;
   const built: ExternalFiles = {};
   if (typeof v.assetManifest === "string" && ASSET_PATH.test(v.assetManifest)) built.assetManifest = v.assetManifest;
+  if (typeof v.gameContract === "string" && ASSET_PATH.test(v.gameContract)) built.gameContract = v.gameContract;
   const out = withUnknown(v, built, EXTERNAL_KEYS);
   return Object.keys(out).length ? out : undefined;
 }
-const EXTERNAL_KEYS = new Set(["assetManifest"]);
+const EXTERNAL_KEYS = new Set(["assetManifest", "gameContract"]);
 
 export function cleanBehavior(doc: Doc): Doc {
   const out: Doc = { ...doc, frames: doc.frames.map(cleanFrame), groups: cappedNesting(doc.groups.map(cleanGroup)) };
@@ -526,7 +527,7 @@ export function cleanBehavior(doc: Doc): Doc {
     else delete out.materials;
   }
   /* the link to the gameplay contract (lib/game): its contract is the game loop's, read again as its format allows and
-     never mended; one that is not a contract any more is no link, and the path is one inside the project's folder */
+     never mended; one that is not a contract any more is no link (where its file is, is `external.gameContract`) */
   if (out.game !== undefined) {
     const game = cleanGameLink(out.game);
     if (game) out.game = game;

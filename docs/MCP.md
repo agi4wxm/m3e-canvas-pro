@@ -374,7 +374,7 @@ npx playwright install chromium
 | `remove_capability` | 数据与交互 |  | 是 | Removes a capability the product declared (declare_capability). |
 | `use_capabilities` | 数据与交互 |  |  | Says the product uses these capabilities beyond the ones its designs invoke or draw (those count anyway): an event such as push.opened, or one only the code will invoke. |
 | `import_game_contract` | 数据与交互 |  |  | Links the game loop's gameplay contract (an m3e-game file, version 1: its commands, rejection codes, events, snapshot, clock, facts), read-only, in place of the one before: each c… |
-| `remove_game_contract` | 数据与交互 |  | 是 | Unlinks the gameplay contract: the operations and mock scenarios it made go with it. |
+| `remove_game_contract` | 数据与交互 |  | 是 | Unlinks the gameplay contract: the operations and mock scenarios it made go with it, and so does where the project read it from. |
 | `add_data_source` | 数据与交互 |  |  | Makes a screen load data from an endpoint: read as data.&lt;name> (value, items, status, loading, error, hasMore, empty). |
 | `update_data_source` | 数据与交互 |  |  | Changes a screen's data source: its endpoint, params, body, when it loads, pull to refresh, paging, page size (null clears one), or its name (rename: the screen's expressions, the… |
 | `remove_data_source` | 数据与交互 |  | 是 | Stops a screen loading a data source; what reads data.&lt;name> reads nothing. |

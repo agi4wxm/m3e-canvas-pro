@@ -15,7 +15,7 @@ async function importContract(page: Page, file: string) {
   await settle(page, 900);
 }
 
-type Saved = { game?: { path?: string; contract: { contractVersion: string } }; api?: { endpoints?: { operationId: string }[] }; mocks?: { scenarios?: { id: string }[] } };
+type Saved = { external?: { gameContract?: string }; game?: { contract: { contractVersion: string } }; api?: { endpoints?: { operationId: string }[] }; mocks?: { scenarios?: { id: string }[] } };
 
 export const tests: E2ETest[] = [
   {
@@ -31,7 +31,7 @@ export const tests: E2ETest[] = [
       await importContract(page, file);
       const doc = (await savedDoc(page)) as unknown as Saved;
       equal(doc.game?.contract.contractVersion, "1.0.0", "the contract is linked");
-      equal(doc.game?.path, "contract.m3e-game.json", "beside the project, by its file's name");
+      equal(doc.external?.gameContract, "contract.m3e-game.json", "read beside the project, by its file's name (the project's configuration)");
       equal(doc.api?.endpoints?.map((e) => e.operationId).filter((id) => id.startsWith("game.")), ["game.pull", "game.checkIn"], "its commands are the API's game.* operations");
       equal(doc.mocks?.scenarios?.map((s) => s.id).filter((id) => id.startsWith("game.")), ["game.pull.insufficient-resources", "game.pull.pool-closed", "game.checkIn.cooldown"], "each refusal is a scenario of the mocks");
 

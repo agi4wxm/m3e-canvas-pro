@@ -1571,13 +1571,19 @@ export type Doc = {
   /** the document's materials (lib/material.ts, docs/m3e-material.md), imported from material packs; a `material` layer
    *  of a look (`ItemLook.fills`) names one by id */
   materials?: MaterialDef[];
-  /** The gameplay contract the design is written to (lib/game, docs/玩法契约.md): the game loop's, read from the file
-   *  `path` names (beside a folder project), read-only; its commands are the API's `<namespace>.*` operations */
+  /** The gameplay contract the design is written to (lib/game, docs/玩法契约.md): the game loop's, as last read from the
+   *  file `external.gameContract` names (beside a folder project), read-only; its commands are the API's
+   *  `<namespace>.*` operations */
   game?: GameLink;
 };
 
 /** where the files of the outside modules are, by what they are (lib/assetCatalog.ts `assetManifestPathOf`) */
-export type ExternalFiles = { assetManifest?: string };
+export type ExternalFiles = {
+  assetManifest?: string;
+  /** the game loop's gameplay contract (lib/game, docs/玩法契约.md), `game-contract.m3e-game.json` beside the project
+   *  file when left out; read when the document links one */
+  gameContract?: string;
+};
 
 export const defaultTabs = (): NavTab[] => NAV_TABS[getLang()].map((t) => ({ ...t }));
 

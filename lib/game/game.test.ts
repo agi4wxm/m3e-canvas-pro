@@ -31,6 +31,8 @@ import {
   GAME_CONTRACT_SCHEMA,
   gameEndpoints,
   gameGaps,
+  gameHubGaps,
+  gapWhere,
   gameRefusals,
   gameScenarios,
   linkGame,
@@ -187,7 +189,7 @@ describe("the summon and the check-in, answered by the game loop's contract", ()
     expect(doc.api?.endpoints?.map((e) => e.operationId)).toEqual(["game.pull", "game.checkIn"]);
     expect(doc.vars?.map((v) => v.name)).toEqual(["summonIssue"]);
     expect(gameGaps(doc)).toEqual([]);
-    const theirs = linkGame({ groups: [], frames: [] }, EXAMPLE_GAME_CONTRACT, { path: "game-loop/contract.m3e-game.json" }).doc;
+    const theirs = linkGame({ groups: [], frames: [] }, EXAMPLE_GAME_CONTRACT).doc;
     const again = withTemplate("daily-check-in", theirs);
     expect(again.game).toEqual(theirs.game);
   });
@@ -233,9 +235,10 @@ describe("the contract in the document", () => {
     /* an OpenAPI file of the author's, even one replacing the whole HTTP half, leaves them as the game loop said */
     s.run(ops.importOpenApi, { text: "openapi: 3.1.0\ninfo: {title: Mine, version: '1'}\npaths:\n  /me:\n    get: {operationId: getMe, responses: {'200': {description: OK}}}\n", mode: "replace" }, mcp);
     expect(s.get().doc.api?.endpoints?.map((e) => e.operationId)).toEqual(["getMe", "game.pull", "game.checkIn"]);
-    expect(s.get().doc.game?.path).toBe("game-loop/contract.m3e-game.json");
+    expect(s.get().doc.external).toEqual({ gameContract: "game-loop/contract.m3e-game.json" });
     s.run(ops.removeGameContract, {}, mcp);
     expect(s.get().doc.game).toBeUndefined();
+    expect(s.get().doc.external).toBeUndefined();
     expect(s.get().doc.api?.endpoints?.map((e) => e.operationId)).toEqual(["getMe"]);
     expect(s.get().doc.mocks?.scenarios ?? []).toEqual([]);
   });
@@ -277,11 +280,18 @@ describe("the contract in the document", () => {
         },
       ],
     } as unknown as Doc;
-    expect(gameGaps(doc).map((g) => `${g.kind} ${g.ref} @ ${g.where}`)).toEqual([
-      "event event dodged @ screen home part w on:dodged",
-      "input input jump @ screen home part b",
-      "input input attack @ screen home part b",
-      "fact game.purchaseSettled @ screen home part b",
+    expect(gameGaps(doc).map((g) => `${g.kind} ${g.ref} ${g.reason} @ ${gapWhere(g.where)}`)).toEqual([
+      "event event dodged missing @ screen Home, part w, on:dodged",
+      "input input jump missing @ screen Home, part b, action",
+      "input input attack wrong-type @ screen Home, part b, action",
+      "fact game.purchaseSettled not-the-apps @ screen Home, part b, action",
+    ]);
+    /* in the gap file's format, for the export's report: module game-loop, every place it is leaned on */
+    expect(gameHubGaps(doc).map((g) => [g.kind, g.module, g.ref, g.reason, g.where])).toEqual([
+      ["game-event", "game-loop", "event dodged", "missing", [{ screen: "Home", part: "w", prop: "on:dodged" }]],
+      ["game-input", "game-loop", "input jump", "missing", [{ screen: "Home", part: "b", prop: "action" }]],
+      ["game-input", "game-loop", "input attack", "wrong-type", [{ screen: "Home", part: "b", prop: "action" }]],
+      ["game-fact", "game-loop", "game.purchaseSettled", "not-the-apps", [{ screen: "Home", part: "b", prop: "action" }]],
     ]);
   });
 
@@ -322,7 +332,7 @@ function folder(files: Record<string, string>, name = "proj"): FolderLike & { ki
 }
 
 describe("the contract's path, the project's setting for it", () => {
-  const linked = (path: string) => linkGame({ groups: [], frames: [{ id: "home", name: "Home", x: 0, y: 0 }] } as unknown as Doc & Record<string, unknown>, EXAMPLE_GAME_CONTRACT, { path }).doc;
+  const linked = (path?: string) => ({ ...linkGame({ groups: [], frames: [{ id: "home", name: "Home", x: 0, y: 0 }] } as unknown as Doc & Record<string, unknown>, EXAMPLE_GAME_CONTRACT).doc, ...(path ? { external: { gameContract: path } } : {}) });
 
   it("is read again beside a folder project as it is opened: the same, changed, gone or no contract", async () => {
     const doc = linked("game-loop/contract.m3e-game.json");
@@ -331,7 +341,16 @@ describe("the contract's path, the project's setting for it", () => {
     const v2 = { ...JSON.parse(FILE), contractVersion: "1.1.0" };
     const updated = await refreshGame(doc, read({ "game-loop/contract.m3e-game.json": JSON.stringify(v2) }));
     expect(updated.refresh).toMatchObject({ status: "updated", report: { contractVersion: "1.1.0", previousVersion: "1.0.0" } });
-    expect(updated.doc.game).toMatchObject({ path: "game-loop/contract.m3e-game.json", contract: { contractVersion: "1.1.0" } });
+    expect(updated.doc.game).toMatchObject({ contract: { contractVersion: "1.1.0" } });
+    expect(updated.doc.external).toEqual({ gameContract: "game-loop/contract.m3e-game.json" });
+    /* with no path of its own the project reads it beside the project file; with no contract and no path, nothing */
+    expect((await refreshGame(linked(), read({ "game-contract.m3e-game.json": JSON.stringify(v2) }))).refresh).toMatchObject({ status: "updated" });
+    expect((await refreshGame({ groups: [], frames: [] }, read({ "game-contract.m3e-game.json": FILE }))).refresh).toEqual({ status: "none" });
+    /* M3E's example gives way to the game loop's when the folder has it, and is kept quietly when it has not */
+    const example = linkGame({ groups: [], frames: [] }, EXAMPLE_GAME_CONTRACT, { example: true }).doc;
+    expect((await refreshGame(example, read({}))).refresh).toEqual({ status: "none" });
+    const real = await refreshGame(example, read({ "game-contract.m3e-game.json": JSON.stringify(v2) }));
+    expect(real.doc.game?.example).toBeUndefined();
     expect((await refreshGame(doc, read({}))).refresh).toEqual({ status: "missing", path: "game-loop/contract.m3e-game.json" });
     expect((await refreshGame(doc, read({ "game-loop/contract.m3e-game.json": "{}" }))).refresh).toMatchObject({ status: "invalid" });
   });
@@ -350,8 +369,9 @@ describe("the contract's path, the project's setting for it", () => {
     const back = openProject(JSON.parse(JSON.stringify(projectFile(doc as Doc))))!;
     expect(back.game).toEqual(doc.game);
     const raw = JSON.parse(JSON.stringify(projectFile(doc as Doc)));
-    raw.document.game.path = "../../etc/passwd";
-    expect(openProject(raw)!.game?.path).toBeUndefined();
+    expect(back.external).toEqual({ gameContract: "game-loop/contract.m3e-game.json" });
+    raw.document.external.gameContract = "../../etc/passwd";
+    expect(openProject(raw)!.external).toBeUndefined();
     raw.document.game.contract.commands.pull.via = "telepathy";
     expect(openProject(raw)!.game).toBeUndefined();
   });

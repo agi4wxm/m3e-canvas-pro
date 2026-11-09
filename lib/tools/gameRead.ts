@@ -2,7 +2,7 @@
  * calls and input actions a design makes, each refusal with the condition a catch branches on, its events, snapshot,
  * clock and facts, and what in the design no longer matches it. It changes nothing. */
 
-import { apiCommands, gameGaps, gameInputsText, gameOperationId, refusalsOf, type GameContract } from "../game";
+import { apiCommands, gameContractPathOf, gameGaps, gameInputsText, gameOperationId, gapWhere, refusalsOf, type GameContract } from "../game";
 import type { JsonSchema } from "../api/types";
 import { tool, type Tool } from "./types";
 
@@ -19,9 +19,9 @@ function fields(schema: JsonSchema | undefined): string {
     .join(", ");
 }
 
-export function gameOutline(c: GameContract, path: string | undefined, example: boolean): string[] {
+export function gameOutline(c: GameContract, path: string, example: boolean): string[] {
   const lines = [
-    `Gameplay contract ${c.namespace} ${c.contractVersion}${example ? " (M3E's example, standing in until the game loop's own is linked)" : ""}${path ? `, read from ${path} beside the project` : ""}: the game loop's, read-only. ${c.summary ?? ""}`.trim(),
+    `Gameplay contract ${c.namespace} ${c.contractVersion}${example ? " (M3E's example, standing in until the game loop's own is linked)" : ""}${example ? "" : `, read from ${path} in the project's folder (external.gameContract)`}: the game loop's, read-only. ${c.summary ?? ""}`.trim(),
     "Commands sent as calls ({do: \"call\", operationId, args: {param: expression}, then: reads response, catch: reads error}; branch the catch on a refusal with when: {expr: <condition>}, else: ...):",
   ];
   for (const [name, cmd] of apiCommands(c)) {
@@ -53,7 +53,7 @@ const getGameContract = tool<Record<string, never>>({
     if (!link) return { result: "The document links no gameplay contract. A game loop's contract file (format m3e-game) is linked with import_game_contract; the game templates (gacha-pull, daily-check-in) bring M3E's example one." };
     const gaps = gameGaps(doc);
     return {
-      result: [...gameOutline(link.contract, link.path, !!link.example), "", gaps.length ? `Gaps (${gaps.length}):\n${gaps.slice(0, 40).map((g) => `- ${g.kind} ${g.ref} at ${g.where}: ${g.detail}`).join("\n")}` : "Gaps: none, the design matches the contract."].join("\n"),
+      result: [...gameOutline(link.contract, gameContractPathOf(doc), !!link.example), "", gaps.length ? `Gaps (${gaps.length}):\n${gaps.slice(0, 40).map((g) => `- ${g.kind} ${g.ref} (${g.reason}) at ${gapWhere(g.where)}: ${g.detail}`).join("\n")}` : "Gaps: none, the design matches the contract."].join("\n"),
     };
   },
 });

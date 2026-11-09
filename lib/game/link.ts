@@ -1,9 +1,10 @@
-/* A document's link to its gameplay contract (`Doc.game`, docs/玩法契约.md): where the contract file is, relative to
- * the project (the project's one setting for it: a folder project reads the file there each time it is opened, the
- * hub decision's "depend on the format, not the location"), the contract as last read, and its hash. The contract is
- * kept so a shared link or the browser's copy still knows it, but it is never edited: it changes only by reading the
- * file again (`linkGame`), which replaces every operation and scenario it made and says what in the design no longer
- * matches it (gaps.ts). */
+/* A document's link to its gameplay contract (`Doc.game`, docs/玩法契约.md): the contract as last read, and its hash.
+ * Where the file is is the project's configuration, beside the asset manifest's (`Doc.external.gameContract`, a path
+ * inside the project's folder, `game-contract.m3e-game.json` by default: the hub decision's "depend on the format, not
+ * the location"); a folder project reads it there each time it is opened (folder.ts). The contract is kept so a shared
+ * link or the browser's copy still knows it, but it is never edited: it changes only by reading the file again
+ * (`linkGame`), which replaces every operation and scenario it made and says what in the design no longer matches it
+ * (gaps.ts). */
 
 import { cleanApi } from "../api/clean";
 import type { ApiSpec } from "../api/types";
@@ -11,14 +12,12 @@ import { cleanMocks } from "../mocks/clean";
 import { hash53 } from "../mocks/rng";
 import type { MockSpec } from "../mocks/types";
 import type { Doc } from "../tokens";
+import { ASSET_PATH } from "../assetManifest";
 import { apiCommands, inputCommands, readGameContract, type GameContract } from "./format";
 import { gameEndpoints, gameModels, gameRefusals, gameScenarios, isGameEndpoint, refusalScenarioId } from "./map";
 import { gameGaps, type GameGap } from "./gaps";
 
 export type GameLink = {
-  /** Where the contract file is, relative to the project's folder (`game-loop/contract.m3e-game.json`): what a folder
-   *  project reads it from. Left out, the contract came from a file picked by hand, or is M3E's example. */
-  path?: string;
   /** the hash of the contract as last read: a file that reads the same is not imported again */
   hash: string;
   /** the contract as last read, read-only */
@@ -30,25 +29,24 @@ export type GameLink = {
 /** the hash of a contract: of what it says, not of how its file is spaced */
 export const contractHash = (c: GameContract) => hash53(JSON.stringify(c)).toString(36);
 
-/** A path a project may name its contract by: relative, inside the project's folder, with `/` between its steps. */
-export function cleanGamePath(v: unknown): string | undefined {
-  if (typeof v !== "string") return undefined;
-  const p = v.trim().replace(/\\/g, "/").replace(/^\.\//, "");
-  // eslint-disable-next-line no-control-regex -- a path with control characters is no path
-  if (!p || p.length > 500 || p.startsWith("/") || /^[A-Za-z]:/.test(p) || /[\u0000-\u001f]/.test(p)) return undefined;
-  const steps = p.split("/");
-  return steps.every((s) => s && s !== "." && s !== "..") ? steps.join("/") : undefined;
-}
+/** where a project looks for its gameplay contract when its configuration names no other place: beside the project file */
+export const DEFAULT_GAME_CONTRACT_PATH = "game-contract.m3e-game.json";
+
+/** A path a project may name its contract by: one inside the project's folder, as the asset manifest's (lib/assetManifest.ts
+ *  `ASSET_PATH`): `/`-separated names, none empty, `.` or `..`, no drive or backslash. */
+export const cleanGamePath = (v: unknown): string | undefined => (typeof v === "string" && ASSET_PATH.test(v) ? v : undefined);
+
+/** where the project's gameplay contract is: what its configuration says, else beside the project file */
+export const gameContractPathOf = (doc: { external?: { gameContract?: unknown } } | null | undefined): string => cleanGamePath(doc?.external?.gameContract) ?? DEFAULT_GAME_CONTRACT_PATH;
 
 /** The link as a document may hold it: its contract read again as the format allows (one that is not a contract any
- *  more is no link), its path a relative one, its hash the contract's. */
+ *  more is no link), its hash the contract's. */
 export function cleanGameLink(v: unknown): GameLink | undefined {
   if (!v || typeof v !== "object" || Array.isArray(v)) return undefined;
   const o = v as Record<string, unknown>;
   const read = readGameContract(o.contract);
   if (!read.contract) return undefined;
-  const path = cleanGamePath(o.path);
-  return { ...(path ? { path } : {}), hash: contractHash(read.contract), contract: read.contract, ...(o.example === true ? { example: true as const } : {}) };
+  return { hash: contractHash(read.contract), contract: read.contract, ...(o.example === true ? { example: true as const } : {}) };
 }
 
 /** What changed between two contracts, in words a person and a model read: each a command, a rejection, an input, an
@@ -111,7 +109,7 @@ export function withoutGameMocks(mocks: MockSpec | undefined, was: GameContract 
 /** The document's API, mocks and link with a contract linked in its place of any before: the operations it is sent as
  *  replace the old contract's (an operation of the author's of the same id stays, and the contract's is not added),
  *  its refusals' scenarios replace the old ones, and what in the design no longer matches is listed. */
-export function linkGame<D extends LinkTarget & Record<string, unknown>>(doc: D, contract: GameContract, o: { path?: string; example?: boolean } = {}): { doc: D & LinkTarget & { game: GameLink }; report: GameImportReport } {
+export function linkGame<D extends LinkTarget & Record<string, unknown>>(doc: D, contract: GameContract, o: { example?: boolean } = {}): { doc: D & LinkTarget & { game: GameLink }; report: GameImportReport } {
   const was = doc.game?.contract;
   const hash = contractHash(contract);
   const api = withoutGameApi(doc.api) ?? {};
@@ -124,8 +122,7 @@ export function linkGame<D extends LinkTarget & Record<string, unknown>>(doc: D,
   const taken = new Set((mocks.scenarios ?? []).map((s) => s.id));
   const scenarios = gameScenarios(contract).filter((s) => !taken.has(s.id) && endpoints.some((e) => s.ops?.[e.operationId]));
   const nextMocks = scenarios.length || doc.mocks ? cleanMocks({ ...mocks, scenarios: [...(mocks.scenarios ?? []), ...scenarios] }) : undefined;
-  const path = cleanGamePath(o.path) ?? (o.path === undefined ? doc.game?.path : undefined);
-  const game: GameLink = { ...(path ? { path } : {}), hash, contract, ...(o.example ? { example: true as const } : {}) };
+  const game: GameLink = { hash, contract, ...(o.example ? { example: true as const } : {}) };
   const next = { ...doc, api: nextApi, mocks: nextMocks, game } as D & LinkTarget & { game: GameLink };
   if (!nextApi) delete (next as LinkTarget).api;
   if (!nextMocks) delete (next as LinkTarget).mocks;
