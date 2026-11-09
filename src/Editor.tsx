@@ -301,6 +301,7 @@ export default function Editor({ initialLang, onReady, persist = editorProjects(
   const materialFileRef = useRef<HTMLInputElement>(null);
   /* the game loop's gameplay contract picked to be linked (lib/game): read-only, in place of the one before */
   const gameFileRef = useRef<HTMLInputElement>(null);
+  const fixtureFileRef = useRef<HTMLInputElement>(null);
 
   const p = useMemo(() => paletteOf(paletteKey, customPalette, theme), [paletteKey, customPalette, theme]);
   /* corner helpers read the shape scale outside React; keep it current before anything renders */
@@ -1001,6 +1002,15 @@ export default function Editor({ initialLang, onReady, persist = editorProjects(
     if (!done) return;
     if (done.gaps.length) showToast(t("gcBroke", lang).replace("{version}", done.contractVersion).replace("{n}", String(done.gaps.length)), 5000, "error");
     else showToast(t("gcImported", lang).replace("{version}", done.contractVersion), 2000, "check");
+  };
+  /* a game loop's fixture: a known state of the game, made a mock scene the preview starts in (lib/game/fixture.ts) */
+  const importFixtureFile = async (file: File) => {
+    const text = await file.text().catch(() => "");
+    const done = runOp(ops.importGameFixture, { text, path: file.name }, { refused: () => showToast(t("gfInvalid", lang), 3000, "error") });
+    if (!done) return;
+    const v = done.versionMismatch;
+    if (v) showToast(t("gfVersion", lang).replace("{name}", done.name).replace("{fixture}", v.fixture).replace("{contract}", v.contract), 5000, "error");
+    else showToast(t("gfImported", lang).replace("{name}", done.name), 2000, "check");
   };
   const importMaterialFile = async (file: File) => {
     let parsed: unknown = null;
@@ -1926,6 +1936,7 @@ export default function Editor({ initialLang, onReady, persist = editorProjects(
                   onDownload: project.downloadCopy,
                   onImportMaterials: () => materialFileRef.current?.click(),
                   onImportGameContract: () => gameFileRef.current?.click(),
+                  onImportGameFixture: () => fixtureFileRef.current?.click(),
                   onStopSaving: project.link ? project.stopSaving : undefined,
                   onSaveState: project.projects ? project.openSaveState : undefined,
                   canSync: project.canSyncFile && !!project.projects,
@@ -2339,6 +2350,19 @@ export default function Editor({ initialLang, onReady, persist = editorProjects(
             const file = e.target.files?.[0];
             e.target.value = "";
             if (file) void importGameFile(file);
+          }}
+        />
+
+        <input
+          ref={fixtureFileRef}
+          type="file"
+          accept=".m3e-fixture.json,.json,application/json"
+          hidden
+          data-game-fixture-input
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            e.target.value = "";
+            if (file) void importFixtureFile(file);
           }}
         />
 

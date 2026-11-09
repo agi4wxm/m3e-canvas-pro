@@ -133,6 +133,8 @@ export type ProjectMenuActions = {
   onImportMaterials?: () => void;
   /** links the game loop's gameplay contract (.m3e-game.json), read-only */
   onImportGameContract?: () => void;
+  /** imports one of the game loop's fixtures (.m3e-fixture.json) as a mock scene */
+  onImportGameFixture?: () => void;
   onStopSaving?: () => void;
   /** where the browser's copy and the file's stand, at any time */
   onSaveState?: () => void;
@@ -182,6 +184,7 @@ export function ProjectMenu({ p, close, a }: { p: Palette; close: () => void; a:
       {a.onImportMaterials && rule("c")}
       {a.onImportMaterials && row("texture", t("mtImport", lang), a.onImportMaterials, { hint: t("mtImportHint", lang) })}
       {a.onImportGameContract && row("sports_esports", t("gcImport", lang), a.onImportGameContract, { hint: t("gcImportHint", lang) })}
+      {a.onImportGameFixture && row("photo_camera", t("gfImport", lang), a.onImportGameFixture, { hint: t("gfImportHint", lang) })}
     </div>
   );
 }

@@ -211,7 +211,7 @@ npx playwright install chromium
 
 <!-- tools:start (bun run mcp:docs) -->
 
-共 184 个工具：服务器环境里没有 OPENAI_API_KEY 时不含“生成”组，只读会话只列出“只读”一栏为“是”的，`undo`、`redo`、`export_product` 只在文件模式里有。说明取自工具给模型看的描述。
+共 187 个工具：服务器环境里没有 OPENAI_API_KEY 时不含“生成”组，只读会话只列出“只读”一栏为“是”的，`undo`、`redo`、`export_product` 只在文件模式里有。说明取自工具给模型看的描述。
 
 | 工具 | 组 | 只读 | 需作者确认 | 说明 |
 | --- | --- | --- | --- | --- |
@@ -241,6 +241,7 @@ npx playwright install chromium
 | `list_capabilities` | 读取 | 是 |  | The platform capabilities (payment, sign-in with another service, location, scanning, push, share, clipboard, links, files, analytics, biometrics, calls; the views of a map, a cam… |
 | `list_assets` | 读取 | 是 |  | The asset pipeline's assets this project can use, from its asset manifest (read from the project's folder): each one's id, type (image, icon, video, audio, model, animation), size… |
 | `get_game_contract` | 读取 | 是 |  | The document's gameplay contract, the game loop's (read-only): each command as the call a design makes (operationId game.&lt;command>, its args and response) with every refusal an… |
+| `list_game_fixtures` | 读取 | 是 |  | The game loop's fixtures the document has imported (import_game_fixture): known states of the game, each a mock scene fixture.&lt;id> (a scenario its game.* calls answer in, and a… |
 | `describe_bindings` | 读取 | 是 |  | How a screen is bound to the API: its params and sign-in, each data source (endpoint, params, paging, and the paths it offers: data.&lt;name>.items[], value fields), its regions w… |
 | `sample_colors` | 读取 | 是 |  | Measures the colors of a picture: an attached reference (ref1…) or a screen or part of the canvas. |
 | `compare_to_reference` | 读取 | 是 |  | Holds a screen of the canvas against the reference picture it copies: draws the screen, hands back both pictures (the reference first), and lays them over each other in a grid, gi… |
@@ -377,6 +378,8 @@ npx playwright install chromium
 | `use_capabilities` | 数据与交互 |  |  | Says the product uses these capabilities beyond the ones its designs invoke or draw (those count anyway): an event such as push.opened, or one only the code will invoke. |
 | `import_game_contract` | 数据与交互 |  |  | Links the game loop's gameplay contract (an m3e-game file, version 1: its commands, rejection codes, events, snapshot, clock, facts), read-only, in place of the one before: each c… |
 | `remove_game_contract` | 数据与交互 |  | 是 | Unlinks the gameplay contract: the operations and mock scenarios it made go with it, and so does where the project read it from. |
+| `import_game_fixture` | 数据与交互 |  |  | Imports one of the game loop's fixtures (an m3e-game-fixture file, version 1: one known state of the game, its world snapshot and what each game.* command answers in it), held to … |
+| `remove_game_fixture` | 数据与交互 |  | 是 | Removes one of the game loop's fixtures from the document, and the mock scene it made (its scenario and world script); the preview no longer starts in it. |
 | `add_data_source` | 数据与交互 |  |  | Makes a screen load data from an endpoint: read as data.&lt;name> (value, items, status, loading, error, hasMore, empty). |
 | `update_data_source` | 数据与交互 |  |  | Changes a screen's data source: its endpoint, params, body, when it loads, pull to refresh, paging, page size (null clears one), or its name (rename: the screen's expressions, the… |
 | `remove_data_source` | 数据与交互 |  | 是 | Stops a screen loading a data source; what reads data.&lt;name> reads nothing. |
