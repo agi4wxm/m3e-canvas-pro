@@ -12,6 +12,7 @@ import type { ApiSpec } from "./api/types";
 import type { MockSpec } from "./mocks/types";
 import type { CapabilitySpec } from "./capabilities/types";
 import type { MaterialDef, MaterialLayer } from "./material";
+import type { GameLink } from "./game/link";
 import { fields, withUnknown } from "./keep";
 import { mapAction, mapBody, mapCondition, type RefMap } from "./refs";
 import type { FrameFocus, ItemFocus } from "./focus/model";
@@ -1582,10 +1583,19 @@ export type Doc = {
    *  actions' own over the defaults (lib/focus/inputs.ts, docs/焦点与输入.md); left out, each action takes the defaults
    *  in turn (WASD and the arrows, the left stick; Space, J, K…; A, X, Y…). */
   inputs?: InputMap;
+  /** The gameplay contract the design is written to (lib/game, docs/玩法契约.md): the game loop's, as last read from the
+   *  file `external.gameContract` names (beside a folder project), read-only; its commands are the API's
+   *  `<namespace>.*` operations */
+  game?: GameLink;
 };
 
 /** where the files of the outside modules are, by what they are (lib/assetCatalog.ts `assetManifestPathOf`) */
-export type ExternalFiles = { assetManifest?: string };
+export type ExternalFiles = {
+  assetManifest?: string;
+  /** the game loop's gameplay contract (lib/game, docs/玩法契约.md), `game-contract.m3e-game.json` beside the project
+   *  file when left out; read when the document links one */
+  gameContract?: string;
+};
 
 export const defaultTabs = (): NavTab[] => NAV_TABS[getLang()].map((t) => ({ ...t }));
 
