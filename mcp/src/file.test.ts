@@ -252,7 +252,7 @@ describe("the MCP server on a project file", () => {
       ...doc,
       futureSection: { kept: [1, 2] },
       frames: doc.frames.map((f) => ({ ...f, futureFrame: "x" })),
-      groups: [{ ...g, futureGroup: true, items: [{ ...g.items[0], futureItem: { a: 1 }, props: { ...g.items[0].props, futureProp: 3 }, action: { to: "none", transition: "none", futureTap: 1, effects: [{ do: "invoke", capability: "pay" }] } }] }, ...doc.groups.slice(1)],
+      groups: [{ ...g, futureGroup: true, items: [{ ...g.items[0], futureItem: { a: 1 }, props: { ...g.items[0].props, futureProp: 3 }, action: { to: "none", futureTap: 1, effects: [{ do: "invoke", capability: "pay" }] } }] }, ...doc.groups.slice(1)],
     };
     writeFileSync(path, serializeProject(future as never).text);
     const s = await connect({ file: path });

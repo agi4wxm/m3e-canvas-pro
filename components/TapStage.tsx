@@ -1,9 +1,10 @@
 
 import { useEffect, useRef, useState } from "react";
 import { motion, useReducedMotion } from "motion/react";
-import { Action, BACK_TARGET, Frame, LINK_TARGET, Palette, Transition, frameSizeOf, linkHostOf, linkUrlOf } from "@/lib/tokens";
+import { Action, BACK_TARGET, Frame, LINK_TARGET, Motion, Palette, frameSizeOf, linkHostOf, linkUrlOf } from "@/lib/tokens";
+import { motionOf } from "@/lib/prototype";
 import { Icon } from "./Icon";
-import { TransitionPicker } from "./Inspector";
+import { MotionPicker } from "./Inspector";
 import { Field } from "./ui";
 import { t, useLang } from "@/lib/i18n";
 
@@ -14,25 +15,22 @@ const LABEL_H = 18;
 const ARROW_W = 28;
 const GAP = 12;
 
-/** where the box inside the arriving screen starts; it always ends in place */
-function entryOf(tr: Transition, w: number, h: number): { x?: number; y?: number; opacity?: number; scale?: number } {
-  switch (tr) {
-    case "slide":
-      return { x: w, opacity: 0 };
-    case "slideLeft":
-      return { x: -w, opacity: 0 };
-    case "slideUp":
-      return { y: h * 0.7, opacity: 0 };
-    case "slideDown":
-      return { y: -h * 0.7, opacity: 0 };
-    case "fade":
+/** where the box inside the arriving screen starts, for the motion it comes in by; it always ends in place */
+function entryOf(m: Motion, w: number, h: number): { x?: number; y?: number; opacity?: number; scale?: number } {
+  switch (m.kind) {
+    case "dissolve":
       return { opacity: 0 };
     case "expand":
       return { scale: 0.5, opacity: 0 };
-    case "none":
+    case "instant":
       return {};
+    default:
+      return m.dir === "right" ? { x: -w, opacity: 0 } : m.dir === "up" ? { y: h * 0.7, opacity: 0 } : m.dir === "down" ? { y: -h * 0.7, opacity: 0 } : { x: w, opacity: 0 };
   }
 }
+
+/** a key that changes with a motion, so the stage plays it again when it is picked */
+const motionKey = (m: Motion) => `${m.kind}-${m.dir ?? ""}-${m.easing ?? ""}-${m.ms ?? ""}`;
 
 const LOOP = { duration: 0.6, ease: [0.2, 0, 0, 1] as const, repeat: Infinity, repeatDelay: 1.2 };
 /** someone who asked for less motion sees the box land once, and then stay */
@@ -202,7 +200,7 @@ export function TapStage({
       box={
         back ? (
           <motion.div
-            key={`out-${action?.transition}`}
+            key={`out-${action ? motionKey(motionOf(action)) : ""}`}
             initial={{ x: 0, opacity: 1 }}
             animate={{ x: fromRect.w, opacity: 0 }}
             transition={loop}
@@ -228,8 +226,8 @@ export function TapStage({
       dashed={back}
       box={
         <motion.div
-          key={`in-${action?.transition}-${to}`}
-          initial={back ? { x: -toRect.w, opacity: 0 } : entryOf(action?.transition ?? "slide", toRect.w, toRect.h)}
+          key={`in-${action ? motionKey(motionOf(action)) : ""}-${to}`}
+          initial={back ? { x: -toRect.w, opacity: 0 } : entryOf(motionOf(action ?? {}), toRect.w, toRect.h)}
           animate={{ x: 0, y: 0, opacity: 1, scale: 1 }}
           transition={loop}
           style={{ position: "absolute", inset: 0 }}
@@ -268,7 +266,7 @@ export function TapStage({
           <div style={{ position: "absolute", left: 12, right: 12, bottom: 10, fontSize: 12, lineHeight: 1.5, color: p.onSurfaceVariant, textAlign: "center" }}>{t("addFrameHint", lang)}</div>
         )}
       </div>
-      {target && action && <TransitionPicker value={action.transition} onChange={(transition) => onChange({ ...action, transition })} p={p} />}
+      {target && action && <MotionPicker value={action.motion} onChange={(motion) => onChange({ ...action, motion })} p={p} />}
     </div>
   );
 }
@@ -370,7 +368,7 @@ export function LinkStage({
       </div>
       <Field
         value={typed}
-        onChange={(url) => onChange({ ...action, to: LINK_TARGET, transition: action?.transition ?? "none", url })}
+        onChange={(url) => onChange({ ...action, to: LINK_TARGET, url })}
         placeholder="https://example.com"
         icon="link"
         p={p}

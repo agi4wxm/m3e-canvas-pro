@@ -132,7 +132,12 @@ function dataRepeats(g: Graded, f: Frame): { host: Group; source?: string; bound
     .filter((x) => x.repeat?.data !== undefined)
     .map((host) => {
       const source = /data\.([A-Za-z_]\w*)\./.exec(host.repeat!.data ?? "")?.[1];
-      const bound = inside(g, host).flatMap((x) => x.items).filter((it) => Object.values(it.bind ?? {}).some((v) => typeof v === "string" && v.startsWith("=") && /\bitem\b/.test(v))).length;
+      /* a part reads the element by a bind (`=item.title`) or by words that read it (`{{item.title}}`, filled in by
+         fillTemplate inside a repeat over data): both are a row bound to the data */
+      const reads = (it: Item) =>
+        Object.values(it.bind ?? {}).some((v) => typeof v === "string" && v.startsWith("=") && /\bitem\b/.test(v)) ||
+        Object.values(it.props ?? {}).some((v) => typeof v === "string" && /\{\{[^}]*\bitem\b[^}]*\}\}/.test(v));
+      const bound = inside(g, host).flatMap((x) => x.items).filter(reads).length;
       return { host, ...(source ? { source } : {}), bound };
     });
 }

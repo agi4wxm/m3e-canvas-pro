@@ -11,11 +11,30 @@ export type Place = { screen: string; params?: Record<string, unknown> };
 
 /* How many times the visitor has gone somewhere (a page opened or gone back from, a screen laid over another or taken
    off it): an answer that comes after one runs its effects but goes nowhere (lib/actions, docs/交互规则.md “迟到的回答”).
-   Counted as each move is asked for. */
+   Counted as each move is asked for, and as the platform makes one by itself: its back button, a swipe back, its tab
+   bar change the page stack with no page asked for here, which is seen the next time the moves are read. */
 let moves = 0;
 
-/** the visitor's moves so far */
-export const movesSoFar = () => moves;
+/** the page stack as the moves were last read, and whether a page has been asked for since */
+let pagesSeen: string | undefined;
+let asked = false;
+
+/** the page stack as words: each page's route and query, bottom to top */
+const pagesNow = () =>
+  Taro.getCurrentPages()
+    .map((p) => `${(p as { route?: string }).route ?? ""}?${JSON.stringify((p as { options?: unknown }).options ?? {})}`)
+    .join(" ");
+
+/** the visitor's moves so far: a page stack changed by the platform, no page having been asked for, is one more */
+export const movesSoFar = () => {
+  const now = pagesNow();
+  if (pagesSeen !== undefined && now !== pagesSeen) {
+    if (asked) asked = false;
+    else moves++;
+  }
+  pagesSeen = now;
+  return moves;
+};
 
 /** a move that is not a page's (a screen laid over this one, or taken off it) */
 export const moved = () => {
@@ -93,6 +112,7 @@ export function openPlace(spec: AppSpec, place: Place, o: { replace?: boolean } 
   const url = urlOf(spec, place);
   if (!url) return Promise.resolve();
   moved();
+  asked = true;
   last = { back: false };
   if (spec.screens[place.screen].tab !== undefined) return Taro.switchTab({ url }).catch(() => Taro.reLaunch({ url }));
   const full = Taro.getCurrentPages().length >= MAX_STACK - 1;
@@ -102,6 +122,7 @@ export function openPlace(spec: AppSpec, place: Place, o: { replace?: boolean } 
 /** back a page, with the back action's motion if it gave one; from the first page, to where the app starts */
 export function goBack(spec: AppSpec, o: BackOptions = {}): Promise<unknown> {
   moved();
+  asked = true;
   last = { back: true, ...(o.motion ? { motion: o.motion } : {}) };
   if (Taro.getCurrentPages().length > 1) return Taro.navigateBack({ delta: 1 });
   return Taro.reLaunch({ url: urlOf(spec, { screen: spec.start }) ?? "/" });

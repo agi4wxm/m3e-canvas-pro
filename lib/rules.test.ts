@@ -24,8 +24,8 @@ const tapOn = (doc: Doc, id: string): Action | undefined => doc.groups.flatMap((
 
 describe("one rule for a condition", () => {
   const cases: [string, unknown][] = [
-    ["a variable", { var: "on", op: "eq", value: true }],
-    ["a field of the row", { var: "row.title", op: "eq", value: "First" }],
+    ["a variable compared", { expr: "vars.on == true" }],
+    ["a field of the row compared", { expr: 'row.title == "First"' }],
     ["a filled part", { filled: "b" }],
     ["an expression", { expr: "vars.on" }],
     ["no object", "on"],
@@ -38,20 +38,30 @@ describe("one rule for a condition", () => {
 
   it.each(cases)("reading drops %s exactly when an operation refuses its shape, in the same words", (_, when) => {
     const rule = conditionRule(when);
-    const opened = openProject(docWith([part("b", "button", { action: { to: "none", transition: "none", when } })]))!;
+    const opened = openProject(docWith([part("b", "button", { action: { to: "none", when } })]))!;
     expect(tapOn(opened, "b")?.when === undefined).toBe(rule !== null);
     const store = storeOf(docWith([part("b", "button")]));
-    const run = () => store.run(ops.setAction, { id: "b", action: { to: "none", transition: "none", when: when as Condition } }, { origin: "mcp" });
+    const run = () => store.run(ops.setAction, { id: "b", action: { to: "none", when: when as Condition } }, { origin: "mcp" });
     if (rule) expect(run).toThrow(rule);
     else expect(run).not.toThrow();
   });
 
-  it("takes a field of the row, as the guide says, where it took only the document's variables", () => {
+  it("reads the older comparison as the expression it is, in a file and in an operation, the row's field too", () => {
+    for (const [when, expr] of [
+      [{ var: "on", op: "eq", value: true }, "vars.on == true"],
+      [{ var: "row.title", op: "eq", value: "First" }, 'row.title == "First"'],
+    ] as const) {
+      const opened = openProject(docWith([part("b", "button", { action: { to: "none", when } })]))!;
+      expect(tapOn(opened, "b")?.when).toEqual({ expr });
+      const store = storeOf(docWith([part("b", "button")]));
+      store.run(ops.setAction, { id: "b", action: { to: "next", when: when as never } }, { origin: "mcp" });
+      expect(tapOn(savedDoc(store.get()), "b")?.when).toEqual({ expr });
+    }
+    /* a file's comparison of a variable that is gone never held, and is written so; an operation refuses it */
+    const gone = openProject(docWith([part("b", "button", { action: { to: "none", when: { var: "gone", op: "eq", value: 1 } } })]))!;
+    expect(tapOn(gone, "b")?.when).toEqual({ expr: "false" });
     const store = storeOf(docWith([part("b", "button")]));
-    store.run(ops.setAction, { id: "b", action: { to: "next", transition: "slide", when: { var: "row.title", op: "eq", value: "First" } } }, { origin: "mcp" });
-    expect(tapOn(savedDoc(store.get()), "b")?.when).toEqual({ var: "row.title", op: "eq", value: "First" });
-    /* a variable that is not there is still refused: a stale reference is the operation's to catch */
-    expect(() => store.run(ops.setAction, { id: "b", action: { to: "none", transition: "none", when: { var: "gone", op: "eq", value: 1 } } }, { origin: "mcp" })).toThrow(/no variable "gone"/);
+    expect(() => store.run(ops.setAction, { id: "b", action: { to: "none", when: { var: "gone", op: "eq", value: 1 } as never } }, { origin: "mcp" })).toThrow(/should be \{expr/);
   });
 });
 
@@ -61,9 +71,10 @@ describe("one rule for a binding", () => {
   it("holds an expression bound to a prop to the length of any other, reading a file and in an operation", () => {
     expect(bindRule(long)).toBe(exprRule(long.slice(1)));
     expect(bindRule("=title")).toBeNull();
-    expect(bindRule("on")).toBeNull();
+    /* a variable is bound by the expression that reads it; its id alone is no binding */
+    expect(bindRule("on")).not.toBeNull();
     const opened = openProject(docWith([part("t", "text", { bind: { text: long, label: "=ok", other: "on" } })]))!;
-    expect(opened.groups[0].items[0].bind).toEqual({ label: "=ok", other: "on" });
+    expect(opened.groups[0].items[0].bind).toEqual({ label: "=ok", other: "=vars.on" });
     const store = storeOf(docWith([part("t", "text")]));
     expect(() => store.run(ops.setItem, { id: "t", patch: { bind: { text: long } } }, { origin: "mcp" })).toThrow(/longer than/);
   });
@@ -85,7 +96,7 @@ describe("the references a tap holds", () => {
           ...makeItem("button"),
           id: "send",
           // eslint-disable-next-line unicorn/no-thenable -- an action body, never a function: nothing awaits it
-          action: { to: "none", transition: "none", scrollTo: "note", when: { filled: "note" }, effects: [{ do: "submit", form: "form" }, { do: "call", operationId: "send", then: { to: "none", transition: "none", effects: [{ do: "show", part: "note" }] }, catch: { to: "next", transition: "slide", effects: [{ do: "hide", part: "note" }] } }] },
+          action: { to: "none", scrollTo: "note", when: { filled: "note" }, effects: [{ do: "submit", form: "form" }, { do: "call", operationId: "send", then: { to: "none", effects: [{ do: "show", part: "note" }] }, catch: { to: "next", effects: [{ do: "hide", part: "note" }] } }] },
         },
       ],
     },
@@ -114,13 +125,13 @@ describe("the references a tap holds", () => {
   it("go with a screen that is deleted, however deep they are: a call's answer, a form's", () => {
     const groups = form();
     // eslint-disable-next-line unicorn/no-thenable -- an action body, never a function: nothing awaits it
-    groups[0] = { ...groups[0], form: { operationId: "send", then: { to: "next", transition: "slide", effects: [{ do: "snackbar", message: "ok" }] } } };
+    groups[0] = { ...groups[0], form: { operationId: "send", then: { to: "next", effects: [{ do: "snackbar", message: "ok" }] } } };
     const store = storeOf(docWith(groups));
     store.run(ops.removeScreen, { id: "next" });
     const doc = savedDoc(store.get());
     const call = tapOn(doc, "send")!.effects![1] as Extract<NonNullable<Action["effects"]>[number], { do: "call" }>;
-    expect(call.catch).toEqual({ to: "none", transition: "none", effects: [{ do: "hide", part: "note" }] });
-    expect(doc.groups.find((g) => g.id === "form")!.form!.then).toEqual({ to: "none", transition: "none", effects: [{ do: "snackbar", message: "ok" }] });
+    expect(call.catch).toEqual({ to: "none", effects: [{ do: "hide", part: "note" }] });
+    expect(doc.groups.find((g) => g.id === "form")!.form!.then).toEqual({ to: "none", effects: [{ do: "snackbar", message: "ok" }] });
     expect(JSON.stringify(doc)).not.toContain('"next"');
   });
 });

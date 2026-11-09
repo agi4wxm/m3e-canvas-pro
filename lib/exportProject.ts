@@ -5,7 +5,7 @@ import type { RuntimeSpec } from "./printBehaviour";
 import type { BindPrintOptions } from "./printBindings";
 import { getLang, type Lang } from "./i18n";
 import { BASELINE_SEED } from "./m3e/color";
-import { runtimeSource } from "./runtimeSource";
+import { RUNTIME_TEMPLATE, runtimeSource } from "./runtimeSource";
 import { SLIDE_SPEC, faceSheetsOf, fontFamilyOf, normalizeTheme, seedOf, shapeScaleOf, type Doc } from "./tokens";
 import { APP_SCOPE, recipesOf, styleContext, styleCss } from "./styles";
 import { elevationCss } from "./look";
@@ -708,6 +708,8 @@ export async function buildProject(doc: Doc, widths: Record<string, number>, o: 
   const name = projectName(doc);
   const warnings: string[] = [];
   const files: ProjectFiles = {};
+  /* the runtime's code, which src/runtime.tsx is filled in from (lib/runtimeSource.ts) */
+  const runtimeCode = await read(RUNTIME_TEMPLATE);
 
   const images = new Map<string, string>();
   const image = (data: string) => {
@@ -744,7 +746,7 @@ export async function buildProject(doc: Doc, widths: Record<string, number>, o: 
     const themeSrc = themeSource(doc, name);
     files["src/App.tsx"] = appSrc;
     files["src/main.tsx"] = MAIN;
-    files["src/runtime.tsx"] = runtimeSource(runtime);
+    files["src/runtime.tsx"] = runtimeSource(runtime, runtimeCode);
     files["src/theme.tsx"] = themeSrc;
     if (hasDocIcons(doc)) files["src/doc-icons.ts"] = docIconsFile(doc);
     files["src/index.css"] = cssSource(doc, lang);

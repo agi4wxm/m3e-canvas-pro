@@ -29,7 +29,7 @@ const part = (slug: string, id: string, props: Record<string, unknown> = {}, ext
  * the test. */
 function fixture(): Doc {
   const bar = part("app-bar", "bar", { title: "Home" });
-  const save = part("button", "save", { label: "Save" }, { action: { to: BACK_TARGET, transition: "fade" } });
+  const save = part("button", "save", { label: "Save" }, { action: { to: BACK_TARGET } });
   const cancel = part("button", "cancel", { label: "Cancel", variant: "text" });
   const nav = part("navigation-bar", "nav", { items: defaultTabs() });
   return {

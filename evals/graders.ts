@@ -19,6 +19,10 @@ import { sanitizeSvg } from "../parts/svg";
 import { createRegistry } from "../lib/tools/registry";
 import { GENERATE_TOOLS } from "../lib/tools/generate";
 import type { CallRecord, Check, CheckResult, Observed, Verdict, Widths } from "./types";
+import { boundVarOf, fieldVarOf } from "../lib/bindings/bind";
+
+/** the variables a part is bound to: a plain read of one (a prop), the one a field of its design follows */
+export const boundVars = (it: Item, vars: Doc["vars"]): string[] => Object.entries(it.bind ?? {}).flatMap(([k, b]) => { const id = k.startsWith("@") ? fieldVarOf(b) : boundVarOf(b, vars); return id === undefined ? [] : [id]; });
 
 /* ---------- what is worked out once per observation ---------- */
 
@@ -476,7 +480,7 @@ export const darkControl = (): Check => ({
   run(g) {
     const v = (g.o.final.vars ?? []).find((x) => x.drives === "dark");
     if (!v) return ok(false, "no dark-mode variable");
-    const wired = g.o.final.groups.flatMap((x) => x.items).filter((it) => Object.values(it.bind ?? {}).includes(v.id) || effectsOf(it).some((e) => (e.do === "toggleVar" || e.do === "setVar") && e.var === v.id));
+    const wired = g.o.final.groups.flatMap((x) => x.items).filter((it) => boundVars(it, g.o.final.vars).includes(v.id) || effectsOf(it).some((e) => (e.do === "toggleVar" || e.do === "setVar") && e.var === v.id));
     return ok(wired.length > 0, wired.length ? wired.map((it) => `${it.id} ${it.component}${it.bind ? ` bind ${JSON.stringify(it.bind)}` : " by tap"}`).join(", ") : "nothing bound to it or setting it");
   },
 });
@@ -527,7 +531,7 @@ export const tapToDetail = (): Check => ({
     const current = taps.filter((t) => partsOn(g, t.to).some((p) => stringsIn(p.item?.props).some((s) => /\{\{\s*current\./.test(s))));
     const viaVars = taps.filter((t) => {
       const set = t.effects.flatMap((e) => (e.do === "setVar" && typeof e.value === "string" && e.value.includes("{{") ? [e.var] : []));
-      return set.length > 0 && partsOn(g, t.to).some((p) => Object.values(p.item?.bind ?? {}).some((v) => set.includes(v)));
+      return set.length > 0 && partsOn(g, t.to).some((p) => !!p.item && boundVars(p.item, g.o.final.vars).some((v) => set.includes(v)));
     });
     const how = current.length ? "the detail reads {{current.…}}" : viaVars.length ? "the tap sets variables from the row and the detail shows them" : "the detail shows nothing of the tapped row";
     return ok(current.length + viaVars.length > 0, `${taps.map((t) => `${t.from}→${t.to}`).join(", ")}; ${how}`);
@@ -544,7 +548,7 @@ export const counter = (): Check => ({
     const vars = (g.o.final.vars ?? []).filter((v) => v.type === "number" && !before.has(v.id));
     const items = g.o.final.groups.flatMap((x) => x.items);
     for (const v of vars) {
-      const shown = items.some((it) => Object.values(it.bind ?? {}).includes(v.id) || stringsIn(it.props).some((s) => s.includes(`{{${v.name}}}`) || s.includes(`{{${v.id}}}`)));
+      const shown = items.some((it) => boundVars(it, g.o.final.vars).includes(v.id) || stringsIn(it.props).some((s) => s.includes(`{{${v.name}}}`) || s.includes(`{{${v.id}}}`)));
       const eff = items.flatMap(effectsOf).filter((e) => "var" in e && e.var === v.id);
       const up = eff.some((e) => e.do === "addVar" && e.by > 0);
       const down = eff.some((e) => (e.do === "addVar" && e.by < 0) || e.do === "setVar");

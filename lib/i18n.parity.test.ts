@@ -3,7 +3,7 @@ import {
   COLOR_TOKEN_TEXT, KO, LANGS, NAV_TABS, SEED_TEXT,
   SWIPE_TEXT, TAB_LABELS, TRANSITION_TEXT, UI, t, type UIKey,
 } from "./i18n";
-import { LANG_FONT, SWIPE_DIRS, TRANSITIONS } from "./tokens";
+import { LANG_FONT, SWIPE_DIRS, MOTION_PRESETS } from "./tokens";
 
 const ui: Record<UIKey, Record<string, string>> = UI;
 const ko: Record<UIKey, string> = KO;
@@ -78,7 +78,7 @@ for (const [name, table] of Object.entries(dictionaries)) {
 
 describe("dictionary coverage of editor tokens", () => {
   it.each(LANGS)("covers every transition and swipe in $key", ({ key: lang }) => {
-    expect(sortedKeys(TRANSITION_TEXT[lang])).toEqual(TRANSITIONS.map(({ key }) => key).sort());
+    expect(sortedKeys(TRANSITION_TEXT[lang])).toEqual(MOTION_PRESETS.map(({ key }) => key).sort());
     expect(sortedKeys(SWIPE_TEXT[lang])).toEqual(SWIPE_DIRS.map(({ key }) => key).sort());
   });
 

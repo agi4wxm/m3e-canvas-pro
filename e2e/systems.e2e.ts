@@ -79,7 +79,7 @@ tests.push({
     await page.locator(`[data-bind-to="${v.name}"]`).first().click();
     await settle(page);
     doc = await savedDoc(page);
-    equal((doc.groups.flatMap((g) => g.items).find((it) => it.id === box.id) as { bind?: Record<string, string> }).bind, { "@fill": v.id }, "the fill is bound");
+    equal((doc.groups.flatMap((g) => g.items).find((it) => it.id === box.id) as { bind?: Record<string, string> }).bind, { "@fill": `=vars[${JSON.stringify(v.id)}]` }, "the fill is bound (a design field reads its variable by key, lib/converge.ts)");
 
     /* the document shows the dark mode; the preview paints the box with the dark value */
     await leftTab(page, "Variables");
@@ -122,7 +122,7 @@ tests.push({
     await page.locator('[role="listbox"] [role="option"]').filter({ hasText: "Push" }).first().click();
     await settle(page);
     doc = await savedDoc(page);
-    equal((doc.groups.flatMap((g) => g.items).find((it) => it.id === "seed3")!.action as { motion?: unknown }).motion, { kind: "push", dir: "left" }, "the connection pushes the screen in");
+    equal((doc.groups.flatMap((g) => g.items).find((it) => it.id === "seed3")!.action as { motion?: unknown }).motion, { kind: "push", dir: "left", easing: "theme", ms: 420 }, "the connection pushes the screen in (the Push preset, lib/screenMotion.ts MOTION_PRESETS)");
 
     /* followed in the preview */
     await page.keyboard.press("Escape");

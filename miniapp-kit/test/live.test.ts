@@ -180,6 +180,8 @@ describe("a timer", () => {
   it("counts down to the end it is given, and says it ended once", () => {
     const ended = mock(() => {});
     expect(words(draw(L.Timer, { endsAt: Date.now() + 4500, running: true, onEnded: ended }))).toContain("00:05");
+    /* time passes before the end it is given changes: the timer reads the clock as it draws, not when it first did */
+    Bun.sleepSync(20);
     expect(words(again(L.Timer, { endsAt: Date.now() - 1, running: true, onEnded: ended }))).toContain("00:00");
     again(L.Timer, { endsAt: Date.now() - 1, running: true, onEnded: ended });
     expect(ended).toHaveBeenCalledTimes(1);

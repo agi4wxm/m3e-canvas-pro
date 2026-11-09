@@ -139,7 +139,8 @@ function asKind<T>(v: VarValue | undefined, design: T, labels?: string[]): T {
     }
     return (asNumber(v) ?? design) as T;
   }
-  return String(v) as T;
+  /* words as an expression writes a value (lib/bindings/expr.ts `display`): a number to ten places */
+  return (typeof v === "number" ? String(Math.round(v * 1e10) / 1e10) : String(v)) as T;
 }
 
 /** whether an input holds something: words, a tick, a choice, a file */
@@ -317,10 +318,8 @@ export function useScreen(key: string, init: ScreenInit = {}): ScreenHandle {
       if (!c) return true;
       if ("expr" in c) return typeof c.expr === "string" && $.holds(c.expr);
       if ("filled" in c) return holdsValue(fieldOf(c.filled, state.fields));
-      const v = readVar(c.var);
-      if (v === undefined) return false;
-      const same = String(v) === String(c.value);
-      return c.op === "neq" ? !same : same;
+      /* a condition of a form this kit does not know holds never */
+      return false;
     },
     [state.fields, fieldOf],
   );

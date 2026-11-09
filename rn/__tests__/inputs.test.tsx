@@ -264,6 +264,21 @@ describe("the entry parts", () => {
     expect(await screen.findByLabelText("Copied")).toBeTruthy();
   });
 
+  it("a copy row says it copied only on a real success: not for a capability that answered it could not", async () => {
+    /* the app's clipboard.write with no adapter on a phone answers not-implemented, an outcome that is not ok */
+    const notImplemented = jest.fn(async () => ({ ok: false, error: { type: "not-implemented", capability: "clipboard.write" } }));
+    await draw(<CopyRow text="npm run deploy" onCopy={notImplemented} />);
+    await fireEvent.press(screen.getByLabelText("Copy"));
+    expect(await screen.findByLabelText("Not copied")).toBeTruthy();
+    expect(screen.queryByLabelText("Copied")).toBeNull();
+    await draw(<CopyRow text="npm run deploy" onCopy={async () => false} />);
+    await fireEvent.press(screen.getByLabelText("Copy"));
+    expect(await screen.findByLabelText("Not copied")).toBeTruthy();
+    await draw(<CopyRow text="npm run deploy" onCopy={async () => ({ ok: true, result: {} })} />);
+    await fireEvent.press(screen.getByLabelText("Copy"));
+    expect(await screen.findByLabelText("Copied")).toBeTruthy();
+  });
+
   it("a quantity steps inside its range, each step a place of its own", async () => {
     const inc = jest.fn();
     const onValueChange = jest.fn();

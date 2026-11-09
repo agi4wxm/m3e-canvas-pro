@@ -81,11 +81,11 @@ const SIGNED: Row["design"] = {
   api: [{ operationId: "login", path: "/login", returns: { token: "string" } }],
   login: "login",
   parts: [
-    { id: "in", label: "Sign in", action: { to: "none", transition: "none", effects: [{ do: "call", operationId: "login" }] } },
-    { id: "acct", label: "Account", action: { to: "account", transition: "none" } },
-    { id: "out", label: "Sign out", screen: "account", action: { to: "none", transition: "none", effects: [{ do: "signOut" }] } },
-    { id: "outHome", label: "Sign out and go home", screen: "account", action: { to: "home", transition: "none", effects: [{ do: "signOut" }] } },
-    { id: "again", label: "Sign in again", screen: "login", action: { to: "none", transition: "none", effects: [{ do: "call", operationId: "login" }] } },
+    { id: "in", label: "Sign in", action: { to: "none", effects: [{ do: "call", operationId: "login" }] } },
+    { id: "acct", label: "Account", action: { to: "account", motion: { kind: "instant" } } },
+    { id: "out", label: "Sign out", screen: "account", action: { to: "none", effects: [{ do: "signOut" }] } },
+    { id: "outHome", label: "Sign out and go home", screen: "account", action: { to: "home", motion: { kind: "instant" }, effects: [{ do: "signOut" }] } },
+    { id: "again", label: "Sign in again", screen: "login", action: { to: "none", effects: [{ do: "call", operationId: "login" }] } },
   ],
 };
 const signedRow = (steps: Row["steps"], expect: Row["expect"]): Row => ({ id: "signed", title: "", ref: "", design: SIGNED, answers: { login: { status: 200, body: { token: "t1" } } }, steps, expect });

@@ -1,4 +1,5 @@
-import { MOTION_DIRS, MOTION_EASINGS, MOTION_KINDS, transitionOf, type Action, type ActionBody, type Frame, type Motion, type Transition, type Trigger } from "./tokens";
+import { MOTION_DIRS, MOTION_EASINGS, MOTION_KINDS, type Action, type ActionBody, type Frame, type Motion, type Trigger } from "./tokens";
+import { DEFAULT_MOTION, SIDED_KINDS } from "./screenMotion";
 import { fields, withUnknown } from "./keep";
 
 /* The prototype the way Figma has it, over the taps the document always had: what starts an interaction (a tap, the
@@ -26,7 +27,7 @@ export function cleanMotion(v: unknown, keep = false): Motion | undefined {
   const dir = oneOf(v.dir, MOTION_DIRS);
   const easing = oneOf(v.easing, MOTION_EASINGS);
   const ms = typeof v.ms === "number" && Number.isFinite(v.ms) ? Math.max(0, Math.min(MAX_MS, Math.round(v.ms))) : undefined;
-  const built: Motion = { kind, ...(dir && kind !== "instant" && kind !== "dissolve" ? { dir } : {}), ...(easing && kind !== "instant" ? { easing } : {}), ...(ms !== undefined && kind !== "instant" ? { ms } : {}) };
+  const built: Motion = { kind, ...(dir && SIDED_KINDS.includes(kind) ? { dir } : {}), ...(easing && kind !== "instant" ? { easing } : {}), ...(ms !== undefined && kind !== "instant" ? { ms } : {}) };
   return keep ? withUnknown(v, built, MOTION) : built;
 }
 
@@ -39,17 +40,11 @@ export function cleanTrigger(v: unknown, keep = false): Trigger | undefined {
   return undefined;
 }
 
-/** what an older transition is as a motion: the motion the panel shows for an action that has none of its own */
-export function motionOf(a: Pick<ActionBody, "transition" | "motion">): Motion {
-  if (a.motion) return a.motion;
-  const t: Transition = a.transition ?? "slide";
-  if (t === "none") return { kind: "instant" };
-  if (t === "fade" || t === "expand") return { kind: "dissolve" };
-  return { kind: "slide", dir: t === "slideLeft" ? "right" : t === "slideUp" ? "up" : t === "slideDown" ? "down" : "left" };
-}
+/** the motion an action plays: its own, else the default (the older slide) */
+export const motionOf = (a: Pick<ActionBody, "motion">): Motion => a.motion ?? DEFAULT_MOTION;
 
-/** an action with another motion, its older transition following */
-export const withMotion = <B extends ActionBody>(a: B, m: Motion): B => ({ ...a, motion: m, transition: transitionOf(m) });
+/** an action with another motion */
+export const withMotion = <B extends ActionBody>(a: B, m: Motion): B => ({ ...a, motion: m });
 
 /** the trigger an action starts on: a tap, unless it says otherwise */
 export const triggerOf = (a: Pick<Action, "trigger"> | undefined): Trigger | { on: "tap" } => a?.trigger ?? { on: "tap" };

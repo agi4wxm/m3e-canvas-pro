@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CURRENT_TOKEN, collectionOf, collectionText, expandRepeats, fillCurrent, fillText, markCurrent, repeatAround, rowOf, rowsOfRepeat, tableOf, tableText } from "./collections";
+import { CURRENT_TOKEN, collectionOf, collectionText, expandRepeats, fillCurrent, fillRow, markCurrent, repeatAround, rowOf, rowsOfRepeat, tableOf, tableText } from "./collections";
 import { canvasView, expandDoc } from "./expand";
 import { arrangeFlows } from "./flow";
 import { expandInstances, rekeyedAll, standIn } from "./instances";
@@ -13,7 +13,7 @@ const posts: Collection = { id: "posts", name: "Posts", fields: ["title", "tag"]
 
 const hostItem = (extra: Record<string, unknown> = {}) => ({ ...makeItem("container"), id: "hi", props: { layout: "column", gap: 8, padX: 0, padY: 0, hugHeight: true, width: 300, height: 40, ...extra } });
 const host = (repeat: Group["repeat"] = { collection: "posts" }): Group => ({ id: "h", x: 16, y: 100, axis: "x", items: [hostItem()], ...(repeat ? { repeat } : {}) });
-const row: Group = { id: "t", x: 16, y: 100, axis: "x", inFlow: "h", items: [{ ...makeItem("button"), id: "b", props: { label: "{{title}}" }, action: { to: "detail", transition: "slide" } }] };
+const row: Group = { id: "t", x: 16, y: 100, axis: "x", inFlow: "h", items: [{ ...makeItem("button"), id: "b", props: { label: "{{title}}" }, action: { to: "detail" } }] };
 const sizes = { b: 100, "b:h": 40 };
 const doc = (over: Partial<Doc> = {}): Doc => ({ groups: [host(), row], frames: [{ id: "f", name: "F", x: 0, y: 0 }, { id: "detail", name: "D", x: 500, y: 0 }], paletteKey: "purple", frame: "phone", title: "", brief: "", collections: [posts], ...over });
 
@@ -26,7 +26,9 @@ describe("rows", () => {
   });
 
   it("fills tokens it knows and leaves the rest as written", () => {
-    expect(fillText("{{title}} / {{ tag }} / {{nope}} / {{current.title}}", rowOf(posts, 0))).toBe("One / a / {{nope}} / {{current.title}}");
+    expect(fillRow("{{row.title}} / {{ row.tag }} / {{row.nope}}! / {{vars.n}} / {{current.title}}", rowOf(posts, 0))).toBe("One / a / ! / {{vars.n}} / {{current.title}}");
+    /* the older bare field, read-only, where version 4 could not tell a part is in the repeat */
+    expect(fillRow("{{title}} / {{ tag }} / {{nope}} / {{current.title}}", rowOf(posts, 0))).toBe("One / a / {{nope}} / {{current.title}}");
     expect(fillCurrent({ a: ["{{current.title}} {{title}}"] }, { title: "X" })).toEqual({ a: ["X {{title}}"] });
     expect(fillCurrent({ a: "{{current.none}}!" }, {})).toEqual({ a: "!" });
     const same = { a: "plain" };
@@ -38,7 +40,7 @@ describe("rows", () => {
   it("reads an unclosed {{ before a long run of spaces at once", () => {
     const t = performance.now();
     for (const words of [`{{${" ".repeat(50_000)}x`, `{{current.${" ".repeat(50_000)}x`, `{{ current.title${" ".repeat(50_000)}`]) {
-      expect(fillText(words, rowOf(posts, 0))).toBe(words);
+      expect(fillRow(words, rowOf(posts, 0))).toBe(words);
       expect(fillCurrent(words, { title: "X" })).toBe(words);
       expect(words.split(CURRENT_TOKEN)).toEqual([words]);
       expect(markCurrent(words, () => "!")).toBe(words);
@@ -153,7 +155,7 @@ describe("expanding a repeat", () => {
 
   it("copies what the template holds, keeping what it points at inside its row", () => {
     const card: Group = { id: "t", x: 16, y: 100, axis: "x", inFlow: "h", items: [{ ...makeItem("container"), id: "ci", props: { layout: "column", gap: 0, padX: 0, padY: 0, hugHeight: true, width: 200, height: 40 } }] };
-    const inner: Group = { id: "k", x: 16, y: 100, axis: "x", inFlow: "t", items: [{ ...makeItem("button"), id: "kb", props: { label: "{{tag}}" }, action: { to: "none", transition: "none", effects: [{ do: "hide", part: "ci" }] } }] };
+    const inner: Group = { id: "k", x: 16, y: 100, axis: "x", inFlow: "t", items: [{ ...makeItem("button"), id: "kb", props: { label: "{{tag}}" }, action: { to: "none", effects: [{ do: "hide", part: "ci" }] } }] };
     const groups = expandDoc(doc({ groups: [host(), card, inner] }), { kb: 100, "kb:h": 40 }).groups;
     const copy = groups.find((g) => g.id === "h#2/k")!;
     expect(copy.inFlow).toBe("h#2/t");
@@ -212,8 +214,9 @@ describe("a tap from a row", () => {
   it("reads the row as read-only variables, for that tap", () => {
     const s = inRow(startState(scope.vars, [posts]), row2);
     expect(s.vars["row.title"]).toBe("Two");
-    expect(chooseBranch({ to: "x", transition: "none", when: { var: "row.title", op: "eq", value: "Two" } }, s, scope)).not.toBeNull();
-    expect(chooseBranch({ to: "x", transition: "none", when: { var: "row.title", op: "eq", value: "One" } }, s, scope)).toBeNull();
+    /* a condition reads the row of the part tapped as `row.<field>` */
+    expect(chooseBranch({ to: "x", motion: { kind: "instant" }, when: { expr: 'row.title == "Two"' } }, s, scope, { row: row2 })).not.toBeNull();
+    expect(chooseBranch({ to: "x", motion: { kind: "instant" }, when: { expr: 'row.title == "One"' } }, s, scope, { row: row2 })).toBeNull();
     /* nothing can write to it: no variable of the document has that id */
     expect(applyEffects(s, [{ do: "setVar", var: "row.title", value: "Hack" }], scope).vars["row.title"]).toBe("Two");
     const after = leftRow(s, row2);

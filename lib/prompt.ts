@@ -10,6 +10,17 @@ import { nameOf } from "../parts/labels";
 import { roleOf } from "../parts/role";
 import { inlineNode } from "../parts/print";
 import { Lang, SWIPE_TEXT, TRANSITION_TEXT, getLang } from "./i18n";
+import { boundVarOf, comparisonOf, fieldVarOf, type Comparison } from "./bindings/bind";
+import { TRANSITION_MOTIONS, type Motion, type Transition } from "./screenMotion";
+import { motionOf } from "./prototype";
+
+/** the older move a motion is, or the one nearest it: what the words for a move name */
+function nearestMove(m: Motion): Transition {
+  if (m.kind === "instant") return "none";
+  if (m.kind === "dissolve") return "fade";
+  if (m.kind === "expand") return "expand";
+  return m.dir === "right" ? "slideLeft" : m.dir === "up" ? "slideUp" : m.dir === "down" ? "slideDown" : "slide";
+}
 import { isStrict, styleContext, styleOf, styleTextOf, uxOf, withDocStyles, type StyleContext } from "./styles";
 import { demoTakenOver, outletsOf } from "./partContract";
 import {
@@ -185,12 +196,14 @@ function actionText(a: Action, frames: Frame[], lang: Lang): string | null {
   }
   const target = frames.find((f) => f.id === a.to);
   if (!target) return null;
-  const tr = TRANSITION_TEXT[lang][a.transition];
+  /* the move is named as the preset its motion is, else the older move nearest it */
+  const move = nearestMove(motionOf(a));
+  const tr = TRANSITION_TEXT[lang][move];
   const name = q(target.name || (lang === "en" ? "screen" : lang === "zh" ? "屏幕" : lang === "ko" ? "화면" : "画面"));
-  if (lang === "ja") return `${name}画面へ${a.transition !== "none" ? `${tr}で` : ""}遷移する`;
-  if (lang === "zh") return `${a.transition !== "none" ? `以${tr}的方式` : ""}跳转到${name}屏幕`;
-  if (lang === "ko") return `${name} 화면으로${a.transition !== "none" ? ` ${tr} 전환하여` : ""} 이동한다`;
-  return `opens the ${name} screen${a.transition !== "none" ? ` with ${tr}` : ""}`;
+  if (lang === "ja") return `${name}画面へ${move !== "none" ? `${tr}で` : ""}遷移する`;
+  if (lang === "zh") return `${move !== "none" ? `以${tr}的方式` : ""}跳转到${name}屏幕`;
+  if (lang === "ko") return `${name} 화면으로${move !== "none" ? ` ${tr} 전환하여` : ""} 이동한다`;
+  return `opens the ${name} screen${move !== "none" ? ` with ${tr}` : ""}`;
 }
 
 /** slugs whose tab:N slots are menu entries rather than destinations */
@@ -342,12 +355,19 @@ function effectText(e: Effect, s: Scope, lang: Lang): string | null {
 }
 
 function conditionText(c: Condition, s: Scope, lang: Lang): string | null {
-  if ("expr" in c) return { ja: `${c.expr} のとき`, en: `if ${c.expr}`, zh: `当 ${c.expr} 时`, ko: `${c.expr}일 때` }[lang];
   if ("filled" in c) {
     const part = partRef(c.filled, s, lang);
     if (!part) return null;
     return { ja: `${part}に入力があるとき`, en: `if ${part} is filled in`, zh: `当${part}已填写时`, ko: `${part}에 입력이 있을 때` }[lang];
   }
+  if (!("expr" in c) || typeof c.expr !== "string") return null;
+  /* a variable compared with a value is said in words; any other expression as it is written */
+  const cmp = comparisonOf(c.expr, s.vars ?? []);
+  if (!cmp) return { ja: `${c.expr} のとき`, en: `if ${c.expr}`, zh: `当 ${c.expr} 时`, ko: `${c.expr}일 때` }[lang];
+  return comparisonText(cmp, s, lang);
+}
+
+function comparisonText(c: Comparison, s: Scope, lang: Lang): string | null {
   const name = varRef(c.var, s);
   if (!name) return null;
   const v = valueText(c.value, lang);
@@ -394,8 +414,10 @@ function stateNotes(g: Group, s: Scope, lang: Lang): string[] {
     }
   }
   for (const it of g.items) {
-    for (const [prop, id] of Object.entries(it.bind ?? {})) {
-      const v = varRef(id, s);
+    for (const [prop, bind] of Object.entries(it.bind ?? {})) {
+      /* a binding to a variable: a plain read of one, a field of the design following one */
+      const id = prop.startsWith("@") ? fieldVarOf(bind) : boundVarOf(bind, s.vars);
+      const v = id === undefined ? null : varRef(id, s);
       if (!v) continue;
       const who = nameOfItem(g, it, lang);
       const whoCap = lang === "en" ? who[0].toUpperCase() + who.slice(1) : who;
@@ -525,7 +547,7 @@ function swipeNotes(f: Frame, frames: Frame[], lang: Lang): string[] {
   for (const d of SWIPE_DIRS) {
     const to = f.swipe?.[d.key];
     if (!to) continue;
-    const a = actionText({ to, transition: d.transition }, frames, lang);
+    const a = actionText({ to, motion: TRANSITION_MOTIONS[d.transition] }, frames, lang);
     if (!a) continue;
     const sw = SWIPE_TEXT[lang][d.key];
     const name = q(f.name || screen);
@@ -750,10 +772,10 @@ const ROWS_TEXT: Record<Lang, (r: Rows) => string> = {
 
 /** what the tokens in a template and in another screen read, said once under the behaviour */
 const ROW_NOTE: Record<Lang, string> = {
-  ja: "テンプレート内の {{項目名}} はその行の値を表示する。行をタップすると、その行が現在の行になり、別の画面の {{current.項目名}} はその行の値を表示する。条件の row.項目名 はタップされた行の値で、読み取り専用。",
-  en: "{{field}} in a template shows that row's value. Tapping a row makes it the current row: {{current.field}} on another screen shows its value, and row.field in a condition reads it, read-only.",
-  zh: "模板中的 {{字段名}} 显示该行的值。点击某行后它成为当前行：其他屏幕上的 {{current.字段名}} 显示它的值，条件中的 row.字段名 读取它，只读。",
-  ko: "템플릿의 {{필드}}는 그 행의 값을 표시한다. 행을 탭하면 현재 행이 되어 다른 화면의 {{current.필드}}가 그 값을 표시하고, 조건의 row.필드는 그 값을 읽는다(읽기 전용).",
+  ja: "テンプレート内の {{row.項目名}} はその行の値を表示する。行をタップすると、その行が現在の行になり、別の画面の {{current.項目名}} はその行の値を表示する。条件の row.項目名 はその行の値で、読み取り専用。",
+  en: "{{row.field}} in a template shows that row's value. Tapping a row makes it the current row: {{current.field}} on another screen shows its value, and row.field in a condition reads the row, read-only.",
+  zh: "模板中的 {{row.字段名}} 显示该行的值。点击某行后它成为当前行：其他屏幕上的 {{current.字段名}} 显示它的值，条件中的 row.字段名 读取这一行，只读。",
+  ko: "템플릿의 {{row.필드}}는 그 행의 값을 표시한다. 행을 탭하면 현재 행이 되어 다른 화면의 {{current.필드}}가 그 값을 표시하고, 조건의 row.필드는 그 행을 읽는다(읽기 전용).",
 };
 
 /** a screen that is another size of one written before it */

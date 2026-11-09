@@ -57,7 +57,7 @@ mock.module("@tarojs/components", () => fakeComponents());
 
 const { RuntimeProvider } = await import("@m3e/app-runtime");
 const { AppSpecProvider } = await import("../src/kit/app/screen");
-const { lastMove, screenOfPath } = await import("../src/kit/app/nav");
+const { goBack, lastMove, movesSoFar, openPlace, screenOfPath } = await import("../src/kit/app/nav");
 const { readVar } = await import("../src/kit/app/vars");
 const { answerWith } = await import("./table/backend");
 const { drive, turns, verdict } = await import("./table/check");
@@ -152,6 +152,11 @@ describe("the consistency table on the mini-program kit", () => {
           runtime.restart();
           draw();
         },
+        /* the platform's own back (its button, a swipe): the page on top goes, no page of the kit's asked for */
+        platformBack: () => {
+          if (stack.length > 1) stack.pop();
+          draw();
+        },
         settle: async () => {
           for (let i = 0; i < 6; i++) {
             await turns(2);
@@ -171,5 +176,26 @@ describe("the consistency table on the mini-program kit", () => {
     if (process.env.TABLE_DEBUG) console.log(`miniapp ${row.id}: ${JSON.stringify(problems)} ${JSON.stringify({ ...seen, words: seen.words.slice(0, 12) })}`);
     const v = verdict(row, "miniapp", problems);
     expect(v.ok ? "" : v.why).toBe("");
+  });
+});
+
+describe("the visitor's moves on the mini-program kit", () => {
+  it("count a page the platform shows by itself (its tab bar, its back), and not twice one the kit asked for", async () => {
+    const spec = { start: "home", screens: { home: { path: "pages/home/index", tab: 0 }, deals: { path: "pages/deals/index", tab: 1 }, item: { path: "pages/item/index" } } } as unknown as AppSpec;
+    stack.splice(0, stack.length, pageOf("/pages/home/index"));
+    const at = movesSoFar();
+    /* the kit opens a page: one move, however often the moves are read */
+    await openPlace(spec, { screen: "item" });
+    expect(movesSoFar()).toBe(at + 1);
+    expect(movesSoFar()).toBe(at + 1);
+    /* the platform's tab bar switches to another tab, which empties the stack down to it */
+    stack.splice(0, stack.length, pageOf("/pages/deals/index"));
+    expect(movesSoFar()).toBe(at + 2);
+    /* the app shown again from the background is the same page: no move */
+    expect(movesSoFar()).toBe(at + 2);
+    /* the kit's own back is one move */
+    await openPlace(spec, { screen: "item" });
+    await goBack(spec);
+    expect(movesSoFar()).toBe(at + 4);
   });
 });

@@ -260,15 +260,19 @@ describe("data and behaviour", () => {
     const s = store();
     fails(() => s.run(ops.addVar, { name: "n", type: "number", value: "one" }, ai), "invalid_value", /a number/);
     s.run(ops.addVar, { id: "v", name: "on", type: "bool", value: false }, ai);
-    fails(() => s.run(ops.setAction, { id: "a", action: { to: "nowhere", transition: "slide" } }, ai), "invalid_value", /no screen "nowhere"/);
-    fails(() => s.run(ops.setAction, { id: "a", action: { to: "none", transition: "none", effects: [{ do: "toggleVar", var: "x" }] } }, ai), "invalid_value", /no variable "x"/);
-    s.run(ops.setAction, { id: "a", action: { to: "none", transition: "none", effects: [{ do: "toggleVar", var: "v" }, { do: "hide", part: "b" }] } }, ai);
+    fails(() => s.run(ops.setAction, { id: "a", action: { to: "nowhere" } }, ai), "invalid_value", /no screen "nowhere"/);
+    fails(() => s.run(ops.setAction, { id: "a", action: { to: "none", effects: [{ do: "toggleVar", var: "x" }] } }, ai), "invalid_value", /no variable "x"/);
+    s.run(ops.setAction, { id: "a", action: { to: "none", effects: [{ do: "toggleVar", var: "v" }, { do: "hide", part: "b" }] } }, ai);
     expect(item(s, "a")?.action?.effects).toHaveLength(2);
     s.run(ops.bindProp, { id: "b", prop: "text", var: "v" }, ai);
-    expect(item(s, "b")?.bind).toEqual({ text: "v" });
+    /* bound by the expression that reads the variable, which an input writes back to */
+    expect(item(s, "b")?.bind).toEqual({ text: "=vars.on" });
     fails(() => s.run(ops.bindProp, { id: "b", prop: "nope", var: "v" }, ai), "invalid_value");
-    s.run(ops.setGroup, { id: "b", patch: { showWhen: { var: "v", op: "eq", value: true } } }, ai);
-    fails(() => s.run(ops.setGroup, { id: "b", patch: { showWhen: { var: "zz", op: "eq", value: 1 } } }, ai), "invalid_value");
+    s.run(ops.setGroup, { id: "b", patch: { showWhen: { expr: "vars.on == true" } } }, ai);
+    /* the older form a model may still give is written as the expression it is; one on no variable is refused */
+    s.run(ops.setGroup, { id: "b", patch: { showWhen: { var: "v", op: "eq", value: true } as never } }, ai);
+    expect(s.get().doc.groups.find((g) => g.items.some((it) => it.id === "b"))?.showWhen).toEqual({ expr: "vars.on == true" });
+    fails(() => s.run(ops.setGroup, { id: "b", patch: { showWhen: { var: "zz", op: "eq", value: 1 } as never } }, ai), "invalid_value");
     s.run(ops.removeVar, { id: "v" }, ai);
     expect(item(s, "b")?.bind).toBeUndefined();
   });

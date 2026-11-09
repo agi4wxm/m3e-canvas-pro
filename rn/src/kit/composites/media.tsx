@@ -14,6 +14,7 @@ import { clampInt, sourceOf, withDefaults, type ListRow, type Picture } from "..
 import { Surface } from "../Surface";
 import { corner, typeStyle, useKit, type Kit } from "../theme/ThemeProvider";
 import { tapOf } from "./bars";
+import { copiedBy } from "./entry";
 
 /* What a screen shows of pictures, sound and moving things, drawn natively: an expressive carousel, a video, a web page
  * and an animation (each the stand-in the canvas draws when it has nothing to play), the camera and the map (capability
@@ -946,7 +947,7 @@ export type QrCodeProps = PartBase & {
   tooLong?: string;
   size?: number;
   /** copies the words: the app's clipboard (a phone has none without a package the product adds). Said "copied" once
-   *  it is done, never before */
+   *  it is done, never before, and not for an answer that says it was not (`copiedBy`) */
   onCopy?: (text: string) => void | boolean | Promise<unknown>;
 };
 
@@ -966,7 +967,8 @@ export function QrCode(props: QrCodeProps) {
   const copy = async () => {
     if (!p.onCopy) return;
     try {
-      if ((await p.onCopy(text)) === false) return;
+      /* said "copied" only once it was: not for a capability that answered it could not */
+      if (!copiedBy(await p.onCopy(text))) return;
       setDone(true);
       if (timer.current) clearTimeout(timer.current);
       timer.current = setTimeout(() => setDone(false), 1500);

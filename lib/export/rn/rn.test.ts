@@ -79,7 +79,7 @@ describe("the theme", () => {
 
 describe("the screens", () => {
   it("prints a part with the props it changed, its look and its tap to another screen", () => {
-    const button = item("button", { label: "Save", variant: "tonal" }, { action: { to: "f2", transition: "slide" }, fill: "primary", look: { opacity: 50, texture: { kind: "noise" } } });
+    const button = item("button", { label: "Save", variant: "tonal" }, { action: { to: "f2" }, fill: "primary", look: { opacity: 50, texture: { kind: "noise" } } });
     const { screens, warnings } = printRnScreens(docOf([{ id: "g1", x: 16, y: 100, axis: "x", items: [button] }]), {});
     const home = screens[0].source.replace(/\n\s*/g, " ");
     expect(home).toContain('<At x={16} y={100}>');
@@ -111,7 +111,7 @@ describe("the screens", () => {
   it("prints a composite without a component as its atoms, one with a component as it, one it does not know as a placeholder, and says so", () => {
     const stat = item("stat-card", {});
     /* a game part is the kit's own since the mobile parts were made native (D4): its taps go on its places */
-    const wheel = item("prize-wheel", { result: 2 }, { actions: { action: { to: "f1", transition: "slide" } } });
+    const wheel = item("prize-wheel", { result: 2 }, { actions: { action: { to: "f1" } } });
     const odd = item("no-such-part", {});
     const { screens, warnings } = printRnScreens(docOf([{ id: "a", x: 0, y: 0, axis: "x", items: [stat] }, { id: "b", x: 0, y: 200, axis: "x", items: [wheel] }, { id: "c", x: 0, y: 500, axis: "x", items: [odd] }]), {});
     expect(screens[0].source).toContain("<Box");
@@ -127,7 +127,7 @@ describe("the screens", () => {
     /* the kit's own AuthForm kept no field values and checked nothing: the form is its atoms now, as in a mini-program */
     expect(slots.length && "auth-form" in NATIVE).toBe(false);
     expect(readFileSync(new URL("../../../rn/src/kit/composites/more.tsx", import.meta.url), "utf8")).not.toContain("function AuthForm");
-    const go = (to: string) => ({ to, transition: "slide" as const });
+    const go = (to: string) => ({ to });
     const form = item("auth-form", {}, { actions: { submit: go("f2"), forgot: go("f1"), switch: go("f2"), "other:0": go("f1") } });
     const { screens, warnings } = printRnScreens(docOf([{ id: "g", x: 16, y: 40, axis: "x", items: [form] }]), {});
     const src = screens[0].source.replace(/\n\s*/g, " ");

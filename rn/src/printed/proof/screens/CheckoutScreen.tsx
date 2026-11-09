@@ -26,7 +26,7 @@ export function CheckoutScreen() {
           height={958}
           hugHeight
         >
-          {app.holds({ var: "payIssue", op: "eq", value: "cancelled" }) ? (
+          {app.holds({ expr: "vars.payIssue == \"cancelled\"" }) ? (
             <Cell dir="column" fillWidth>
               <Container
                 label=""
@@ -70,7 +70,7 @@ export function CheckoutScreen() {
               </Container>
             </Cell>
           ) : null}
-          {app.holds({ var: "payIssue", op: "eq", value: "order" }) ? (
+          {app.holds({ expr: "vars.payIssue == \"order\"" }) ? (
             <Cell dir="column" fillWidth>
               <Container
                 label=""

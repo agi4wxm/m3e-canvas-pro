@@ -141,9 +141,7 @@ function everything(): Doc {
             look,
             constraints: { h: "left", v: "top" },
             action: {
-              to: "none",
-              transition: "none",
-              trigger: { on: "delay", ms: 300 },
+              to: "none", trigger: { on: "delay", ms: 300 },
               motion: { kind: "push", dir: "left", easing: "out", ms: 300 },
               when: { var: "night", op: "eq", value: true },
               else: { to: "none", effects: [{ do: "toggleVar", var: "night" }] },

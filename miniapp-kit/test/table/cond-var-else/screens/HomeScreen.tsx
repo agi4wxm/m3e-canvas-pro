@@ -2,7 +2,7 @@
 import { useBindings } from "@m3e/app-runtime";
 import { At, Button, Screen, useScreen, type Action } from "../../../../src/kit";
 
-const A1: Action = { to: "none", effects: [{ do: "setVar", var: "r", value: "yes" }], when: { var: "flag", op: "eq", value: true }, else: { to: "none", effects: [{ do: "setVar", var: "r", value: "no" }] } };
+const A1: Action = { to: "none", effects: [{ do: "setVar", var: "r", value: "yes" }], when: { expr: "vars.flag == true" }, else: { to: "none", effects: [{ do: "setVar", var: "r", value: "no" }] } };
 
 export function HomeScreen() {
   const s = useScreen("home");

@@ -13,9 +13,13 @@ const DONE = { id: "done", name: "Done" };
 const OTHER = { id: "other", name: "Other" };
 
 /** a tap that stays where it is and runs these effects */
-const stay = (...effects: Effect[]): Action => ({ to: "none", transition: "none", effects });
-const goTo = (to: string, ...effects: Effect[]): Action => ({ to, transition: "none", effects });
-const body = (to: string, ...effects: Effect[]): ActionBody => ({ to, transition: "none", effects });
+const stay = (...effects: Effect[]): Action => ({ to: "none", effects });
+/** a move with no animation: what every host plays at once */
+const INSTANT = { kind: "instant" as const };
+/* a move to a screen (not staying, going back or out to a page, which play no move of their own) is at once */
+const atOnce = (to: string) => (to === "none" || to === "back" || to === "link" ? {} : { motion: INSTANT });
+const goTo = (to: string, ...effects: Effect[]): Action => ({ to, ...atOnce(to), effects });
+const body = (to: string, ...effects: Effect[]): ActionBody => ({ to, ...atOnce(to), effects });
 const btn = (id: string, label: string, action: Action, more: Partial<PartSpec> = {}): PartSpec => ({ id, label, action, ...more });
 const text = (id: string, label: string, more: Partial<PartSpec> = {}): PartSpec => ({ id, kind: "text", label, ...more });
 /** a call; `ok` is its `then`, `fail` its `catch` */
@@ -102,7 +106,7 @@ export const ROWS: Row[] = [
     id: "cond-var-else",
     title: "变量条件不成立时走 else",
     ref: "条件",
-    design: { screens: [HOME], vars: [bool("flag", false), words("r", "")], parts: [btn("go", "Decide", { ...stay(setVar("r", "yes")), when: { var: "flag", op: "eq", value: true }, else: body("none", setVar("r", "no")) })] },
+    design: { screens: [HOME], vars: [bool("flag", false), words("r", "")], parts: [btn("go", "Decide", { ...stay(setVar("r", "yes")), when: { expr: "vars.flag == true" }, else: body("none", setVar("r", "no")) })] },
     steps: [{ tap: "Decide" }],
     expect: { vars: { r: "no" } },
   },
@@ -188,6 +192,19 @@ export const ROWS: Row[] = [
     },
     steps: [{ tapSlot: "Small", slot: "tab:2" }, { tapSlot: "Small", slot: "tab:0" }],
     expect: { vars: { picked: 2, own: "small" } },
+  },
+  {
+    id: "family-entry-added-later",
+    title: "槽位族的动作也对设计属性里没有、运行时由绑定数据或点击加出来的项运行",
+    ref: "事件与槽位族；第四批第三波 G3",
+    design: {
+      screens: [HOME],
+      vars: [num("picked", -1)],
+      parts: [{ id: "row", kind: "buttons", label: "Small", items: ["Medium", "Large"], actions: { "tab:*": stay(setVar("picked", 0, "slot.index")) } }],
+    },
+    /* the design's props hold three entries (tab:0 to tab:2); the sixth came from data while the app ran */
+    steps: [{ tapSlot: "Small", slot: "tab:5" }],
+    expect: { vars: { picked: 5 } },
   },
 
   /* ---------- show, hide, open, close ---------- */
@@ -582,6 +599,19 @@ export const ROWS: Row[] = [
     hold: ["payment.pay"],
     steps: [{ tap: "Pay" }, { tap: "Elsewhere" }, { answer: "payment.pay", body: { status: "submitted" } }],
     expect: { vars: { got: "submitted" }, screen: "other" },
+  },
+  {
+    id: "invoke-late-platform-back",
+    title: "访客已离开：用系统返回键（或滑动返回）离开也算，能力 then 的效果照常运行，跳转不再发生",
+    ref: "调用能力；迟到的回答；第四批第三波 G3",
+    design: {
+      screens: [HOME, NEXT, OTHER],
+      vars: [words("got", "")],
+      parts: [btn("open", "Open", goTo("next")), btn("pay", "Pay", stay(invoke("payment.pay", { args: { orderId: "'o1'" }, ok: body("other", setVar("got", "", "result.status")) })), { screen: "next" })],
+    },
+    hold: ["payment.pay"],
+    steps: [{ tap: "Open" }, { tap: "Pay" }, { platformBack: true }, { answer: "payment.pay", body: { status: "submitted" } }],
+    expect: { vars: { got: "submitted" }, screen: "home" },
   },
   {
     id: "invoke-late-restart",

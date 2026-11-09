@@ -206,6 +206,27 @@ const IDEAL: Record<string, (tx: Tx) => void> = {
   },
 };
 
+describe("a list row bound to the data", () => {
+  it("counts words that read the element ({{item.x}}) as bound, not only binds (=item.x)", async () => {
+    const o = await observe("ledger-app-zh", IDEAL["ledger-app-zh"]);
+    /* the same turn with the row's words written as templates instead of binds, as models sometimes do */
+    let moved = 0;
+    for (const g of o.final.groups)
+      for (const it of g.items)
+        for (const [k, v] of Object.entries(it.bind ?? {}))
+          if (typeof v === "string" && /\bitem\b/.test(v)) {
+            /* words become a template; any other read of the element goes, so the templates are all that read it */
+            if (typeof it.props?.[k] === "string" && /^=\s*item\./.test(v)) {
+              it.props = { ...it.props, [k]: `{{${v.slice(1).trim()}}}` };
+              moved++;
+            }
+            delete it.bind![k];
+          }
+    expect(moved).toBeGreaterThan(0);
+    expect(failed(o).filter((id) => id.startsWith("list-bound"))).toEqual([]);
+  }, 30_000);
+});
+
 describe("the product tasks, done the way a good turn would do them", () => {
   for (const [id, change] of Object.entries(IDEAL))
     it(`${id}: passes every check`, async () => {

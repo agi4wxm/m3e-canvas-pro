@@ -40,6 +40,7 @@ import type { PartDef } from "../../../parts/types";
 import { fullWidth, roleOf } from "../../../parts/role";
 import type { Node } from "../../../parts/templates/kit";
 import { expandDoc } from "../../expand";
+import { inlineReads, mapConditionExprs, mapItemExprs, type ExprMap } from "../../refs";
 import { getLang } from "../../i18n";
 import { childLayoutOf, flowOf, sizingOf, type Flow } from "../../flow";
 import { splitOf, panesOfSplit, PANE_SIDES } from "../../split";
@@ -161,7 +162,7 @@ export type PlanOptions = {
 /** The plan of every screen of a document. Called within the document's styles (`withDocStyles`): what it reads of a
  *  part's layout may read a style. */
 export function planScreens(source: Doc, widths: Record<string, number>, o: PlanOptions): DocPlan {
-  const doc = expandDoc(withoutMarks(source), widths);
+  const doc = rowsRead(expandDoc(withoutMarks(source), widths));
   let frames = doc.frame === "phone" ? doc.frames : [];
   if (!frames.length && doc.groups.length) {
     const { l, t, r, b } = unionRect(doc.groups.map((g) => groupBounds(g, widths)));
@@ -188,6 +189,23 @@ export function planScreens(source: Doc, widths: Record<string, number>, o: Plan
     return new Planner(doc, frame, groups, widths, o).screen(keys.get(frame.id)!, components.get(frame.id)!);
   });
   return { doc, frames, facts, keys, components, screens };
+}
+
+/** The document drawn out with what each row's parts read of their row written in (lib/refs.ts `inlineReads`): the row a
+ *  part of a repeat over a collection was drawn for is known here, where neither kit has rows to read, so its
+ *  conditions (`row.price == "0"`), its taps' expressions and its bindings say the row's words themselves. A group's
+ *  condition reads the row of its first part, as the preview's does. */
+export function rowsRead(doc: Doc): Doc {
+  if (!doc.groups.some((g) => g.items.some((it) => it.row))) return doc;
+  const reading = (row: Record<string, string>): ExprMap => ({ expr: (src) => (/\brow\b/.test(src) ? inlineReads(src, "row", row) : src), words: (text) => text });
+  const groups = doc.groups.map((g) => {
+    if (!g.items.some((it) => it.row)) return g;
+    const items = g.items.map((it) => (it.row ? mapItemExprs(it, reading(it.row)) : it));
+    const first = g.items[0]?.row;
+    const showWhen = first ? mapConditionExprs(g.showWhen, reading(first)) : g.showWhen;
+    return items.every((it, i) => it === g.items[i]) && showWhen === g.showWhen ? g : { ...g, items, ...(showWhen ? { showWhen } : {}) };
+  });
+  return { ...doc, groups };
 }
 
 /* ---------- a part ---------- */

@@ -63,30 +63,30 @@ describe("lib/actions", () => {
   });
 
   it("fills {{current.field}} from the row last tapped, nothing for a field it does not have", () => {
-    expect(fillCurrent({ to: "none", transition: "none", effects: [{ do: "snackbar", message: "Hi {{current.name}}{{current.gone}}" }] }, { name: "Ada" }).effects).toEqual([{ do: "snackbar", message: "Hi Ada" }]);
+    expect(fillCurrent({ to: "none", effects: [{ do: "snackbar", message: "Hi {{current.name}}{{current.gone}}" }] }, { name: "Ada" }).effects).toEqual([{ do: "snackbar", message: "Hi Ada" }]);
   });
 
   it("changes the tapped row first, puts it back when the call fails, and not when it was answered after a restart", async () => {
     const { doc } = designDoc({ screens: [{ id: "home", name: "Home" }], parts: [] });
     const remove: Effect = { do: "call", operationId: "del", optimistic: { source: "items", remove: true } };
     const failing = recording(doc, () => ({ ok: false, status: 500, error: {} }));
-    await run({ to: "none", transition: "none", effects: [remove] }, failing.h, { ...tap, item: { id: "a" } });
+    await run({ to: "none", effects: [remove] }, failing.h, { ...tap, item: { id: "a" } });
     expect(failing.changes).toEqual([{ remove: true }]);
     expect(failing.undone).toEqual(["items"]);
     const dropped = recording(doc, () => ({ ok: false, status: 0, error: {}, dropped: true }));
-    await run({ to: "none", transition: "none", effects: [remove] }, dropped.h, { ...tap, item: { id: "a" } });
+    await run({ to: "none", effects: [remove] }, dropped.h, { ...tap, item: { id: "a" } });
     expect(dropped.changes.length).toBe(1);
     expect(dropped.undone).toEqual([]);
     /* no row tapped: nothing to change first */
     const none = recording(doc, () => ({ ok: true, status: 200, response: {} }));
-    await run({ to: "none", transition: "none", effects: [remove] }, none.h, tap);
+    await run({ to: "none", effects: [remove] }, none.h, tap);
     expect(none.changes).toEqual([]);
   });
 
   it("patches the tapped row with fields read over it", async () => {
     const { doc } = designDoc({ screens: [{ id: "home", name: "Home" }], parts: [] });
     const r = recording(doc, () => ({ ok: true, status: 200, response: {} }));
-    await run({ to: "none", transition: "none", effects: [{ do: "call", operationId: "like", optimistic: { source: "items", patch: { likes: "item.likes + 1" } } }] }, r.h, { ...tap, item: { likes: 1 } });
+    await run({ to: "none", effects: [{ do: "call", operationId: "like", optimistic: { source: "items", patch: { likes: "item.likes + 1" } } }] }, r.h, { ...tap, item: { likes: 1 } });
     const change = r.changes[0] as Extract<Change, { patch: unknown }>;
     expect(change.patch({ likes: 4 })).toEqual({ likes: 5 });
   });
@@ -94,7 +94,7 @@ describe("lib/actions", () => {
   it("reads a call's arguments when it is made, leaving out what reads as nothing", async () => {
     const { doc } = designDoc({ screens: [{ id: "home", name: "Home" }], vars: [{ id: "q", name: "query", type: "text", value: "tea" }], parts: [] });
     const r = recording(doc, () => ({ ok: true, status: 200, response: {} }));
-    await run({ to: "none", transition: "none", effects: [{ do: "call", operationId: "find", args: { q: "vars.query", gone: "data.nothing.here" }, body: "{ a: 1 }" }] }, r.h, tap);
+    await run({ to: "none", effects: [{ do: "call", operationId: "find", args: { q: "vars.query", gone: "data.nothing.here" }, body: "{ a: 1 }" }] }, r.h, tap);
     expect(r.asked).toEqual([{ op: "find", args: { args: { q: "tea" } } }]);
   });
 
@@ -102,7 +102,7 @@ describe("lib/actions", () => {
     const { doc } = designDoc({ screens: [{ id: "home", name: "Home" }], parts: [] });
     const r = recording(doc, () => Promise.reject(new Error("offline")));
     // eslint-disable-next-line unicorn/no-thenable -- an action body, never a function: nothing awaits it
-    const a: Action = { to: "none", transition: "none", effects: [{ do: "call", operationId: "x", catch: { to: "none", transition: "none", effects: [{ do: "snackbar", message: "{{status}}" }] } }] };
+    const a: Action = { to: "none", effects: [{ do: "call", operationId: "x", catch: { to: "none", effects: [{ do: "snackbar", message: "{{status}}" }] } }] };
     await run(a, r.h, tap);
     expect(r.host.snack).toBe("0");
   });
@@ -110,8 +110,8 @@ describe("lib/actions", () => {
   it("keeps the same nesting limit as the file reader", () => {
     expect(MAX_CALL_DEPTH).toBe(4);
     // eslint-disable-next-line unicorn/no-thenable -- an action body, never a function: nothing awaits it
-    const deep = (n: number): Effect => (n === 0 ? { do: "call", operationId: "c" } : { do: "call", operationId: "c", then: { to: "none", transition: "none", effects: [deep(n - 1)] } });
-    const built = designDoc({ screens: [{ id: "home", name: "Home" }], parts: [{ id: "go", label: "Go", action: { to: "none", transition: "none", effects: [deep(6)] }, unchecked: true }] }).doc;
+    const deep = (n: number): Effect => (n === 0 ? { do: "call", operationId: "c" } : { do: "call", operationId: "c", then: { to: "none", effects: [deep(n - 1)] } });
+    const built = designDoc({ screens: [{ id: "home", name: "Home" }], parts: [{ id: "go", label: "Go", action: { to: "none", effects: [deep(6)] }, unchecked: true }] }).doc;
     const doc = openProject(projectFile(built));
     let depth = 0;
     let e: Effect | undefined = doc?.groups.flatMap((g) => g.items).find((it) => it.id === "go")?.action?.effects?.[0];
@@ -124,9 +124,9 @@ describe("lib/actions", () => {
   });
   it("runs the branch an answer's condition picks: then on the response, catch on the status, an invoke's on its result", async () => {
     const { doc } = designDoc({ screens: [{ id: "home", name: "Home" }], parts: [] });
-    const say = (message: string) => ({ to: "none", transition: "none" as const, effects: [{ do: "snackbar" as const, message }] });
+    const say = (message: string) => ({ to: "none", effects: [{ do: "snackbar" as const, message }] });
     // eslint-disable-next-line unicorn/no-thenable -- an action body, never a function: nothing awaits it
-    const branching = (answers: Pick<Extract<Effect, { do: "call" }>, "then" | "catch">): Action => ({ to: "none", transition: "none", effects: [{ do: "call", operationId: "pay", ...answers }] });
+    const branching = (answers: Pick<Extract<Effect, { do: "call" }>, "then" | "catch">): Action => ({ to: "none", effects: [{ do: "call", operationId: "pay", ...answers }] });
     const paid = recording(doc, () => ({ ok: true, status: 200, response: { state: "paid" } }));
     // eslint-disable-next-line unicorn/no-thenable -- an action body, never a function: nothing awaits it
     await run(branching({ then: { ...say("Paid"), when: { expr: "response.state == 'paid'" }, else: say("Pending") } }), paid.h, tap);
@@ -146,17 +146,17 @@ describe("lib/actions", () => {
     const scanned = recording(doc, () => ({ ok: true, status: 200, response: {} }));
     scanned.host.invoke = async () => ({ ok: true, result: { text: "" } });
     // eslint-disable-next-line unicorn/no-thenable -- an action body, never a function: nothing awaits it
-    await run({ to: "none", transition: "none", effects: [{ do: "invoke", capability: "scan.code", then: { ...say("Read"), when: { expr: "result.text" }, else: say("Empty") } }] }, scanned.h, tap);
+    await run({ to: "none", effects: [{ do: "invoke", capability: "scan.code", then: { ...say("Read"), when: { expr: "result.text" }, else: say("Empty") } }] }, scanned.h, tap);
     expect(scanned.host.snack).toBe("Empty");
   });
 
   it("keeps an answer's condition and its else through a file, and drops one that is no condition", () => {
     // eslint-disable-next-line unicorn/no-thenable -- an action body, never a function: nothing awaits it
-    const then = { to: "none", transition: "none" as const, when: { expr: "response.ok" }, else: { to: "none", transition: "none" as const, effects: [{ do: "snackbar" as const, message: "No" }] } };
+    const then = { to: "none", when: { expr: "response.ok" }, else: { to: "none", effects: [{ do: "snackbar" as const, message: "No" }] } };
     const built = designDoc({
       screens: [{ id: "home", name: "Home" }],
       // eslint-disable-next-line unicorn/no-thenable -- an action body, never a function: nothing awaits it
-      parts: [{ id: "go", label: "Go", action: { to: "none", transition: "none", effects: [{ do: "call", operationId: "c", then, catch: { ...then, when: { nonsense: 1 } as never } }] }, unchecked: true }],
+      parts: [{ id: "go", label: "Go", action: { to: "none", effects: [{ do: "call", operationId: "c", then, catch: { ...then, when: { nonsense: 1 } as never } }] }, unchecked: true }],
     }).doc;
     const e = openProject(projectFile(built))?.groups.flatMap((g) => g.items).find((it) => it.id === "go")?.action?.effects?.[0] as Extract<Effect, { do: "call" }>;
     expect(e.then).toEqual(then);

@@ -76,7 +76,7 @@ export function splitsDoc(): { doc: Doc; widths: Record<string, number> } {
  *  on a place of each (a machine's button, an egg, a level, a cell, a menu's row) goes to another screen. */
 export function playDoc(): { doc: Doc; widths: Record<string, number> } {
   const frames: Frame[] = ["Draws", "Machines", "Play", "Menus"].map((name, i) => ({ id: name.toLowerCase(), name, x: i * 500, y: 0 }));
-  const go = (to: string) => ({ to, transition: "slide" as const });
+  const go = (to: string) => ({ to });
   const part = (id: string, slug: string, at: [screen: number, x: number, y: number], props: Record<string, unknown> = {}, actions: Item["actions"] = {}): Group => ({ id: `g-${id}`, x: at[0] * 500 + at[1], y: at[2], axis: "x", items: [{ ...makeItem(slug), id, props, actions }] });
   const groups: Group[] = [
     part("wheel", "prize-wheel", [0, 16, 40], { result: 2 }, { action: go("menus") }),
@@ -121,7 +121,8 @@ export function inputsDoc(): { doc: Doc; widths: Record<string, number> } {
   const groups: Group[] = [];
   let y = 24;
   const add = (frame: Frame, slug: string, h: number, props: Record<string, unknown> = {}, bind?: Record<string, string>) => {
-    const it: Item = { ...makeItem(slug), id: slug, props, ...(bind ? { bind } : {}) };
+    /* a variable is bound by the expression that reads it (its name is its id here) */
+    const it: Item = { ...makeItem(slug), id: slug, props, ...(bind ? { bind: Object.fromEntries(Object.entries(bind).map(([k, v]) => [k, v.startsWith("=") ? v : `=vars.${v}`])) } : {}) };
     groups.push({ id: `g-${slug}`, x: frame.x + 16, y, axis: "x", items: [it] });
     y += h + 24;
   };
@@ -165,7 +166,7 @@ export function dataDoc(): { doc: Doc; widths: Record<string, number> } {
     { id: "d-lists", name: "Lists", x: at(2), y: 0 },
     { id: "d-desk", name: "Desk", x: at(3), y: 0, w: 1280, h: 800 },
   ];
-  const go = (to: string): Action => ({ to, transition: "none" });
+  const go = (to: string): Action => ({ to, motion: { kind: "instant" } });
   const item = (id: string, slug: string, props: Record<string, unknown> = {}, more: Partial<Item> = {}): Item => ({ ...makeItem(slug), id, props, ...more });
   const place = (frame: number, y: number, it: Item, more: Partial<Group> = {}): Group => ({ id: `g-${it.id}`, x: at(frame) + 16, y, axis: "x", items: [it], ...more });
   const sales = { columns: ["Day", "Shop", "Web"], rows: [["Mon", "3", "5"], ["Tue", "4", "6"], ["Wed", "2", "7"]] };
@@ -246,7 +247,7 @@ export function slotsDoc(): { doc: Doc; widths: Record<string, number> } {
   const home: Frame = { id: "slots-home", name: "Slots", x: 0, y: 0, flow: "Slots" };
   const done: Frame = { id: "slots-done", name: "Bought", x: PHONE_W + FRAME_GAP, y: 0 };
   const groups: Group[] = [
-    { id: "g-buy", x: 16, y: 120, axis: "x", items: [{ ...makeItem("button"), id: "buy", props: { label: "Buy" }, slot: "BuyButton", action: { to: done.id, transition: "slide" } }] },
+    { id: "g-buy", x: 16, y: 120, axis: "x", items: [{ ...makeItem("button"), id: "buy", props: { label: "Buy" }, slot: "BuyButton", action: { to: done.id } }] },
     { id: "g-stat", x: 16, y: 200, axis: "x", name: "Sales today", items: [{ ...makeItem("stat-card"), id: "stat", slot: true }] },
     { id: "g-done", x: 16, y: 120, axis: "x", items: [{ ...makeItem("text"), id: "thanks", props: { text: "Thank you" } }] },
   ];

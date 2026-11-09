@@ -4,11 +4,11 @@
 
 import { useEffect, useRef, useState } from "react";
 import { animate, useMotionValue, useTransform, type MotionValue } from "motion/react";
-import { SLIDE_SPEC, SWIPE_DIRS, frameSizeOf, type Frame, type SwipeDir, type Transition } from "@/lib/tokens";
-import { EASE } from "@/lib/screenMotion";
+import { SLIDE_SPEC, SWIPE_DIRS, frameSizeOf, type Frame, type Motion, type SwipeDir } from "@/lib/tokens";
+import { EASE, TRANSITION_MOTIONS } from "@/lib/screenMotion";
 
-/** the screen being pulled in by a swipe, and the slide it arrives with */
-export type Peek = { frameId: string; t: Transition };
+/** the screen being pulled in by a swipe, and the slide it arrives with (what going back from it plays undone) */
+export type Peek = { frameId: string; m: Motion };
 
 const pct = (v: number) => `${v * 100}%`;
 
@@ -84,12 +84,12 @@ export function useSwipe(o: {
          * down a body that scrolls is scrolling it; a mouse scrolls with its wheel, so it still swipes */
         let pk: Peek | null = null;
         const scrolling = g.body && (dir === "up" || dir === "down");
-        if (to && !scrolling && frames.some((f) => f.id === to)) pk = { frameId: to, t: spec.transition };
+        if (to && !scrolling && frames.some((f) => f.id === to)) pk = { frameId: to, m: TRANSITION_MOTIONS[spec.transition] };
         if (!pk) {
           g.phase = "none";
           return;
         }
-        const sl = SLIDE_SPEC[pk.t]!;
+        const sl = SLIDE_SPEC[spec.transition]!;
         g.phase = "drag";
         g.dir = dir;
         const { w, h } = frameSizeOf(cur);

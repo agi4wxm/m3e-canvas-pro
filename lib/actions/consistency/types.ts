@@ -88,7 +88,10 @@ export type Step =
   /** a tap on one place of the part with these words (`slot` "tab:1"): its own action, else its family's */
   | { tapSlot: string; slot: string }
   /** the part with these words sends one of its events, with this payload */
-  | { emit: string; event: string; payload?: Record<string, unknown> };
+  | { emit: string; event: string; payload?: Record<string, unknown> }
+  /** the platform goes back by itself, no tap of the design asking it to: the system's back button or a swipe back on a
+   *  phone, the back of the preview's controls, a browser's or a mini-program's own back */
+  | { platformBack: true };
 
 /** a call as the back end saw it: its operation and what it was given (query and JSON body fields together) */
 export type SeenCall = { op: string; in: Record<string, unknown> };

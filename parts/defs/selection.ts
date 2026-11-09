@@ -1,4 +1,5 @@
 import { h } from "../node";
+import { inputNode } from "../inputNode";
 import type { P, PartDef } from "../types";
 import { FIELD, fieldFrame, fieldValues, requiredMark } from "../fieldState";
 import { ariaLabelProp, nameFor } from "../a11y";
@@ -35,7 +36,7 @@ export const selection: PartDef[] = [
           "Label",
           { style: p.s("label") && p.n("width") !== 140 ? { width: Math.round(p.n("width")), justifyContent: "space-between" } : undefined },
           starred(p, p.s("label")),
-          h("Switch", {
+          inputNode(h("Switch", {
             defaultChecked: p.b("checked") || undefined,
             size: p.s("size") === "sm" ? "sm" : undefined,
             "aria-label": p.s("label") ? undefined : nameFor(p) || undefined,
@@ -43,7 +44,7 @@ export const selection: PartDef[] = [
             required: v.required || undefined,
             readOnly: v.readOnly || undefined,
             disabled: v.disabled || undefined,
-          }),
+          })),
         ),
         { holds: true, marksRequired: !!p.s("label") },
       );
@@ -77,7 +78,7 @@ export const selection: PartDef[] = [
         h(
           "Label",
           null,
-          h("Checkbox", {
+          inputNode(h("Checkbox", {
             defaultChecked: p.b("checked") || undefined,
             indeterminate: p.b("indeterminate") || undefined,
             "aria-label": p.s("label") ? undefined : nameFor(p) || undefined,
@@ -85,7 +86,7 @@ export const selection: PartDef[] = [
             required: v.required || undefined,
             readOnly: v.readOnly || undefined,
             disabled: v.disabled || undefined,
-          }),
+          })),
           starred(p, p.s("label")),
         ),
         { holds: true, marksRequired: !!p.s("label") },
@@ -119,7 +120,7 @@ export const selection: PartDef[] = [
       const items = p.list("items");
       return fieldFrame(
         v,
-        h(
+        inputNode(h(
           "RadioGroup",
           {
             defaultValue: items[Math.min(p.n("selected"), items.length - 1)]?.label,
@@ -130,7 +131,7 @@ export const selection: PartDef[] = [
             disabled: v.disabled || undefined,
           },
           ...items.map((it) => h("Label", null, h("RadioGroupItem", { value: it.label, "aria-invalid": v.invalid || undefined }), it.label)),
-        ),
+        )),
         { holds: true },
       );
     },
@@ -166,13 +167,13 @@ export const selection: PartDef[] = [
           "div",
           { className: p.s("label") ? "flex items-center gap-3" : undefined, style: { width: Math.round(p.n("width")) } },
           p.s("label") && h("span", { className: `text-label-large shrink-0 ${v.invalid ? "text-error" : "text-on-surface"}` }, starred(p, p.s("label"))),
-          h("Slider", {
+          inputNode(h("Slider", {
             /* read-only, it shows the value it is given and cannot be moved: a base slider has no read-only of its own */
             ...(v.readOnly ? { value } : { defaultValue: value }),
             "aria-label": name || undefined,
             "aria-invalid": v.invalid || undefined,
             disabled: v.disabled || undefined,
-          }),
+          })),
         ),
         { holds: "disabled", showsError: true, marksRequired: !!p.s("label") },
       );
@@ -211,7 +212,7 @@ export const selection: PartDef[] = [
       const name = nameFor(p, p.s("label"));
       return fieldFrame(
         v,
-        h(
+        inputNode(h(
           "Select",
           {
             items: items.map((it) => ({ value: it.label, label: it.label })),
@@ -234,7 +235,7 @@ export const selection: PartDef[] = [
             h("SelectValue", { placeholder: p.s("placeholder") || undefined }),
           ),
           h("SelectContent", null, ...items.map((it) => h("SelectItem", { value: it.label }, it.label))),
-        ),
+        )),
         { holds: true, marksRequired: !!p.s("label"), showsMessage: true },
       );
     },

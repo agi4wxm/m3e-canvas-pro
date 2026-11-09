@@ -210,7 +210,7 @@ describe("actionSlotsOf", () => {
 });
 
 describe("a tap that opens a link", () => {
-  const link = (url?: string) => ({ to: LINK_TARGET, transition: "none" as const, url });
+  const link = (url?: string) => ({ to: LINK_TARGET, url });
 
   it("reads a bare host as https and keeps a full address as it is", () => {
     expect(linkUrlOf(link("example.com/docs"))).toBe("https://example.com/docs");

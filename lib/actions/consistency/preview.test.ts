@@ -105,6 +105,13 @@ function previewOf(doc: Doc, backend: Backend): Driver {
       capabilities = capabilitiesOf();
       draw();
     },
+    /* the back of the preview's own controls (its bar, Escape), which no tap asks for */
+    platformBack: () => {
+      const controls = tiny.elements(tree).find((e) => typeof e.props.onBack === "function" && "canGoBack" in e.props);
+      if (!controls) throw new Error("the preview's controls are not drawn");
+      (controls.props.onBack as () => void)();
+      draw();
+    },
     settle: async () => {
       for (let i = 0; i < 6; i++) {
         await turns(2);

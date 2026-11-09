@@ -45,5 +45,3 @@ export function scopeFor(ctx: BindingContext, vars: Record<string, VarValue>, it
 /** the context of no bindings at all: what a document without them reads */
 export const NO_BINDINGS: BindingContext = { scope: {}, varNames: [], forms: {}, eval: { lang: "en" } };
 
-/** an expression stored in `Item.bind`: what follows its "=" */
-export const exprOfBind = (v: string): string | null => (v.startsWith("=") ? v.slice(1) : null);

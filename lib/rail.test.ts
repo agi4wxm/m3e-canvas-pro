@@ -59,7 +59,7 @@ describe("a menu low on a screen", () => {
 
 describe("updateRail", () => {
   const destinations = [{ icon: "home", label: "Home" }];
-  const openRail: Item = { ...rail, props: { ...rail.props, expanded: true, modal: true, items: destinations, selected: 0 }, [railExpansionSide]: "right", actions: { "tab:0": { to: "home", transition: "fade" } } };
+  const openRail: Item = { ...rail, props: { ...rail.props, expanded: true, modal: true, items: destinations, selected: 0 }, [railExpansionSide]: "right", actions: { "tab:0": { to: "home", motion: { kind: "dissolve" } } } };
 
   it("leaves the body where it is when a modal rail opens: it floats over it", () => {
     const modal = { ...rail, props: { ...rail.props, modal: true } };

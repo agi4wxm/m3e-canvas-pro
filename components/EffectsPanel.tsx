@@ -1,5 +1,6 @@
 
 import { createContext, useContext, useState } from "react";
+import { bindOfVar, boundVar, comparisonExpr, comparisonOf, type Comparison } from "@/lib/bindings/bind";
 import { Action, ActionBody, BACK_TARGET, Collection, Condition, DocVar, Effect, Group, Item, LINK_TARGET, Palette, STAY_TARGET, VarCollection, VarType, VarValue, paletteIconOf, uid } from "@/lib/tokens";
 import { INPUT_PROP, isOverlayPart } from "@/lib/interact";
 import { t, useLang, type Lang, type UIKey } from "@/lib/i18n";
@@ -442,7 +443,7 @@ export function BodyEditor({ title, body, onChange, p, depth, response, error }:
   const lang = useLang();
   const bindings = useContext(BindingsContext);
   const frames = bindings?.doc.frames ?? [];
-  const base: ActionBody = body ?? { to: STAY_TARGET, transition: "none" };
+  const base: ActionBody = body ?? { to: STAY_TARGET };
   const set = (patch: Partial<ActionBody>) => {
     const next = { ...base, ...patch };
     onChange(next.to === STAY_TARGET && !next.effects?.length ? undefined : next);
@@ -455,7 +456,7 @@ export function BodyEditor({ title, body, onChange, p, depth, response, error }:
   return (
     <div data-call-branch={error ? "catch" : "then"} style={{ display: "flex", flexDirection: "column", gap: 6, padding: 8, borderRadius: 10, border: `1px dashed ${p.outlineVariant}` }}>
       <div style={{ fontSize: 12, fontWeight: 600, color: p.onSurfaceVariant }}>{title}</div>
-      <Select options={options} value={base.to} onChange={(to) => set({ to, transition: to === STAY_TARGET ? "none" : "slide", params: undefined })} p={p} label={title} />
+      <Select options={options} value={base.to} onChange={(to) => set({ to, params: undefined })} p={p} label={title} />
       <NavParams to={base.to} value={base.params} onChange={(params) => set({ params })} p={p} extra={error ? { error: true } : { response }} />
       <EffectList effects={base.effects ?? []} onChange={(effects) => set({ effects: effects.length ? effects : undefined })} p={p} depth={depth} />
     </div>
@@ -491,66 +492,56 @@ function ConditionEditor({ value, onChange, p }: { value: Condition; onChange: (
   const bindings = useContext(BindingsContext);
   const shape = usePartShape();
   const fields = partOptions(b.groups, lang, isInput);
-  if ("expr" in value || bindings) {
-    const mode = "expr" in value ? "expr" : "filled" in value ? "field" : "var";
-    return (
-      <div style={{ display: "flex", flexDirection: "column", gap: 8, padding: 8, borderRadius: 12, background: p.surfaceContainerLow }}>
-        <Segmented<string>
-          options={[{ key: "var", label: t("condVar", lang) }, { key: "field", label: t("condField", lang) }, { key: "expr", label: t("bdExpr", lang) }]}
-          value={mode}
-          onChange={(k) => onChange(k === "expr" ? { expr: "data" in (shape as object) && shape.sources[0] ? `data.${shape.sources[0].name}.ready` : "auth.signedIn" } : k === "field" ? { filled: fields[0]?.key ?? "" } : { var: b.vars[0]?.id ?? "", op: "eq", value: b.vars[0]?.value ?? 0 })}
-          p={p}
-          height={36}
-          label={t("onlyWhen", lang)}
-        />
-        {"expr" in value ? <ExprField name="condition" value={value.expr} onCommit={(expr) => expr && onChange({ expr })} shape={shape} api={bindings?.doc.api} p={p} /> : <PlainCondition value={value} onChange={onChange} p={p} />}
-      </div>
-    );
-  }
+  /* a comparison of a variable is an expression (lib/bindings/bind.ts): the simple ones are edited as one */
+  const cmp = "expr" in value ? comparisonOf(value.expr, readableVars(b)) : null;
+  const mode = "filled" in value ? "field" : cmp ? "var" : "expr";
+  const options = [{ key: "var", label: t("condVar", lang) }, { key: "field", label: t("condField", lang) }, ...(mode === "expr" || bindings ? [{ key: "expr", label: t("bdExpr", lang) }] : [])];
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 8, padding: 8, borderRadius: 12, background: p.surfaceContainerLow }}>
-      <PlainCondition value={value} onChange={onChange} p={p} segmented />
+      <Segmented<string>
+        options={options}
+        value={mode}
+        onChange={(k) => onChange(k === "expr" ? { expr: "data" in (shape as object) && shape.sources[0] ? `data.${shape.sources[0].name}.ready` : "auth.signedIn" } : k === "field" ? { filled: fields[0]?.key ?? "" } : firstComparison(b))}
+        p={p}
+        height={36}
+        label={t("onlyWhen", lang)}
+      />
+      {mode === "expr" && "expr" in value ? (
+        <ExprField name="condition" value={value.expr} onCommit={(expr) => expr && onChange({ expr })} shape={shape} api={bindings?.doc.api} p={p} />
+      ) : mode === "field" && "filled" in value ? (
+        fields.length ? <Select options={fields} value={value.filled} onChange={(filled) => onChange({ filled })} p={p} label={t("condFilled", lang)} /> : <div style={{ fontSize: 12, color: p.onSurfaceVariant, padding: "0 4px" }}>{t("noParts", lang)}</div>
+      ) : (
+        cmp && <ComparisonEditor value={cmp} onChange={(c) => onChange({ expr: comparisonExpr(c, b.vars) })} p={p} />
+      )}
     </div>
   );
 }
 
-/** a test on a variable, or on a form field having something in it */
-function PlainCondition({ value, onChange, p, segmented }: { value: Exclude<Condition, { expr: string }>; onChange: (c: Condition) => void; p: Palette; segmented?: boolean }) {
+/** a variable (or a field of the row) is or is not a value: the expression `vars.n == 3` edited in its parts */
+function ComparisonEditor({ value, onChange, p }: { value: Comparison; onChange: (c: Comparison) => void; p: Palette }) {
   const lang = useLang();
   const b = useContext(BehaviorContext);
-  const fields = partOptions(b.groups, lang, isInput);
-  const onField = "filled" in value;
-  const v = !onField ? readableVars(b).find((x) => x.id === value.var) : undefined;
+  const v = readableVars(b).find((x) => x.id === value.var);
   return (
     <>
-      {segmented && (
-        <Segmented<string>
-          options={[{ key: "var", label: t("condVar", lang) }, { key: "field", label: t("condField", lang) }]}
-          value={onField ? "field" : "var"}
-          onChange={(k) => onChange(k === "field" ? { filled: fields[0]?.key ?? "" } : { var: b.vars[0]?.id ?? "", op: "eq", value: b.vars[0]?.value ?? 0 })}
-          p={p}
-          height={36}
-          label={t("onlyWhen", lang)}
-        />
-      )}
-      {onField ? (
-        fields.length ? <Select options={fields} value={value.filled} onChange={(filled) => onChange({ filled })} p={p} label={t("condFilled", lang)} /> : <div style={{ fontSize: 12, color: p.onSurfaceVariant, padding: "0 4px" }}>{t("noParts", lang)}</div>
-      ) : (
-        <>
-          <VarSelect reading value={value.var} onPick={(x) => onChange({ ...value, var: x.id, value: x.value })} p={p} />
-          <Segmented<string> options={[{ key: "eq", label: t("condIs", lang) }, { key: "neq", label: t("condIsNot", lang) }]} value={value.op} onChange={(op) => onChange({ ...value, op: op as "eq" | "neq" })} p={p} height={36} label={t("onlyWhen", lang)} />
-          {v && <ValueField type={v.type} value={value.value} onChange={(x) => onChange({ ...value, value: x })} p={p} />}
-        </>
-      )}
+      <VarSelect reading value={value.var} onPick={(x) => onChange({ ...value, var: x.id, value: x.value })} p={p} />
+      <Segmented<string> options={[{ key: "eq", label: t("condIs", lang) }, { key: "neq", label: t("condIsNot", lang) }]} value={value.op} onChange={(op) => onChange({ ...value, op: op as "eq" | "neq" })} p={p} height={36} label={t("onlyWhen", lang)} />
+      {v && <ValueField type={v.type} value={value.value} onChange={(x) => onChange({ ...value, value: x })} p={p} />}
     </>
   );
+}
+
+/** the comparison a new condition on a variable starts as: the first variable, at its value */
+function firstComparison(b: Behavior): Condition {
+  const v = b.vars[0];
+  return v ? { expr: comparisonExpr({ var: v.id, op: "eq", value: v.value }, b.vars) } : { expr: "true" };
 }
 
 /** a condition to start from: a field when the screen has one, since that is what a form asks */
 function firstCondition(b: Behavior): Condition {
   const field = b.groups.flatMap((g) => g.items).find(isInput);
   if (field) return { filled: field.id };
-  return { var: b.vars[0]?.id ?? "", op: "eq", value: b.vars[0]?.value ?? 0 };
+  return firstComparison(b);
 }
 
 /** an action with nothing in it is no action, and what is empty is not kept */
@@ -570,9 +561,9 @@ export function tidiedAction(a: Action): Action | undefined {
 export function ActionExtras({ action, onChange, navOptions, p }: { action: Action | undefined; onChange: (a: Action | undefined) => void; navOptions: SelectOption[]; p: Palette }) {
   const lang = useLang();
   const b = useContext(BehaviorContext);
-  const base: Action = action ?? { to: STAY_TARGET, transition: "none" };
+  const base: Action = action ?? { to: STAY_TARGET };
   const set = (patch: Partial<Action>) => onChange(tidiedAction({ ...base, ...patch }));
-  const other: ActionBody = base.else ?? { to: STAY_TARGET, transition: "none" };
+  const other: ActionBody = base.else ?? { to: STAY_TARGET };
   const setOther = (patch: Partial<ActionBody>) => set({ else: { ...other, ...patch } });
   const label = (text: string) => <div style={{ fontSize: 12, fontWeight: 600, color: p.onSurfaceVariant, padding: "0 4px" }}>{text}</div>;
   return (
@@ -588,7 +579,7 @@ export function ActionExtras({ action, onChange, navOptions, p }: { action: Acti
           <Select
             options={navOptions.map((o) => (o.key === "none" ? { ...o, key: STAY_TARGET } : o))}
             value={other.to}
-            onChange={(to) => setOther({ to, transition: to === STAY_TARGET || to === LINK_TARGET || to === BACK_TARGET ? "none" : "slide" })}
+            onChange={(to) => setOther({ to })}
             p={p}
             label={t("otherwise", lang)}
           />
@@ -633,11 +624,12 @@ export function BindRow({ def, item, onChange, p, children }: { def: PropDef; it
   const b = useContext(BehaviorContext);
   const [open, setOpen] = useState(false);
   if (!bindable(def)) return <>{children}</>;
-  const id = item.bind?.[def.key];
+  /* bound to a plain read of a variable (lib/bindings/bind.ts): the binding an input writes back to */
+  const id = boundVar(item, def.key, b.vars);
   const bound = id ? b.vars.find((v) => v.id === id) : undefined;
   const put = (varId: string | undefined) => {
     const { [def.key]: _was, ...rest } = item.bind ?? {};
-    const bind = varId ? { ...rest, [def.key]: varId } : rest;
+    const bind = varId ? { ...rest, [def.key]: bindOfVar(b.vars, varId) } : rest;
     onChange({ bind: Object.keys(bind).length ? bind : undefined });
     setOpen(false);
   };

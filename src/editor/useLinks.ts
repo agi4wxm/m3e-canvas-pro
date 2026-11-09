@@ -2,7 +2,7 @@
  * ones worth drawing now. A line can stand for several rows that open one screen; what is done to it is done to all. */
 
 import { useMemo } from "react";
-import { actionsOf, BACK_TARGET, BEZEL, Frame, FrameMode, frameOfPart, frameRect, Group, Transition } from "@/lib/tokens";
+import { actionsOf, BACK_TARGET, BEZEL, Frame, FrameMode, frameOfPart, frameRect, Group, Motion, Transition } from "@/lib/tokens";
 import { isNavPart, mergeLinks, routeLink, shownLinks, type LinkLine, type Route } from "@/lib/links";
 import { ops, type Op, type TxOptions } from "@/lib/core";
 
@@ -25,7 +25,7 @@ export function useLinks({ frame, groups, frames, widths, itemRects, showAllLink
   const links = useMemo(() => {
     if (frame !== "phone") return [];
     const rects = itemRects();
-    const out: (Route & LinkLine & { t: Transition })[] = [];
+    const out: (Route & LinkLine & { m: Motion | undefined })[] = [];
     for (const g of groups) {
       const source = frameOfPart(g, groups, frames, widths);
       for (const it of g.items) {
@@ -43,7 +43,7 @@ export function useLinks({ frame, groups, frames, widths, itemRects, showAllLink
           to: f.id,
           fromFrame: source?.id,
           nav: isNavPart(it.component),
-          t: action.transition,
+          m: action.motion,
         });
         }
       }
@@ -55,11 +55,12 @@ export function useLinks({ frame, groups, frames, widths, itemRects, showAllLink
 
   /* a line can stand for several rows that open one screen: what is done to it is done to them all */
   const idsOfLink = (linkId: string) => links.find((l) => l.id === linkId)?.ids ?? [linkId];
-  const setLinkTransition = (linkId: string, transition: Transition) => runOp(ops.setLinkTransition, { links: idsOfLink(linkId), transition }, { history: { coalesce: "link:" + linkId } });
+  /* the chip offers the presets: each is the motion an older move played */
+  const setLinkMotion = (linkId: string, preset: Transition) => runOp(ops.setLinkMotion, { links: idsOfLink(linkId), motion: preset }, { history: { coalesce: "link:" + linkId } });
   const removeLink = (linkId: string) => {
     /* the arrow is where it goes; what else the tap does stays */
     runOp(ops.removeLinks, { links: idsOfLink(linkId) }, { history: "step" });
     setSelectedLinkId(null);
   };
-  return { visibleLinks, setLinkTransition, removeLink };
+  return { visibleLinks, setLinkMotion, removeLink };
 }

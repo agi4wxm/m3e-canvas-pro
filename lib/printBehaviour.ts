@@ -6,12 +6,15 @@ import type { PartDef, PropDef } from "../parts/types";
 import { WIDGET_SOURCES } from "../parts/widgets/sources";
 import { type Row, fillCurrent, firstRows, markCurrent } from "./collections";
 import { INPUT_PROP, coerce, isOverlayPart } from "./interact";
-import { demoRuns, isPlaceKey, optionsOf } from "./partContract";
+import { demoRuns, familiesOf, isPlaceKey, optionsOf } from "./partContract";
 import { collectionIdOf, collectionsOf, cssNameOf, isBindField, modeFor, valueIn, varValues } from "./variables";
 import { cleanMotion, cleanTrigger, flowStarts } from "./prototype";
 import type { BoundPrint } from "./printBindings";
-import { BACK_TARGET, LINK_TARGET, STAY_TARGET, actionSlotsOf, actionsOf, darkVarOf, heldBy, holdsParts, linkUrlOf, type Action, type ActionBody, type Condition, type Doc, type Effect, type Frame, type Group, type Item, type Transition, type VarType, type VarValue } from "./tokens";
+import { BACK_TARGET, LINK_TARGET, STAY_TARGET, actionSlotsOf, presetOf, actionsOf, darkVarOf, heldBy, holdsParts, linkUrlOf, type Action, type ActionBody, type Condition, type Doc, type Effect, type Frame, type Group, type Item, type VarType, type VarValue } from "./tokens";
 import { eventKey, familyKey, type Answer } from "./actions/model";
+import { evaluate, parseExpr, rootsOf, truthy } from "./bindings/expr";
+import { boundVar, comparisonOf, fieldVarOf, type Comparison } from "./bindings/bind";
+import { inlineReads } from "./refs";
 import { literal } from "./export/code";
 import { screenToken, screenWords } from "./export/ir/names";
 
@@ -55,6 +58,9 @@ export type RuntimeSpec = {
   bound?: BoundSpec;
   /** the taps are printed as data the runtime runs with lib/actions: what it needs to know of the app for them */
   acts?: ActsSpec;
+  /** a part hands its Pressable a family's action as a function of the entry (`families`), for the entries the design's
+   *  props do not hold */
+  families?: true;
 };
 
 /** What the runtime runs the taps over (lib/actions' `Host`, src/runtime.tsx): where each part an effect reaches stands,
@@ -89,8 +95,6 @@ export type ModesSpec = {
   bound: { key: string; css: string; kind: "color" | "number" }[];
   followsDark: boolean;
 };
-
-const TRANSITIONS: readonly Transition[] = ["slide", "slideLeft", "slideUp", "slideDown", "fade", "expand", "none"];
 
 /** a condition that never holds */
 const NEVER: Condition = { expr: "false" };
@@ -348,6 +352,8 @@ export class Behaviour {
   private readonly boundNames = new Map<string, string>();
   /** what of the prototype has been printed so far */
   private readonly printed = { motion: false, overlay: false, scroll: false, hover: false, delay: false };
+  /** a part's family of places has been printed with its action as a function of the entry (`families`) */
+  private printedFamilies = false;
   /** the bindings, printed against the product's runtime */
   readonly bound?: BoundPrint;
   private readonly groupById: Map<string, Group>;
@@ -403,14 +409,15 @@ export class Behaviour {
     const cssNames = new Set<string>();
     for (const g of doc.groups)
       for (const it of g.items)
-        for (const [field, id] of Object.entries(it.bind ?? {})) {
-          const v = isBindField(field) && !this.boundNames.has(id) ? doc.vars?.find((x) => x.id === id) : undefined;
+        for (const [field, bind] of Object.entries(it.bind ?? {})) {
+          const id = isBindField(field) ? fieldVarOf(bind) : undefined;
+          const v = id !== undefined && !this.boundNames.has(id) ? doc.vars?.find((x) => x.id === id) : undefined;
           if (!v) continue;
           const base = cssNameOf(v);
           let name = base;
           for (let i = 2; cssNames.has(name); i++) name = `${base.slice(0, 36)}-${i}`;
           cssNames.add(name);
-          this.boundNames.set(id, name);
+          this.boundNames.set(v.id, name);
         }
     for (const g of doc.groups)
       for (const it of g.items) {
@@ -558,6 +565,7 @@ export class Behaviour {
       ...(this.readsExprs || this.bound || this.acts ? { exprs: { vars: this.varNames() } } : {}),
       ...(this.bound ? { bound: this.boundSpec() } : {}),
       ...(this.acts ? { acts: this.actsSpec() } : {}),
+      ...(this.printedFamilies ? { families: true as const } : {}),
     };
   }
 
@@ -624,7 +632,9 @@ export class Behaviour {
     const def = partBySlug(it.component);
     if (key === undefined || !def) return null;
     if (this.bound?.form && it.field) return null;
-    const bound = it.bind?.[key] ? this.vars.get(it.bind[key]) : undefined;
+    /* an input bound to a plain read of a variable reads and writes that variable */
+    const boundId = boundVar(it, key, this.doc.vars);
+    const bound = boundId ? this.vars.get(boundId) : undefined;
     if (bound) return bound;
     if (this.inputs.has(it.id)) return this.inputs.get(it.id)!;
     if (!this.live && !this.filled.has(it.id) && !this.propTargets.get(it.id)?.has(key)) return null;
@@ -665,23 +675,33 @@ export class Behaviour {
 
   /* ---------- conditions and effects ---------- */
 
-  /** a condition on a field of the row a part was drawn for is settled here, row by row */
+  /** A condition's expression with the fields of the row its part was drawn for written in: the row is known here,
+   *  where the printed app has no rows to read (lib/refs.ts `inlineReads`). */
+  private rowRead(expr: string, row: Row | undefined): string {
+    return row && /\brow\b/.test(expr) ? inlineReads(expr, "row", row) : expr;
+  }
+
+  /** a condition on the fields of the row a part was drawn for, and nothing else, is settled here, row by row */
   private onRow(c: Condition, row: Row | undefined): boolean | undefined {
-    if ("filled" in c || "expr" in c || !c.var.startsWith("row.") || !row) return undefined;
-    const same = String(row[c.var.slice(4)]) === String(c.value);
-    return c.op === "neq" ? !same : same;
+    if (!("expr" in c) || typeof c.expr !== "string" || !row || !/\brow\b/.test(c.expr)) return undefined;
+    const p = parseExpr(this.rowRead(c.expr, row));
+    return p.ok && !rootsOf(p.expr).length ? truthy(evaluate(p, {})) : undefined;
   }
 
   condition(c: Condition, uses: Uses, row: Row | undefined = this.rowNow): string {
     const known = this.onRow(c, row);
     if (known !== undefined) return String(known);
-    /* an expression: the product reads it in the part's scope; the prototype's runtime reads what it can of it */
     if ("expr" in c) {
       if (typeof c.expr !== "string") return "false";
-      if (this.bound) return this.bound.holds(c.expr);
+      const expr = this.rowRead(c.expr, row);
+      /* a variable compared with a value is read off the app's state as it always was */
+      const cmp = comparisonOf(expr, this.doc.vars ?? []);
+      if (cmp && !cmp.var.startsWith("row.")) return this.comparison(cmp, uses);
+      /* any other expression: the product reads it in the part's scope; the prototype's runtime reads what it can of it */
+      if (this.bound) return this.bound.holds(expr);
       this.readsExprs = true;
       uses.app.add("holds");
-      return `holds(${json(c.expr)})`;
+      return `holds(${json(expr)})`;
     }
     if ("filled" in c) {
       const it = this.owner.get(c.filled)?.items.find((x) => x.id === c.filled);
@@ -690,15 +710,17 @@ export class Behaviour {
       uses.app.add("vars").add("hasValue");
       return `hasValue(vars.${v.key})`;
     }
+    return "false";
+  }
+
+  /** a variable compared with a value of its type (lib/bindings/bind.ts `comparisonOf`), as code over the app's state */
+  private comparison(c: Comparison, uses: Uses): string {
     const v = this.vars.get(c.var);
     const neq = c.op === "neq";
     if (!v) return "false";
     uses.app.add("vars");
-    /* the panel writes what it was typed as: "3" and 3 are the same answer, "x" and 3 never are */
-    const typed = coerce(c.value, v.type);
-    if (typed === null || String(typed) !== String(c.value)) return neq ? "true" : "false";
-    if (v.type === "bool") return typed === !neq ? `vars.${v.key}` : `!vars.${v.key}`;
-    return `vars.${v.key} ${neq ? "!==" : "==="} ${json(typed)}`;
+    if (v.type === "bool") return c.value === !neq ? `vars.${v.key}` : `!vars.${v.key}`;
+    return `vars.${v.key} ${neq ? "!==" : "==="} ${json(c.value)}`;
   }
 
   /* ---------- what a tap does, as data ---------- */
@@ -710,7 +732,7 @@ export class Behaviour {
 
   /** a condition in the app's names; one that can never hold reads `false` */
   private conditionData(c: Condition): Condition {
-    if ("expr" in c) return typeof c.expr === "string" ? { expr: c.expr } : NEVER;
+    if ("expr" in c) return typeof c.expr === "string" ? { expr: this.rowRead(c.expr, this.rowNow) } : NEVER;
     if ("filled" in c) {
       const it = this.owner.get(c.filled)?.items.find((x) => x.id === c.filled);
       if (!it) return NEVER;
@@ -720,8 +742,7 @@ export class Behaviour {
       const v = this.inputVar(it);
       return v ? { filled: v.key } : NEVER;
     }
-    const v = this.vars.get(c.var);
-    return v ? { var: v.key, op: c.op === "neq" ? "neq" : "eq", value: c.value } : NEVER;
+    return NEVER;
   }
 
   /** an effect in the app's names; null for one that does nothing here */
@@ -828,9 +849,7 @@ export class Behaviour {
   /** where a body goes, in the app's names: a screen it has (or nowhere), back, out to a page, a part scrolled to */
   private bodyData(b: ActionBody, uses: Uses): ActionBody {
     const effects = (Array.isArray(b.effects) ? b.effects : []).map((e) => this.effectData(e, uses)).filter((e): e is Effect => !!e);
-    /* what a document says of the move is checked again here: only its words for one, and a number */
-    const transition = TRANSITIONS.includes(b.transition) ? b.transition : "slide";
-    const out: ActionBody = { to: STAY_TARGET, transition };
+    const out: ActionBody = { to: STAY_TARGET };
     if (b.to === BACK_TARGET) {
       out.to = BACK_TARGET;
       /* a back action's own motion is played backwards in place of the way the screen came in (Host.back) */
@@ -852,8 +871,9 @@ export class Behaviour {
       const key = b.to === STAY_TARGET ? undefined : this.screens.get(b.to);
       if (key) {
         out.to = key;
+        /* the default slide is no motion: the runtime plays it for none (lib/screenMotion.ts DEFAULT_MOTION) */
         const motion = cleanMotion(b.motion);
-        if (motion) {
+        if (motion && presetOf(motion) !== "slide") {
           this.printed.motion = true;
           out.motion = motion;
         }
@@ -990,7 +1010,8 @@ export class Behaviour {
       }
       if (d.kind !== "text" && d.kind !== "number" && d.kind !== "bool" && d.kind !== "enum") continue;
       if (d.key === inputKey && inputVar) continue;
-      const bound = it.bind?.[d.key] ? this.vars.get(it.bind[d.key]) : undefined;
+      const boundId = boundVar(it, d.key, this.doc.vars);
+      const bound = boundId ? this.vars.get(boundId) : undefined;
       if (bound && d.kind !== "enum") out.push({ d, expr: this.readVar(bound, d.kind, uses) });
       else if (d.key === def.selectKey && this.selecting(it, def)) {
         const bar = this.barKey(it, def);
@@ -1153,6 +1174,28 @@ export class Behaviour {
       const code = family && this.handler(this.statements(family.a, uses, family.name, family.more));
       if (code) slots[key] = raw(code);
     }
+    /* The entries above are the ones the design's props hold; an entry bound data or a tap adds at run time has no
+       handler of its own there, so the family's action is also handed over as a function of the entry (`families`),
+       which the Pressable runs for any entry of the family it has no handler for, told which (`slot`) */
+    const families: string[] = [];
+    for (const f of familiesOf(it)) {
+      const a = it.actions?.[familyKey(f.prefix)];
+      if (!a) continue;
+      const run = this.statements(a, uses, `${this.partNow} ${f.prefix} each`, ["slot"]);
+      if (!run.length) continue;
+      const lead: string[] = [];
+      if (selecting && f.prefix === "tab") {
+        /* as for an entry the props hold: a destination that opens a screen leaves the choice to that screen's bar */
+        const bar = json(this.barKey(it, def));
+        const opens = a.to !== STAY_TARGET;
+        const target = opens ? this.screens.get(a.to) : undefined;
+        lead.push(opens ? `leaveTab(${bar}, slot.index${isNavBar(def) && target ? `, ${json(target)}` : ""})` : `selectTab(${bar}, slot.index)`);
+        uses.app.add(opens ? "leaveTab" : "selectTab");
+      }
+      const all = [...lead, ...run];
+      families.push(`${json(f.prefix)}: (slot) => ${all.length === 1 && !all[0].startsWith("if ") ? all[0] : `{ ${all.join("; ")} }`}`);
+    }
+    if (families.length) this.printedFamilies = true;
     /* A named event the part sends (`on:<name>`) runs its action with what the event carries, as the part declares it
        (`event.*`): a widget hands its events out through \`onEvent\` (parts/widgets/host.ts) */
     const events = (def.events ?? []).flatMap((e) => {
@@ -1171,8 +1214,8 @@ export class Behaviour {
     const root = treeOf(def, withoutPickedImages(def, it.props ?? {}, this.image), appearanceOf(it), it.id);
     /* an overlay that only shows and hides has nothing of its own to shut it: its close button says so here */
     const closes = !!g && isOverlayPart(it) && standingOf(def) === "plain" && this.gatedByVisible(g);
-    const direct = !!onPress && !hasSlots && !selfSelecting && !closes && !insideTap && CLICKS_ON_ROOT.has(root.type) && !root.props?.onClick;
-    const pressable = !direct && (!!onPress || !!onHover || !!after || hasSlots || selfSelecting || closes);
+    const direct = !!onPress && !hasSlots && !families.length && !selfSelecting && !closes && !insideTap && CLICKS_ON_ROOT.has(root.type) && !root.props?.onClick;
+    const pressable = !direct && (!!onPress || !!onHover || !!after || hasSlots || families.length > 0 || selfSelecting || closes);
     let tree = this.liveTree(it, def, uses, pressable);
     /* A prototype acts out a domain demo where nothing takes it over; a product (printed with bindings) never does,
        which is the widgets' own default (parts/widgets/host.ts) */
@@ -1221,6 +1264,7 @@ export class Behaviour {
       onHover ? `onHover={${onHover}}` : "",
       after ? `after={${after.ms}} onAfter={${after.run}}` : "",
       hasSlots ? `slots={${printValue(slots)}}` : "",
+      families.length ? `families={{ ${families.join(", ")} }}` : "",
       selecting && selfSelecting ? `onTab={(index) => ${(uses.app.add("selectTab"), `selectTab(${json(this.barKey(it, def))}, index)`)}}` : "",
       closes ? `onClose={() => ${(uses.app.add("hide"), `hide(${this.part(g!.items[0].id)})`)}}` : "",
     ].filter(Boolean);

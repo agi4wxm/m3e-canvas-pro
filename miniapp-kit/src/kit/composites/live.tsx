@@ -500,12 +500,16 @@ export function Timer(props: TimerProps) {
   const countdown = p.countdown !== false;
   const given = countdown ? (p.endsAt ?? 0) > 0 : (p.startedAt ?? 0) > 0;
   const live = !!p.running && given;
-  const [now, setNow] = useState(() => Date.now());
+  /* the clock is read as the timer draws, so an end or a start the other side moves shows at once and not at the next
+     tick; while it runs, the interval only draws it again each second */
+  const [, tick] = useState(0);
   useEffect(() => {
     if (!live) return;
-    const id = setInterval(() => setNow(Date.now()), 1000);
+    const id = setInterval(() => tick((n) => n + 1), 1000);
     return () => clearInterval(id);
   }, [live]);
+  // eslint-disable-next-line react-hooks/purity -- a clock shows the time it is drawn at; drawing again later should show a later time
+  const now = Date.now();
   const left = given ? timerSeconds(p, now) : timerSeconds({ ...p, endsAt: 0, startedAt: 0 }, 0);
   /* the end of a countdown on show is said once */
   const before = useRef(left);

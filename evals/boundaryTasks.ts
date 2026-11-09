@@ -6,6 +6,7 @@
  * answer comes, and where results come from. */
 
 import { demoRuns } from "../lib/partContract";
+import { boundVar } from "../lib/bindings/bind";
 import { frameOfPart, type Action, type ActionBody, type Effect, type Item } from "../lib/tokens";
 import { custom, finished, inBudget, undoOne, type Graded } from "./graders";
 import type { Budget, Check, EvalTask } from "./types";
@@ -99,8 +100,9 @@ const changesOnlyOnAnswer = (screen: string, op: string, coupon: string): Check 
           /* what the answer turns on: the claimed state, in its own words */
           const vars = new Set<string>();
           const shown = new Set<string>();
-          const bound = g.doc.groups.flatMap((x) => x.items).find((x) => x.id === coupon)?.bind?.claimed;
-          if (bound && !bound.startsWith("=")) vars.add(bound);
+          const couponPart = g.doc.groups.flatMap((x) => x.items).find((x) => x.id === coupon);
+          const bound = couponPart && boundVar(couponPart, "claimed", g.doc.vars);
+          if (bound) vars.add(bound);
           for (const c of calls)
             for (const e of c.then?.effects ?? []) {
               if (e.do === "setVar" && !e.expr && e.value === true) vars.add(e.var);
@@ -122,7 +124,10 @@ const DRAW_MACHINES = new Set(["prize-wheel", "grid-draw", "gacha", "slot-machin
 /** the variables that hold a draw's result on a screen: those a machine's result is bound to, and those a call's answer writes */
 function resultVars(g: Graded, screen: string): Set<string> {
   const out = new Set<string>();
-  for (const it of itemsOn(g, screen)) if (DRAW_MACHINES.has(it.component ?? "") && it.bind?.result && !it.bind.result.startsWith("=")) out.add(it.bind.result);
+  for (const it of itemsOn(g, screen)) {
+    const v = DRAW_MACHINES.has(it.component ?? "") ? boundVar(it, "result", g.doc.vars) : undefined;
+    if (v) out.add(v);
+  }
   for (const t of tapsOn(g, screen)) for (const b of atOnce(t.action)) for (const c of callsIn(b)) for (const e of c.then?.effects ?? []) if (e.do === "setVar" && /\bresponse\b/.test(e.expr ?? "")) out.add(e.var);
   return out;
 }
@@ -164,7 +169,7 @@ const resultShown = (screen: string): Check =>
     const machine = items.some((it) => DRAW_MACHINES.has(it.component ?? "") && it.bind?.result !== undefined);
     const fromResponse = new Set<string>();
     for (const t of tapsOn(g, screen)) for (const b of atOnce(t.action)) for (const c of callsIn(b)) for (const e of c.then?.effects ?? []) if (e.do === "setVar" && /\bresponse\b/.test(e.expr ?? "")) fromResponse.add(e.var);
-    const shown = items.some((it) => Object.values(it.bind ?? {}).some((v) => fromResponse.has(v) || /\bresponse\b|\bvars\./.test(v)));
+    const shown = items.some((it) => Object.entries(it.bind ?? {}).some(([k, v]) => fromResponse.has(boundVar(it, k, g.doc.vars) ?? "") || /\bresponse\b|\bvars\./.test(v)));
     const said = tapsOn(g, screen).some((t) => atOnce(t.action).some((b) => callsIn(b).some((c) => (c.then?.effects ?? []).some((e) => e.do === "snackbar" && /response\./.test(e.message)))));
     return { pass: machine || shown || said, detail: machine ? "a machine's result is bound" : shown ? "a part shows what the answer set" : said ? "the answer's prize is said" : "nothing shows the answer's prize" };
   });

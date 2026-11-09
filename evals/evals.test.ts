@@ -190,7 +190,7 @@ describe("the graders", () => {
         tx.run(ops.addPart, { slug: "box", id: "rows", screen: "contacts", at: { x: 16, y: 80 }, props: { layout: "column", gap: 8 } });
         tx.run(ops.addPart, { slug: "text", id: "row", into: { container: "rows" }, props: { text: "{{name}}" } });
         tx.run(ops.setRepeat, { id: "rows", repeat: { collection: "people" } });
-        tx.run(ops.setAction, { id: "row", action: { to: "detail", transition: "slide", ...(detail === "vars" ? { effects: [{ do: "setVar", var: "picked", value: "{{name}}" }] } : {}) } });
+        tx.run(ops.setAction, { id: "row", action: { to: "detail", ...(detail === "vars" ? { effects: [{ do: "setVar", var: "picked", value: "{{name}}" }] } : {}) } });
       });
     for (const id of ["collection", "repeat", "tap-detail"]) expect(verdict(build("current"), id), id).toMatchObject({ pass: true });
     expect(verdict(build("vars"), "tap-detail").detail).toMatch(/sets variables from the row/);

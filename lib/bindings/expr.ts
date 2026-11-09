@@ -559,6 +559,69 @@ export function evaluate(e: string | Parsed | Expr, scope: Scope, ctx: EvalConte
 /** whether an expression holds, for a condition */
 export const holds = (e: string, scope: Scope, ctx?: EvalContext) => truthy(evaluate(e, scope, ctx));
 
+/* ---------- what a bound prop shows ---------- */
+
+/** the kind of value a prop takes, as a binding's value is made one: a number's range and, for a choice, the words of
+ *  its options (a text it holds picks the option of those words); an enum's choices; a list's most rows */
+export type PropRead =
+  | { kind: "text" }
+  | { kind: "bool" }
+  | { kind: "number"; min?: number; max?: number; labels?: readonly string[] }
+  | { kind: "enum"; options: readonly string[] }
+  | { kind: "list"; max?: number };
+
+/** a row of a list as data says it: its words, and its icon, picture and the state its part reads */
+export type BoundRow = { label: string; icon?: string; image?: string; variant?: string; width?: string };
+
+/** A bound prop's value: what its expression came to made the kind of value the prop takes, by one rule for every
+ *  binding (a plain read of a variable or any other expression) and every host (docs/数据绑定.md). Words for words
+ *  (nothing is ""); yes or no, where words that say no ("", "false", "0") are no; a number kept to its range, where a
+ *  choice's options' words pick the option; one of an enum's choices; rows for a list (data's records, or words one row
+ *  a line). Undefined keeps the design's value. */
+export function propValueOf(v: unknown, p: PropRead): unknown {
+  switch (p.kind) {
+    case "bool":
+      if (v === undefined) return undefined;
+      return typeof v === "string" ? v !== "" && v !== "false" && v !== "0" : truthy(v);
+    case "number": {
+      if (typeof v === "string" && p.labels) {
+        const at = p.labels.indexOf(v);
+        if (at >= 0) return at;
+      }
+      const n = toNumber(v);
+      return n === undefined ? undefined : Math.min(p.max ?? Infinity, Math.max(p.min ?? -Infinity, n));
+    }
+    case "enum": {
+      const s = typeof v === "string" || typeof v === "number" || typeof v === "boolean" ? String(v) : undefined;
+      return s !== undefined && p.options.includes(s) ? s : undefined;
+    }
+    case "list": {
+      const max = p.max ?? 50;
+      if (typeof v === "string" || typeof v === "number" || typeof v === "boolean")
+        return String(v)
+          .split("\n")
+          .filter((w) => w.trim())
+          .slice(0, max)
+          .map((label): BoundRow => ({ label }));
+      if (!Array.isArray(v)) return undefined;
+      return v.slice(0, max).map((x): BoundRow => {
+        if (!isPlain(x)) return { label: display(x) };
+        /* a row keeps what it says of itself: its icon, its picture, and the state its part reads from `variant` (a
+           to-do's status, a tile's mark) and `width` */
+        return {
+          label: display(x.label ?? x.name ?? x.title ?? ""),
+          ...(typeof x.icon === "string" ? { icon: x.icon } : {}),
+          ...(typeof x.image === "string" ? { image: x.image } : {}),
+          ...(typeof x.variant === "string" ? { variant: x.variant } : {}),
+          ...(typeof x.width === "string" ? { width: x.width } : {}),
+        };
+      });
+    }
+    default:
+      return display(v);
+  }
+}
+
 /* ---------- words with expressions in them ---------- */
 
 /* What is between the braces is taken whole and trimmed after. A run of spaces matched on each side of a lazy middle
@@ -567,8 +630,11 @@ export const holds = (e: string, scope: Scope, ctx?: EvalContext) => truthy(eval
 const TOKEN = /\{\{([^{}]*)\}\}/g;
 
 /** Words with each `{{expression}}` read and written in: one that reads a root of the bindings (or calls a helper);
- *  another token (`{{field}}` of a collection's row, a typo) is left as written. The same string when it has none. */
-export function fillTemplate(text: string, scope: Scope, ctx?: EvalContext): string {
+ *  another token (a typo, what is no expression) is left as written. With `only`, a token that reads anything beyond
+ *  those roots is left too, for whoever reads it later: what draws a collection's rows fills `{{row.<field>}}` and
+ *  leaves `{{vars.n}}` to the preview. A token that reads `row` where the scope has none (a part drawn for no row) is
+ *  left as written too. The one filler of words every reader uses. The same string when it has none. */
+export function fillTemplate(text: string, scope: Scope, ctx?: EvalContext, only?: readonly string[]): string {
   if (!text.includes("{{")) return text;
   let budget = 64;
   const out = text.replace(TOKEN, (whole, inner: string) => {
@@ -576,6 +642,10 @@ export function fillTemplate(text: string, scope: Scope, ctx?: EvalContext): str
     if (!src || --budget < 0) return whole;
     const p = parseExpr(src);
     if (!p.ok) return whole;
+    const roots = rootsOf(p.expr);
+    if (only && roots.some((r) => !only.includes(r))) return whole;
+    /* a row read where no row is (a part drawn for none) stays as it is written, as a word a typo made does */
+    if (roots.includes("row") && !("row" in scope)) return whole;
     return display(evaluate(p, scope, ctx));
   });
   return capped(out);

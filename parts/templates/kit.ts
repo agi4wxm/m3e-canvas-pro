@@ -2,6 +2,7 @@ import { arrangeFlows } from "../../lib/flow";
 import type { Lang } from "../../lib/i18n";
 import { MATERIAL_METRICS, fillRest, lengthToHold, tidyFrame } from "../../lib/tidy";
 import { BACK_TARGET, DESKTOP_H, DESKTOP_W, FRAME_GAP, PHONE_H, PHONE_W, TABLET_H, TABLET_W, makeItem, uid, type Action, type ApiSpec, type ColorToken, type Condition, type DataSource, type DocVar, type Frame, type Group, type Item, type ItemLook, type Place, type Radii, type RegionBinding, type ScreenParam, type TextToken, type Transition } from "../../lib/tokens";
+import { TRANSITION_MOTIONS } from "../../lib/screenMotion";
 import type { MockSpec } from "../../lib/mocks/types";
 import { mapAction } from "../../lib/refs";
 import { partBySlug, reader } from "../registry";
@@ -25,8 +26,9 @@ type Props = Record<string, unknown>;
 /** What a tap does: where it goes (the id of a screen in the same template, or back), and its effects (a call, an
  *  invoke of a capability, a variable set) with their answers' bodies, whose screens are named the same way. */
 type Link = Action;
-export const go = (to: string, transition: Transition = "slide"): Link => ({ to, transition });
-export const back = (): Link => ({ to: BACK_TARGET, transition: "slide" });
+/** a tap to a screen, coming in by one of the older moves: the motion that plays it (none for the default slide) */
+export const go = (to: string, move: Transition = "slide"): Link => ({ to, ...(move === "slide" ? {} : { motion: TRANSITION_MOTIONS[move] }) });
+export const back = (): Link => ({ to: BACK_TARGET });
 
 /** The contract a template's screens lean on, added to the document with them where it has none of its own: the
  *  endpoints and models they call and load, the mock scenarios that show each outcome, the variables their states read.

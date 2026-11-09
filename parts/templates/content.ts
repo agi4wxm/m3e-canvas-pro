@@ -462,23 +462,21 @@ export const content: Template[] = [
             row({ gap: 8, align: "center" }, [
               part("button", { label: say("Use my location", "使用当前位置", "現在地を使う", "현재 위치 사용"), icon: "my_location", variant: "tonal", size: "sm" }, {
                 action: {
-                  to: "none",
-                  transition: "none",
-                  effects: [
+                  to: "none", effects: [
                     { do: "setVar", var: "locIssue", value: "" },
                     {
                       do: "invoke",
                       capability: "location.current",
                       args: { accuracy: "'high'" },
                       // eslint-disable-next-line unicorn/no-thenable -- an action body, never a function: nothing awaits it
-                      then: { to: "none", transition: "none", effects: [{ do: "setVar", var: "here", value: "", expr: "result.lat + ',' + result.lng" }] },
-                      catch: { to: "none", transition: "none", effects: [{ do: "setVar", var: "locIssue", value: "", expr: "error.type" }] },
+                      then: { to: "none", effects: [{ do: "setVar", var: "here", value: "", expr: "result.lat + ',' + result.lng" }] },
+                      catch: { to: "none", effects: [{ do: "setVar", var: "locIssue", value: "", expr: "error.type" }] },
                     },
                   ],
                 },
               }),
             ]),
-            row({ gap: 12, align: "start", padX: 16, padY: 12, fill: "surface-container-highest", radius: 12 }, [part("icon", { name: "location_disabled", size: 24, color: "error" }), txt(say("Location is off for this app. Turn it on in Settings, or type where you are.", "这个应用的定位被关闭了。请在设置中打开，或手动输入出发地。", "このアプリの位置情報がオフです。設定でオンにするか、出発地を入力してください。", "이 앱의 위치 정보가 꺼져 있습니다. 설정에서 켜거나 출발지를 입력하세요."), "caption", { color: "muted" }, { fill: true })], { showWhen: { var: "locIssue", op: "eq", value: "denied" } }),
+            row({ gap: 12, align: "start", padX: 16, padY: 12, fill: "surface-container-highest", radius: 12 }, [part("icon", { name: "location_disabled", size: 24, color: "error" }), txt(say("Location is off for this app. Turn it on in Settings, or type where you are.", "这个应用的定位被关闭了。请在设置中打开，或手动输入出发地。", "このアプリの位置情報がオフです。設定でオンにするか、出発地を入力してください。", "이 앱의 위치 정보가 꺼져 있습니다. 설정에서 켜거나 출발지를 입력하세요."), "caption", { color: "muted" }, { fill: true })], { showWhen: { expr: 'vars.locIssue == "denied"' } }),
             row({ gap: 12, align: "start", padX: 16, padY: 12, fill: "surface-container-highest", radius: 12 }, [part("icon", { name: "location_searching", size: 24, color: "error" }), txt(say("Your location could not be found. Try again outdoors.", "暂时取不到你的位置，请到开阔处重试。", "現在地を取得できませんでした。屋外でもう一度お試しください。", "위치를 찾지 못했습니다. 실외에서 다시 시도하세요."), "caption", { color: "muted" }, { fill: true })], { showWhen: { expr: "vars.locIssue != '' && vars.locIssue != 'denied'" } }),
             part("toggle-group", {
               selected: 1,
@@ -502,9 +500,7 @@ export const content: Template[] = [
             }, {
               actions: {
                 action: {
-                  to: "none",
-                  transition: "none",
-                  effects: [{ do: "invoke", capability: "link.open", args: { url: "'https://www.openstreetmap.org/directions?route=31.2240%2C121.4690%3B31.2397%2C121.4998'" }, catch: { to: "none", transition: "none", effects: [{ do: "snackbar", message: sayInAction("The maps app could not be opened", "无法打开地图应用", "地図アプリを開けませんでした", "지도 앱을 열 수 없습니다") }] } }],
+                  to: "none", effects: [{ do: "invoke", capability: "link.open", args: { url: "'https://www.openstreetmap.org/directions?route=31.2240%2C121.4690%3B31.2397%2C121.4998'" }, catch: { to: "none", effects: [{ do: "snackbar", message: sayInAction("The maps app could not be opened", "无法打开地图应用", "地図アプリを開けませんでした", "지도 앱을 열 수 없습니다") }] } }],
                 },
               },
             }),
@@ -555,16 +551,14 @@ export const content: Template[] = [
               /* paying scans the merchant's code (scan.code); what it pays is the back end's, from what was scanned */
               actions: {
                 "tab:2": {
-                  to: "none",
-                  transition: "none",
-                  effects: [
+                  to: "none", effects: [
                     {
                       do: "invoke",
                       capability: "scan.code",
                       args: { formats: "['qr']" },
                       // eslint-disable-next-line unicorn/no-thenable -- an action body, never a function: nothing awaits it
-                      then: { to: "none", transition: "none", effects: [{ do: "snackbar", message: sayInAction("Scanned: {{result.text}}", "已扫码：{{result.text}}", "読み取りました：{{result.text}}", "스캔함: {{result.text}}") }] },
-                      catch: { to: "none", transition: "none", effects: [{ do: "snackbar", message: sayInAction("Nothing was scanned", "没有扫到二维码", "読み取れませんでした", "스캔하지 못했습니다") }] },
+                      then: { to: "none", effects: [{ do: "snackbar", message: sayInAction("Scanned: {{result.text}}", "已扫码：{{result.text}}", "読み取りました：{{result.text}}", "스캔함: {{result.text}}") }] },
+                      catch: { to: "none", effects: [{ do: "snackbar", message: sayInAction("Nothing was scanned", "没有扫到二维码", "読み取れませんでした", "스캔하지 못했습니다") }] },
                     },
                   ],
                 },

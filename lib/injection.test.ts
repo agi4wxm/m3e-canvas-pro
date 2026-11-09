@@ -47,7 +47,7 @@ const part = (id: string, slug: string, props: Record<string, unknown>, more: Pa
 const at = (id: string, y: number, item: Item, more: Partial<Group> = {}): Group => ({ id, x: 16, y, axis: "x", items: [item], ...more });
 
 function hostileDoc(): Doc {
-  const stay = { to: "none", transition: "none" } as const;
+  const stay = { to: "none" } as const;
   return {
     title: HOSTILE,
     brief: HOSTILE,
@@ -83,11 +83,11 @@ function hostileDoc(): Doc {
           },
         }),
       ),
-      at("g-link", 220, part("b-link", "button", { label: "Link" }, { action: { to: "link", transition: "none", url: `https://x.test/"+pwned()+"${HOSTILE}` } })),
-      at("g-current-link", 260, part("b-current-link", "button", { label: "Row link" }, { action: { to: "link", transition: "none", url: `{{current.${HOSTILE}}}` } })),
-      at("g-go", 300, part("b-go", "button", { label: "Go" }, { action: { to: "f2", transition: HOSTILE as never } })),
+      at("g-link", 220, part("b-link", "button", { label: "Link" }, { action: { to: "link", url: `https://x.test/"+pwned()+"${HOSTILE}` } })),
+      at("g-current-link", 260, part("b-current-link", "button", { label: "Row link" }, { action: { to: "link", url: `{{current.${HOSTILE}}}` } })),
+      at("g-go", 300, part("b-go", "button", { label: "Go" }, { action: { to: "f2", transition: HOSTILE } as never })),
       at("g-input", 340, part("in", "text-field", { label: HOSTILE, value: HOSTILE }, { bind: { value: "v1" } })),
-      at("g-show", 400, part("t-show", "text", { text: "shown" }), { showWhen: { var: "v1", op: "eq", value: HOSTILE } }),
+      at("g-show", 400, part("t-show", "text", { text: "shown" }), { showWhen: { var: "v1", op: "eq", value: HOSTILE } as never }),
       at(
         "g-nav",
         700,
@@ -102,7 +102,7 @@ function hostileDoc(): Doc {
       at("g-box", 460, part("box", "box", { layout: "column", surface: "card", hugWidth: true, hugHeight: true, width: 200, height: 100 }), { name: HOSTILE }),
       { id: "g-in-box", x: 0, y: 0, axis: "x", inFlow: "g-box", items: [part("t-in-box", "text", { text: HOSTILE })] },
       at("g-rows", 560, part("rows", "box", { layout: "column", surface: "none" }), { repeat: { collection: "c1" } }),
-      { id: "g-row", x: 0, y: 0, axis: "x", inFlow: "g-rows", items: [part("t-row", "text", { text: `{{name}} ${HOSTILE}` }, { action: { to: "f2", transition: "slide" } })] },
+      { id: "g-row", x: 0, y: 0, axis: "x", inFlow: "g-rows", items: [part("t-row", "text", { text: `{{name}} ${HOSTILE}` }, { action: { to: "f2" } })] },
       at("g-svg", 640, part("art", "svg", { mode: "markup", label: HOSTILE, markup: `<svg viewBox="0 0 10 10"><linearGradient id="g&quot;}{pwned()}"/><rect fill="url(&quot;https://evil.example/x'y#g&quot;)" width="1" height="1"/><text>${HOSTILE.replace(/</g, "&lt;")}</text></svg>` })),
     ],
   };

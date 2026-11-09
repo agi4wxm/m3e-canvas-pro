@@ -7,7 +7,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 import { setGlobalLang } from "../../i18n";
 import { openProject, projectFile } from "../../project";
 import { formatProject } from "../projectFile";
-import { heldBy, REGION_STATES, type Doc } from "../../tokens";
+import { heldBy, makeItem, REGION_STATES, type Doc } from "../../tokens";
 import { shopDoc } from "../../bindings/fixture";
 import { expandDoc } from "../../expand";
 import { canvasView } from "../../expand";
@@ -98,7 +98,7 @@ describe("data sources", () => {
     run(ops.wireScreen, { screen: "products", operationId: "listProducts" });
     const part = doc().groups.find((g) => g.items.some((it) => it.component === "text"))!.items.find((it) => it.component === "text")!;
     run(ops.setItem, { id: part.id, patch: { label: "{{ data.products.total }} in all", props: { ...part.props, text: "{{data.products.items[0].name}} and 'data.products' and {{ 'data.products' }}" } } });
-    run(ops.setAction, { id: part.id, action: { to: "none", transition: "none", effects: [{ do: "snackbar", message: "Loaded {{data.products?.total}}" }, { do: "refresh", source: "products" }] } });
+    run(ops.setAction, { id: part.id, action: { to: "none", effects: [{ do: "snackbar", message: "Loaded {{data.products?.total}}" }, { do: "refresh", source: "products" }] } });
     run(ops.updateDataSource, { screen: "products", name: "products", rename: "goods" });
     const it = doc().groups.flatMap((g) => g.items).find((x) => x.id === part.id)!;
     expect(it.label).toBe("{{ data.goods.total }} in all");
@@ -202,7 +202,7 @@ describe("forms", () => {
     ]);
     const form = doc().groups.find((g) => g.id === out.formId)!;
     // eslint-disable-next-line unicorn/no-thenable -- an action body, never a function: nothing awaits it
-    expect(form.form).toEqual({ operationId: "createProduct", then: { to: "products", transition: "slide" } });
+    expect(form.form).toEqual({ operationId: "createProduct", then: { to: "products" } });
     expect(items.find((it) => it.id === out.submitId)!.action?.effects).toEqual([{ do: "submit" }]);
     /* a second time composes only what is not bound yet */
     expect((run(ops.makeForm, { id: out.formId, operationId: "createProduct" }) as { fields: unknown[] }).fields).toEqual([]);
@@ -361,7 +361,7 @@ describe("the document", () => {
     d.groups[0] = { ...d.groups[0], states: { source: 7, show: "dancing" }, form: { operationId: 3 }, repeat: { data: 42 } } as never;
     const g1 = d.groups.find((g) => g.items[0].action)!;
     // eslint-disable-next-line unicorn/no-thenable -- an action body, never a function: nothing awaits it
-    g1.items[0].action = { to: "none", transition: "none", effects: [{ do: "call", operationId: "x", then: { to: "none", effects: [{ do: "call", operationId: "y", then: { to: "none", effects: [{ do: "call", operationId: "z", then: { to: "none", effects: [{ do: "call", operationId: "w", then: { to: "none", effects: [{ do: "call", operationId: "deep", then: { to: "none", effects: [{ do: "call", operationId: "deeper" }] } }] } }] } }] } }] } }, { do: "launch" }] } as never;
+    g1.items[0].action = { to: "none", effects: [{ do: "call", operationId: "x", then: { to: "none", effects: [{ do: "call", operationId: "y", then: { to: "none", effects: [{ do: "call", operationId: "z", then: { to: "none", effects: [{ do: "call", operationId: "w", then: { to: "none", effects: [{ do: "call", operationId: "deep", then: { to: "none", effects: [{ do: "call", operationId: "deeper" }] } }] } }] } }] } }] } }, { do: "launch" }] } as never;
     const opened = openProject(broken)!;
     expect(opened.frames[1].data).toEqual([{ name: "ok", operationId: "listProducts" }]);
     expect(opened.frames[1].auth).toBeUndefined();
@@ -387,5 +387,44 @@ describe("the document", () => {
     expect(text).not.toMatch(/"(data|params|auth|states|form|field|scope)":/);
     const host = doc.groups.find((g) => g.items[0].id === "rows")!;
     expect(expandDoc(doc, {}).groups.filter((g) => g.inFlow === host.id).length).toBe(2);
+  });
+});
+
+describe("renaming a screen's param", () => {
+  it("renames it everywhere it is read and given, and refuses what is no rename", () => {
+    const doc: Doc = {
+      title: "T",
+      brief: "",
+      paletteKey: "purple",
+      frame: "phone",
+      frames: [
+        { id: "list", name: "List", x: 0, y: 0 },
+        { id: "detail", name: "Detail", x: 500, y: 0, params: [{ name: "productId", example: "p1" }, { name: "tab" }], data: [{ name: "product", operationId: "getProduct" }] },
+      ],
+      api: shopDoc().api,
+      groups: [
+        // eslint-disable-next-line unicorn/no-thenable -- action bodies, never functions: nothing awaits them
+        { id: "g1", x: 16, y: 100, axis: "x", items: [{ ...makeItem("button"), id: "open", action: { to: "detail", params: { productId: "'p2'", tab: "1" }, effects: [{ do: "call", operationId: "listProducts", then: { to: "detail", params: { productId: "response.id" } } }] } }] },
+        { id: "g2", x: 516, y: 100, axis: "x", items: [{ ...makeItem("text"), id: "title", props: { text: "Item {{params.productId}} ({{'params.productId'}})" }, bind: { label: "=params.productId" } }], showWhen: { expr: "params.productId != ''" } },
+        { id: "g3", x: 516, y: 200, axis: "x", items: [{ ...makeItem("button"), id: "again", action: { to: "detail", params: { productId: "params.productId" } } }] },
+      ],
+    } as Doc;
+    const st = new DocStore(stateOf(doc), { ids: counterIds("n"), measurer: guessMeasurer, lang: () => "en" });
+    st.run(ops.renameScreenParam, { screen: "detail", from: "productId", to: "id" }, { origin: "ai" });
+    const d = st.get().doc;
+    const detail = d.frames[1];
+    expect(detail.params).toEqual([{ name: "id", example: "p1" }, { name: "tab" }]);
+    /* the data source's path parameter read the param by its name: it now reads the new one */
+    expect(detail.data?.[0].params).toEqual({ productId: "params.id" });
+    const it = (id: string) => d.groups.flatMap((g) => g.items).find((x) => x.id === id)!;
+    expect(it("open").action?.params).toEqual({ id: "'p2'", tab: "1" });
+    expect((it("open").action!.effects![0] as { then: { params: unknown } }).then.params).toEqual({ id: "response.id" });
+    expect(it("title").props?.text).toBe("Item {{params.id}} ({{'params.productId'}})");
+    expect(it("title").bind).toEqual({ label: "=params.id" });
+    expect(d.groups[1].showWhen).toEqual({ expr: "params.id != ''" });
+    expect(it("again").action?.params).toEqual({ id: "params.id" });
+    expect(() => st.run(ops.renameScreenParam, { screen: "detail", from: "gone", to: "x" }, { origin: "ai" })).toThrow(/no param "gone"/);
+    expect(() => st.run(ops.renameScreenParam, { screen: "detail", from: "id", to: "tab" }, { origin: "ai" })).toThrow(/already/);
+    expect(() => st.run(ops.renameScreenParam, { screen: "detail", from: "id", to: "2x" }, { origin: "ai" })).toThrow(/no param name/);
   });
 });

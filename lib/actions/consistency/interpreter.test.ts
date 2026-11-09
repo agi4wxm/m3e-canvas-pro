@@ -21,6 +21,8 @@ describe("the consistency table on the interpreter", () => {
         emit: (w, name, payload) => h.emit(w, name, payload),
         type: (w, v) => h.type(w, v),
         restart: () => h.restart(),
+        /* the reference's own back, as the platform's would be: no action asks for it */
+        platformBack: () => h.back(),
         settle: () => turns(),
         observe: () => h.observe(),
       };

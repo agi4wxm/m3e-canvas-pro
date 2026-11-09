@@ -84,7 +84,7 @@ function bed(design: Design, o: { hold?: string[]; capabilities?: CapabilityHost
 
 const HOME = { id: "home", name: "Home" };
 const DONE = { id: "done", name: "Done" };
-const stay = (...effects: Effect[]): Action => ({ to: "none", transition: "none", effects });
+const stay = (...effects: Effect[]): Action => ({ to: "none", effects });
 const turns = async (n = 6) => {
   for (let i = 0; i < n; i++) await new Promise((r) => setTimeout(r, 0));
 };
@@ -108,7 +108,7 @@ describe("the preview's host of the interpreter", () => {
       vars: [{ id: "saved", name: "saved", type: "bool", value: false }],
       api: [{ operationId: "save", path: "/save" }],
       // eslint-disable-next-line unicorn/no-thenable -- an action body, never a function: nothing awaits it
-      parts: [{ id: "go", label: "Save", action: stay({ do: "call", operationId: "save", then: { to: "done", transition: "none", effects: [{ do: "setVar", var: "saved", value: true }, { do: "snackbar", message: "Saved" }] } }) }],
+      parts: [{ id: "go", label: "Save", action: stay({ do: "call", operationId: "save", then: { to: "done", motion: { kind: "instant" }, effects: [{ do: "setVar", var: "saved", value: true }, { do: "snackbar", message: "Saved" }] } }) }],
     }, { hold: ["save"] });
     const done = b.tap("go");
     await turns();
@@ -126,7 +126,7 @@ describe("the preview's host of the interpreter", () => {
       vars: [{ id: "saved", name: "saved", type: "bool", value: false }],
       api: [{ operationId: "save", path: "/save" }],
       // eslint-disable-next-line unicorn/no-thenable -- an action body, never a function: nothing awaits it
-      parts: [{ id: "go", label: "Save", action: stay({ do: "call", operationId: "save", then: { to: "none", transition: "none", effects: [{ do: "setVar", var: "saved", value: true }] }, catch: { to: "none", transition: "none", effects: [{ do: "snackbar", message: "No" }] } }) }],
+      parts: [{ id: "go", label: "Save", action: stay({ do: "call", operationId: "save", then: { to: "none", effects: [{ do: "setVar", var: "saved", value: true }] }, catch: { to: "none", effects: [{ do: "snackbar", message: "No" }] } }) }],
     }, { hold: ["save"] });
     const done = b.tap("go");
     await turns();
@@ -143,7 +143,7 @@ describe("the preview's host of the interpreter", () => {
       vars: [{ id: "n", name: "n", type: "number", value: 0 }],
       api: [{ operationId: "like", path: "/like", returns: { n: "number" } }],
       // eslint-disable-next-line unicorn/no-thenable -- an action body, never a function: nothing awaits it
-      parts: [{ id: "go", label: "Like", action: stay({ do: "call", operationId: "like", then: { to: "none", transition: "none", effects: [{ do: "setVar", var: "n", value: 0, expr: "response.n" }] } }) }],
+      parts: [{ id: "go", label: "Like", action: stay({ do: "call", operationId: "like", then: { to: "none", effects: [{ do: "setVar", var: "n", value: 0, expr: "response.n" }] } }) }],
     }, { hold: ["like"] });
     const first = b.tap("go");
     const second = b.tap("go");
@@ -156,7 +156,7 @@ describe("the preview's host of the interpreter", () => {
 
   it("stops calls nested in one another's then at four deep", async () => {
     // eslint-disable-next-line unicorn/no-thenable -- an action body, never a function: nothing awaits it
-    const chain = (n: number): Effect => ({ do: "call", operationId: `c${n}`, ...(n < 6 ? { then: { to: "none", transition: "none", effects: [chain(n + 1)] } } : {}) }) as Effect;
+    const chain = (n: number): Effect => ({ do: "call", operationId: `c${n}`, ...(n < 6 ? { then: { to: "none", effects: [chain(n + 1)] } } : {}) }) as Effect;
     const b = bed({ screens: [HOME], api: [0, 1, 2, 3, 4, 5, 6].map((n) => ({ operationId: `c${n}`, path: `/c${n}` })), parts: [{ id: "go", label: "Chain", action: stay(chain(0)), unchecked: true }] });
     await b.tap("go");
     expect(b.sent.map((r) => r.operationId)).toEqual(["c0", "c1", "c2", "c3", "c4"]);
@@ -180,7 +180,7 @@ describe("the preview's host of the interpreter", () => {
 
   it("sends no form whose required field is empty, and shows why", async () => {
     // eslint-disable-next-line unicorn/no-thenable -- an action body, never a function: nothing awaits it
-    const b = bed({ screens: [HOME], api: [{ operationId: "note", path: "/note", body: { text: { title: "Note", required: true } } }], forms: [{ operationId: "note", submit: "Save note", ok: { to: "none", transition: "none", effects: [{ do: "snackbar", message: "Saved" }] } }], parts: [] });
+    const b = bed({ screens: [HOME], api: [{ operationId: "note", path: "/note", body: { text: { title: "Note", required: true } } }], forms: [{ operationId: "note", submit: "Save note", ok: { to: "none", effects: [{ do: "snackbar", message: "Saved" }] } }], parts: [] });
     const submit = b.doc.groups.flatMap((g) => g.items).find((it) => it.props?.label === "Save note")!;
     const form = b.doc.groups.find((g) => g.form)!;
     await run(submit.action as Action, b.host, tapOf({ frame: b.doc.frames[0] }, { ...submit, scope: { form: form.id } }, undefined));

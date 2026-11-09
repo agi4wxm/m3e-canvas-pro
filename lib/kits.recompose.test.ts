@@ -21,7 +21,7 @@ const MATERIAL = normalizeTheme({ ...DEFAULT_THEME, strict: false });
 const IOS = styled("ios");
 const WECHAT = styled("wechat");
 const phone: Frame = { id: "f", name: "Home", x: 1000, y: 200 };
-const go = (to: string): Action => ({ to, transition: "slide" });
+const go = (to: string): Action => ({ to });
 
 /** a kit added on the phone under a theme, its box at (x, y) */
 const added = (slug: string, theme: Theme, opts: { variant?: string; x?: number; y?: number } = {}) =>
@@ -161,7 +161,7 @@ describe("a kit composed again for another style", () => {
   it("leaves a kit whose parts something reaches for by their ids", () => {
     const { groups, root } = onScreen("top-app-bar", MATERIAL);
     const title = textOf(groups, "Title")!;
-    const button: Group = { id: "btn", x: 0, y: 0, axis: "x", items: [{ ...makeItem("button"), id: "bi", action: { to: "stay", transition: "none", effects: [{ do: "hide", part: title.items[0].id }] } }] };
+    const button: Group = { id: "btn", x: 0, y: 0, axis: "x", items: [{ ...makeItem("button"), id: "bi", action: { to: "stay", motion: { kind: "instant" }, effects: [{ do: "hide", part: title.items[0].id }] } }] };
     const out = recomposeKits({ groups: [...groups, button] }, MATERIAL, WECHAT, "en", { frames: [phone] }).groups;
     expect(out.some((g) => g.id === title.id)).toBe(true);
     expect(out.find((g) => g.id === root.id)!.kit!.variant).toBe("start");
