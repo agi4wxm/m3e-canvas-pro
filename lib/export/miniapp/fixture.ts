@@ -1,7 +1,7 @@
 import { proofDoc } from "../../exportProject.fixture";
 import { withIds, type Doc } from "../../tokens";
 import { str } from "../../../parts/print";
-import { dataDoc, inputsDoc, kitsDoc, mediaDoc, playDoc, slotsDoc, splitsDoc, testBedSlots, testBedSlotsOf, worldDoc } from "../rn/fixture";
+import { dataDoc, inputsDoc, kitsDoc, mediaDoc, playDoc, slotsDoc, splitsDoc, testBedSlots, testBedSlotsOf, worldDoc, hudDoc } from "../rn/fixture";
 import { slotNames } from "../appCapabilities";
 import { layoutsDoc } from "../rn/layoutsFixture";
 import { callsModule, iconsModule, pageConfig, pageModule, printMiniApp, screensIndex, specModule, themeModule } from "./app";
@@ -96,6 +96,9 @@ export async function printedFixture(): Promise<Record<string, string>> {
   /* the world view hosting the example engine (docs/组件规范.md “世界视口”) */
   const world = withIds(next, worldDoc);
   const j = await printed("world", world.doc, world.widths);
+  /* a HUD bound per frame over it (docs/数据绑定.md “每帧绑定”) */
+  const hud = withIds(next, hudDoc);
+  const k = await printed("hud", hud.doc, hud.widths);
   return {
     ...a.files,
     ...b.files,
@@ -107,6 +110,7 @@ export async function printedFixture(): Promise<Record<string, string>> {
     ...h.files,
     ...i.files,
     ...j.files,
-    "miniapp-kit/src/printed/pages.ts": `${HEAD}\n\n/** the pages of the printed documents, for the app's config */\nexport const PRINTED_PAGES: string[] = ${JSON.stringify([...a.pages, ...b.pages, ...c.pages, ...d.pages, ...e.pages, ...f.pages, ...g.pages, ...h.pages, ...i.pages, ...j.pages], null, 2)};\n`,
+    ...k.files,
+    "miniapp-kit/src/printed/pages.ts": `${HEAD}\n\n/** the pages of the printed documents, for the app's config */\nexport const PRINTED_PAGES: string[] = ${JSON.stringify([...a.pages, ...b.pages, ...c.pages, ...d.pages, ...e.pages, ...f.pages, ...g.pages, ...h.pages, ...i.pages, ...j.pages, ...k.pages], null, 2)};\n`,
   };
 }

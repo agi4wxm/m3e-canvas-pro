@@ -343,7 +343,9 @@ export async function printedFixture(): Promise<Record<string, string | Uint8Arr
   const slots = withIds(next, slotsDoc);
   /* the world view hosting the example engine (docs/组件规范.md “世界视口”) */
   const world = withIds(next, worldDoc);
-  return { ...(await printed("proof", proof.doc, proof.widths)), ...(await printed("kits", kits.doc, kits.widths)), ...(await printed("splits", splits.doc, splits.widths)), ...(await printed("play", play.doc, play.widths)), ...(await printed("layouts", layouts.doc, layouts.widths)), ...(await printed("inputs", inputs.doc, inputs.widths)), ...(await printed("data", data.doc, data.widths)), ...(await printed("media", media.doc, media.widths)), ...(await printed("slots", slots.doc, slots.widths)), ...(await printed("world", world.doc, world.widths)) };
+  /* a HUD bound per frame over it (docs/数据绑定.md “每帧绑定”) */
+  const hud = withIds(next, hudDoc);
+  return { ...(await printed("proof", proof.doc, proof.widths)), ...(await printed("kits", kits.doc, kits.widths)), ...(await printed("splits", splits.doc, splits.widths)), ...(await printed("play", play.doc, play.widths)), ...(await printed("layouts", layouts.doc, layouts.widths)), ...(await printed("inputs", inputs.doc, inputs.widths)), ...(await printed("data", data.doc, data.widths)), ...(await printed("media", media.doc, media.widths)), ...(await printed("slots", slots.doc, slots.widths)), ...(await printed("world", world.doc, world.widths)), ...(await printed("hud", hud.doc, hud.widths)) };
 }
 
 
@@ -352,12 +354,13 @@ export async function printedFixture(): Promise<Record<string, string | Uint8Arr
  *  (the web's frame loop on requestAnimationFrame, the phone's on an animated value, the mini-program's on its page's
  *  node), never through a render. */
 export function hudDoc(): { doc: Doc; widths: Record<string, number> } {
-  const { doc } = worldDoc();
-  const play = doc.frames[0];
+  const play: Frame = { id: "hud-play", name: "HUD", x: 0, y: 0 };
+  const entities = { columns: ["Id", "Kind", "X", "Y", "Label"], rows: [["hero", "player", "20", "40", "Hero"], ["coin", "coin", "32", "40", ""]] };
   const groups: Group[] = [
-    ...doc.groups,
-    { id: "g-score", x: 26, y: 330, axis: "x", items: [{ ...makeItem("text"), id: "score", props: { text: "Score ?" }, frame: { text: "'Score ' + world.score", "@opacity": "world.status == 'ended' ? 40 : 100" } }] },
-    { id: "g-hp", x: 26, y: 300, axis: "x", items: [{ ...makeItem("stat-bar"), id: "hp", props: { label: "Health", value: 20, max: 100 }, frame: { value: "world.byId.hero.x" } }] },
+    { id: "g-hud-world", x: 26, y: 80, axis: "x", name: "Field", items: [{ ...makeItem("world-view"), id: "field", props: { label: "Field", entities, follow: "hero", inputs: "move" } }] },
+    { id: "g-hp", x: 26, y: 340, axis: "x", items: [{ ...makeItem("stat-bar"), id: "health", props: { label: "Health", value: 20, max: 100 }, frame: { value: "world.byId.hero.x" } }] },
+    { id: "g-score", x: 26, y: 380, axis: "x", items: [{ ...makeItem("text"), id: "score", props: { text: "Score ?" }, frame: { text: "'Score ' + world.score", "@opacity": "world.status == 'ended' ? 40 : 100" } }] },
+    { id: "g-hud-pad", x: 32, y: 440, axis: "x", items: [{ ...makeItem("joystick"), id: "stick", props: { ariaLabel: "Move" }, actions: { "on:move": { to: "none", effects: [{ do: "move", part: "field", vector: "event" }] } } }] },
   ];
-  return { doc: { ...doc, groups, frames: [play, ...doc.frames.slice(1)], title: "HUD" }, widths: defaultMeasures(groups) };
+  return { doc: { groups, frames: [play], paletteKey: "purple", frame: "phone", title: "HUD", brief: "" }, widths: defaultMeasures(groups) };
 }

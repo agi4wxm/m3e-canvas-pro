@@ -2,9 +2,9 @@
 //! the mobile app's own code, typechecked and linted with the kit (rn/types/app.d.ts stands in for the Expo packages
 //! the kit does not install). Written in the product's style (Prettier, no semicolons); the lines starting with //!
 //! are the editor's only.
-import { useMemo } from "react"
-import { screenParams, sourceKey, useBindings, useDataSource, useForm, useSubscription as useSharedSubscription, type Bindings, type CallResult, type ChannelDef, type ChannelEvent, type ChannelView, type FieldRule, type FormHandle, type ParamSpec, type SourceHandle } from "@m3e/app-runtime"
-import { useApp, useOnShow, type ActionBody } from "../kit"
+import { useEffect, useMemo, useState } from "react"
+import { createFrameLoop, screenParams, sourceKey, useBindings, useDataSource, useForm, useSubscription as useSharedSubscription, type Bindings, type CallResult, type ChannelDef, type ChannelEvent, type ChannelView, type FieldRule, type FormHandle, type FrameLoop, type FrameSpec, type ParamSpec, type SourceHandle } from "@m3e/app-runtime"
+import { useApp, useOnShow, type ActionBody, type FrameHandle } from "../kit"
 import { call } from "./api"
 import { FORMS, OPERATIONS } from "./contract"
 //#if copies
@@ -14,7 +14,7 @@ import { runtime } from "./runtime"
 /* What a printed screen's bindings stand on (lib/export/rn/print.ts writes the screens): its params, the scope its
  * expressions read, its data sources and its forms, each made of packages/app-runtime's hooks. */
 
-export { keyOf, regionOf, type ChannelDef, type ParamSpec } from "@m3e/app-runtime"
+export { keyOf, regionOf, type ChannelDef, type FrameSpec, type ParamSpec } from "@m3e/app-runtime"
 export { pickFile, fileName } from "./files"
 //#if copies
 
@@ -120,4 +120,29 @@ export function useFormFor(def: FormDef, $: Bindings): FormFor {
 export function useSubscription(def: ChannelDef, $: Bindings, on?: Readonly<Record<string, (event: ChannelEvent) => void>>): ChannelView {
   const shown = useOnShow()
   return useSharedSubscription(def, $, on, { active: shown })
+}
+
+/* the frame loops of the screens drawn, so a test (the consistency table) can run a frame by hand and read them */
+const LOOPS = new Set<FrameLoop>()
+
+/** the frame loops of the screens drawn now */
+export const liveFrames = (): FrameLoop[] => [...LOOPS]
+
+/** A screen's props bound per frame (packages/app-runtime's frame loop, docs/数据绑定.md “每帧绑定” in the design editor):
+ *  evaluated on every frame (requestAnimationFrame) over the world an engine connected to a view's channel, each value
+ *  handed to the part that writes it into a shared value (the kit's FrameText, FrameBar), never through a render. */
+export function useFrames(specs: readonly FrameSpec[]): FrameHandle {
+  /* the app's worlds are its own for as long as it runs: the loop reads them through the first app it is drawn in.
+     A frame's expressions call no helper, so how words are written never depends on the language. */
+  const attached = useApp().attachedWorld
+  const [loop] = useState(() => createFrameLoop({ world: () => attached(), schedule: (fn) => requestAnimationFrame(fn), cancel: (h) => cancelAnimationFrame(h as number) }))
+  useEffect(() => {
+    LOOPS.add(loop)
+    const off = loop.add(specs)
+    return () => {
+      off()
+      LOOPS.delete(loop)
+    }
+  }, [loop, specs])
+  return loop
 }

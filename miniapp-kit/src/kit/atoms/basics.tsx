@@ -67,8 +67,9 @@ export type TextProps = PartBase & {
   maxLines?: number;
 };
 
-/** words in a type role of the theme */
-export function Text(props: TextProps) {
+/** what a text part's words are drawn in, and how many lines they keep to: the text atom's, and the words a frame
+ *  writes (frame.tsx `FrameText`) */
+export function useTextStyle(props: TextProps): { p: TextProps; style: CSS; lines: number } {
   const p = withDefaults<TextProps>("text", props);
   const kit = useKit();
   const fill = useFill();
@@ -85,6 +86,13 @@ export function Text(props: TextProps) {
     painted.text,
     fill,
   );
+  return { p, style, lines };
+}
+
+/** words in a type role of the theme */
+export function Text(props: TextProps) {
+  const { p, style, lines } = useTextStyle(props);
+  const auto = p.fit === "auto";
   return (
     <View {...tagOf(p.testID)} style={sx({ boxSizing: "border-box" }, auto ? { flexShrink: 0 } : null)} onClick={p.onPress ? (e) => (e.stopPropagation(), p.onPress!()) : undefined}>
       <Words text={p.text} lines={lines > 0 ? lines : undefined} style={style} />

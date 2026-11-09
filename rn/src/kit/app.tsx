@@ -4,7 +4,7 @@ import { SafeAreaInsetsContext } from "react-native-safe-area-context";
 
 import { Snackbar } from "./composites/content";
 import { movesSoFar, useNav, type BackOptions, type Nav } from "./runtime";
-import { createWorldChannels, vectorOf, type WorldChannel, type WorldInput } from "./world";
+import { createWorldChannels, vectorOf, type WorldChannel, type WorldInput, type WorldReadable } from "./world";
 
 /* What a running app remembers beside the screen on show, and what a tap does with it: the variables, the parts a tap
  * has shown or hidden, the overlays it has opened, the props a tap has set, what an input holds when a condition asks
@@ -136,6 +136,8 @@ export type AppState = {
   reader?: Reader;
   /** the channel the world view `part` (its item id) hears its input actions on */
   world: (part: string) => WorldChannel;
+  /** the world the HUD's bindings per frame read: the first an engine connected to a view's channel, if any */
+  attachedWorld: () => WorldReadable | undefined;
 };
 
 const isNumber = (v: VarValue): number | null => {
@@ -332,6 +334,7 @@ export function AppProvider({ vars = NO_VARS, hidden = NO_KEYS, triggers = NO_KE
       ...(interpret ? { interpret } : {}),
       reader,
       world: (part) => worlds.channel(part),
+      attachedWorld: () => worlds.attached(),
     };
   }, [state, varScope, vars, types, startHidden, reader, interpret, kit, update, worlds]);
 
@@ -365,7 +368,7 @@ function comparisonOf(expr: string): { name: string; op: "==" | "!="; value: Var
 const truthy = (v: unknown) => !(v === undefined || v === null || v === false || v === 0 || v === "" || (typeof v === "number" && Number.isNaN(v)) || (Array.isArray(v) && !v.length));
 
 /** the channel of a world view no design reaches */
-const QUIET: WorldChannel = { listen: () => () => {}, held: () => ({}) };
+const QUIET: WorldChannel = { listen: () => () => {}, held: () => ({}), attach: () => () => {} };
 
 /** an app with nothing remembered: what a screen drawn on its own reads */
 const NOTHING_KIT: KitHost = {
@@ -399,6 +402,7 @@ const NOTHING: AppState = {
   kit: NOTHING_KIT,
   /* a world view drawn outside an app hears nothing */
   world: () => QUIET,
+  attachedWorld: () => undefined,
 };
 
 /** the app's memory (see `AppProvider`); a screen drawn outside one reads the design as it is */

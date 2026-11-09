@@ -20,9 +20,9 @@ describe("a prototype bound per frame", () => {
   it("hands each screen's table to the runtime's frame loop and marks the parts it writes", async () => {
     const { doc, widths } = hudDoc();
     const { files } = await buildProject(doc, widths, { read: fromDisk, fetchIcons: noNetwork, lang: "en" });
-    const screen = Object.entries(files).find(([k]) => k.endsWith("src/screens/ArenaScreen.tsx"))?.[1] as string;
-    expect(screen).toContain("useFrames(arenaScreenFrames)");
-    expect(screen).toContain(`const arenaScreenFrames = [\n  { part: "health", prop: "value", expr: "world.byId.hero.x", kind: "number", min: 0, max: 1000000, slug: "stat-bar" },\n  { part: "score", prop: "text", expr: "'Score ' + world.score", kind: "text", slug: "text" },`);
+    const screen = Object.entries(files).find(([k]) => /src\/screens\/HUD\w*\.tsx$/.test(k))?.[1] as string;
+    expect(screen).toContain("useFrames(hUDScreenFrames)");
+    expect(screen).toContain(`const hUDScreenFrames = [\n  { part: "health", prop: "value", expr: "world.byId.hero.x", kind: "number", min: 0, max: 1000000, slug: "stat-bar" },\n  { part: "score", prop: "text", expr: "'Score ' + world.score", kind: "text", slug: "text" },`);
     expect(screen).toContain("] satisfies ScreenFrame[]");
     expect(screen).toContain('data-part="score"');
     expect(screen).toContain('data-part="health"');
@@ -47,7 +47,7 @@ describe("a product bound per frame", () => {
     const p = await buildProduct(doc, widths, { read: fromDisk, fetchIcons: noNetwork, lang: "en" });
     const runtime = p.files["apps/web/src/generated/runtime.tsx"]?.body as string;
     expect(runtime).toMatch(/import \{ createFrameLoop, writeFrameDom, type FrameLoop, type FrameNode, type FrameSpec \} from "@[\w-]+\/app-runtime"/);
-    const screen = Object.entries(p.files).find(([k]) => /apps\/web\/src\/generated\/screens\/Arena\w*\.tsx$/.test(k))?.[1].body as string;
+    const screen = Object.entries(p.files).find(([k]) => /apps\/web\/src\/generated\/screens\/HUD\w*\.tsx$/.test(k))?.[1].body as string;
     expect(screen).toContain("useFrames(");
     expect(screen).toContain('data-part="score"');
     for (const f of ["lib/app/frame.ts", "lib/bindings/frame.ts", "lib/world/root.ts", "lib/world/frameTargets.ts"]) expect(p.files[`packages/app-runtime/src/engine/${f.slice(4)}`], f).toBeDefined();
@@ -66,7 +66,7 @@ describe("the prototype's code bound per frame", () => {
     const { files } = await buildProject(doc, widths, { read: fromDisk, fetchIcons: noNetwork, lang: "en" });
     const dir = mkdtempSync(join(tmpdir(), "m3e-frames-"));
     try {
-      const screen = Object.keys(files).find((k) => k.endsWith("src/screens/ArenaScreen.tsx"))!;
+      const screen = Object.keys(files).find((k) => /src\/screens\/HUD\w*\.tsx$/.test(k))!;
       for (const f of ["src/runtime.tsx", screen]) {
         mkdirSync(join(dir, f, ".."), { recursive: true });
         writeFileSync(join(dir, f), files[f] as string);

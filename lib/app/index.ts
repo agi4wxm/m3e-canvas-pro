@@ -62,4 +62,4 @@ export { WORLD_EVENTS, type Vec2, type World, type WorldChannel, type WorldClock
 export { createFrameLoop, type FrameLoop, type FrameLoopOptions, type FrameSpec } from "./frame";
 export { compileFrame, frameExprError, FRAME_LIMITS, type FrameBinding } from "../bindings/frame";
 export { readWorld, worldRootOf, worldRootSchema, WORLD_ROOT_KEYS, type WorldSource } from "../world/root";
-export { FRAME_OPACITY, FRAME_TARGETS, frameTargetOf, frameValueOf, writeFrameDom, type FrameKind, type FrameNode, type FrameTarget } from "../world/frameTargets";
+export { FRAME_OPACITY, FRAME_TARGETS, frameStyle, frameTargetOf, frameText, frameValueOf, writeFrameDom, type FrameKind, type FrameNode, type FrameTarget } from "../world/frameTargets";

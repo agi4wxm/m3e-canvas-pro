@@ -1,5 +1,7 @@
 import { lookAsColours } from "../../materials";
 import { bindExpr, boundVar } from "../../bindings/bind";
+import { FRAME_LIMITS } from "../../bindings/frame";
+import { framesOfItem } from "../../world/frameTargets";
 import { COLOR_TOKENS, BACK_TARGET, LINK_TARGET, GAP, linkUrlOf, normalizeTheme, type Action, type ActionBody, type Condition, type DataSource, type Doc, type Effect, type Frame, type Group, type Item, type ScreenParam } from "../../tokens";
 import type { Answer } from "../../actions/model";
 import { partBySlug } from "../../../parts/registry";
@@ -153,6 +155,8 @@ class ScreenPrinter {
   /** the component's hooks before its JSX, in order */
   head = { sources: [] as string[], scope: [] as string[], forms: [] as string[], regions: [] as string[], after: [] as string[] };
   uses = { nav: false, app: false, act: false, $: false };
+  /** the screen's props bound per frame, by its parts' ids (lib/bindings/frame.ts) */
+  frameSpecs: ReturnType<typeof framesOfItem> = [];
   sources = new Map<string, SourceInfo>();
   /** the screen's subscriptions to realtime channels, by name */
   subs = new Map<string, SubInfo>();
@@ -686,6 +690,12 @@ class ScreenPrinter {
     /* a part the product draws itself (`Item.slot`): its slot, handed what the kit's component is (the generated slots
        module draws the kit's component inside it), or around the atoms or the placeholder it is drawn as */
     if (slot) this.slots.add(slot);
+    /* a part bound per frame is drawn by the kit's part a frame writes into, handed the screen's frame loop */
+    const framed = this.framed(def, it);
+    if (framed) {
+      const own = new Set(layout.map(([k]) => k));
+      return el(framed, [...this.props(def, it).filter(([k]) => !own.has(k)), ...layout, ...this.extras(p), ["frames", "frames"], ["part", str(it.id)]], kids);
+    }
     if (isNative(def.slug)) {
       const name = NATIVE[def.slug];
       if (!slot) this.kit.add(name);
@@ -721,6 +731,27 @@ class ScreenPrinter {
     }
     const drawn = this.drawn(p, kids, layout);
     return slot ? el(slot, [["width", expr(size.w)], ["height", expr(size.h)]], [drawn]) : drawn;
+  }
+
+  /** The kit's part a part bound per frame is drawn by (lib/bindings/frame.ts): `FrameText` for a text, `FrameBar` for a
+   *  stat bar, each writing what the screen's frame loop hands it into a shared value, never through a render. Undefined
+   *  for a part bound to nothing per frame, or one a phone does not write per frame (said in the report: it keeps the
+   *  design's value), and without the app's runtime, whose loop it is. */
+  framed(def: PartDef, it: Item): string | undefined {
+    const specs = framesOfItem(it);
+    if (!specs.length) return undefined;
+    if (!this.runtime) {
+      this.warn("binding", "a prop bound per frame keeps the design's value without the app's runtime", it.id);
+      return undefined;
+    }
+    const kit = def.slug === "text" ? "FrameText" : def.slug === "stat-bar" ? "FrameBar" : undefined;
+    if (!kit) {
+      this.warn("binding", "a prop bound per frame keeps the design's value on a phone: a frame writes a text's words, a stat bar's value and their opacity there", it.id);
+      return undefined;
+    }
+    this.frameSpecs.push(...specs);
+    this.kit.add(kit);
+    return kit;
   }
 
   /** a part the kit has no component for: the atoms it splits into, or a placeholder naming it */
@@ -968,6 +999,10 @@ class ScreenPrinter {
     })() : [];
     if (this.uses.nav) out.push("const nav = useNav();");
     if (this.uses.app) out.push("const app = useApp();");
+    if (this.frameSpecs.length) {
+      this.bind.add("useFrames").type("FrameSpec");
+      out.push("const frames = useFrames(FRAMES);");
+    }
     if (this.runtime && (this.uses.$ || this.sources.size || this.subs.size)) {
       const params = this.frame.params?.length ? "params" : "{}";
       if (this.frame.params?.length) {
@@ -1004,6 +1039,11 @@ class ScreenPrinter {
     if (this.uses.app) this.kit.add("useApp");
     out.push(...this.head.after);
     return out;
+  }
+
+  /** the screen's props bound per frame, as a module constant its frame loop is handed */
+  frameConsts(): string[] {
+    return this.frameSpecs.length ? [`const FRAMES: FrameSpec[] = ${expr(this.frameSpecs.slice(0, FRAME_LIMITS.perScreen))};`] : [];
   }
 
   /** the subscriptions' definitions, as module constants */
@@ -1064,7 +1104,7 @@ function screensOf(source: Doc, widths: Record<string, number>, o: RnPrintOption
     if (p.uses.nav) p.kit.add("useNav");
     const component = screens.names.get(frame.id)!;
     const params = runtime && frame.params?.length ? frame.params : undefined;
-    const consts = [...(params ? [`const PARAMS: ParamSpec[] = ${expr(params.map((x) => ({ name: x.name, ...(x.type ? { type: x.type } : {}), ...(x.example !== undefined ? { example: x.example } : {}) })))};`] : []), ...p.sourceConsts(), ...p.subConsts(), ...p.consts];
+    const consts = [...(params ? [`const PARAMS: ParamSpec[] = ${expr(params.map((x) => ({ name: x.name, ...(x.type ? { type: x.type } : {}), ...(x.example !== undefined ? { example: x.example } : {}) })))};`] : []), ...p.sourceConsts(), ...p.subConsts(), ...p.frameConsts(), ...p.consts];
     if (params) p.bind.type("ParamSpec");
     const imports = [
       ...(p.rn.size ? [`import { ${[...p.rn].sort().join(", ")} } from "react-native";`] : []),

@@ -69,15 +69,16 @@ export type FrameNode = {
 };
 
 /** Words into a node: into its one text node where it has one (React keeps that node and writes it again itself), else
- *  as its whole content. */
-function setText(el: FrameNode, text: string) {
+ *  as its whole content. A mini-program's page nodes (Taro's) take it the same way. */
+export function frameText(el: Pick<FrameNode, "firstChild" | "textContent">, text: string) {
   const only = el.firstChild;
   if (only && only.nodeType === 3 && !only.nextSibling) {
     if (only.nodeValue !== text) only.nodeValue = text;
   } else if (el.textContent !== text) el.textContent = text;
 }
 
-const setStyle = (el: FrameNode, name: string, value: string) => {
+/** a style of a node, set only where it differs */
+export const frameStyle = (el: Pick<FrameNode, "style">, name: string, value: string) => {
   if (el.style.getPropertyValue(name) !== value) el.style.setProperty(name, value);
 };
 const setAttr = (el: FrameNode, name: string, value: string) => {
@@ -90,10 +91,10 @@ const slot = (root: FrameNode, name: string): FrameNode | null => (root.getAttri
  *  drawing is not there (yet). */
 export function writeFrameDom(slug: string | undefined, prop: string, box: FrameNode, value: string | number | undefined) {
   if (value === undefined) return;
-  if (prop === FRAME_OPACITY) return setStyle(box, "opacity", String(Math.min(100, Math.max(0, Number(value))) / 100));
+  if (prop === FRAME_OPACITY) return frameStyle(box, "opacity", String(Math.min(100, Math.max(0, Number(value))) / 100));
   if (slug === "text" && prop === "text") {
     const el = slot(box, "text");
-    if (el) setText(el, String(value));
+    if (el) frameText(el, String(value));
     return;
   }
   if (slug === "stat-bar" && prop === "value") {
@@ -103,8 +104,8 @@ export function writeFrameDom(slug: string | undefined, prop: string, box: Frame
     const share = Math.min(100, Math.max(0, (n / max) * 100));
     if (track) setAttr(track, "aria-valuenow", String(Math.round(n)));
     const fill = slot(box, "stat-bar-fill");
-    if (fill) setStyle(fill, "width", `${share}%`);
+    if (fill) frameStyle(fill, "width", `${share}%`);
     const words = slot(box, "stat-bar-value");
-    if (words) setText(words, `${Math.round(n)}/${Math.round(max)}`);
+    if (words) frameText(words, `${Math.round(n)}/${Math.round(max)}`);
   }
 }

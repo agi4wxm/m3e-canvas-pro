@@ -39,5 +39,6 @@ export const PRINTED_PAGES: string[] = [
   "printed/slots/pages/slots/index",
   "printed/slots/pages/bought/index",
   "printed/world/pages/arena/index",
-  "printed/world/pages/won/index"
+  "printed/world/pages/won/index",
+  "printed/hud/pages/hUD/index"
 ];

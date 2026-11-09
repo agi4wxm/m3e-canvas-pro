@@ -1,0 +1,20 @@
+[
+ {
+  "kind": "binding",
+  "screen": "HUD",
+  "part": "statBar",
+  "detail": "a prop bound per frame keeps the design's value without the app's runtime"
+ },
+ {
+  "kind": "atoms",
+  "screen": "HUD",
+  "part": "statBar",
+  "detail": "drawn as the atoms it splits into (stat-bar)"
+ },
+ {
+  "kind": "binding",
+  "screen": "HUD",
+  "part": "text",
+  "detail": "a prop bound per frame keeps the design's value without the app's runtime"
+ }
+]

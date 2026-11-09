@@ -20,21 +20,28 @@ import { corner, typeStyle, useKit, type Kit } from "./theme/ThemeProvider";
 /** a direction (x and y from -1 to 1), or whether a button of the world is held down */
 export type WorldInput = { x: number; y: number } | boolean;
 
+/** what the HUD reads a world through: its snapshot and its clock (an engine's `World` is one) */
+export type WorldReadable = { view(): unknown; clock?(): { now: number; paused: boolean; rate: number } };
+
 /** the local channel a world view's inputs come in on */
 export type WorldChannel = {
   /** hears every input from now on; gives back how to stop */
   listen(fn: (action: string, value: WorldInput, at: number) => void): () => void;
   /** what each input holds now */
   held(): Record<string, WorldInput>;
+  /** takes the world connected to the view (`connectWorld`), which the HUD's bindings per frame read; gives back how to
+   *  let it go */
+  attach?(world: WorldReadable): () => void;
 };
 
-/** a channel for each world view, by its item id */
-export type WorldChannels = { send(part: string, action: string, value: WorldInput): void; channel(part: string): WorldChannel; clear(): void };
+/** a channel for each world view, by its item id; `attached` is the world the HUD reads: the first still connected */
+export type WorldChannels = { send(part: string, action: string, value: WorldInput): void; channel(part: string): WorldChannel; clear(): void; attached(): WorldReadable | undefined };
 
 export function createWorldChannels(now: () => number = () => Date.now()): WorldChannels {
   const listeners = new Map<string, Set<(action: string, value: WorldInput, at: number) => void>>();
   const holding = new Map<string, Record<string, WorldInput>>();
   const channels = new Map<string, WorldChannel>();
+  const mounted: { world: WorldReadable }[] = [];
   return {
     send(part, action, value) {
       holding.set(part, { ...holding.get(part), [action]: value });
@@ -52,11 +59,20 @@ export function createWorldChannels(now: () => number = () => Date.now()): World
           return () => void set.delete(fn);
         },
         held: () => ({ ...holding.get(part) }),
+        attach(world) {
+          const entry = { world };
+          mounted.push(entry);
+          return () => {
+            const at = mounted.indexOf(entry);
+            if (at >= 0) mounted.splice(at, 1);
+          };
+        },
       };
       channels.set(part, made);
       return made;
     },
     clear: () => holding.clear(),
+    attached: () => mounted[0]?.world,
   };
 }
 
