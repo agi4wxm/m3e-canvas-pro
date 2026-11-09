@@ -57,7 +57,7 @@ export function rulesForModel(theme: Theme, styles?: StyleContext): string {
     `This document is held to ${name}, and you may not change it.`,
     pack ? `Write "theme": { "style": "${pack.key}" } and nothing else in theme, whatever the idea asks for.` : `Leave "style" out of theme.`,
     `Faces: ${fontFamilyOf(theme.font)}. Colors only by role name. Controls are built as: ${RECIPE_KEYS.filter((k) => recipes[k] !== "m3").map((k) => `${k} ${recipes[k]}`).join(", ") || "Material's own"}.`,
-    `Never set corners, a button's shape, an image's radius or a scene's style: the style decides them and they are removed. Of \`look\`, only ${STRICT_LOOK_KEYS.map((k) => `\`${k}\``).join(", ")} stay; \`elevation\` (0–4) raises a surface in the style's own shadow, and every other look field is removed.`,
+    `Never set corners, a button's shape, an image's radius or a scene's style: the style decides them and they are removed. Of \`look\`, only ${STRICT_LOOK_KEYS.map((k) => `\`${k}\``).join(", ")} stay, with a material fill tinted by a role; \`elevation\` (0–4) raises a surface in the style's own shadow, and every other look field is removed.`,
     `Layout: ${ux.margin}px side margins, ${ux.gap}px between sections, ${ux.tight}px between rows of a kind${ux.nav === "keep" ? "" : `, navigation ${ux.nav === "rail" ? "as a rail at the left" : ux.nav === "top" ? "as tabs on top" : "at the bottom"}`}. The screens are laid out by these rules when the document arrives, so put parts in the order they read, in sensible places.`,
     ...(pack ? [`Compose its screens this way: ${pack.layout.en}`] : []),
   ].join("\n");

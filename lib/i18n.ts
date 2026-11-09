@@ -3,6 +3,7 @@ import { createContext, useContext } from "react";
 import { KITS_KO, KITS_UI } from "./i18n/kits";
 import { LAYOUT_KO, LAYOUT_UI } from "./i18n/layout";
 import { LOOK_KO, LOOK_UI } from "./i18n/look";
+import { MATERIAL_KO, MATERIAL_UI } from "./i18n/material";
 import { STYLES_KO, STYLES_UI } from "./i18n/styles";
 import { CUSTOM_STYLES_KO, CUSTOM_STYLES_UI } from "./i18n/customStyles";
 import { EDITOR_KO, EDITOR_UI } from "./i18n/editor";
@@ -568,6 +569,7 @@ export const UI = {
   previewWidth: { ja: "幅", en: "Width", zh: "宽度" },
   ...KITS_UI,
   ...LOOK_UI,
+  ...MATERIAL_UI,
   ...LAYOUT_UI,
   ...STYLES_UI,
   ...CUSTOM_STYLES_UI,
@@ -673,6 +675,7 @@ export const KO: Record<UIKey, string> = {
   variants: "크기별 화면", createVariant: "{size} 버전 만들기", variantHint: "이 화면 옆에 다른 크기의 복사본을 만듭니다. 크기마다 레이아웃이 독립적이며 미리보기의 너비 전환으로 이동합니다.", previewWidth: "너비",
   ...KITS_KO,
   ...LOOK_KO,
+  ...MATERIAL_KO,
   ...LAYOUT_KO,
   ...STYLES_KO,
   ...CUSTOM_STYLES_KO,

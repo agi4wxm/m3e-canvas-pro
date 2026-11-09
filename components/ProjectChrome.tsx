@@ -129,6 +129,8 @@ export type ProjectMenuActions = {
   onOpenFile: () => void;
   onOpenFolder?: () => void;
   onDownload: () => void;
+  /** adds a material pack (.m3e-material.json) to the document's library */
+  onImportMaterials?: () => void;
   onStopSaving?: () => void;
   /** where the browser's copy and the file's stand, at any time */
   onSaveState?: () => void;
@@ -175,6 +177,8 @@ export function ProjectMenu({ p, close, a }: { p: Palette; close: () => void; a:
       {row("file_open", t("openFile", lang), a.onOpenFile)}
       {a.onOpenFolder && row("folder_open", t("openFolder", lang), a.onOpenFolder)}
       {row("download", t("downloadProjectFile", lang), a.onDownload)}
+      {a.onImportMaterials && rule("c")}
+      {a.onImportMaterials && row("texture", t("mtImport", lang), a.onImportMaterials, { hint: t("mtImportHint", lang) })}
     </div>
   );
 }
