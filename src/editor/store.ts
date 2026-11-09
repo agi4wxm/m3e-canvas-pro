@@ -5,11 +5,8 @@ import { DocStore, sessionMeasurer, stateOf } from "@/lib/core";
 import { getLang } from "@/lib/i18n";
 import { setDocStyles } from "@/lib/styles";
 import { setDocIcons } from "./docIcons";
-<<<<<<< HEAD
 import { syncAssetIcons } from "./assetIcons";
-=======
 import { setDocMaterials } from "./materials";
->>>>>>> origin/claude/eager-hamilton-vj1k0f
 import type { Frame, Group } from "@/lib/tokens";
 
 export function editorStore(groups: Group[], frames: Frame[]) {

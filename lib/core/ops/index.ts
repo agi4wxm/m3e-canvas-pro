@@ -20,11 +20,7 @@ import * as splits from "./split";
 import * as rows from "./rows";
 import { editComponentOp } from "./definition";
 
-<<<<<<< HEAD
-export { document, screens, nodes, layout, components, data, tree, styles, icons, assets, api, mocks, bindings, capabilities, splits, rows };
-=======
-export { document, screens, nodes, layout, components, data, tree, styles, icons, api, mocks, bindings, capabilities, splits, rows, materials };
->>>>>>> origin/claude/eager-hamilton-vj1k0f
+export { document, screens, nodes, layout, components, data, tree, styles, icons, assets, api, mocks, bindings, capabilities, splits, rows, materials };
 export * from "./document";
 export * from "./screens";
 export * from "./nodes";

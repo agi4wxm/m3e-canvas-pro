@@ -20,12 +20,9 @@ import { outsideInDoc } from "@/lib/outside";
 import { setOutsideBlocked } from "@/lib/outsidePolicy";
 import { setDocStyles, styleContext } from "@/lib/styles";
 import { setDocIcons } from "./docIcons";
-<<<<<<< HEAD
 import { syncAssetIcons } from "./assetIcons";
 import { setAssetCatalog, type AssetCatalog } from "@/lib/assetCatalog";
-=======
 import { setDocMaterials } from "./materials";
->>>>>>> origin/claude/eager-hamilton-vj1k0f
 import { fontFamilyOf, frameOfGroup, frameSizeOf, normalizeTheme, paletteOf, seedOf, shapeScaleOf, type Doc, type Item } from "@/lib/tokens";
 import { PartView } from "@/components/PartView";
 import { FIT_OVERLAY } from "@/parts/contained";

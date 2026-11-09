@@ -1549,16 +1549,13 @@ export type Doc = {
   /** the platform capabilities the product uses beyond those its designs invoke, and its own (lib/capabilities,
    *  docs/平台能力.md); the standard ones are the catalog's */
   capabilities?: CapabilitySpec;
-<<<<<<< HEAD
   /** Where the files of the modules outside M3E are read from, each a path from the project file's folder: only
    *  their format is depended on, never where they live (docs/游戏阶段整改计划.md). `assetManifest`: the asset
    *  pipeline's manifest (lib/assetManifest.ts), `asset-manifest.json` beside the project file when left out. */
   external?: ExternalFiles;
-=======
   /** the document's materials (lib/material.ts, docs/m3e-material.md), imported from material packs; a `material` layer
    *  of a look (`ItemLook.fills`) names one by id */
   materials?: MaterialDef[];
->>>>>>> origin/claude/eager-hamilton-vj1k0f
 };
 
 /** where the files of the outside modules are, by what they are (lib/assetCatalog.ts `assetManifestPathOf`) */

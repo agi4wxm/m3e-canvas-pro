@@ -3,11 +3,8 @@ import { standIn } from "./instances";
 import { cleanLook } from "./look";
 import { cleanStyles } from "./styles";
 import { cleanDocIcons } from "./docIcons";
-<<<<<<< HEAD
 import { ASSET_PATH } from "./assetManifest";
-=======
 import { cleanDocMaterials } from "./materials";
->>>>>>> origin/claude/eager-hamilton-vj1k0f
 import { cleanApi } from "./api/clean";
 import { cleanMocks } from "./mocks/clean";
 import { cleanCapabilities } from "./capabilities/clean";
