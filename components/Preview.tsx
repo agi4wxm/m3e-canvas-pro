@@ -62,7 +62,7 @@ import { createPreviewHost, tapOf, type TapExtra } from "./preview/host";
 import { Screen } from "./preview/Screen";
 import { PreviewStore, usePreviewState } from "./preview/store";
 import { useSwipe, type Peek } from "./preview/swipe";
-import { PreviewWorlds } from "./preview/worlds";
+import { PreviewMockWorld, PreviewWorlds } from "./preview/worlds";
 import { createWorlds } from "@/lib/world/channel";
 
 /** room reserved for the wide preview controls: panel, right margin and breathing space */
@@ -326,6 +326,10 @@ export function Preview({
   nav.current = { go, back, returnAfterSignIn, afterSignOut, onShow, dark };
   /* the world views' channels: the input actions go there, the views listen (docs/交互规则.md “输入动作”) */
   const [worlds] = useState(() => createWorlds());
+  /* the mock world the bar has chosen, played on the mocks' clock (which the bar stops and speeds up) */
+  const chosenScript = mocks?.worldScript ?? null;
+  const mocksNow = mocks?.clock.now;
+  const mockWorld = useMemo(() => (chosenScript ? { script: chosenScript, ...(mocksNow ? { now: mocksNow } : {}) } : null), [chosenScript, mocksNow]);
   const [host] = useState(() =>
     createPreviewHost({
       worldInput: (part, action, value) => worlds.send(part, action, value),
@@ -660,6 +664,7 @@ export function Preview({
   return (
     <PreviewMocksContext.Provider value={mocks}>
     <PreviewWorlds.Provider value={worlds}>
+    <PreviewMockWorld.Provider value={mockWorld}>
     <PreviewTheme dark={dark}>
     <motion.div
       initial={{ opacity: 0 }}
@@ -820,6 +825,7 @@ export function Preview({
       />
     </motion.div>
     </PreviewTheme>
+    </PreviewMockWorld.Provider>
     </PreviewWorlds.Provider>
     </PreviewMocksContext.Provider>
   );

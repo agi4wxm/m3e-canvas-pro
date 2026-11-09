@@ -211,7 +211,7 @@ npx playwright install chromium
 
 <!-- tools:start (bun run mcp:docs) -->
 
-共 183 个工具：服务器环境里没有 OPENAI_API_KEY 时不含“生成”组，只读会话只列出“只读”一栏为“是”的，`undo`、`redo`、`export_product` 只在文件模式里有。说明取自工具给模型看的描述。
+共 185 个工具：服务器环境里没有 OPENAI_API_KEY 时不含“生成”组，只读会话只列出“只读”一栏为“是”的，`undo`、`redo`、`export_product` 只在文件模式里有。说明取自工具给模型看的描述。
 
 | 工具 | 组 | 只读 | 需作者确认 | 说明 |
 | --- | --- | --- | --- | --- |
@@ -365,10 +365,12 @@ npx playwright install chromium
 | `remove_mock_file` | 数据与交互 |  | 是 | Removes a file from the mock library; hints that named it no longer do. |
 | `set_mock_realtime` | 数据与交互 |  |  | Adds or replaces (by id) a realtime script: the messages the server sends over a channel, each at a time in ms after it starts, e.g. |
 | `remove_mock_realtime` | 数据与交互 |  | 是 | Removes a realtime script. |
+| `set_mock_world` | 数据与交互 |  |  | Adds or replaces (by id) a world script: what a world view with no engine shows and sends in the preview, a prototype and a development build (the real engine replaces it in produ… |
+| `remove_mock_world` | 数据与交互 |  |  | Removes a world script of the document (the library's battle and meadow stay offered). |
 | `set_mock_auth` | 数据与交互 |  |  | How signing in behaves in the mocks: signedIn (true by default: secured calls work without a token; false: 401 until the app signs in), accept (the credentials the login endpoint … |
 | `set_mock_route` | 数据与交互 |  |  | Says how the mocks answer an operation when its method and path do not say it plainly: kind auto, list, get, create, update, replace, delete, singleton, upload, download, login, r… |
 | `fill_mocks` | 数据与交互 |  |  | Fills the mock library for the API in one step: every model's fields get the hint their names, formats and enums say (written down, to change), each listed model a record count, t… |
-| `clear_mocks` | 数据与交互 |  | 是 | Takes every mock setting away (hints, counts, pinned records, scenarios, files, scripts): the API is then answered with data made from its schemas alone. |
+| `clear_mocks` | 数据与交互 |  | 是 | Takes every mock setting away (hints, counts, pinned records, scenarios, files, scripts, world scripts): the API is then answered with data made from its schemas alone. |
 | `set_mock_capability` | 数据与交互 |  |  | Says how the mock library answers a capability in the preview (and in an exported app's tests or development build that puts its createMockCapabilities in place): in every scenari… |
 | `declare_capability` | 数据与交互 |  |  | Declares a platform capability of the product's own, beside the catalog's (list_capabilities): name (dotted, e.g. |
 | `remove_capability` | 数据与交互 |  | 是 | Removes a capability the product declared (declare_capability). |

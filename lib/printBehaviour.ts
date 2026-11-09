@@ -19,6 +19,8 @@ import { boundVar, comparisonOf, fieldVarOf, type Comparison } from "./bindings/
 import { inlineReads } from "./refs";
 import { literal } from "./export/code";
 import { screenToken, screenWords } from "./export/ir/names";
+import { findWorldScript, resolveWorldScript } from "./mocks/world";
+import type { WorldScript } from "./world/script";
 
 /* What a tap does and what state a part reads, as source text over the generated runtime
  * (lib/runtimeSource.ts). Pure, like the rest of the printer: a document in, strings out.
@@ -65,6 +67,8 @@ export type RuntimeSpec = {
   families?: true;
   /** the screens draw world views, which the taps' input actions reach on a channel each (lib/world) */
   worlds?: true;
+  /** the world script a prototype's world views play (docs/模拟库.md “世界脚本”), its pictures made data URLs */
+  mockWorld?: WorldScript;
 };
 
 /** What the runtime runs the taps over (lib/actions' `Host`, src/runtime.tsx): where each part an effect reaches stands,
@@ -576,7 +580,15 @@ export class Behaviour {
       ...(this.acts ? { acts: this.actsSpec() } : {}),
       ...(this.printedFamilies ? { families: true as const } : {}),
       ...(this.printedWorlds ? { worlds: true as const } : {}),
+      ...(this.printedWorlds && !this.bound ? this.mockWorld() : {}),
     };
+  }
+
+  /** a prototype plays the world script the design's preview starts with, as the preview does */
+  private mockWorld(): { mockWorld?: WorldScript } {
+    const mocks = this.doc.mocks;
+    const script = findWorldScript(mocks, mocks?.world);
+    return script ? { mockWorld: resolveWorldScript(script, mocks?.files) } : {};
   }
 
   /** what the runtime runs the taps over */

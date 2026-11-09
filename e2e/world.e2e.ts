@@ -2,8 +2,10 @@
  * in a real editor and preview: the design wires a joystick's pushes to the world as its `move` input and a skill to
  * press and let go of `attack`; the stand-in lists the inputs it hears; the example engine (the prototype's demo, as
  * nothing binds the world's state) moves the hero, hits the slime near it, picks up the coins, and the design's actions
- * run on the world's events: a snackbar for a hit and for each coin, the round over opening another screen.
- * Screenshots of failures go to e2e/.out. */
+ * run on the world's events: a snackbar for a hit and for each coin, the round over opening another screen. Then a mock
+ * world with no engine (docs/模拟库.md “世界脚本”): the bar's world script picks the library's battle, whose twenty
+ * slimes lose hit points and go as it plays, its hits run the design's action, the mocks' clock stopped stops it, and
+ * its round over opens another screen. Screenshots of failures go to e2e/.out. */
 
 import { DocStore, counterIds, guessMeasurer, ops, savedDoc, stateOf } from "../lib/core";
 import { setGlobalLang } from "../lib/i18n";
@@ -54,6 +56,36 @@ const heard = async (page: Page): Promise<string[]> => {
   return out;
 };
 const heroX = async (page: Page) => Number(await part(page, "world").locator('[data-entity="hero"]').first().getAttribute("data-x"));
+const view = (page: Page) => part(page, "world").locator('[data-slot="world-view"]').first();
+const worldTime = async (page: Page) => Number(await view(page).getAttribute("data-world-time"));
+
+/** a battle arena with no engine: the design's actions on the world's events, the mock library's battle to play */
+function battleDoc(): Doc {
+  const store = new DocStore(stateOf({ groups: [], frames: [] }), { ids: counterIds("n"), measurer: guessMeasurer, lang: () => "en" });
+  store.transact("Build the battle", "mcp", (tx) => {
+    tx.run(ops.setTitle, { title: "Battle" });
+    tx.run(ops.addScreen, { id: SCREEN, name: "Arena" });
+    tx.run(ops.addScreen, { id: "won", name: "Won" });
+    tx.run(ops.addPart, { slug: "world-view", id: "world", screen: SCREEN, at: { x: 26, y: 80 }, props: { label: "Arena", width: 360, height: 300 } });
+    tx.run(ops.setAction, { id: "world", slot: "on:hit", action: { to: "none", effects: [{ do: "snackbar", message: "Hit {{event.id}}" }] } as never });
+    tx.run(ops.setAction, { id: "world", slot: "on:ended", action: { to: "won" } as never });
+    tx.run(ops.addPart, { slug: "text", id: "won-text", screen: "won", at: { x: 16, y: 120 }, props: { text: "Victory screen" } });
+    tx.run(ops.setMockWorld, { from: "battle" });
+  });
+  return savedDoc(store.get());
+}
+
+async function openPreview(page: Page, base: string, doc: Doc) {
+  await page.goto(`${base}/#doc=${encodeURIComponent(JSON.stringify(doc))}`, { waitUntil: "load" });
+  await page.waitForSelector(".m3e-boot", { state: "detached", timeout: 90_000 });
+  await page.waitForSelector(`[data-screen="${SCREEN}"]`, { timeout: 30_000 });
+  await settle(page, 1500);
+  await page.keyboard.press("Escape");
+  await settle(page, 200);
+  await selectScreen(page, SCREEN);
+  await page.keyboard.press("p");
+  await page.waitForSelector("[data-preview-active]", { timeout: 10_000 });
+}
 
 export const tests: E2ETest[] = [
   {
@@ -87,6 +119,38 @@ export const tests: E2ETest[] = [
       /* the last coin gone, the round is over: the design opens the next screen */
       await until("the round over opens the next screen", async () => ((await onShow(page).textContent()) ?? "").includes("You won"));
       await page.keyboard.up("ArrowRight");
+      await page.keyboard.press("Escape");
+      await settle(page, 600);
+    },
+  },
+  {
+    name: "world view: a world script chosen in the preview's bar plays the battle, on the mocks' clock, and its events run the design's actions",
+    async run({ page, base }) {
+      await openPreview(page, base, battleDoc());
+      await until("the world view is drawn", async () => (await view(page).count()) > 0);
+      /* no script yet: the design's own state */
+      equal(await view(page).getAttribute("data-world-script"), null, "no script plays before one is chosen");
+      await page.locator("[data-preview-world-button]").first().click();
+      await page.locator('[data-preview-world="battle"]').first().click();
+      await until("the battle plays", async () => (await view(page).getAttribute("data-world-script")) === "battle");
+      /* twenty enemies with hit points, under the scene's words and its picture */
+      await until("twenty enemies stand there", async () => (await part(page, "world").locator('[data-kind="enemy"][data-hp]').count()) === 20);
+      check((await part(page, "world").locator('[data-slot="world-picture"]').count()) === 1, "the scene has a picture");
+      check(((await part(page, "world").locator('[data-slot="world-scene"]').textContent()) ?? "").includes("slimes"), "the scene says what it is in words");
+      /* the scene changes as the script plays: hit points go down, and each hit runs the design's action */
+      await until("a slime is defeated and goes", async () => (await part(page, "world").locator('[data-kind="enemy"]').count()) < 20, 15_000);
+      await until("a hit runs the design's action", async () => (await snack(page))?.startsWith("Hit e") === true);
+      check((await part(page, "world").locator("[data-world-event]").count()) > 0, "the stand-in lists the world's events");
+      /* the mocks' clock stopped, the world stands still; going on, it goes on */
+      await page.locator("[data-preview-clock-pause]").first().click();
+      await settle(page, 300);
+      const stood = await worldTime(page);
+      await settle(page, 1200);
+      equal(await worldTime(page), stood, "the world stands still while the mocks' clock does");
+      await page.locator("[data-preview-clock-pause]").first().click();
+      await until("the world goes on", async () => (await worldTime(page)) > stood);
+      /* the round over (every slime down), the design opens the next screen */
+      await until("the round over opens the next screen", async () => ((await onShow(page).textContent()) ?? "").includes("Victory screen"), 30_000);
       await page.keyboard.press("Escape");
       await settle(page, 600);
     },

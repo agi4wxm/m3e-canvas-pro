@@ -1,11 +1,13 @@
 import type { MockCapabilityRule } from "../capabilities/types";
+import type { WorldScript } from "../world/script";
 
 /* The mock library of a document (`Doc.mocks`): how the API (Doc.api) is answered while the product is designed, with
  * no back end. Everything here is optional: a document with an API and no mock settings is answered with data made
  * from its schemas, seed 1, in the editor's language. What is kept is only what the author (or the AI) chose: a seed
  * and a locale, hints for fields whose names say too little, how many records each model has, records pinned by hand,
  * named scenarios (new user, lots of data, network error, slow network, signed out…), a library of files of every
- * kind, scripts of realtime messages, and how signing in behaves. docs/模拟库.md describes it.
+ * kind, scripts of realtime messages, scripts of mock worlds for world views with no engine, and how signing in
+ * behaves. docs/模拟库.md describes it.
  *
  * Plain data, no imports but the API's and the capabilities' types: the editor, the MCP server and the exported
  * packages/mocks read it. */
@@ -193,6 +195,10 @@ export type MockRealtimeScript = {
   repeat?: { every: number; times?: number };
 };
 
+/** A mock world's timeline (lib/world/script.ts): the snapshots and events a world view with no engine shows and sends,
+ *  with the words and the picture (a mock file: a picture or a 3D model) of its scene, held to a world's contract. */
+export type MockWorldScript = WorldScript;
+
 /** How signing in behaves. */
 export type MockAuth = {
   /** a session starts signed in: secured calls work without a token (true by default); false answers them 401
@@ -229,6 +235,11 @@ export type MockSpec = {
   scenarios?: MockScenario[];
   files?: MockFile[];
   realtime?: MockRealtimeScript[];
+  /** the mock worlds' scripts, for world views with no engine behind them */
+  worlds?: MockWorldScript[];
+  /** the world script the preview starts with (one of `worlds`, or one the library has: battle, meadow); none: the
+   *  world views play M3E's example engine in a prototype and show the design's state otherwise */
+  world?: string;
   auth?: MockAuth;
   routes?: MockRouteRule[];
   /** how the platform capabilities answer, by capability, in every scenario that says nothing of its own */

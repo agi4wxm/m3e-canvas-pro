@@ -199,7 +199,8 @@ export const webTarget: ProductTarget = {
     const capabilities = capabilityFiles(ctx, "web");
     files["src/generated/api.ts"] = generated(API_CLIENT(ctx.scope, ctx.name, ctx.lang, api, !!capabilities));
     Object.assign(files, capabilities?.files ?? {}, slotFiles(ctx.scope, slots, "web", undefined, { world: docWorldContract(ctx.doc) }));
-    files["src/generated/mocks.ts"] = generated(MOCKS(ctx.scope));
+    /* a development build's world views play the design's world script (docs/模拟库.md “世界脚本”) */
+    files["src/generated/mocks.ts"] = generated(MOCKS(ctx.scope, slots.some((x) => x.view === "world") && !!ctx.doc.mocks?.world));
     files["src/generated/ScenarioPicker.tsx"] = generated(SCENARIO_PICKER(ctx.scope));
     /* what only a browser has: real files of this repo, copied as they are (lib/export/copy.ts) */
     files["src/generated/platform.ts"] = generated(await copiedFile(ctx, "web/platform.ts"));

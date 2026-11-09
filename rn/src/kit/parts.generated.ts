@@ -78,6 +78,7 @@ export const PARTS: Record<string, PartInfo> = {
   "defaults": {
    "label": "World",
    "scene": "A meadow seen from above",
+   "picture": "",
    "entities": {
     "columns": [
      "Id",

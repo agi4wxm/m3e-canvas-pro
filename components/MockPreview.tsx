@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useMemo, useRef, useState } from 
 import type { Doc, Palette } from "@/lib/tokens";
 import type { Transport } from "@/lib/api/transport";
 import type { ControlledClock, MockLogEntry, MockTransport, Route } from "@/lib/mocks";
+import type { WorldScript } from "@/lib/world/script";
 import { createMockCapabilities, type CapabilityLogEntry, type MockCapabilities } from "@/lib/capabilities/mock";
 import { FAILURE_WORDS } from "@/lib/i18n/capabilities";
 import { t, useLang } from "@/lib/i18n";
@@ -35,7 +36,14 @@ export type PreviewMocks = {
   answers: Map<number, string>;
   /** the mocks' clock: the time the app reads (`now`, a countdown), the realtime scripts' messages, the answers' waits;
    *  it can stand still and run at another rate */
-  clock: { paused: boolean; rate: number; pause: () => void; resume: () => void; setRate: (rate: number) => void };
+  clock: { paused: boolean; rate: number; pause: () => void; resume: () => void; setRate: (rate: number) => void; now: () => number };
+  /** the world scripts the world views can play (the document's, then the library's), by id and name */
+  worlds: { id: string; name: string }[];
+  /** the world script chosen, by id; none: the world views play the example engine (docs/模拟库.md “世界脚本”) */
+  world: string | undefined;
+  setWorld: (id: string | undefined) => void;
+  /** the chosen script, its pictures made data URLs, as the world views play it */
+  worldScript: WorldScript | null;
 };
 
 export const PreviewMocksContext = createContext<PreviewMocks | null>(null);
@@ -44,11 +52,14 @@ export const PreviewMocksContext = createContext<PreviewMocks | null>(null);
 export const useMockTransport = (): Transport | null => useContext(PreviewMocksContext)?.transport ?? null;
 
 /** the preview's mocks, made from the document's API and mock settings when the preview opens */
-export function usePreviewMocks(doc: Pick<Doc, "api" | "mocks" | "collections" | "capabilities">): PreviewMocks | null {
+export function usePreviewMocks(doc: Pick<Doc, "api" | "mocks" | "collections" | "capabilities"> & Partial<Pick<Doc, "groups">>): PreviewMocks | null {
   const lang = useLang();
-  /* a document with no API may still have scenarios that say how its capabilities answer */
-  const has = !!doc.api?.endpoints?.length || !!doc.api?.channels?.length || !!doc.mocks?.scenarios?.length || !!doc.mocks?.capabilities;
-  const [made, setMade] = useState<{ transport: MockTransport; capabilities: MockCapabilities; routes: Route[]; clock: ControlledClock } | null>(null);
+  /* a document with no API may still have scenarios that say how its capabilities answer, or world views a mock world
+     plays on (on the mocks' clock, which the bar can stop) */
+  const worldViews = useMemo(() => !!doc.groups?.some((g) => g.items.some((it) => it.component === "world-view")), [doc.groups]);
+  const has = !!doc.api?.endpoints?.length || !!doc.api?.channels?.length || !!doc.mocks?.scenarios?.length || !!doc.mocks?.capabilities || !!doc.mocks?.worlds?.length || worldViews;
+  const [made, setMade] = useState<{ transport: MockTransport; capabilities: MockCapabilities; routes: Route[]; clock: ControlledClock; worlds: typeof import("@/lib/mocks/world") } | null>(null);
+  const [world, setWorld] = useState<string | undefined>(doc.mocks?.world);
   /* the clock's state, drawn again on each pause, resume and change of rate */
   const [clockState, setClockState] = useState({ paused: false, rate: 1 });
   const [scenario, setScenarioNow] = useState<string | undefined>(undefined);
@@ -61,7 +72,7 @@ export function usePreviewMocks(doc: Pick<Doc, "api" | "mocks" | "collections" |
     let live = true;
     let transport: MockTransport | undefined;
     let unlisten = () => {};
-    void import("@/lib/mocks").then((m) => {
+    void Promise.all([import("@/lib/mocks"), import("@/lib/mocks/world")]).then(([m, worlds]) => {
       if (!live) return;
       const source = { api: doc.api, mocks: doc.mocks, collections: doc.collections };
       /* a clock the bar can stop and speed up; the data is still made around the day, as with the platform's clock */
@@ -79,7 +90,7 @@ export function usePreviewMocks(doc: Pick<Doc, "api" | "mocks" | "collections" |
       };
       transport = made;
       const capabilities = createMockCapabilities({ ...doc.mocks, locale: doc.mocks?.locale ?? lang }, doc.capabilities, { scenario: made.scenario, onLog: (e) => setInvocations((l) => [...l.slice(-199), e]) });
-      setMade({ transport: made, capabilities, routes: m.compileRoutes(doc.api ?? {}, doc.mocks), clock });
+      setMade({ transport: made, capabilities, routes: m.compileRoutes(doc.api ?? {}, doc.mocks), clock, worlds });
       setScenarioNow(made.scenario);
     });
     return () => {
@@ -88,6 +99,16 @@ export function usePreviewMocks(doc: Pick<Doc, "api" | "mocks" | "collections" |
       transport?.close();
     };
   }, [has, doc.api, doc.mocks, doc.collections, doc.capabilities, lang]);
+  /* the document's choice of world script is where the preview starts; one chosen in the bar is the preview's own */
+  const startWorld = doc.mocks?.world;
+  useEffect(() => setWorld(startWorld), [startWorld]);
+  /* one function for a session of the mocks: a world played on it is not started over each time the bar is drawn */
+  const clockNow = useMemo(() => (made ? () => made.clock.now() : undefined), [made]);
+  const worldList = useMemo(() => (made?.worlds ? made.worlds.worldScriptsOf(doc.mocks).map((s) => ({ id: s.id, name: s.name })) : []), [made, doc.mocks]);
+  const worldScript = useMemo(() => {
+    const found = made?.worlds?.findWorldScript(doc.mocks, world);
+    return found && made?.worlds ? made.worlds.resolveWorldScript(found, doc.mocks?.files) : null;
+  }, [made, doc.mocks, world]);
   return useMemo(
     () =>
       made && {
@@ -119,9 +140,14 @@ export function usePreviewMocks(doc: Pick<Doc, "api" | "mocks" | "collections" |
           pause: () => made.clock.pause(),
           resume: () => made.clock.resume(),
           setRate: (rate: number) => made.clock.setRate(rate),
+          now: clockNow ?? Date.now,
         },
+        worlds: worldList,
+        world: worldScript ? world : undefined,
+        setWorld,
+        worldScript,
       },
-    [made, scenario, log, invocations, session, clockState],
+    [made, scenario, log, invocations, session, clockState, clockNow, worldList, world, worldScript],
   );
 }
 
@@ -145,6 +171,19 @@ const statusColor = (p: Palette, status: number) => (status === 0 || status >= 5
 /** the preview bar's switch of scenario: Normal, then the document's scenarios */
 export function MockScenarioSwitch({ mocks, scenarios, p, wide, barBtn }: { mocks: PreviewMocks; scenarios: { id: string; name: string }[]; p: Palette; wide: boolean; barBtn: React.CSSProperties }) {
   const lang = useLang();
+  return <BarChoice attr="scenario" icon="science" what={t("mocksPreviewScenario", lang)} none={t("mocksNormal", lang)} items={scenarios} current={mocks.scenario} onPick={(id) => mocks.setScenario(id)} p={p} wide={wide} barBtn={barBtn} />;
+}
+
+/** The preview bar's switch of world script (docs/模拟库.md “世界脚本”): none (the world views play the example engine
+ *  in the prototype), then the document's scripts and the library's. Shown where the document has a world view. */
+export function MockWorldSwitch({ mocks, p, wide, barBtn }: { mocks: PreviewMocks; p: Palette; wide: boolean; barBtn: React.CSSProperties }) {
+  const lang = useLang();
+  return <BarChoice attr="world" icon="sports_esports" what={t("worldScript", lang)} none={t("worldScriptNone", lang)} items={mocks.worlds} current={mocks.world} onPick={(id) => mocks.setWorld(id)} p={p} wide={wide} barBtn={barBtn} />;
+}
+
+/** A choice of the preview bar: a button saying what is chosen, opening a menu of none and the items. Its button and
+ *  items carry `data-preview-<attr>-button` (the chosen id) and `data-preview-<attr>` (each item's id). */
+function BarChoice({ attr, icon, what, none, items, current, onPick, p, wide, barBtn }: { attr: string; icon: string; what: string; none: string; items: { id: string; name: string }[]; current: string | undefined; onPick: (id: string | undefined) => void; p: Palette; wide: boolean; barBtn: React.CSSProperties }) {
   const [open, setOpen] = useState(false);
   const box = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -155,35 +194,35 @@ export function MockScenarioSwitch({ mocks, scenarios, p, wide, barBtn }: { mock
     window.addEventListener("pointerdown", away);
     return () => window.removeEventListener("pointerdown", away);
   }, [open]);
-  const current = scenarios.find((s) => s.id === mocks.scenario);
-  const label = current?.name ?? t("mocksNormal", lang);
+  const chosen = items.find((s) => s.id === current);
+  const label = chosen?.name ?? none;
   return (
     <div ref={box} style={{ position: "relative", minWidth: 0 }}>
       <button
-        data-preview-scenario-button={mocks.scenario ?? ""}
+        {...{ [`data-preview-${attr}-button`]: current ?? "" }}
         onClick={() => setOpen((v) => !v)}
-        title={`${t("mocksPreviewScenario", lang)}: ${label}`}
-        aria-label={`${t("mocksPreviewScenario", lang)}: ${label}`}
+        title={`${what}: ${label}`}
+        aria-label={`${what}: ${label}`}
         aria-expanded={open}
         className="m3-press"
-        style={{ ...barBtn, width: "100%", color: current ? p.onTertiaryContainer : p.onSurfaceVariant, background: current ? p.tertiaryContainer : "transparent" }}
+        style={{ ...barBtn, width: "100%", color: chosen ? p.onTertiaryContainer : p.onSurfaceVariant, background: chosen ? p.tertiaryContainer : "transparent" }}
       >
-        <Icon name="science" size={20} />
+        <Icon name={icon} size={20} />
         {wide && <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0, flex: 1, textAlign: "left" }}>{label}</span>}
       </button>
       {open && (
         <div role="menu" style={{ position: "absolute", ...(wide ? { right: "calc(100% + 14px)", bottom: 0 } : { bottom: 48, left: "50%", transform: "translateX(-50%)" }), minWidth: 180, maxWidth: "calc(100vw - 24px)", maxHeight: "50vh", overflowY: "auto", padding: 6, borderRadius: 18, background: p.surfaceContainerLow, boxShadow: "0 6px 20px rgba(0,0,0,0.16), 0 0 0 1px rgba(0,0,0,0.04)", display: "flex", flexDirection: "column", gap: 2, zIndex: 2 }}>
-          {[{ id: "", name: t("mocksNormal", lang) }, ...scenarios].map((s) => {
-            const on = (mocks.scenario ?? "") === s.id;
+          {[{ id: "", name: none }, ...items].map((s) => {
+            const on = (current ?? "") === s.id;
             return (
               <button
-                key={s.id || "normal"}
+                key={s.id || "none"}
                 role="menuitemradio"
                 aria-checked={on}
-                data-preview-scenario={s.id}
+                {...{ [`data-preview-${attr}`]: s.id }}
                 onClick={() => {
                   setOpen(false);
-                  mocks.setScenario(s.id || undefined);
+                  onPick(s.id || undefined);
                 }}
                 className="m3-press"
                 style={{ height: 40, padding: "0 14px 0 10px", borderRadius: 12, border: "none", background: on ? p.secondaryContainer : "transparent", color: on ? p.onSecondaryContainer : p.onSurface, fontSize: 13, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: 10, whiteSpace: "nowrap", textAlign: "left" }}

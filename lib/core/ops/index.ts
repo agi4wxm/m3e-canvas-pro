@@ -170,6 +170,8 @@ export const OPS: Op<never, unknown>[] = [
   mocks.removeMockFile,
   mocks.setMockRealtime,
   mocks.removeMockRealtime,
+  mocks.setMockWorld,
+  mocks.removeMockWorld,
   mocks.setMockAuth,
   mocks.setMockRoute,
   mocks.fillMocksOp,

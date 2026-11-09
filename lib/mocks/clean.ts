@@ -7,7 +7,7 @@ import { cleanJson, compact } from "../api/clean";
 import { isRecord } from "../api/schema";
 import { fields, withUnknown } from "../keep";
 import { CAPABILITY_NAME, FAILURE_KINDS, type FailureKind, type MockCapabilityRule } from "../capabilities/types";
-import { MAX_COUNT, MOCK_KINDS, MOCK_LOCALES, MOCK_ROUTE_KINDS, type MockAuth, type MockFile, type MockHint, type MockKind, type MockLocale, type MockModelConfig, type MockOpRule, type MockRealtimeScript, type MockRealtimeTrigger, type MockRouteRule, type MockScenario, type MockSpec, type MockStep } from "./types";
+import { MAX_COUNT, MOCK_KINDS, MOCK_LOCALES, MOCK_ROUTE_KINDS, type MockAuth, type MockFile, type MockHint, type MockKind, type MockLocale, type MockModelConfig, type MockOpRule, type MockRealtimeScript, type MockRealtimeTrigger, type MockRouteRule, type MockScenario, type MockSpec, type MockStep, type MockWorldScript } from "./types";
 
 /** how much the mock settings may hold */
 export const MOCK_LIMITS = {
@@ -24,6 +24,9 @@ export const MOCK_LIMITS = {
   allFileChars: 96_000_000,
   realtime: 500,
   steps: 200,
+  /** world scripts, and the steps of one */
+  worlds: 100,
+  worldSteps: 2000,
   credentials: 50,
   routes: 2000,
   /** JSON values of pinned records and bodies */
@@ -37,7 +40,7 @@ type Budget = { nodes: number };
 
 /* What each object of the settings has. A field this version does not know is kept as it came, copied as plain JSON
    within the budget (lib/keep.ts), after the fields it knows. */
-const SPEC = fields("seed", "locale", "scenario", "latency", "errorRate", "models", "scenarios", "files", "realtime", "auth", "routes", "capabilities");
+const SPEC = fields("seed", "locale", "scenario", "latency", "errorRate", "models", "scenarios", "files", "realtime", "worlds", "world", "auth", "routes", "capabilities");
 const RANGE = fields("min", "max");
 const HINT = fields("kind", "min", "max", "from", "to", "weights", "values", "value", "files", "type", "nullRate");
 const MODEL = fields("name", "count", "seed", "hints", "fixtures");
@@ -50,6 +53,8 @@ const TRIGGER = fields("on", "operationId", "message");
 const SCRIPT = fields("id", "channel", "trigger", "steps", "repeat");
 const SCRIPT_STEP = fields("at", "message", "payload");
 const REPEAT = fields("every", "times");
+const WORLD = fields("id", "name", "description", "contract", "start", "scene", "picture", "steps", "loop", "views");
+const WORLD_STEP = fields("at", "set", "entities", "scene", "picture", "events");
 const AUTH = fields("signedIn", "accept", "tokenTtl", "refreshTtl");
 const ROUTE = fields("operationId", "kind", "model");
 /** what a field this version does not know becomes: plain JSON within the budget */
@@ -195,6 +200,45 @@ function cleanScript(v: unknown, b: Budget): MockRealtimeScript | undefined {
   return withUnknown(v, compact({ id: v.id, channel: v.channel.slice(0, 64), trigger: cleanTrigger(v.trigger), steps, repeat }), SCRIPT, kept(b));
 }
 
+/** A world script (lib/world/script.ts): its steps in bounds, their times whole ms within an hour, what they set,
+ *  change and send plain JSON; a contract named or written out (as JSON); the views it plays on. */
+export function cleanWorldScript(v: unknown, b: Budget = freshBudget()): MockWorldScript | undefined {
+  if (!isRecord(v) || typeof v.id !== "string" || !MOCK_ID.test(v.id)) return undefined;
+  const text = (x: unknown, n: number) => (typeof x === "string" ? x.slice(0, n) : undefined);
+  const record = (x: unknown) => {
+    const c = isRecord(x) ? cleanJson(x, b) : undefined;
+    return isRecord(c) ? c : undefined;
+  };
+  const steps = (Array.isArray(v.steps) ? v.steps : [])
+    .slice(0, MOCK_LIMITS.worldSteps)
+    .filter(isRecord)
+    .map((s) => {
+      const entities = Array.isArray(s.entities) ? s.entities.slice(0, 500).map(record).filter((e): e is Record<string, unknown> & { id: string } => !!e && typeof e.id === "string" && e.id.length > 0 && e.id.length <= 64) : undefined;
+      const events = Array.isArray(s.events) ? s.events.slice(0, 50).filter(isRecord).filter((e) => typeof e.name === "string" && /^[A-Za-z][A-Za-z0-9_]{0,63}$/.test(e.name)).map((e) => compact({ name: e.name as string, payload: json(e.payload, b) })) : undefined;
+      return withUnknown(s, compact({ at: Math.round(num(s.at, 0, 3_600_000) ?? 0), set: record(s.set), entities: entities?.length ? entities : undefined, scene: text(s.scene, 500), picture: text(s.picture, 2000), events: events?.length ? events : undefined }), WORLD_STEP, kept(b));
+    });
+  const views = Array.isArray(v.views) ? v.views.filter((x): x is string => typeof x === "string" && x.length > 0 && x.length <= 64).slice(0, 100) : undefined;
+  const contract = typeof v.contract === "string" ? (MOCK_ID.test(v.contract) ? v.contract : undefined) : record(v.contract);
+  const loop = num(v.loop, 100, 3_600_000);
+  return withUnknown(
+    v,
+    compact({
+      id: v.id,
+      name: text(v.name, 200) || v.id,
+      description: text(v.description, 2000),
+      contract,
+      start: record(v.start),
+      scene: text(v.scene, 500),
+      picture: text(v.picture, 2000),
+      steps,
+      loop: loop !== undefined ? Math.round(loop) : undefined,
+      views: views?.length ? views : undefined,
+    }),
+    WORLD,
+    kept(b),
+  ) as MockWorldScript;
+}
+
 function cleanAuth(v: unknown): MockAuth | undefined {
   if (!isRecord(v)) return undefined;
   const accept = Array.isArray(v.accept)
@@ -260,6 +304,8 @@ export function cleanMocks(v: unknown): MockSpec | undefined {
     scenarios: Array.isArray(v.scenarios) ? unique(v.scenarios.slice(0, MOCK_LIMITS.scenarios * 2).map((s) => cleanScenario(s, b)), (s) => s.id, MOCK_LIMITS.scenarios) : undefined,
     files: files.length ? files : undefined,
     realtime: Array.isArray(v.realtime) ? unique(v.realtime.slice(0, MOCK_LIMITS.realtime * 2).map((s) => cleanScript(s, b)), (s) => s.id, MOCK_LIMITS.realtime) : undefined,
+    worlds: Array.isArray(v.worlds) ? unique(v.worlds.slice(0, MOCK_LIMITS.worlds * 2).map((s) => cleanWorldScript(s, b)), (s) => s.id, MOCK_LIMITS.worlds) : undefined,
+    world: typeof v.world === "string" && MOCK_ID.test(v.world) ? v.world : undefined,
     auth: cleanAuth(v.auth),
     routes: Array.isArray(v.routes) ? unique(v.routes.slice(0, MOCK_LIMITS.routes * 2).map(cleanRoute), (r) => r.operationId, MOCK_LIMITS.routes) : undefined,
     capabilities: cleanCapabilityRules(v.capabilities, b),
@@ -268,6 +314,6 @@ export function cleanMocks(v: unknown): MockSpec | undefined {
   /* an empty list of scripts says "none", where no list at all plays the channels' defaults */
   /* a model's settings with nothing in them are no settings */
   if (out.models) out.models = out.models.filter((m) => Object.keys(m).length > 1);
-  for (const k of ["models", "scenarios", "routes"] as const) if (Array.isArray(out[k]) && !out[k]!.length) delete out[k];
+  for (const k of ["models", "scenarios", "routes", "worlds"] as const) if (Array.isArray(out[k]) && !out[k]!.length) delete out[k];
   return isEmptyMocks(out) ? undefined : out;
 }

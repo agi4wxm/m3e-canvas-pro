@@ -38,4 +38,6 @@ declare module "@m3e/mocks" {
   export type MockTransport = Transport & { scenario?: string }
   export function startsSignedIn(scenario?: string): boolean
   export function createMockTransport(options?: { scenario?: ScenarioName | ""; latency?: boolean }): MockTransport
+  export type { WorldScript } from "@m3e/app-runtime"
+  export const MOCK_WORLD: import("@m3e/app-runtime").WorldScript | null
 }
