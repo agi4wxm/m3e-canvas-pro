@@ -12,6 +12,7 @@ import type { ApiSpec } from "./api/types";
 import type { MockSpec } from "./mocks/types";
 import type { CapabilitySpec } from "./capabilities/types";
 import type { MaterialDef, MaterialLayer } from "./material";
+import type { SpawnSpec } from "./spawn";
 import { fields, withUnknown } from "./keep";
 import { mapAction, mapBody, mapCondition, type RefMap } from "./refs";
 
@@ -1462,6 +1463,15 @@ export type Group = {
    *  element of a list an expression reads (`data`: "data.products.items"), each copy reading it as `item` and
    *  `index` (lib/bindings). `sample` is how many copies the canvas draws of a data repeat. */
   repeat?: { collection: string; data?: undefined; limit?: number } | { data: string; collection?: undefined; limit?: number; sample?: number };
+  /** This group (and what it holds) is a template drawn once per event rather than once (lib/spawn.ts, docs/交互规则.md
+   *  “按事件生成”): a `spawn` effect (an action on a world view's `on:hit`, a subscription's `on:message`) makes an
+   *  instance of it, which reads that step's `event` in its words, lives `life` seconds on the app's clock (pausing
+   *  with it) and gives way to the next when `max` are alive. The canvas draws the template as it is; the preview and
+   *  the exported apps start with none drawn. The counterpart of `repeat` for what arrives over time. */
+  spawn?: SpawnSpec;
+  /** Runtime only, never saved: the instance of a template this group is drawn as in the preview (its template's group
+   *  id and the place in its pool), drawn hidden until one is spawned into it (lib/spawn.ts). */
+  spawnSlot?: { of: string; slot: number };
   /** a container that is a form for an endpoint's request body (lib/bindings) */
   form?: FormBinding;
   /** a container whose content comes from data, showing its loading, empty, error and forbidden designs (lib/bindings) */
@@ -1519,6 +1529,7 @@ export type ComponentProp = { id: string; name: string; type: "text" | "bool" | 
 export type Collection = { id: string; name: string; fields: string[]; rows: string[][]; model?: string };
 
 export type FrameMode = "blank" | "phone";
+export type { SpawnSpec };
 
 export type Doc = {
   groups: Group[];

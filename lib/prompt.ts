@@ -266,10 +266,18 @@ const varRef = (id: string, s: Scope) => {
 
 const valueText = (v: VarValue, lang: Lang) => (typeof v === "string" ? quote(lang)(v) : String(v));
 
+/** a template of instances spawned on events, by its group id: its part's name */
+function templateRef(id: string, s: Scope, lang: Lang): string | null {
+  const g = s.groups.find((x) => x.id === id);
+  const it = g?.items[0];
+  return g?.spawn && it ? nameOfItem(g, it, lang) : null;
+}
+
 function effectText(e: Effect, s: Scope, lang: Lang): string | null {
   const part = "part" in e ? partRef(e.part, s, lang) : null;
   const name = "var" in e ? varRef(e.var, s) : null;
-  if ("part" in e ? !part : "var" in e && !name) return null;
+  const made = e.do === "spawn" ? templateRef(e.group, s, lang) : null;
+  if ("part" in e ? !part : "var" in e ? !name : e.do === "spawn" && !made) return null;
   const say: Record<Lang, () => string> = {
     ja: () => {
       switch (e.do) {
@@ -292,6 +300,7 @@ function effectText(e: Effect, s: Scope, lang: Lang): string | null {
         case "move": return `${part}に入力 ${e.action ?? "move"} の方向（${e.vector}）を送る`;
         case "press": return `${part}の入力 ${e.action} を押す`;
         case "release": return `${part}の入力 ${e.action} を離す`;
+        case "spawn": return `${made}をひとつ生成する`;
       }
     },
     en: () => {
@@ -315,6 +324,7 @@ function effectText(e: Effect, s: Scope, lang: Lang): string | null {
         case "move": return `sends ${part} the direction ${e.vector} as its ${e.action ?? "move"} input`;
         case "press": return `presses the ${e.action} input of ${part}`;
         case "release": return `lets go of the ${e.action} input of ${part}`;
+        case "spawn": return `spawns an instance of ${made}`;
       }
     },
     zh: () => {
@@ -338,6 +348,7 @@ function effectText(e: Effect, s: Scope, lang: Lang): string | null {
         case "move": return `把方向 ${e.vector} 作为输入 ${e.action ?? "move"} 发给${part}`;
         case "press": return `按下${part}的输入 ${e.action}`;
         case "release": return `松开${part}的输入 ${e.action}`;
+        case "spawn": return `生成一个${made}`;
       }
     },
     ko: () => {
@@ -361,6 +372,7 @@ function effectText(e: Effect, s: Scope, lang: Lang): string | null {
         case "move": return `${part}에 방향 ${e.vector}을(를) 입력 ${e.action ?? "move"}(으)로 보내기`;
         case "press": return `${part}의 입력 ${e.action} 누르기`;
         case "release": return `${part}의 입력 ${e.action} 떼기`;
+        case "spawn": return `${made} 하나 생성`;
       }
     },
   };

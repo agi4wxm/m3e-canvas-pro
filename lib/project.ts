@@ -18,6 +18,7 @@ import { fields, withUnknown } from "./keep";
 import { bindRule, conditionRule } from "./rules";
 /* how deep a call's `then` and `catch` may hold calls of their own: the interpreter's own limit */
 import { MAX_CALL_DEPTH, WORLD_ACTION } from "./actions/model";
+import { spawnSpecOf } from "./spawn";
 
 /* A project file is the Doc as JSON, nothing more. Reading one back only checks
  * the shape the editor relies on. */
@@ -104,6 +105,7 @@ const EFFECT_FIELDS: Record<string, ReadonlySet<string>> = {
   move: fields("do", "part", "action", "vector"),
   press: fields("do", "part", "action"),
   release: fields("do", "part", "action"),
+  spawn: fields("do", "group"),
 };
 const OPTIMISTIC = fields("source", "remove", "patch");
 
@@ -171,6 +173,8 @@ function cleanKnownEffect(e: Record<string, unknown>, depth: number): Effect | u
     case "press":
     case "release":
       return typeof e.part === "string" && e.part && typeof e.action === "string" && WORLD_ACTION.test(e.action) ? { do: e.do, part: e.part, action: e.action } : undefined;
+    case "spawn":
+      return typeof e.group === "string" && e.group ? { do: "spawn", group: e.group } : undefined;
     default:
       return undefined;
   }
@@ -307,6 +311,17 @@ function cleanRepeat(r: unknown) {
   return withUnknown(r, { data, ...limit, ...(typeof r.sample === "number" && Number.isInteger(r.sample) && r.sample >= 1 && r.sample <= 12 ? { sample: r.sample } : {}) }, REPEAT);
 }
 
+const SPAWN = fields("life", "max", "at", "motion");
+
+/** a template's numbers kept to their bounds (lib/spawn.ts), what it says beyond them kept as it came */
+function cleanSpawn(r: unknown) {
+  const spec = spawnSpecOf(r);
+  if (!spec) return undefined;
+  const at = spec.at !== undefined ? cleanExpr(spec.at) : undefined;
+  const { at: _at, ...rest } = spec;
+  return withUnknown(r as Record<string, unknown>, { ...rest, ...(at ? { at } : {}) }, SPAWN);
+}
+
 const cleanGroup = (g: Group) =>
   ({
     ...cleaned(g as unknown as Record<string, unknown>, {
@@ -319,6 +334,8 @@ const cleanGroup = (g: Group) =>
       overrides: cleanOverrides,
       properties: cleanOverrides,
       repeat: cleanRepeat,
+      spawn: cleanSpawn,
+      spawnSlot: () => undefined,
       form: (v) => cleanForm(v, cleanBody),
       states: cleanRegion,
       kit: cleanKit,

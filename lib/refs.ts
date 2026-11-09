@@ -30,6 +30,8 @@ function mapEffect(e: Effect, f: RefMap, depth: number): Effect {
   };
   if (f.part && typeof r.part === "string") set("part", f.part(r.part));
   if (f.form && r.do === "submit" && typeof r.form === "string") set("form", f.form(r.form));
+  /* the template a spawn makes an instance of is a group, mapped as a form's group is */
+  if (f.form && r.do === "spawn" && typeof r.group === "string") set("group", f.form(r.group));
   if ((r.do === "call" || r.do === "invoke") && depth < MAX_DEPTH) {
     if (isRecord(r.then)) set("then", mapBody(r.then as unknown as ActionBody, f, depth + 1));
     if (isRecord(r.catch)) set("catch", mapBody(r.catch as unknown as ActionBody, f, depth + 1));

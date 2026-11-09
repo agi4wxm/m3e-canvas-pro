@@ -120,6 +120,11 @@ export interface Host {
    *  `release`. A host hands it to that view's channel at once, by no state of its own: what the input does is the
    *  world's (its engine's) to decide. A host with no world views may leave it out; the input then goes nowhere. */
   worldInput?(part: string, action: string, value: WorldInput, tap: Tap): void;
+  /** Spawns an instance of the template `group` (a group id whose `Group.spawn` says it is one, docs/交互规则.md “按事件
+   *  生成”): `scope` is what the step read (its `event` above all), which the instance's words are filled from once,
+   *  as it is spawned. The host keeps its instances (lib/spawn.ts `createSpawns`: its lifetime on the host's clock, its
+   *  cap) and draws them by no state of its own. A host with no templates may leave it out; nothing is spawned then. */
+  spawn?(group: string, scope: Scope, tap: Tap): void;
   /** How many times the visitor has gone somewhere (a screen opened, gone back from, laid over or closed, picked,
    *  swiped to), counted as each move is made. An answer compares it with the count its tap left. */
   moves(): number;

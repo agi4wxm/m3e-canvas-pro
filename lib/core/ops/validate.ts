@@ -395,8 +395,14 @@ function effectError(e: unknown, s: CoreState, depth = 0): string | null {
       if (typeof e.vector !== "string" || !e.vector.trim()) return 'vector should be an expression that comes to a direction: "event" (a joystick\'s on:move), "vars.dir", or a fixed one written "1,0"';
       return vectorOf(e.vector) ? null : exprSyntaxError(e.vector);
     }
+    case "spawn": {
+      /* a template is a group that says so (set_spawn), named by its id or one of its parts' */
+      const g = typeof e.group === "string" ? s.doc.groups.find((x) => x.id === e.group) : undefined;
+      if (!g) return `there is no group ${JSON.stringify(e.group)} (set_spawn makes a group a template and gives its id)`;
+      return g.spawn ? null : `${JSON.stringify(e.group)} is no template: set_spawn makes it one (how long an instance lives, how many at once)`;
+    }
     default:
-      return `"${String(e.do)}" is not an effect (show, hide, toggle, open, close, setVar, toggleVar, addVar, setProp, snackbar, call, invoke, refresh, loadMore, submit, signOut, move, press, release)`;
+      return `"${String(e.do)}" is not an effect (show, hide, toggle, open, close, setVar, toggleVar, addVar, setProp, snackbar, call, invoke, refresh, loadMore, submit, signOut, move, press, release, spawn)`;
   }
 }
 

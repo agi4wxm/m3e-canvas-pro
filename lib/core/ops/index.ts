@@ -18,9 +18,10 @@ import * as capabilities from "./capabilities";
 import * as materials from "./materials";
 import * as splits from "./split";
 import * as rows from "./rows";
+import * as spawn from "./spawn";
 import { editComponentOp } from "./definition";
 
-export { document, screens, nodes, layout, components, data, tree, styles, icons, assets, api, mocks, bindings, capabilities, splits, rows, materials };
+export { document, screens, nodes, layout, components, data, tree, styles, icons, assets, api, mocks, bindings, capabilities, splits, rows, materials, spawn };
 export * from "./document";
 export * from "./screens";
 export * from "./nodes";
@@ -38,6 +39,7 @@ export * from "./capabilities";
 export * from "./materials";
 export * from "./split";
 export * from "./rows";
+export * from "./spawn";
 export { DEFINITION_OPS, definitionOpened } from "./definition";
 export { OpError } from "../op";
 
@@ -128,6 +130,7 @@ export const OPS: Op<never, unknown>[] = [
   data.updateCollection,
   data.removeCollection,
   data.setRepeat,
+  spawn.setSpawn,
   data.addVar,
   data.updateVar,
   data.removeVar,

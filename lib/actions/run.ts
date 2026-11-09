@@ -285,6 +285,10 @@ function effect(e: Effect, r: Run, tap: Tap, extra: Scope | undefined, depth: nu
     case "release":
       if (typeof e.part === "string" && e.part && typeof e.action === "string" && WORLD_ACTION.test(e.action)) host.worldInput?.(e.part, e.action, e.do === "press", tap);
       return;
+    case "spawn":
+      /* the instance reads what this step reads (the event above all), fixed now: it does not follow what changes later */
+      if (typeof e.group === "string" && e.group) host.spawn?.(e.group, scopeOf(host, tap, extra), tap);
+      return;
     default:
       /* a kind this version does not know, from a file saved by a later one */
       return;

@@ -82,7 +82,12 @@ export type Effect =
   | { do: "move"; part: string; action?: string; vector: string }
   /** Holds down (`press`) or lets go of (`release`) a named input of a world view (`attack`, `jump`); `part` is its
    *  item id. A tap that presses and lets go says both, in that order. */
-  | { do: "press" | "release"; part: string; action: string };
+  | { do: "press" | "release"; part: string; action: string }
+  /** Spawns an instance of a template (docs/交互规则.md “按事件生成”): `group` is the id of the group that says it is
+   *  one (`Group.spawn`: how long an instance lives, how many may live at once). The instance reads what its step
+   *  read (`event.*` above all: an action on an event spawns one per event), fixed as it is spawned. One more than the
+   *  template's cap takes the place of the oldest still alive. */
+  | { do: "spawn"; group: string };
 
 /** What a call changes before it is answered: the tapped row taken out of a data source's list, or fields of it set
  *  (each an expression). Put back when the call fails. */
@@ -109,6 +114,9 @@ export const ANSWERED_EFFECTS = new Set<Effect["do"]>(["call", "invoke"]);
 
 /** the effects that send input to a world view (docs/交互规则.md “输入动作”) */
 export const WORLD_EFFECTS = new Set<Effect["do"]>(["move", "press", "release"]);
+
+/** the effects that spawn an instance of a template (docs/交互规则.md “按事件生成”) */
+export const SPAWN_EFFECTS = new Set<Effect["do"]>(["spawn"]);
 
 /** the input a direction goes to when a `move` names none */
 export const MOVE_ACTION = "move";
