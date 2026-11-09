@@ -7,7 +7,7 @@
 import type { ComponentType, ReactNode } from "react"
 import { SafeAreaProvider, initialWindowMetrics } from "react-native-safe-area-context"
 import { RuntimeProvider, SetupGate } from "@m3e/app-runtime"
-import { AppProvider, NavProvider, SnackHost, ThemeProvider, registerIcons, /*#if dark*/useApp, /*#end*/type AppVar } from "../kit"
+import { AppProvider, NavProvider, SnackHost, ThemeProvider, registerIcons, setClock, /*#if dark*/useApp, /*#end*/type AppVar } from "../kit"
 import { Providers } from "../custom/Providers"
 import { setup } from "../custom/setup"
 import { interpret, reader } from "./effects"
@@ -17,6 +17,8 @@ import { runtime } from "./runtime"
 import { theme } from "./theme"
 
 registerIcons(icons)
+/* the kit's parts read the time off the runtime's clock: the back end's (the mocks' in development), never the device's */
+setClock(() => runtime.now())
 
 /** the design's variables, and the parts hidden until a tap shows them */
 const VARS: AppVar[] = /*$vars*/[]/*$*/

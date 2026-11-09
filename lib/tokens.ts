@@ -825,6 +825,29 @@ export type DataSource = {
   pageSize?: number;
 };
 
+/** A screen's subscription to a realtime channel of the contract (`Doc.api.channels`, AsyncAPI): opened while the screen
+ *  is on show, read as `data.<name>` (lib/bindings/channels.ts: `value` the latest payload, `items` every one kept,
+ *  `latest`, `messages`, `count`, `status`), and an action run on each message it keeps (docs/数据绑定.md “订阅”). */
+export type Subscription = {
+  /** what expressions call it: an identifier, none of the screen's data sources' */
+  name: string;
+  /** the channel (`ApiChannel.id`) */
+  channel: string;
+  /** the parameters of the channel's address by name, each an expression; one left out reads the screen's param of
+   *  that name */
+  params?: Record<string, string>;
+  /** the messages (the server's, by name) it keeps; every one the server sends when left out */
+  messages?: string[];
+  /** how many it keeps, the newest: 50 when left out, at most 500 */
+  keep?: number;
+  /** `items` and `messages` list the newest first (a feed); the oldest first (a chat) when left out */
+  newest?: boolean;
+  /** What runs on a message it keeps, as a part's events run (docs/交互规则.md “订阅”): `on:<message name>` for that
+   *  message, else `on:message` for any. The action reads the message as `event` (`event.message`, `event.payload`,
+   *  `event.at`). */
+  actions?: Record<string, Action>;
+};
+
 /** what a screen is given when it is opened (`ActionBody.params`); `example` is what the canvas and a preview opened
  *  straight on it use */
 export type ScreenParam = { name: string; type?: "string" | "number" | "boolean"; example?: string };
@@ -1091,6 +1114,8 @@ export type Frame = {
   flow?: string;
   /** the data this screen loads from the API (lib/bindings) */
   data?: DataSource[];
+  /** the realtime channels this screen listens to while it is on show (lib/bindings/channels.ts) */
+  subscriptions?: Subscription[];
   /** what this screen is given when it is opened: `params.<name>` */
   params?: ScreenParam[];
   /** "required": only with a session (else the app goes to the sign-in screen); "login": the sign-in screen, where a

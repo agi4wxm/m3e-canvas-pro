@@ -13,6 +13,7 @@ import { BARE, merge, sx, ROW, COL, type CSS } from "../styles";
 import { corner, typeStyle, useKit, type TypeRole } from "../theme";
 import { tapOf } from "./bars";
 import { calm, clock, grouped, pictureOf } from "./media";
+import { kitNow } from "../clock";
 
 /* What talks and what keeps time, drawn with Taro's views: a row of stories, a voice note, a call's picture (a capability
  * view: the stand-in an exported mini-program's slot draws until the product writes the real call, with
@@ -181,10 +182,10 @@ export function CallStandIn(props: CallStandInProps) {
   const kit = useKit();
   const fill = useFill();
   const ticks = !!p.connected && callSeconds(p.startedAt, 0) !== null;
-  const [now, setNow] = useState(() => Date.now());
+  const [now, setNow] = useState(() => kitNow());
   useEffect(() => {
     if (!ticks) return;
-    const id = setInterval(() => setNow(Date.now()), 1000);
+    const id = setInterval(() => setNow(kitNow()), 1000);
     return () => clearInterval(id);
   }, [ticks]);
   const time = ticks ? callSeconds(p.startedAt, now) : null;
@@ -509,8 +510,8 @@ export function Timer(props: TimerProps) {
     const id = setInterval(() => tick((n) => n + 1), 1000);
     return () => clearInterval(id);
   }, [live]);
-  // eslint-disable-next-line react-hooks/purity -- a clock shows the time it is drawn at; drawing again later should show a later time
-  const now = Date.now();
+  /* a clock shows the time it is drawn at (the app's clock): drawing again later shows a later time */
+  const now = kitNow();
   const left = given ? timerSeconds(p, now) : timerSeconds({ ...p, endsAt: 0, startedAt: 0 }, 0);
   /* the end of a countdown on show is said once */
   const before = useRef(left);

@@ -211,7 +211,7 @@ npx playwright install chromium
 
 <!-- tools:start (bun run mcp:docs) -->
 
-共 174 个工具：服务器环境里没有 OPENAI_API_KEY 时不含“生成”组，只读会话只列出“只读”一栏为“是”的，`undo`、`redo`、`export_product` 只在文件模式里有。说明取自工具给模型看的描述。
+共 176 个工具：服务器环境里没有 OPENAI_API_KEY 时不含“生成”组，只读会话只列出“只读”一栏为“是”的，`undo`、`redo`、`export_product` 只在文件模式里有。说明取自工具给模型看的描述。
 
 | 工具 | 组 | 只读 | 需作者确认 | 说明 |
 | --- | --- | --- | --- | --- |
@@ -372,6 +372,8 @@ npx playwright install chromium
 | `add_data_source` | 数据与交互 |  |  | Makes a screen load data from an endpoint: read as data.&lt;name> (value, items, status, loading, error, hasMore, empty). |
 | `update_data_source` | 数据与交互 |  |  | Changes a screen's data source: its endpoint, params, body, when it loads, pull to refresh, paging, page size (null clears one), or its name (rename: the screen's expressions, the… |
 | `remove_data_source` | 数据与交互 |  | 是 | Stops a screen loading a data source; what reads data.&lt;name> reads nothing. |
+| `set_subscription` | 数据与交互 |  |  | Makes a screen listen to a realtime channel (AsyncAPI) while it is on show, or changes how it does: read as data.&lt;name> (value: the latest message's payload; items: every paylo… |
+| `remove_subscription` | 数据与交互 |  | 是 | Stops a screen listening to a realtime channel; what reads data.&lt;name> reads nothing, and its actions on messages go with it. |
 | `set_screen_params` | 数据与交互 |  |  | Declares what a screen is opened with (navigation passes them: set_action {params: {productId: "item.id"}}): each {name, type?: string\|number\|boolean, example?}; the screen read… |
 | `rename_screen_param` | 数据与交互 |  |  | Renames a param a screen is opened with. |
 | `set_screen_auth` | 数据与交互 |  |  | Says a screen needs a session ("required": without one the app goes to the sign-in screen first) or is the sign-in screen ("login": where a 401 and a required screen send the app;… |

@@ -9,7 +9,7 @@ const SOURCES = import.meta.glob(
     "/lib/screenMotion.ts",
     "/lib/mocks/*.ts",
     "/lib/mocks/formats/*.ts",
-    "/lib/bindings/{expr,format,messages,rules,sources,form}.ts",
+    "/lib/bindings/{expr,format,messages,rules,sources,form,channels}.ts",
     "/lib/app/*.ts",
     "/lib/api/types.ts",
     "/lib/api/schema.ts",

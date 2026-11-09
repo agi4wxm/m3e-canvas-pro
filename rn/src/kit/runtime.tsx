@@ -73,6 +73,14 @@ export function screenShown(place: string) {
   showing = place;
 }
 
+/* Whether the screen is on show: the app's routes say (its ScreenRoute), since Expo Router's stack keeps the screens
+   under the top one drawn. One with an overlay of the app's over it is on show still, as in the preview. A screen drawn
+   on its own is. What a screen holds open while on show (a subscription to a realtime channel) reads this. */
+const OnShowContext = createContext(true);
+export const OnShowProvider = OnShowContext.Provider;
+/** whether the screen is on show (see `OnShowProvider`) */
+export const useOnShow = () => useContext(OnShowContext);
+
 const NavContext = createContext<Nav>(NOWHERE);
 export const useNav = () => useContext(NavContext);
 export function NavProvider({ value, children }: { value: Partial<Nav>; children: ReactNode }) {

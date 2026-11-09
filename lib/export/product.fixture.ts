@@ -148,6 +148,10 @@ export function boundShopDoc(lang: Lang = "en"): { doc: Doc; widths: Record<stri
     tx.run(ops.makeForm, { screen: "photo", operationId: "uploadProductImage", params: { productId: "params.productId" }, then: { to: "back", effects: [{ do: "snackbar", message: "Photo added" }] } });
     tx.run(ops.addPart, { slug: "button", id: "add-photo", screen: "detail", at: { x: 16, y: 820 }, props: { label: "Add a photo", variant: "tonal" } });
     tx.run(ops.setAction, { id: "add-photo", action: { to: "photo", params: { productId: "params.productId" } } });
+    /* who is online, from the chat's presence channel (AsyncAPI), while the orders are on show: each message kept, how
+       many came in a variable the action on each sets, so every front end prints a subscription and runs its action */
+    tx.run(ops.addVar, { id: "v-online", name: "online", type: "number", value: 0 });
+    tx.run(ops.setSubscription, { screen: "orders", name: "presence", channel: "presence", keep: 20, actions: { "on:presenceChanged": { to: "none", effects: [{ do: "setVar", var: "v-online", value: 0, expr: "data.presence.count" }] } } });
   });
   return { doc: savedDoc(store.get()), widths: {} };
 }

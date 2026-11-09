@@ -3,4 +3,5 @@
 export * from "./transport"
 export * from "./client"
 export * from "./fetch"
+export * from "./realtime"
 export { readBody, textBody, type RawResponse, type ResponseFile } from "./body"

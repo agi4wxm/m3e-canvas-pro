@@ -930,6 +930,17 @@ export class Behaviour {
     return [`pickRow(${json(this.rowNow)})`, run];
   }
 
+  /** What runs on a message of a subscription of the screen being printed, as a statement: the action put in the
+   *  screen's table and run by the interpreter with the message as `event` (no part made it). */
+  messageRun(a: Action, uses: Uses, name: string): string | undefined {
+    const data = this.actionData(a, uses);
+    if (!data) return undefined;
+    const key = this.actKey(name);
+    this.screenActs.set(key, data);
+    this.screenTapped = true;
+    return `act(${this.actsName}.${key}, { event })`;
+  }
+
   /** a key of the screen's table of actions */
   private actKey(name: string): string {
     return camel(name, "tap", this.actKeys);

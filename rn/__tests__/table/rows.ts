@@ -2176,5 +2176,362 @@ export const ROWS: (KitRow & {
   "triggers": [],
   "initial": "Home",
   "auth": {}
+ },
+ {
+  "id": "message-runs-action",
+  "title": "实时消息运行订阅的动作：读 event 和订阅收下的数据",
+  "ref": "订阅；报告 1.8、10",
+  "steps": [
+   {
+    "push": "/feed",
+    "message": "post",
+    "payload": {
+     "text": "hello"
+    }
+   },
+   {
+    "push": "/feed",
+    "message": "post",
+    "payload": {
+     "text": "again"
+    }
+   }
+  ],
+  "expect": {
+   "vars": {
+    "last": "again",
+    "count": 2
+   },
+   "open": {
+    "/feed": 1
+   }
+  },
+  "known": {
+   "webPrototype": "原型 Web 导出没有接口，也就没有实时通道：订阅不打开，消息不到达（要运行它们请导出完整产品；报告 1.8、10）"
+  },
+  "vars": [
+   "last",
+   "count"
+  ],
+  "screens": {
+   "Home": "home"
+  },
+  "appVars": [
+   {
+    "id": "last",
+    "name": "last",
+    "type": "text",
+    "value": ""
+   },
+   {
+    "id": "count",
+    "name": "count",
+    "type": "number",
+    "value": 0
+   }
+  ],
+  "hidden": [],
+  "triggers": [],
+  "initial": "Home",
+  "auth": {}
+ },
+ {
+  "id": "message-own-action-first",
+  "title": "消息自己的动作优先：on:<消息名> 先于 on:message",
+  "ref": "订阅；报告 1.8",
+  "steps": [
+   {
+    "push": "/feed",
+    "message": "post",
+    "payload": {
+     "text": "mine"
+    }
+   },
+   {
+    "push": "/feed",
+    "message": "ping",
+    "payload": {
+     "n": 1
+    }
+   }
+  ],
+  "expect": {
+   "vars": {
+    "last": "mine",
+    "other": 1
+   }
+  },
+  "known": {
+   "webPrototype": "原型 Web 导出没有接口，也就没有实时通道：订阅不打开，消息不到达（要运行它们请导出完整产品；报告 1.8、10）"
+  },
+  "vars": [
+   "last",
+   "other"
+  ],
+  "screens": {
+   "Home": "home"
+  },
+  "appVars": [
+   {
+    "id": "last",
+    "name": "last",
+    "type": "text",
+    "value": ""
+   },
+   {
+    "id": "other",
+    "name": "other",
+    "type": "number",
+    "value": 0
+   }
+  ],
+  "hidden": [],
+  "triggers": [],
+  "initial": "Home",
+  "auth": {}
+ },
+ {
+  "id": "message-address-params",
+  "title": "订阅的地址读屏幕参数：只收这个地址的消息",
+  "ref": "订阅；报告 1.8",
+  "steps": [
+   {
+    "tap": "Enter room"
+   },
+   {
+    "push": "/rooms/r1",
+    "message": "said",
+    "payload": {
+     "text": "wrong"
+    }
+   },
+   {
+    "push": "/rooms/r7",
+    "message": "said",
+    "payload": {
+     "text": "right"
+    }
+   }
+  ],
+  "expect": {
+   "screen": "room",
+   "vars": {
+    "heard": "right"
+   },
+   "open": {
+    "/rooms/r7": 1
+   }
+  },
+  "known": {
+   "webPrototype": "原型 Web 导出没有接口，也就没有实时通道：订阅不打开，消息不到达（要运行它们请导出完整产品；报告 1.8、10）"
+  },
+  "vars": [
+   "heard"
+  ],
+  "screens": {
+   "Home": "home",
+   "Room": "room"
+  },
+  "appVars": [
+   {
+    "id": "heard",
+    "name": "heard",
+    "type": "text",
+    "value": ""
+   }
+  ],
+  "hidden": [],
+  "triggers": [],
+  "initial": "Home",
+  "auth": {}
+ },
+ {
+  "id": "message-after-leave",
+  "title": "离开屏幕时订阅关闭：之后到达的消息什么都不做",
+  "ref": "订阅、迟到的回答；报告 1.8",
+  "steps": [
+   {
+    "push": "/feed",
+    "message": "post",
+    "payload": {
+     "text": "a"
+    }
+   },
+   {
+    "tap": "Leave"
+   },
+   {
+    "push": "/feed",
+    "message": "post",
+    "payload": {
+     "text": "b"
+    }
+   }
+  ],
+  "expect": {
+   "screen": "next",
+   "vars": {
+    "n": 1
+   },
+   "open": {
+    "/feed": 0
+   }
+  },
+  "known": {
+   "webPrototype": "原型 Web 导出没有接口，也就没有实时通道：订阅不打开，消息不到达（要运行它们请导出完整产品；报告 1.8、10）"
+  },
+  "vars": [
+   "n"
+  ],
+  "screens": {
+   "Home": "home",
+   "Next": "next"
+  },
+  "appVars": [
+   {
+    "id": "n",
+    "name": "n",
+    "type": "number",
+    "value": 0
+   }
+  ],
+  "hidden": [],
+  "triggers": [],
+  "initial": "Home",
+  "auth": {}
+ },
+ {
+  "id": "message-after-restart",
+  "title": "重新开始后：旧会话的订阅收到的消息什么都不做，屏幕在新会话上重新订阅",
+  "ref": "订阅、迟到的回答；报告 1.8",
+  "steps": [
+   {
+    "restart": true
+   },
+   {
+    "push": "/feed",
+    "message": "post",
+    "payload": {
+     "text": "a"
+    }
+   }
+  ],
+  "expect": {
+   "vars": {
+    "n": 1
+   },
+   "open": {
+    "/feed": 1
+   }
+  },
+  "known": {
+   "webPrototype": "原型 Web 导出没有接口，也就没有实时通道：订阅不打开，消息不到达（要运行它们请导出完整产品；报告 1.8、10）"
+  },
+  "vars": [
+   "n"
+  ],
+  "screens": {
+   "Home": "home"
+  },
+  "appVars": [
+   {
+    "id": "n",
+    "name": "n",
+    "type": "number",
+    "value": 0
+   }
+  ],
+  "hidden": [],
+  "triggers": [],
+  "initial": "Home",
+  "auth": {}
+ },
+ {
+  "id": "clock-paused",
+  "title": "时钟暂停：now 停在后端的时钟停下的那一刻，不读设备的时间",
+  "ref": "时钟；报告 10",
+  "steps": [
+   {
+    "clock": {
+     "paused": true
+    }
+   },
+   {
+    "wait": 30
+   },
+   {
+    "tap": "Stamp"
+   }
+  ],
+  "expect": {
+   "vars": {
+    "t": "2026-01-15T09:00:00.000Z"
+   }
+  },
+  "known": {
+   "webPrototype": "原型 Web 导出没有传输层，now 读设备的时钟，不读后端（模拟库）的时钟（要按后端的时钟请导出完整产品；报告 10）"
+  },
+  "vars": [
+   "t"
+  ],
+  "screens": {
+   "Home": "home"
+  },
+  "appVars": [
+   {
+    "id": "t",
+    "name": "t",
+    "type": "text",
+    "value": ""
+   }
+  ],
+  "hidden": [],
+  "triggers": [],
+  "initial": "Home",
+  "auth": {}
+ },
+ {
+  "id": "clock-rate",
+  "title": "时钟倍率：now 按后端时钟的倍率走",
+  "ref": "时钟；报告 10",
+  "steps": [
+   {
+    "clock": {
+     "rate": 3
+    }
+   },
+   {
+    "wait": 20
+   },
+   {
+    "tap": "Stamp"
+   }
+  ],
+  "expect": {
+   "vars": {
+    "t": "2026-01-15T09:00:00.060Z"
+   }
+  },
+  "known": {
+   "webPrototype": "原型 Web 导出没有传输层，now 读设备的时钟，不读后端（模拟库）的时钟（要按后端的时钟请导出完整产品；报告 10）"
+  },
+  "vars": [
+   "t"
+  ],
+  "screens": {
+   "Home": "home"
+  },
+  "appVars": [
+   {
+    "id": "t",
+    "name": "t",
+    "type": "text",
+    "value": ""
+   }
+  ],
+  "hidden": [],
+  "triggers": [],
+  "initial": "Home",
+  "auth": {}
  }
 ];

@@ -8,6 +8,8 @@
  * schemaToTs, once there is one); with an empty contract the client has only `request`. */
 
 import type { ApiModel, ApiOperation } from "../api";
+import type { ApiSpec, JsonSchema } from "../../api/types";
+import { resolved } from "../../bindings/contract";
 import { GENERATED, jsonCode, jsonFile, str } from "../code";
 import { copiedFile } from "../copy";
 import { toYaml } from "../yaml";
@@ -17,7 +19,41 @@ import { generated, type ProductContext, type ProductTarget, type Workspace } fr
 export const BODY_SOURCE = "lib/api/body.ts";
 
 /* the client every product has, before its operations: real files of this repo, copied as they are (lib/export/copy.ts) */
-const COPIED = { "src/transport.ts": "api/transport.ts", "src/client.ts": "api/client.ts", "src/fetch.ts": "api/fetch.ts" } as const;
+const COPIED = { "src/transport.ts": "api/transport.ts", "src/client.ts": "api/client.ts", "src/fetch.ts": "api/fetch.ts", "src/realtime.ts": "api/realtime.ts" } as const;
+
+/** The contract's realtime channels as the client tells their messages apart (src/realtime.ts `RealtimeChannel`): the
+ *  messages the server sends over each, with the fields each payload must have and those fixed to one value; and
+ *  where they are by default (the contract's dev server's realtime address, else none: the app says). */
+export function channelsSource(api: ApiSpec | undefined): string {
+  const channels = (api?.channels ?? []).map((c) => {
+    const sent = new Set(c.operations.filter((o) => o.action === "send").flatMap((o) => o.messages ?? c.messages.map((m) => m.name)));
+    const messages = c.messages
+      .filter((m) => sent.has(m.name))
+      .map((m) => {
+        const schema = api ? resolved(api, m.payload) : undefined;
+        const required = Array.isArray(schema?.required) ? schema.required.filter((k): k is string => typeof k === "string") : [];
+        const fixed: Record<string, unknown> = {};
+        for (const [k, p] of Object.entries(schema?.properties ?? {})) {
+          const one = api ? resolved(api, p as JsonSchema) : undefined;
+          if (one && "const" in one) fixed[k] = one.const;
+          else if (Array.isArray(one?.enum) && one.enum.length === 1) fixed[k] = one.enum[0];
+        }
+        return { name: m.name, ...(required.length ? { required } : {}), ...(Object.keys(fixed).length ? { fixed } : {}) };
+      });
+    return { id: c.id, address: c.address, ...(c.transport === "sse" ? { transport: "sse" } : {}), messages };
+  });
+  const servers = api?.servers ?? [];
+  const url = (servers.find((x) => x.env === "dev") ?? servers.find((x) => x.realtime))?.realtime ?? "";
+  return `${GENERATED}
+import type { RealtimeChannel } from "../realtime"
+
+/** the realtime channels of the contract (asyncapi.yaml), as the client tells their messages apart */
+export const CHANNELS: RealtimeChannel[] = ${jsonCode(channels)}
+
+/** where the realtime channels are, as the contract's dev server has it ("" when it says nothing) */
+export const REALTIME_URL = ${str(url)}
+`;
+}
 
 /** the input type of one operation: its path parameters, its body, its query */
 function inputType(op: ApiOperation): string | null {
@@ -81,11 +117,13 @@ export { readBody, textBody, type RawResponse, type ResponseFile } from "./body"
 export * from "./generated/types"
 export * from "./generated/operations"
 export { CONTRACT, ASYNC_CONTRACT } from "./generated/contract"
+export * from "./realtime"
+export { CHANNELS, REALTIME_URL } from "./generated/channels"
 `;
 
 const CLIENT_TEST = `${GENERATED}
 import { describe, expect, it } from "vitest"
-import { ApiError, createApi, createFetchTransport, queryString, type Transport, type TransportRequest } from "../index"
+import { ApiError, CHANNELS, createApi, createFetchTransport, messageOf, queryString, withRealtime, type Transport, type TransportRequest } from "../index"
 import { segment } from "../client"
 import { OPERATIONS } from "./operations"
 
@@ -142,6 +180,28 @@ describe("the API client", () => {
     expect((await over("id,name", { "content-type": "text/csv" }).request({ method: "GET", path: "/a.csv" })).body).toBe("id,name")
     expect((await over(null, { "content-type": "application/pdf" }).request({ method: "HEAD", path: "/r" })).body).toBeUndefined()
   })
+
+  it("connects to every realtime channel of the contract over a socket, and hands on the server's messages by name", () => {
+    for (const c of CHANNELS) {
+      const opened: string[] = []
+      let text: (t: string) => void = () => {}
+      const t = withRealtime(answering(200, null).transport, {
+        url: "wss://rt.example.com/realtime",
+        channels: CHANNELS,
+        open: (url) => (opened.push(url), { send: () => {}, close: () => {}, onOpen: () => {}, onText: (fn) => void (text = fn), onClose: () => {} }),
+      })
+      const got: string[] = []
+      if (c.transport === "sse") continue
+      t.connect!(c.address.replace(/\\{[^{}]+\\}/g, "1"), (m) => got.push(m.message), { token: "t" })
+      expect(opened[0]).toBe(\`wss://rt.example.com/realtime\${c.address.replace(/\\{[^{}]+\\}/g, "1")}?access_token=t\`)
+      for (const m of c.messages) {
+        const payload = Object.fromEntries([...(m.required ?? []).map((k) => [k, "x"]), ...Object.entries(m.fixed ?? {})])
+        if (messageOf(c, payload) !== m.name) continue
+        text(JSON.stringify(payload))
+        expect(got.at(-1)).toBe(m.name)
+      }
+    }
+  })
 })
 `;
 
@@ -190,6 +250,7 @@ export const apiTarget: ProductTarget = {
         "src/body.ts": generated(await ctx.read(BODY_SOURCE)),
         "src/generated/types.ts": generated(`${GENERATED}\n${api.types.trim() ? `${api.types.trim()}\n` : "/* the contract has no schemas yet */\nexport {}\n"}`),
         "src/generated/operations.ts": generated(operationsSource(api)),
+        "src/generated/channels.ts": generated(channelsSource(ctx.doc.api)),
         "src/generated/contract.ts": generated(`${GENERATED}\n/** the OpenAPI 3.1 document of the API, as data (openapi.yaml is the same) */\nexport const CONTRACT: Record<string, unknown> = ${jsonCode(api.openapi)}\n\n/** the AsyncAPI 3.0 document of its realtime channels (asyncapi.yaml is the same) */\nexport const ASYNC_CONTRACT: Record<string, unknown> = ${jsonCode(asyncapi)}\n`),
         "src/generated/client.test.ts": generated(CLIENT_TEST),
       },

@@ -8,4 +8,4 @@ const AUTH: AuthConfig = {
   },
 };
 
-export const runtime = createRuntime({ transport, auth: AUTH, lang: "en", now: () => 0, capabilities });
+export const runtime = createRuntime({ transport, auth: AUTH, lang: "en", capabilities });

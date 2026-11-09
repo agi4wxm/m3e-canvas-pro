@@ -1,5 +1,5 @@
 import { useCallback, useState, type Dispatch, type SetStateAction, type SyntheticEvent } from "react";
-import type { Host } from "./host";
+import { domainNow, type Host } from "./host";
 
 /* What the app widgets share: how a value the visitor enters is held (controlled, or a draft with a reset), how rows
  * keep who they are when the data moves, and how a time is read off the clock the other side names
@@ -52,8 +52,12 @@ export function usePicked(keys: string[]): [string[], Dispatch<SetStateAction<st
   return [picked.filter((k) => there.has(k)), setPicked];
 }
 
-/** the time now on the clock the other side keeps: the device's clock moved by how far that one is ahead (ms) */
-export const clockNow = (skew = 0) => Date.now() + (Number.isFinite(skew) ? skew : 0);
+/** the time now on the clock the other side keeps: the app's clock (the back end's, `setDomainClock`) moved by how far
+ *  that one is ahead (ms) */
+export const clockNow = (skew = 0) => {
+  const base = domainNow();
+  return (Number.isFinite(base) ? base : Date.now()) + (Number.isFinite(skew) ? skew : 0);
+};
 
 /** whole seconds left until `endsAt` (ms on that clock), none once it has passed or with no end */
 export const secondsLeft = (endsAt: number, skew = 0) => (endsAt > 0 ? Math.max(0, Math.ceil((endsAt - clockNow(skew)) / 1000)) : 0);

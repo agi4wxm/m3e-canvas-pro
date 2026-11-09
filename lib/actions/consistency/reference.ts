@@ -10,6 +10,8 @@ import type { FailureKind } from "../../capabilities/types";
 import type { VarValue } from "../model";
 import { run, startOf } from "../run";
 import { Backend, givenOf } from "./check";
+import { channelSpecOf } from "../../bindings/design";
+import { channelView, idleChannel, isoOf, messageAction, received, type ChannelState } from "../../bindings/channels";
 import type { Move, Observed } from "./types";
 
 /** a screen on the stack, with the motion it came in with (going back undoes it) */
@@ -122,9 +124,59 @@ export class ReferenceHost implements Host {
     void run(action, this, { screen: on.id, ...(on.params ? { params: on.params } : {}), part: it.id, ...(form ? { form } : {}), ...more });
   }
 
+  /* ---------- subscriptions ---------- */
+
+  /** the subscriptions open on the screens on show, by screen and name: what each is asked with, what it has kept */
+  private listening = new Map<string, { key: string; close: () => void; state: ChannelState; live: boolean }>();
+
+  /** The subscriptions of the screens on show (the top of the stack, the overlay over it) are open; one asked with
+   *  another address is opened again afresh, one of a screen gone is closed. `fresh` closes every one first (a restart). */
+  private listen(fresh = false) {
+    const wanted = new Set<string>();
+    const close = (k: string) => {
+      const o = this.listening.get(k);
+      if (!o) return;
+      o.live = false;
+      o.close();
+      this.listening.delete(k);
+    };
+    if (fresh) for (const k of this.listening.keys()) close(k);
+    for (const on of [this.top(), ...(this.overlay ? [this.overlay] : [])]) {
+      for (const sub of this.frame(on.id)?.subscriptions ?? []) {
+        const tap: Tap = { screen: on.id, ...(on.params ? { params: on.params } : {}) };
+        const spec = channelSpecOf(this.doc.api ?? {}, sub, this.scope(tap), this.ctx());
+        if (!spec) continue;
+        const k = `${on.id}/${sub.name}`;
+        wanted.add(k);
+        if (this.listening.get(k)?.key === spec.key) continue;
+        close(k);
+        const entry = { key: spec.key, close: () => {}, state: idleChannel(), live: true };
+        const epoch = this.epoch;
+        const conn = this.backend.connect(spec.address, (m) => {
+          if (!entry.live || epoch !== this.epoch || (spec.messages && !spec.messages.includes(m.message))) return;
+          entry.state = received(entry.state, { message: m.message, payload: m.payload, at: m.at }, spec.keep);
+          const action = messageAction(sub.actions, m.message);
+          if (action) void run(action, this, { ...tap, event: { channel: sub.channel, message: m.message, payload: m.payload, at: isoOf(m.at) } });
+        });
+        entry.state = { ...entry.state, status: "open" };
+        entry.close = conn.close;
+        this.listening.set(k, entry);
+      }
+    }
+    for (const k of this.listening.keys()) if (!wanted.has(k)) close(k);
+  }
+
+  /** what a screen's subscriptions read as `data.<name>` */
+  private channelsOf(screen: string): Record<string, unknown> {
+    const out: Record<string, unknown> = {};
+    for (const sub of this.frame(screen)?.subscriptions ?? []) out[sub.name] = channelView(this.listening.get(`${screen}/${sub.name}`)?.state, { newest: sub.newest });
+    return out;
+  }
+
   /* what starts some time after its screen comes into use: timed again each time one does */
   private timers: ReturnType<typeof setTimeout>[] = [];
   private inUse() {
+    this.listen();
     for (const t of this.timers) clearTimeout(t);
     const on = this.overlay ?? this.top();
     this.timers = this.partsOn(on.id).flatMap((it) => {
@@ -150,6 +202,8 @@ export class ReferenceHost implements Host {
     this.signedIn = false;
     this.sending.clear();
     this.returnTo = null;
+    /* the subscriptions of the old session are gone; the screens on show open theirs again on the new one */
+    this.listen(true);
   }
 
   /* ---------- forms ---------- */
@@ -181,15 +235,16 @@ export class ReferenceHost implements Host {
     return {
       vars: named,
       params: tap.params ?? {},
-      data: {},
+      data: this.channelsOf(tap.screen),
       auth: { signedIn: this.signedIn, user: null },
       ...(tap.item !== undefined ? { item: tap.item, index: tap.index } : {}),
       ...(form ? { form: { ...form, values: form, errors: {}, submitting: tap.form ? this.sending.has(tap.form) : false } } : {}),
     };
   }
 
+  /** the language, and the time on the back end's clock */
   ctx() {
-    return { lang: "en", now: 0 };
+    return { lang: "en", now: this.backend.now() };
   }
 
   variable(id: string) {

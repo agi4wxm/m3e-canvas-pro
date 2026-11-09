@@ -178,6 +178,10 @@ describe("the taps of an exported prototype (lib/actions)", () => {
     const files = await exported(doc([button("s", "Save", { to: "none", effects: [{ do: "call", operationId: "save" }, { do: "invoke", capability: "clipboard.write", args: { text: "'x'" } }, { do: "signOut" }] })]));
     expect(text(files, "README.md")).toContain("## Not in this prototype");
     expect(text(files, "README.md")).toContain("- the call of `save`\n- signing out\n");
+    /* a screen's subscription to a realtime channel is never opened in it, and said so */
+    const live = doc([button("t", "Feed", { to: "none" })]);
+    const subscribed = await exported({ ...live, frames: live.frames.map((f, i) => (i ? f : { ...f, subscriptions: [{ name: "feed", channel: "feed" }] })) });
+    expect(text(subscribed, "README.md")).toContain("- the subscription to the realtime channel `feed` on");
     const runtime = text(files, "src/runtime.tsx");
     expect(runtime).toContain("unreached(`the call of ${operation}`)");
     expect(runtime).toContain('console.warn(`This prototype has no API: ${what} is not run. Export the product to run it.`)');

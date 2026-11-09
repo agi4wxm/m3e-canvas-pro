@@ -6,6 +6,15 @@
 import type { Expect, HostName, Observed, Row, SeenCall, Step } from "./types";
 
 type Held = { op: string; answer: (a: { status: number; body: unknown }) => void };
+
+/** where the back end's clock starts: what `now` reads before any `wait` */
+export const TABLE_CLOCK_START = Date.UTC(2026, 0, 15, 9, 0, 0);
+
+/** a connection the app made to a realtime channel, as the back end keeps it: whether the app still holds it open */
+type Connection = { address: string; onMessage: (m: { channel: string; message: string; payload: unknown; at: number }) => void; open: boolean };
+
+/** an address as the back end reads it: its path, the query (a token) aside */
+const pathOf = (address: string) => address.replace(/^[a-z]+:\/\/[^/]+/i, "").split(/[?#]/)[0];
 /** the operation an invoke goes under where a test bed sends it over the row's transport (the kits' runners do) */
 export const CAPABILITY_OP = "capability:";
 
@@ -21,6 +30,9 @@ export class Backend {
   readonly invokes: SeenCall[] = [];
   private held: Held[] = [];
   private heldInvokes: HeldInvoke[] = [];
+  /** every connection the app has made to a realtime channel, closed ones too */
+  private connections: Connection[] = [];
+  private clock = { at: TABLE_CLOCK_START, paused: false, rate: 1 };
 
   constructor(private readonly row: Pick<Row, "hold" | "answers" | "capabilities">) {}
 
@@ -40,6 +52,40 @@ export class Backend {
     if (this.row.hold?.includes(op)) return new Promise((answer) => this.held.push({ op, answer }));
     const a = this.row.answers?.[op];
     return Promise.resolve({ status: a?.status ?? 200, body: a?.body ?? {} });
+  }
+
+  /** the app connects to a realtime channel at this address; what it gives back is the app's end of it */
+  connect(address: string, onMessage: Connection["onMessage"]): { send: (message: string, payload?: unknown) => void; close: () => void } {
+    const c: Connection = { address: pathOf(address), onMessage, open: true };
+    this.connections.push(c);
+    return { send: () => {}, close: () => void (c.open = false) };
+  }
+
+  /** a message sent over every connection made to an address, closed ones too (see `Step` push) */
+  push(step: Extract<Step, { push: string }>) {
+    for (const c of this.connections.slice()) if (c.address === pathOf(step.push)) c.onMessage({ channel: "", message: step.message, payload: step.payload ?? {}, at: this.now() });
+  }
+
+  /** how many connections the app holds open, by address */
+  opened(): Record<string, number> {
+    const out: Record<string, number> = {};
+    for (const c of this.connections) out[c.address] = (out[c.address] ?? 0) + (c.open ? 1 : 0);
+    return out;
+  }
+
+  /** the time on the back end's clock, ms */
+  now(): number {
+    return this.clock.at;
+  }
+
+  /** time passes: the clock moves on, `rate` times as far, unless it stands still */
+  tick(ms: number) {
+    if (!this.clock.paused) this.clock.at += ms * this.clock.rate;
+  }
+
+  setClock(c: { paused?: boolean; rate?: number }) {
+    if (c.paused !== undefined) this.clock.paused = c.paused;
+    if (c.rate !== undefined) this.clock.rate = c.rate;
   }
 
   /** answers a held call (or invoke); false when there was none to answer */
@@ -85,6 +131,7 @@ export function differences(expect: Expect, seen: Observed): string[] {
       });
   };
   if (expect.move && !same(seen.move, expect.move)) out.push(`move: expected ${JSON.stringify(expect.move)}, got ${JSON.stringify(seen.move)}`);
+  for (const [address, n] of Object.entries(expect.open ?? {})) if ((seen.open?.[address] ?? 0) !== n) out.push(`open connections to ${address}: expected ${n}, got ${seen.open?.[address] ?? 0}`);
   compare("call", expect.calls, seen.calls);
   compare("invoke", expect.invokes, seen.invokes ?? []);
   return out;
@@ -128,7 +175,11 @@ export async function drive(row: Omit<Row, "design">, make: (backend: Backend) =
         return { problems: [`no call of ${step.answer} was waiting for its answer`], seen };
       }
     } else if ("hover" in step) await (d.hover ? d.hover(step.hover) : d.tap(step.hover));
-    else if ("wait" in step) await new Promise((r) => setTimeout(r, step.wait));
+    else if ("wait" in step) {
+      await new Promise((r) => setTimeout(r, step.wait));
+      backend.tick(step.wait);
+    } else if ("push" in step) backend.push(step);
+    else if ("clock" in step) backend.setClock(step.clock);
     else if ("tapSlot" in step) await d.tapSlot?.(step.tapSlot, step.slot);
     else if ("emit" in step) await d.emit?.(step.emit, step.event, step.payload);
     else if ("platformBack" in step) await d.platformBack?.();
@@ -138,6 +189,7 @@ export async function drive(row: Omit<Row, "design">, make: (backend: Backend) =
   const seen = await d.observe();
   /* what reached the platform is the back end's to say, whatever the host's runner shows */
   if (!seen.invokes) seen.invokes = backend.invokes;
+  if (!seen.open) seen.open = backend.opened();
   return { problems: differences(row.expect, seen), seen };
 }
 

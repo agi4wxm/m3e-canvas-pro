@@ -276,6 +276,9 @@ function opCalls(): [string, Record<string, unknown>][] {
     ["remove_endpoint", { operationId: "listItems" }],
     ["import_openapi", { text: "openapi: 3.1.0\ninfo: {title: X, version: '1'}\npaths:\n  /ping:\n    get:\n      operationId: ping\n      responses:\n        '204': {description: No Content}\n" }],
     ["import_asyncapi", { text: "asyncapi: 3.0.0\ninfo: {title: X, version: '1'}\nchannels:\n  pings:\n    address: /pings\n    messages:\n      ping: {payload: {type: string}}\n" }],
+    ["add_channel", { id: "live", address: "/live/{itemId}", messages: [{ name: "tick", payload: { type: "object" } }], operations: [{ id: "onTick", action: "send" }] }],
+    ["set_subscription", { screen: "detail", name: "live", channel: "live", actions: { "on:tick": { to: "none", effects: [{ do: "snackbar", message: "Tick {{event.payload.n}}" }] } } }],
+    ["remove_subscription", { screen: "detail", name: "live" }],
     ["remove_model", { name: "Item", force: true }],
     ["clear", {}],
   ];

@@ -129,7 +129,7 @@ describe("the consistency table on the React Native kit", () => {
       answerWith(async (r) => {
         const a = await backend.receive(r.operationId ?? "", { ...r.query, ...(r.body && typeof r.body === "object" && !Array.isArray(r.body) ? (r.body as Record<string, unknown>) : {}) });
         return { status: a.status, headers: { "content-type": "application/json" }, body: a.body };
-      });
+      }, { connect: (address, onMessage) => backend.connect(address, onMessage), now: () => backend.now() });
       m.runtime.restart();
       probe.move = undefined;
       await render(

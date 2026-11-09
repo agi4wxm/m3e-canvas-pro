@@ -622,7 +622,7 @@ function screensOf(source: Doc, widths: Record<string, number>, o: BuildOptions)
     if (folds) c.imports.set("react", new Set([...(c.imports.get("react") ?? []), "useRef", "useState"]));
     /* the bindings' hooks: params, data, the scope, the regions' states, the forms (they say what else they use) */
     const key = b.screenKey(frame.id) ?? `screen${i + 1}`;
-    const head = binds?.head((answer, label) => b.answerOf(answer, c.uses, label), !!doc.vars?.length, key, () => b.hasScreenActions());
+    const head = binds?.head((answer, label) => b.answerOf(answer, c.uses, label), !!doc.vars?.length, key, () => b.hasScreenActions(), (a, label) => b.messageRun(a, c.uses, label));
     /* what the taps on the screen do, as data (lib/printBehaviour.ts): the table goes above the screen's function, and
        the interpreter runs them (src/runtime.tsx `useActions`) */
     const acts = b.screenActions();

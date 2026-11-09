@@ -29,7 +29,7 @@ import type { Motion, Transition } from "@/lib/screenMotion"
 //| import type { CapabilityHost, CapabilitySpec } from "@/lib/capabilities/types"
 //#end
 //#if product
-import { PartHostContext, browserCapability } from "@/components/widgets/host"
+import { PartHostContext, browserCapability, setDomainClock } from "@/components/widgets/host"
 import { /*#if acts*/formOutcomeOf, isFilled, outcomeOf, run, /*#end*/screenParams, useRuntime, useSession, /*#if acts*/type Action, type Answer, type CallArgs, type FormHandle, type Host, type Scope, type SourceHandle, type Tap, type VarType, /*#end*/type ParamSpec } from /*$runtime*/"@m3e/app-runtime"/*$*/
 //#end
 
@@ -725,6 +725,9 @@ export function AppProvider({ children/*#if !mocks*//*#else , capabilities#end*/
   /* What a part asks of the platform for a control of its own (a copy button) goes through the app's capabilities too;
      one the app has no adapter for is done the browser's way, as it always was */
   const parts = useMemo(() => ({ invoke: (name: string, args: Record<string, unknown>) => runtime.invoke(name, args).then((out) => (!out.ok && out.error.type === "not-implemented" ? browserCapability(name, args) : out)) }), [runtime])
+  /* the parts' countdowns read the time off the runtime's clock (the back end's, the mocks' in development), never the
+     device's own (docs/边界与契约.md) */
+  useEffect(() => setDomainClock(() => runtime.now()), [runtime])
 
   return (
     <AppContext.Provider value={app}>

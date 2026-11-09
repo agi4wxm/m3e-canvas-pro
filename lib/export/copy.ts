@@ -49,7 +49,8 @@ export async function copiedFile(ctx: CopyContext, path: string): Promise<string
 /** A file with optional regions (lib/export/regions.ts) as an export writes it for a document, under the generated
  *  header: its regions kept or dropped by `flags`, its values the document's. `@@scope@@` is the product's scope. */
 export async function filledFile(ctx: CopyContext, path: string, flags: Flags, values: Record<string, string> = {}): Promise<string> {
-  return `${GENERATED}\n${fillRegions(productFile(await ctx.read(sourceOf(path)), ctx.scope), flags, { scope: ctx.scope, ...values }, path)}`;
+  /* a package a region's own lines import (`//| import … from "@m3e/api"`) is the product's too, once the region is kept */
+  return `${GENERATED}\n${productFile(fillRegions(productFile(await ctx.read(sourceOf(path)), ctx.scope), flags, { scope: ctx.scope, ...values }, path), ctx.scope)}`;
 }
 
 /** a file of custom code the export writes once (no generated header), its `@@scope@@` the product's scope */

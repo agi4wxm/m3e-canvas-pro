@@ -10,7 +10,7 @@ export { generateValue, generateRecord, timeOf, type GenOptions } from "./genera
 export { inferHint, kindsFor, wordsOf } from "./hints";
 export { compileRoutes, matchRoute, type Route, type RouteKind } from "./routes";
 export { checkValue, type FieldError } from "./check";
-export { fakeClock, realClock, type MockClock } from "./clock";
+export { CLOCK_RATES, controlledClock, fakeClock, realClock, type ControlledClock, type MockClock } from "./clock";
 export { defaultScripts, type MockConnection, type MockMessage } from "./realtime";
 export { defaultScenarios, fillMocks, inferredHints } from "./fill";
 export { contentDisposition, contentTypeOf, extensionOf, fileFits, FILE_KINDS, formatOf, FORMATS, kindOfType, posterOf, typeOfName, type FileFamily, type FileFormat, type FileKind } from "./files";

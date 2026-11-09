@@ -83,7 +83,7 @@ describe("the mobile app's own files filled in for the design (rn/src/app, lib/e
     const body = (path: string) => plain.files[path].body as string;
     expect(body("apps/mobile/src/generated/runtime.ts")).not.toContain("registry");
     const root = body("apps/mobile/src/generated/root.tsx");
-    expect(root).toContain("registerIcons, useApp, type AppVar }");
+    expect(root).toContain("registerIcons, setClock, useApp, type AppVar }");
     expect(root).toContain('const dark = app.vars["night"]');
     expect(root).not.toContain("light or dark as the device is");
     expect(text("apps/mobile/src/generated/root.tsx")).toContain("light or dark as the device is");

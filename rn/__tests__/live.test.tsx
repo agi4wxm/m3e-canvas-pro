@@ -1,6 +1,6 @@
 import { act, fireEvent, screen } from "@testing-library/react-native";
 
-import { CallStandIn, Marker, MessageScroller, NumberTicker, Questionnaire, ShimmerText, StoryRow, ThemeProvider, Timer, VoiceMessage, timerSeconds } from "../src/kit";
+import { CallStandIn, Marker, MessageScroller, NumberTicker, Questionnaire, ShimmerText, StoryRow, ThemeProvider, Timer, VoiceMessage, setClock, timerSeconds } from "../src/kit";
 import { lettersOf, waveOf } from "../src/kit/composites/live";
 import { draw, MATERIAL_THEME, styleOf } from "./helpers";
 
@@ -155,6 +155,20 @@ describe("a timer", () => {
     await act(async () => void jest.advanceTimersByTime(3000));
     expect(screen.getByText("00:00")).toBeTruthy();
     expect(ended).toHaveBeenCalledTimes(1);
+  });
+
+  it("reads the time off the app's clock (the back end's, setClock), never the device's: paused, it stands still", async () => {
+    jest.useFakeTimers({ now: 100_000 });
+    /* the back end's clock is ahead of the device's and stands still */
+    const restore = setClock(() => 500_000);
+    try {
+      await draw(<Timer endsAt={530_000} running />);
+      expect(screen.getByText("00:30")).toBeTruthy();
+      await act(async () => void jest.advanceTimersByTime(5000));
+      expect(screen.getByText("00:30")).toBeTruthy();
+    } finally {
+      restore();
+    }
   });
 
   it("reads the clock as it draws: a new end shows at once, not at the next tick", async () => {
