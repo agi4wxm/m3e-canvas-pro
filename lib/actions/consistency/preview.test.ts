@@ -5,7 +5,9 @@ import type { CapabilityHost, FailureKind } from "../../capabilities/types";
 import type { PreviewState } from "../../interact";
 import { drive, givenOf, turns, verdict, type Backend, type Driver } from "./check";
 import { designDoc } from "./design";
-import { wordsOf } from "./reference";
+import { withSpawned, wordsOf } from "./reference";
+import type { Spawns } from "../../spawn";
+import { groupsInFrame } from "../../tokens";
 import { ROWS } from "./rows";
 import { tiny } from "./tiny";
 import type { Element } from "./tinyReact";
@@ -64,7 +66,9 @@ function previewOf(doc: Doc, backend: Backend): Driver {
   };
   /** the screens drawn: the one on show, and the overlay over it (drawn after it); no swipe is under way here */
   const screens = (): Element[] => tiny.elements(tree).filter((e) => typeof e.type === "function" && "frame" in e.props && "onAction" in e.props);
-  const partsOf = (s: Element): Item[] => ((s.props.groups as { items: Item[] }[]) ?? []).flatMap((g) => g.items);
+  /* a template's copies wait hidden for an instance (docs/交互规则.md “按事件生成”): what is on show of them is what the
+     preview's instances are, read below */
+  const partsOf = (s: Element): Item[] => ((s.props.groups as { items: Item[]; spawnSlot?: unknown }[]) ?? []).flatMap((g) => (g.spawnSlot ? [] : g.items));
   /** the part with these words on the topmost screen drawn, with its screen */
   const find = (words: string): { screen: Element; it: Item } => {
     for (const screen of [...screens()].reverse()) {
@@ -83,6 +87,8 @@ function previewOf(doc: Doc, backend: Backend): Driver {
   const heard: Record<string, string[]> = {};
   const worlds = tiny.elements(tree).find((e) => { const v = e.props.value as Partial<Worlds> | undefined; return !!v && typeof v.channel === "function" && typeof v.send === "function"; })?.props.value as Worlds | undefined;
   for (const it of doc.groups.flatMap((g) => g.items)) if (it.component === "world-view") worlds?.channel(it.id).listen((action, value) => (heard[it.id] = inputLog(heard[it.id] ?? [], action, value)));
+  /* the instances spawned on events, which the screens draw in their templates' copies by no state of React's */
+  const spawns = (): Spawns | undefined => tiny.elements(tree).find((e) => { const v = e.props.value as Partial<Spawns> | undefined; return !!v && typeof v.live === "function" && typeof v.spawn === "function"; })?.props.value as Spawns | undefined;
   return {
     tap: (words) => {
       const { screen, it } = find(words);
@@ -132,6 +138,9 @@ function previewOf(doc: Doc, backend: Backend): Driver {
       const words: string[] = [];
       for (const s of shown) {
         const opened = (s.props.opened as Record<string, boolean>) ?? {};
+        const frame = doc.frames.find((f) => f.id === (s.props.frame as { id: string }).id);
+        const pool = spawns();
+        if (frame && pool) words.push(...withSpawned(groupsInFrame(doc.groups, frame, doc.frames, {}), [], pool, backend.now(), wordsOf).spawned);
         for (const it of partsOf(s)) {
           words.push(wordsOf(it));
           if (it.component === "dropdown-menu" && opened[it.id]) for (const row of (it.props?.items as { label?: string }[] | undefined) ?? []) words.push(row.label ?? "");

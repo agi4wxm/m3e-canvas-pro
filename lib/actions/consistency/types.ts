@@ -42,6 +42,9 @@ export type PartSpec = {
   hidden?: boolean;
   /** the input fills this field of its form (`Item.field`) */
   field?: string;
+  /** the part's group is a template drawn once per event (`Group.spawn`, made with `set_spawn`): its words are what each
+   *  instance shows, filled from what the step that spawned it read */
+  spawn?: { life: number; max: number };
 };
 
 export type ScreenSpec = { id: string; name: string; params?: string[]; auth?: "required" | "login" };

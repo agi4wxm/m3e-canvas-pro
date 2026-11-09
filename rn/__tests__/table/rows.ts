@@ -2305,6 +2305,182 @@ export const ROWS: (KitRow & {
   "auth": {}
  },
  {
+  "id": "spawn-on-event",
+  "title": "按事件生成：每个事件生成一个实例，读那次事件的 event；模板自己不显示",
+  "ref": "按事件生成；游戏阶段 H4",
+  "steps": [
+   {
+    "emit": "Hit",
+    "event": "submit",
+    "payload": {
+     "value": "5"
+    }
+   },
+   {
+    "emit": "Hit",
+    "event": "submit",
+    "payload": {
+     "value": "7"
+    }
+   }
+  ],
+  "expect": {
+   "shown": {
+    "-5": true,
+    "-7": true,
+    "-{{event.value}}": false
+   }
+  },
+  "known": {
+   "rn": "手机端的打印器还不打印按事件生成：模板照设计画一次，spawn 效果不生成实例，导出报告列出（游戏阶段 H4 留下：套件要有自己的对象池组件，按 lib/spawn.ts 的规则）",
+   "miniapp": "小程序的打印器还不打印按事件生成：模板照设计画一次，spawn 效果不生成实例，导出报告列出（游戏阶段 H4 留下：套件要有自己的对象池组件，按 lib/spawn.ts 的规则）"
+  },
+  "vars": [],
+  "screens": {
+   "Home": "home"
+  },
+  "appVars": [],
+  "hidden": [],
+  "triggers": [],
+  "initial": "Home",
+  "auth": {}
+ },
+ {
+  "id": "spawn-life-on-clock",
+  "title": "按事件生成：实例按应用的时钟活 life 秒，到了就消失",
+  "ref": "按事件生成、时钟；游戏阶段 H4",
+  "steps": [
+   {
+    "emit": "Hit",
+    "event": "submit",
+    "payload": {
+     "value": "5"
+    }
+   },
+   {
+    "wait": 600
+   },
+   {
+    "emit": "Hit",
+    "event": "submit",
+    "payload": {
+     "value": "7"
+    }
+   },
+   {
+    "wait": 600
+   }
+  ],
+  "expect": {
+   "shown": {
+    "-5": false,
+    "-7": true
+   }
+  },
+  "known": {
+   "rn": "手机端的打印器还不打印按事件生成：模板照设计画一次，spawn 效果不生成实例，导出报告列出（游戏阶段 H4 留下：套件要有自己的对象池组件，按 lib/spawn.ts 的规则）",
+   "miniapp": "小程序的打印器还不打印按事件生成：模板照设计画一次，spawn 效果不生成实例，导出报告列出（游戏阶段 H4 留下：套件要有自己的对象池组件，按 lib/spawn.ts 的规则）"
+  },
+  "vars": [],
+  "screens": {
+   "Home": "home"
+  },
+  "appVars": [],
+  "hidden": [],
+  "triggers": [],
+  "initial": "Home",
+  "auth": {}
+ },
+ {
+  "id": "spawn-life-paused",
+  "title": "按事件生成：时钟暂停时实例不老，过了 life 秒也还在",
+  "ref": "按事件生成、时钟；游戏阶段 H4",
+  "steps": [
+   {
+    "emit": "Hit",
+    "event": "submit",
+    "payload": {
+     "value": "5"
+    }
+   },
+   {
+    "clock": {
+     "paused": true
+    }
+   },
+   {
+    "wait": 1200
+   }
+  ],
+  "expect": {
+   "shown": {
+    "-5": true
+   }
+  },
+  "known": {
+   "rn": "手机端的打印器还不打印按事件生成：模板照设计画一次，spawn 效果不生成实例，导出报告列出（游戏阶段 H4 留下：套件要有自己的对象池组件，按 lib/spawn.ts 的规则）",
+   "miniapp": "小程序的打印器还不打印按事件生成：模板照设计画一次，spawn 效果不生成实例，导出报告列出（游戏阶段 H4 留下：套件要有自己的对象池组件，按 lib/spawn.ts 的规则）",
+   "webPrototype": "原型 Web 导出没有传输层，now 读设备的时钟，不读后端（模拟库）的时钟（要按后端的时钟请导出完整产品；报告 10）"
+  },
+  "vars": [],
+  "screens": {
+   "Home": "home"
+  },
+  "appVars": [],
+  "hidden": [],
+  "triggers": [],
+  "initial": "Home",
+  "auth": {}
+ },
+ {
+  "id": "spawn-cap-oldest",
+  "title": "按事件生成：活着的实例到了上限，新的顶替最老的那个",
+  "ref": "按事件生成；游戏阶段 H4",
+  "steps": [
+   {
+    "emit": "Hit",
+    "event": "submit",
+    "payload": {
+     "value": "1"
+    }
+   },
+   {
+    "emit": "Hit",
+    "event": "submit",
+    "payload": {
+     "value": "2"
+    }
+   },
+   {
+    "emit": "Hit",
+    "event": "submit",
+    "payload": {
+     "value": "3"
+    }
+   }
+  ],
+  "expect": {
+   "shown": {
+    "-1": false,
+    "-2": true,
+    "-3": true
+   }
+  },
+  "known": {
+   "rn": "手机端的打印器还不打印按事件生成：模板照设计画一次，spawn 效果不生成实例，导出报告列出（游戏阶段 H4 留下：套件要有自己的对象池组件，按 lib/spawn.ts 的规则）",
+   "miniapp": "小程序的打印器还不打印按事件生成：模板照设计画一次，spawn 效果不生成实例，导出报告列出（游戏阶段 H4 留下：套件要有自己的对象池组件，按 lib/spawn.ts 的规则）"
+  },
+  "vars": [],
+  "screens": {
+   "Home": "home"
+  },
+  "appVars": [],
+  "hidden": [],
+  "triggers": [],
+  "initial": "Home",
+  "auth": {}
+ },
+ {
   "id": "message-runs-action",
   "title": "实时消息运行订阅的动作：读 event 和订阅收下的数据",
   "ref": "订阅；报告 1.8、10",

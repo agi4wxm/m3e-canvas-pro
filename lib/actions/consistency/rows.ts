@@ -5,7 +5,7 @@
  * the kits' test beds), then the kits' own tests; list a host under `known` only with its reason. */
 
 import type { Action, ActionBody, Answer, Condition, Effect } from "../model";
-import type { Design, PartSpec, Row } from "./types";
+import type { Design, PartSpec, Row, Step } from "./types";
 
 const HOME = { id: "home", name: "Home" };
 const NEXT = { id: "next", name: "Next" };
@@ -44,6 +44,12 @@ const num = (id: string, value: number) => ({ id, name: id, type: "number" as co
 const words = (id: string, value: string) => ({ id, name: id, type: "text" as const, value });
 const bool = (id: string, value: boolean) => ({ id, name: id, type: "bool" as const, value });
 /* the realtime channels the rows subscribe to: a feed, and rooms by their id */
+/* a number pad whose submit spawns a damage number: the template's words read the event (docs/交互规则.md “按事件生成”) */
+const DAMAGE = "-{{event.value}}";
+const damage = (id: string, spawn: { life: number; max: number }): PartSpec => ({ id, kind: "text", label: DAMAGE, spawn });
+const hitPad: PartSpec = { id: "pad", kind: "numpad", label: "Hit", actions: { "on:submit": stay({ do: "spawn", group: "@group:dmg" } as Effect) } };
+const hit = (value: string): Step => ({ emit: "Hit", event: "submit", payload: { value } });
+
 const FEED = { id: "feed", address: "/feed", messages: { post: { text: "string" as const }, ping: { n: "number" as const } } };
 const ROOM = { id: "room", address: "/rooms/{roomId}", messages: { said: { text: "string" as const } } };
 const op = (operationId: string, more: Partial<Design["api"] extends (infer O)[] | undefined ? O : never> = {}) => ({ operationId, path: `/${operationId}`, ...more });
@@ -52,6 +58,7 @@ const op = (operationId: string, more: Partial<Design["api"] extends (infer O)[]
 const WEB_PROTO_NO_API = "原型 Web 导出没有接口：调用、刷新、提交、退出登录不发出，运行时在控制台说一次、导出的 README 里列出（要运行它们请导出完整产品；报告 6.2、9.4）";
 const WEB_PROTO_NO_REALTIME = "原型 Web 导出没有接口，也就没有实时通道：订阅不打开，消息不到达（要运行它们请导出完整产品；报告 1.8、10）";
 const WEB_PROTO_NO_CLOCK = "原型 Web 导出没有传输层，now 读设备的时钟，不读后端（模拟库）的时钟（要按后端的时钟请导出完整产品；报告 10）";
+const KIT_NO_SPAWN = (kit: string) => `${kit}的打印器还不打印按事件生成：模板照设计画一次，spawn 效果不生成实例，导出报告列出（游戏阶段 H4 留下：套件要有自己的对象池组件，按 lib/spawn.ts 的规则）`;
 const WEB_PROTO_NO_RESTART = "原型 Web 导出不会重新开始：它没有模拟库的场景，也不换后端，表的“重新开始”在它上面不发生（能力由模拟库按预览的方式回答）";
 
 export const ROWS: Row[] = [
@@ -695,6 +702,44 @@ export const ROWS: Row[] = [
     },
     steps: [{ emit: "Steer", event: "submit", payload: { value: "0.5,-1" } }, { emit: "Steer", event: "submit", payload: { value: "nowhere" } }],
     expect: { shown: { "aim 0.45,-0.89": true, "jump ↓": true } },
+  },
+
+  /* ---------- spawned on events: a template drawn once per event, for a while, so many at once ---------- */
+  {
+    id: "spawn-on-event",
+    title: "按事件生成：每个事件生成一个实例，读那次事件的 event；模板自己不显示",
+    ref: "按事件生成；游戏阶段 H4",
+    design: { screens: [HOME], parts: [damage("dmg", { life: 30, max: 4 }), hitPad] },
+    steps: [hit("5"), hit("7")],
+    expect: { shown: { "-5": true, "-7": true, [DAMAGE]: false } },
+    known: { rn: KIT_NO_SPAWN("手机端"), miniapp: KIT_NO_SPAWN("小程序") },
+  },
+  {
+    id: "spawn-life-on-clock",
+    title: "按事件生成：实例按应用的时钟活 life 秒，到了就消失",
+    ref: "按事件生成、时钟；游戏阶段 H4",
+    design: { screens: [HOME], parts: [damage("dmg", { life: 1, max: 4 }), hitPad] },
+    steps: [hit("5"), { wait: 600 }, hit("7"), { wait: 600 }],
+    expect: { shown: { "-5": false, "-7": true } },
+    known: { rn: KIT_NO_SPAWN("手机端"), miniapp: KIT_NO_SPAWN("小程序") },
+  },
+  {
+    id: "spawn-life-paused",
+    title: "按事件生成：时钟暂停时实例不老，过了 life 秒也还在",
+    ref: "按事件生成、时钟；游戏阶段 H4",
+    design: { screens: [HOME], parts: [damage("dmg", { life: 1, max: 4 }), hitPad] },
+    steps: [hit("5"), { clock: { paused: true } }, { wait: 1200 }],
+    expect: { shown: { "-5": true } },
+    known: { rn: KIT_NO_SPAWN("手机端"), miniapp: KIT_NO_SPAWN("小程序"), webPrototype: WEB_PROTO_NO_CLOCK },
+  },
+  {
+    id: "spawn-cap-oldest",
+    title: "按事件生成：活着的实例到了上限，新的顶替最老的那个",
+    ref: "按事件生成；游戏阶段 H4",
+    design: { screens: [HOME], parts: [damage("dmg", { life: 30, max: 2 }), hitPad] },
+    steps: [hit("1"), hit("2"), hit("3")],
+    expect: { shown: { "-1": false, "-2": true, "-3": true } },
+    known: { rn: KIT_NO_SPAWN("手机端"), miniapp: KIT_NO_SPAWN("小程序") },
   },
 
   /* ---------- subscriptions and the clock ---------- */

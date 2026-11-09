@@ -14,6 +14,23 @@ import { Backend, givenOf } from "./check";
 import { channelSpecOf } from "../../bindings/design";
 import { channelView, idleChannel, isoOf, messageAction, received, type ChannelState } from "../../bindings/channels";
 import type { Move, Observed } from "./types";
+import { createSpawns, spawnedWords, type Spawns } from "../../spawn";
+import { templateMembers } from "../../spawnPool";
+import type { Scope } from "../../bindings/expr";
+
+/** What a screen's templates show (docs/交互规则.md “按事件生成”): no template's own words, which wait for an instance,
+ *  but each instance alive at `now`, its words filled from what its step read. `parts` are the screen's parts on show;
+ *  what comes back is them without the templates' and the instances' words. */
+export function withSpawned(groups: Group[], parts: Item[], spawns: Spawns, now: number, words: (it: Item) => string): { parts: Item[]; spawned: string[] } {
+  const templates = groups.filter((g) => g.spawn);
+  if (!templates.length) return { parts, spawned: [] };
+  const inTemplate = new Map<string, Group[]>();
+  for (const t of templates) inTemplate.set(t.id, templateMembers(t, groups, {}));
+  const held = new Set([...inTemplate.values()].flat().flatMap((g) => g.items.map((it) => it.id)));
+  const spawned: string[] = [];
+  for (const [id, members] of inTemplate) for (const s of spawns.live(id, now)) for (const g of members) for (const it of g.items) spawned.push(spawnedWords(words(it), s));
+  return { parts: parts.filter((it) => !held.has(it.id)), spawned };
+}
 
 /** a screen on the stack, with the motion it came in with (going back undoes it) */
 type Entry = { id: string; params?: Record<string, unknown>; motion?: string };
@@ -41,6 +58,8 @@ export class ReferenceHost implements Host {
   move: Move | undefined;
   /** what each world view's stand-in lists of the inputs it heard, by its item id */
   heard: Record<string, string[]> = {};
+  /** the instances spawned on events, by their template */
+  readonly spawns = createSpawns();
   private epoch = 0;
   private count = 0;
   private sending = new Set<string>();
@@ -73,14 +92,17 @@ export class ReferenceHost implements Host {
 
   observe(): Observed {
     const words: string[] = [];
-    for (const on of [this.top().id, ...(this.overlay ? [this.overlay.id] : [])])
-      for (const it of this.partsOn(on)) {
+    for (const on of [this.top().id, ...(this.overlay ? [this.overlay.id] : [])]) {
+      const { parts, spawned } = withSpawned(this.groupsOn(on), this.partsOn(on), this.spawns, this.backend.now(), wordsOf);
+      words.push(...spawned);
+      for (const it of parts) {
         const set = this.props[it.id];
         words.push(typeof set?.text === "string" ? set.text : typeof set?.label === "string" ? set.label : wordsOf(it));
         if (it.component === "dropdown-menu" && this.opened[it.id]) for (const row of ((it.props?.items as { label?: string }[] | undefined) ?? [])) words.push(row.label ?? "");
         /* a world view's stand-in lists the inputs it heard */
         words.push(...(this.heard[it.id] ?? []));
       }
+    }
     return { vars: { ...this.vars }, words, toast: this.snack, screen: this.top().id, calls: this.backend.calls, ...(this.move ? { move: this.move } : {}) };
   }
 
@@ -207,6 +229,7 @@ export class ReferenceHost implements Host {
     this.signedIn = false;
     this.sending.clear();
     this.returnTo = null;
+    this.spawns.clear();
     /* the subscriptions of the old session are gone; the screens on show open theirs again on the new one */
     this.listen(true);
   }
@@ -291,6 +314,12 @@ export class ReferenceHost implements Host {
 
   toast(text: string) {
     this.snack = text;
+  }
+
+  /** an instance of a template, spawned on the back end's clock with what its step read */
+  spawn(group: string, scope: Scope) {
+    const g = this.doc.groups.find((x) => x.id === group);
+    if (g?.spawn) this.spawns.spawn(group, g.spawn, scope, this.backend.now(), this.ctx());
   }
 
   /** an input for a world view: its channel delivers it at once, and its stand-in lists it */

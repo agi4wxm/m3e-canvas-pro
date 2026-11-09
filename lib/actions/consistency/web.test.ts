@@ -20,6 +20,7 @@ import type { Element } from "./tinyReact";
 import type { HostName, Observed } from "./types";
 import { inputLog } from "../../world/channel";
 import type { WorldChannel } from "../../world/types";
+import { fillSpawnWords, type Spawns } from "../../spawn";
 
 /* The table on both web exports, as the printers write them: the screens printed by lib/codegen (lib/printBehaviour.ts,
  * and lib/printBindings.ts for the product), the app's runtime printed by lib/runtimeSource.ts, and for the product the
@@ -45,6 +46,9 @@ type App = {
   params?: Record<string, unknown>;
   vars: Record<string, string | number | boolean>;
   snack: { message: string } | null;
+  /** the instances spawned on events, and the clock they live on (src/runtime.tsx) */
+  spawns?: Spawns;
+  spawnClock?: () => number;
 };
 type RuntimeModule = { AppProvider: (p: { children?: unknown }) => unknown; useApp: () => App; ScreenContext?: { Provider: unknown }; Pressable?: unknown };
 
@@ -106,6 +110,8 @@ function wordsIn(node: unknown, out: string[] = [], closed = false): string[] {
   else if (typeof node === "string" || typeof node === "number") out.push(String(node));
   else if (isElement(node)) {
     if (closed && nameOf(node.type).endsWith("Content")) return out;
+    /* a template's pool waits hidden for its instances, which are read off the app (`spawnedWords`) */
+    if (nameOf(node.type) === "SpawnPool") return out;
     wordsIn(node.props.children, out, node.props.open === false);
   }
   return out;
@@ -194,6 +200,13 @@ async function webOf(doc: Doc, backend: Backend, product: boolean): Promise<Driv
       const c = e.props.channel as WorldChannel | undefined;
       return c && heard.has(c) && e.type === "WorldView" ? [String(e.props.label ?? ""), ...(heard.get(c) ?? [])] : [];
     });
+  /** what each template's pool on a page shows: its words as each instance alive now fills them */
+  const spawnedWords = (page: unknown): string[] =>
+    tiny.elements(page).flatMap((e) => {
+      if (nameOf(e.type) !== "SpawnPool" || !app?.spawns || !app.spawnClock) return [];
+      const marked = wordsIn(e.props.children);
+      return app.spawns.live(String(e.props.of), app.spawnClock()).flatMap((s) => marked.map((w) => fillSpawnWords(w, s)));
+    });
   /** the pages drawn: the screen on show, then any overlay */
   const pages = (): unknown[] => {
     const all = tiny.elements(tree).filter((e) => e.type === rt.ScreenContext?.Provider);
@@ -251,7 +264,7 @@ async function webOf(doc: Doc, backend: Backend, product: boolean): Promise<Driv
       }
     },
     observe: (): Observed => {
-      const words = pages().flatMap((p) => [...wordsIn(p), ...worldWords(p)]);
+      const words = pages().flatMap((p) => [...wordsIn(p), ...worldWords(p), ...spawnedWords(p)]);
       const vars = Object.fromEntries(Object.entries(app?.vars ?? {}).map(([k, v]) => [varIds.get(k) ?? k, v]));
       const screen = doc.frames[spec.screens.indexOf(app?.screen ?? "")]?.id ?? "";
       const move = app?.move ? { back: app.move.backwards, motion: app.move.motion?.kind ?? "none" } : undefined;

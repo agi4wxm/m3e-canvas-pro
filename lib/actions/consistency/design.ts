@@ -70,8 +70,11 @@ export function designDoc(d: Design): { doc: Doc; widths: Record<string, number>
                     : { label: p.label };
       const out = tx.run(ops.addPart, { slug: SLUG[kind], id: p.id, screen, at, props }) as { groupId: string };
       groupOf[p.id] = out.groupId;
-      if (p.action && !p.unchecked) tx.run(ops.setAction, { id: p.id, action: p.action as never });
-      for (const [slot, action] of Object.entries(p.actions ?? {})) tx.run(ops.setAction, { id: p.id, slot, action: action as never });
+      if (p.spawn) tx.run(ops.setSpawn, { id: p.id, spawn: p.spawn });
+      /* a template is named "@group:<its part's id>": the group the part was added in, made before the part that names it */
+      const grouped = <T,>(a: T): T => JSON.parse(JSON.stringify(a).replace(/"@group:([^"]+)"/g, (_, id: string) => JSON.stringify(groupOf[id] ?? id))) as T;
+      if (p.action && !p.unchecked) tx.run(ops.setAction, { id: p.id, action: grouped(p.action) as never });
+      for (const [slot, action] of Object.entries(p.actions ?? {})) tx.run(ops.setAction, { id: p.id, slot, action: grouped(action) as never });
     }
     for (const sub of d.subscriptions ?? []) tx.run(ops.setSubscription, { screen: sub.screen ?? d.screens[0].id, name: sub.name, channel: sub.channel, ...(sub.params ? { params: sub.params } : {}), ...(sub.messages ? { messages: sub.messages } : {}), ...(sub.actions ? { actions: sub.actions } : {}) } as never);
     for (const f of d.forms ?? []) {
