@@ -4,7 +4,7 @@
  * action body of the document, the phone app's and the mini-program's alike (docs/交互规则.md: a tap's else, the then
  * and catch of its calls and invokes, and the branch an answer picks, are actions too). */
 
-import { BACK_TARGET, type Action, type ActionBody, type Condition, type Doc, type Group, type Item } from "../../tokens";
+import { BACK_TARGET, type Action, type ActionBody, type Condition, type Doc, type Frame, type Group, type Item } from "../../tokens";
 import { cleanMotion } from "../../prototype";
 import { partNames } from "../bindCode";
 
@@ -51,15 +51,24 @@ export type DocFacts = {
   filled: Set<string>;
   /** the props taps set, by part */
   setProps: Map<string, Set<string>>;
-  /** the screens a tap opens over another */
+  /** the screens a tap opens over another: those it lays over (`overlay`), and those marked as a layer it opens */
   overlays: Set<string>;
+  /** the screens marked as a layer laid over the screen on show (a HUD, a dialog, a toast: docs/交互规则.md “分层”) */
+  laid: Set<string>;
   /** the screens a navigation bar's destinations are */
   tabs: Set<string>;
   /** what a warning and the printed code call a part: a name made of its words (`bindCode.partNames`), not its id */
   names: Map<string, string>;
 };
 
-export function factsOf(doc: Pick<Doc, "groups">): DocFacts {
+/** the screens marked as a layer laid over the screen on show when opened (lib/world/layers.ts `laidAs`) */
+export const laidScreens = (frames: readonly Pick<Frame, "id" | "layer">[] | undefined) => new Set((frames ?? []).filter((f) => f.layer === "hud" || f.layer === "dialog" || f.layer === "toast").map((f) => f.id));
+
+/** Whether a tap's move lays its screen over the one on show: the action says so (`overlay`), or the screen is a layer.
+ *  A phone's and a mini-program's navigators lay it over the way they lay an overlay. */
+export const laysOver = (laid: Pick<ReadonlySet<string>, "has">, b: Pick<ActionBody, "to" | "overlay">) => b.overlay === true || (!!b.to && laid.has(b.to));
+
+export function factsOf(doc: Pick<Doc, "groups"> & Partial<Pick<Doc, "frames">>): DocFacts {
   const owner = new Map<string, Group>();
   const groupOf = new Map<string, string>();
   for (const g of doc.groups)
@@ -67,14 +76,14 @@ export function factsOf(doc: Pick<Doc, "groups">): DocFacts {
       owner.set(it.id, g);
       groupOf.set(it.id, g.id);
     }
-  const facts: DocFacts = { owner, groupOf, toggled: new Set(), hidden: new Set(doc.groups.filter((g) => g.hidden).map((g) => g.id)), opened: new Set(), filled: new Set(), setProps: new Map(), overlays: new Set(), tabs: new Set(), names: partNames(doc) };
+  const facts: DocFacts = { owner, groupOf, toggled: new Set(), hidden: new Set(doc.groups.filter((g) => g.hidden).map((g) => g.id)), opened: new Set(), filled: new Set(), setProps: new Map(), overlays: new Set(), laid: laidScreens(doc.frames), tabs: new Set(), names: partNames(doc) };
   const conditions = (c: Condition | undefined) => {
     if (c && "filled" in c && typeof c.filled === "string") facts.filled.add(c.filled);
   };
   for (const g of doc.groups) conditions(g.showWhen);
   eachBody(doc, (b, item) => {
     conditions(b.when);
-    if (b.overlay && b.to) facts.overlays.add(b.to);
+    if (b.to && laysOver(facts.laid, b)) facts.overlays.add(b.to);
     for (const e of b.effects ?? []) {
       if (e.do === "show" || e.do === "hide" || e.do === "toggle" || e.do === "open" || e.do === "close") {
         const g = groupOf.get(e.part);

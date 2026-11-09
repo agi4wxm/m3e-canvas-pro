@@ -21,7 +21,7 @@ export const APP_RUNTIME_FILES = [
   "lib/screenMotion.ts",
   ...["model", "host", "run"].map((n) => `lib/actions/${n}.ts`),
   /* the world views' channels, their contract with an engine, and M3E's example engine */
-  ...["types", "contract", "hostContract", "channel", "example"].map((n) => `lib/world/${n}.ts`),
+  ...["types", "contract", "hostContract", "channel", "example", "layers"].map((n) => `lib/world/${n}.ts`),
   ...["store", "session", "sources", "channels", "forms", "scope", "runtime", "react", "actions", "index"].map((n) => `lib/app/${n}.ts`),
 ];
 

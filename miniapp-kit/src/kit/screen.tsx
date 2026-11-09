@@ -116,6 +116,11 @@ const BG: Record<string, string> = {
 const Overlaid = createContext(false);
 export const OverlaidProvider = Overlaid.Provider;
 
+/** the layer a screen is drawn in when it is laid over the one on show as one (docs/交互规则.md “分层”): it has no ground
+ *  of its own unless it says one, and a HUD's and a toast's let a touch on nothing of theirs through */
+const LaidAs = createContext<"hud" | "dialog" | "toast" | null>(null);
+export const LaidProvider = LaidAs.Provider;
+
 export type ScreenProps = {
   /** the screen's ground: a fill role, as the document writes it */
   bg?: string;
@@ -137,6 +142,7 @@ export function Screen({ bg = "surface", width, length, height, screen, room = 0
   const kit = useKit();
   const ch = useChrome();
   const overlaid = useContext(Overlaid);
+  const laid = useContext(LaidAs);
   const pinned: ReactNode[] = [];
   const body: ReactNode[] = [];
   Children.forEach(children, (child) => {
@@ -146,6 +152,18 @@ export function Screen({ bg = "surface", width, length, height, screen, room = 0
   const ground = c(BG[bg] ?? bg);
   const tall = Math.max(length ?? 0, height ?? 0);
   const tag = screen ? { "data-screen": screen } : {};
+  if (laid) {
+    /* over the screen on show, at its size: a HUD's and a toast's parts take the touches that land on them, and what
+       lands on nothing of theirs goes through to under them */
+    const through = laid !== "dialog";
+    const own = (nodes: ReactNode[]) => (through ? nodes.map((n, i) => <View key={i} style={sx({ pointerEvents: "auto" })}>{n}</View>) : nodes);
+    return (
+      <View {...tag} style={sx({ position: "absolute", left: 0, top: 0, width: width ?? "100%", height: height ?? "100%", backgroundColor: bg === "surface" ? "transparent" : ground, pointerEvents: through ? "none" : "auto" })}>
+        {own(body)}
+        {own(pinned)}
+      </View>
+    );
+  }
   if (overlaid)
     return (
       <View {...tag} style={sx({ position: "relative", width, height, borderRadius: 20, backgroundColor: ground, overflow: "hidden" })}>

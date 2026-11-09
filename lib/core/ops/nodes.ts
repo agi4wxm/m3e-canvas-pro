@@ -492,7 +492,7 @@ export const pasteClip = op<{ clip: Clip; selected?: string }, { ids: string[] }
  *  not changed. A rail's state resizes it, and the body beside it follows. */
 export const setItem = op<{ id: string; patch: Partial<Item> }>({
   name: "set_item",
-  summary: "Changes a part's own fields: props, fill, textColor, corners, look, note, action/actions, bind, slot (true or a component name such as \"BuyButton\": the exported apps draw the part with a slot file of the product's own, src/custom/slots/<Name>.tsx, kept on re-export), and how it sits in an auto layout (flowSize, alignSelf, flowAbsolute, flowMin, flowMax, flowSpan).",
+  summary: "Changes a part's own fields: props, fill, textColor, corners, look, note, action/actions, bind, slot (true or a component name such as \"BuyButton\": the exported apps draw the part with a slot file of the product's own, src/custom/slots/<Name>.tsx, kept on re-export), occlude (on a HUD or toast layer: true covers the world under it, false lets touches through; left out, a part that does something when used covers), and how it sits in an auto layout (flowSize, alignSelf, flowAbsolute, flowMin, flowMax, flowSpan).",
   args: S.obj({ id: S.str("the part's id"), patch: S.any("the fields to set; a field set to null is cleared") }, ["id", "patch"]),
   label: () => "Edit",
   run(s, a, ctx) {

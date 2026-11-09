@@ -19,7 +19,7 @@ import { NATIVE, isNative, kitPropName } from "../../../rn/src/kit/coverage";
 import { PARTS as KIT_PARTS } from "../../../rn/src/kit/parts.generated";
 import { SET_ONLY, propValues, type AtomTaps, type PlainNode } from "./data";
 import { Imports, NAME, Raw, el, exprOf, jsx, same, svgMarkup, when, type Fn, type J } from "../ir/code";
-import { answers, backMotion, type DocFacts } from "../ir/facts";
+import { answers, backMotion, laysOver, type DocFacts } from "../ir/facts";
 import { subscriptionPlans, type SubscriptionPlan } from "../ir/channels";
 import { OPENS_BY_PROP, atomsOf, iconNamesOf, keepsTrigger, labelsOf, linesOf, planScreens, selectsByProp, slotGiven, type Loose, type PartNode, type RunNode, type ScreenPlan } from "../ir/screen";
 
@@ -260,7 +260,7 @@ class ScreenPrinter {
     return {
       to: to === "link" && !url ? "none" : to,
       ...(url ? { url } : {}),
-      ...(b.overlay && to !== "back" && to !== "link" && to !== "none" ? { overlay: true } : {}),
+      ...(laysOver(this.facts.laid, b) && to !== "back" && to !== "link" && to !== "none" ? { overlay: true } : {}),
       ...(b.params && Object.keys(b.params).length && this.runtime ? { params: b.params } : {}),
       ...(effects.length ? { effects } : {}),
       /* a back action's own motion, for the interpreter to hand the navigator (Host.back) */
@@ -349,7 +349,7 @@ class ScreenPrinter {
       return url ? `nav.open(${str(url)})` : undefined;
     }
     const key = this.screens.keys.get(a.to);
-    if (key) return a.overlay ? `nav.go(${str(key)}, { overlay: true })` : `nav.go(${str(key)})`;
+    if (key) return laysOver(this.facts.laid, a) ? `nav.go(${str(key)}, { overlay: true })` : `nav.go(${str(key)})`;
     return undefined;
   }
 

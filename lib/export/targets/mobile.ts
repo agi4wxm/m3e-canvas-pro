@@ -16,7 +16,7 @@ import { rnIconData } from "../rn/icons";
 import { printRnScreens, type RnScreen, type RnScreens } from "../rn/print";
 import { rnThemeOf } from "../rn/theme";
 import { KIT_ICONS } from "../../../rn/src/kit/icons/names";
-import { darkVarOf } from "../../tokens";
+import { darkVarOf, type Frame } from "../../tokens";
 import { GENERATED, jsonCode, jsonFile, propKey, sortedObject, str } from "../code";
 import { kebab } from "../paths";
 import { boundaryDifferences } from "../boundary";
@@ -129,10 +129,26 @@ module.exports = {
 /** the app's own module by its file, as the kit has it */
 const app = (file: string) => `${MOBILE_FILES_DIR}/${file}`;
 
-type RouteInfo = { key: string; component: string; path: string; params: string[]; tab: boolean; overlay: boolean; auth?: "required" | "login"; spec: { name: string; type?: string; example?: string }[] };
+type RouteInfo = {
+  key: string;
+  component: string;
+  path: string;
+  params: string[];
+  tab: boolean;
+  overlay: boolean;
+  auth?: "required" | "login";
+  spec: { name: string; type?: string; example?: string }[];
+  /** the layer the screen is marked as, laid over the screen on show (docs/交互规则.md “分层”), and whether it pauses the worlds */
+  layer?: "hud" | "dialog" | "toast";
+  pauses?: boolean;
+  /** the HUDs that stand over the screen whenever it is on show: their components */
+  huds?: string[];
+};
 
 /** the routes of the screens: each a path of its own from its key, its params as segments of it */
-function routesOf(screens: RnScreens): RouteInfo[] {
+function routesOf(screens: RnScreens, frames: readonly Frame[] = []): RouteInfo[] {
+  const frameOf = (id: string) => frames.find((f) => f.id === id);
+  const laidOf = (id: string) => { const l = frameOf(id)?.layer; return l === "hud" || l === "dialog" || l === "toast" ? l : undefined; };
   const taken = new Set<string>(["overlay", "index"]);
   const tabs = new Set(screens.tabs.length >= 2 ? screens.tabs : []);
   return screens.screens.map((s) => {
@@ -148,6 +164,12 @@ function routesOf(screens: RnScreens): RouteInfo[] {
       tab: tabs.has(s.key) && !params.length,
       overlay: screens.overlays.includes(s.key),
       ...(s.auth ? { auth: s.auth } : {}),
+      ...(laidOf(s.id) ? { layer: laidOf(s.id) } : {}),
+      ...(laidOf(s.id) === "dialog" && frameOf(s.id)?.pauses ? { pauses: true } : {}),
+      ...(() => {
+        const huds = screens.screens.filter((h) => laidOf(h.id) === "hud" && frameOf(h.id)?.over === s.id).map((h) => h.component);
+        return huds.length ? { huds } : {};
+      })(),
       spec: (s.params ?? []).map((p) => ({ name: p.name, ...(p.type ? { type: p.type } : {}), ...(p.example !== undefined ? { example: p.example } : {}) })),
     };
   });
@@ -156,13 +178,21 @@ function routesOf(screens: RnScreens): RouteInfo[] {
 /** a route file: the screen drawn as a route, from where the file is */
 function routeFile(r: RouteInfo, depth: number, overlay: boolean): string {
   const up = "../".repeat(depth);
-  const render = r.spec.length ? `(params) => <${r.component} params={params} />` : `() => <${r.component} />`;
+  const own = r.spec.length ? `<${r.component} params={params} />` : `<${r.component} />`;
+  /* the HUDs that stand over the screen are drawn over it, in its route (docs/交互规则.md “分层”) */
+  const huds = !overlay ? (r.huds ?? []) : [];
+  const drawn = huds.length ? `<>${own}${huds.map((h) => `<Laid layer="hud"><${h} /></Laid>`).join("")}</>` : own;
+  const render = r.spec.length ? `(params) => ${drawn}` : `() => ${drawn}`;
+  /* a screen marked as a layer is laid over as that layer; one an action lays over sits in the middle */
+  const as = overlay ? ` overlay${r.layer ? ` layer=${str(r.layer)}` : ""}${r.pauses ? " pauses" : ""}` : "";
   return `${GENERATED}
 import { ScreenRoute } from ${str(`${up}generated/ScreenRoute`)}
-import { ${r.component} } from ${str(`${up}generated/screens/${r.component}`)}
-
+${huds.length ? `import { Laid } from ${str(`${up}kit`)}
+` : ""}import { ${r.component} } from ${str(`${up}generated/screens/${r.component}`)}
+${huds.map((h) => `import { ${h} } from ${str(`${up}generated/screens/${h}`)}
+`).join("")}
 export default function ${r.component}Route() {
-  return <ScreenRoute screen=${str(r.key)}${overlay ? " overlay" : ""} render={${render}} />
+  return <ScreenRoute screen=${str(r.key)}${as} render={${render}} />
 }
 `;
 }
@@ -389,7 +419,7 @@ export const mobileTarget: ProductTarget = {
     ctx.differences.push(...warnings.map((w) => ({ app: "mobile" as const, ...w })));
 
     /* the routes */
-    const routes = routesOf(screens);
+    const routes = routesOf(screens, doc.frames);
     const login = screens.screens.find((s) => s.auth === "login")?.key;
     const tabs = routes.some((r) => r.tab);
     files["src/app/_layout.tsx"] = generated(LAYOUT(routes, tabs));

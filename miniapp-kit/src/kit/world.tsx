@@ -1,5 +1,5 @@
 import { View } from "@tarojs/components";
-import { createWorlds, inputLog, type WorldChannel, type WorldEntity } from "@m3e/app-runtime";
+import { createWorlds, hostLog, inputLog, type WorldChannel, type WorldEntity } from "@m3e/app-runtime";
 import { useEffect, useState } from "react";
 
 import type { PartBase } from "./atoms/basics";
@@ -58,6 +58,8 @@ export function WorldStandIn(props: WorldStandInProps) {
   const [log, setLog] = useState<string[]>([]);
   const channel = p.channel;
   useEffect(() => (channel ? channel.listen((action, value) => setLog((l) => inputLog(l, action, value))) : undefined), [channel]);
+  /* and what the app tells the world: to pause, to go on */
+  useEffect(() => channel?.watch?.((signal) => setLog((l) => hostLog(l, signal))), [channel]);
   const chip = { ...typeStyle(kit, "label-medium"), color: c("on-surface"), backgroundColor: ca("surface", 0.8), borderRadius: corner(kit, "md"), padding: "0 8px" };
   return (
     <View {...tagOf(p.testID)} ariaRole="img" ariaLabel={p.label || "World"} style={sx({ position: "relative", width: w, height: h, borderRadius: corner(kit, "lgi"), backgroundColor: c("surface-container-high"), overflow: "hidden", flexShrink: 0 }, fill)}>

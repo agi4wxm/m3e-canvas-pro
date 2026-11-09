@@ -19,7 +19,7 @@ import { NATIVE, INPUT_PROPS, isNative, kitPropName } from "../../../miniapp-kit
 import { PARTS as KIT_PARTS } from "../../../miniapp-kit/src/kit/parts.generated";
 import { SET_ONLY, propValues, type AtomTaps, type PlainNode } from "../rn/data";
 import { Imports, NAME, andThen, draws, el, exprOf, handler, jsx, objOf, printHandler, same, svgMarkup, type Handler, type J } from "../ir/code";
-import { answers, backMotion, setsProp, type DocFacts } from "../ir/facts";
+import { answers, backMotion, laysOver, setsProp, type DocFacts } from "../ir/facts";
 import { subscriptionPlans } from "../ir/channels";
 import { OPENS_BY_PROP, atomsOf, iconNamesOf, keepsTrigger, linesOf, partNode, planScreens, selectsByProp, slotGiven, type Loose, type PartNode, type RunNode, type ScreenPlan } from "../ir/screen";
 
@@ -127,7 +127,7 @@ const EFFECT_KEYS: Record<string, string[]> = {
  *  link and nowhere as they are), a part or a form by a name of its own made from its words, the same for the same
  *  design whatever ids it was given (a part a template adds has a random one). `shown` is what the screen's runtime
  *  shows and hides a part by: its group's, by the name of the group's first part (`keyOfGroup`). */
-type Names = { screen: (frameId: string) => string; part: (id: string) => string; shown: (id: string) => string };
+type Names = { screen: (frameId: string) => string; part: (id: string) => string; shown: (id: string) => string; laid: Pick<ReadonlySet<string>, "has"> };
 
 /** the effects that show or hide a part: they reach its whole group, as in the preview (lib/interact.ts) */
 const VISIBILITY = new Set(["show", "hide", "toggle", "open", "close"]);
@@ -158,7 +158,7 @@ function cleanBody(b: ActionBody, names: Names, depth = 0): Record<string, unkno
   const effects = (b.effects ?? []).map((e) => cleanEffect(e, depth, names)).filter((e): e is Record<string, unknown> => !!e);
   /* a back action's own motion, for the interpreter to hand the kit's navigator (Host.back) */
   const motion = backMotion(b);
-  return { to: names.screen(b.to), ...(b.url ? { url: b.url } : {}), ...(effects.length ? { effects } : {}), ...(b.overlay ? { overlay: true } : {}), ...(b.params ? { params: b.params } : {}), ...(motion ? { motion } : {}) };
+  return { to: names.screen(b.to), ...(b.url ? { url: b.url } : {}), ...(effects.length ? { effects } : {}), ...(laysOver(names.laid, b) ? { overlay: true } : {}), ...(b.params ? { params: b.params } : {}), ...(motion ? { motion } : {}) };
 }
 
 /** a call's or an invoke's then or catch: a body, with the branch the answer picks (docs/交互规则.md, 回答上的条件) */
@@ -245,6 +245,8 @@ class ScreenPrinter {
       const g = this.facts.owner.get(id);
       return this.names.part(g ? keyOfGroup(g) : id);
     },
+    /* a screen marked as a layer is laid over the one on show, as an overlay is (docs/交互规则.md “分层”) */
+    laid: { has: (id: string) => this.facts.laid.has(id) },
   };
 
   warn(kind: MiniWarning["kind"], detail: string, part?: string) {

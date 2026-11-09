@@ -11,6 +11,11 @@ const HOME = { id: "home", name: "Home" };
 const NEXT = { id: "next", name: "Next" };
 const DONE = { id: "done", name: "Done" };
 const OTHER = { id: "other", name: "Other" };
+/* a world, the HUD that stands over it, a dialog layer and a toast layer (docs/交互规则.md “分层”) */
+const ARENA = { id: "home", name: "Arena", layer: "world" as const };
+const HUD = { id: "hud", name: "HUD", layer: "hud" as const, over: "home" };
+const BAG = { id: "bag", name: "Bag", layer: "dialog" as const };
+const NOTE = { id: "note", name: "Note", layer: "toast" as const };
 
 /** a tap that stays where it is and runs these effects */
 const stay = (...effects: Effect[]): Action => ({ to: "none", effects });
@@ -24,6 +29,8 @@ const btn = (id: string, label: string, action: Action, more: Partial<PartSpec> 
 const text = (id: string, label: string, more: Partial<PartSpec> = {}): PartSpec => ({ id, kind: "text", label, ...more });
 /** a world view whose stand-in is called by these words; `items` the inputs its world takes (any when left out) */
 const world = (id: string, label: string, more: Partial<PartSpec> = {}): PartSpec => ({ id, kind: "world", label, ...more });
+/** holds down a named input of the world view "arena" */
+const press = (action: string): Effect => ({ do: "press", part: "arena", action });
 /** a call; `ok` is its `then`, `fail` its `catch` */
 function call(operationId: string, more: { args?: Record<string, string>; ok?: Answer; fail?: Answer } = {}): Effect {
   const { ok, fail, ...rest } = more;
@@ -658,6 +665,125 @@ export const ROWS: Row[] = [
     },
     steps: [{ tap: "Push in" }, { tap: "Fade back" }],
     expect: { screen: "home", move: { back: true, motion: "dissolve" } },
+  },
+
+  /* ---------- layers: screens laid over a world instead of taking its place (docs/交互规则.md “分层”) ---------- */
+  {
+    id: "layer-hud-stands-over-world",
+    title: "分层：HUD 层随世界屏一起显示、叠在上面；HUD 的控件发出的输入到达世界",
+    ref: "分层；世界宿主契约“分层”",
+    design: { screens: [ARENA, HUD], parts: [world("arena", "Arena"), btn("fire", "Hold fire", stay(press("attack")), { screen: "hud" }), text("score", "Score", { screen: "hud" })] },
+    steps: [{ tap: "Hold fire" }],
+    expect: { screen: "home", shown: { Arena: true, "Hold fire": true, Score: true, "attack ↓": true } },
+  },
+  {
+    id: "layer-input-falls-through",
+    title: "分层：HUD 只拿落在自己控件上的输入，别处的到达下面的世界屏",
+    ref: "分层；世界宿主契约“输入”（HUD 先、落空的给世界）",
+    design: { screens: [ARENA, HUD], parts: [world("arena", "Arena"), btn("right", "Go right", stay({ do: "move", part: "arena", vector: "1,0" })), btn("fire", "Hold fire", stay(press("attack")), { screen: "hud" })] },
+    steps: [{ tap: "Go right" }, { tap: "Hold fire" }],
+    expect: { screen: "home", shown: { "move 1,0": true, "attack ↓": true } },
+  },
+  {
+    id: "layer-stack-back-pops-top",
+    title: "分层：弹窗层、提示层按打开的顺序叠上去，返回只关最上面一层，世界和 HUD 留着",
+    ref: "分层；跳转",
+    design: {
+      screens: [ARENA, HUD, BAG, NOTE],
+      parts: [
+        world("arena", "Arena"),
+        btn("fire", "Hold fire", stay(press("attack")), { screen: "hud" }),
+        btn("openbag", "Open bag", goTo("bag"), { screen: "hud" }),
+        btn("shownote", "Show note", goTo("note"), { screen: "bag" }),
+        text("items", "Bag items", { screen: "bag" }),
+        text("saved", "Saved", { screen: "note" }),
+        btn("ok", "Close note", goTo("back"), { screen: "note" }),
+      ],
+    },
+    steps: [{ tap: "Open bag" }, { tap: "Show note" }, { tap: "Close note" }],
+    expect: { screen: "home", shown: { Arena: true, "Hold fire": true, "Bag items": true, Saved: false } },
+  },
+  {
+    id: "layer-dialog-releases-world",
+    title: "分层：弹窗层打开时松开世界按住的输入，打开期间不再送新的输入，关上后恢复；不暂停世界",
+    ref: "分层；世界宿主契约“浮层打开时松开”",
+    design: {
+      screens: [ARENA, HUD, BAG],
+      parts: [
+        world("arena", "Arena"),
+        btn("fire", "Hold fire", stay(press("attack")), { screen: "hud" }),
+        btn("leap", "Leap", stay(press("leap")), { screen: "hud" }),
+        btn("openbag", "Open bag", goTo("bag"), { screen: "hud" }),
+        btn("jump", "Jump", stay(press("jump")), { screen: "bag" }),
+        btn("close", "Close bag", goTo("back"), { screen: "bag" }),
+      ],
+    },
+    steps: [{ tap: "Hold fire" }, { tap: "Open bag" }, { tap: "Jump" }, { tap: "Close bag" }, { tap: "Leap" }],
+    expect: { shown: { "attack ↓": true, "attack ↑": true, "jump ↓": false, "leap ↓": true, paused: false } },
+  },
+  {
+    id: "layer-overlay-part-releases-world",
+    title: "分层：屏幕上的浮层部件（对话框）打开时也松开世界按住的输入，关上后恢复",
+    ref: "分层；世界宿主契约“浮层打开时松开”；第五批 K2 遗留",
+    design: {
+      screens: [ARENA, HUD],
+      parts: [
+        world("arena", "Arena"),
+        btn("fire", "Hold fire", stay(press("attack")), { screen: "hud" }),
+        btn("leap", "Leap", stay(press("leap")), { screen: "hud" }),
+        { id: "sure", kind: "dialog", label: "Sure?", hidden: true, items: ["Yes"] },
+        btn("ask", "Ask", stay({ do: "open", part: "sure" })),
+        btn("shut", "Shut", stay({ do: "close", part: "sure" })),
+      ],
+    },
+    steps: [{ tap: "Hold fire" }, { tap: "Ask" }, { tap: "Shut" }, { tap: "Leap" }],
+    expect: { shown: { "attack ↑": true, "leap ↓": true } },
+  },
+  {
+    id: "layer-pause-dialog",
+    title: "分层：设计说暂停的弹窗层打开时请世界暂停，关上后请它继续",
+    ref: "分层；世界宿主契约“暂停”",
+    design: {
+      screens: [ARENA, HUD, { id: "pause", name: "Pause", layer: "dialog", pauses: true }],
+      parts: [world("arena", "Arena"), btn("menu", "Menu", goTo("pause"), { screen: "hud" }), btn("resume", "Resume", goTo("back"), { screen: "pause" })],
+    },
+    steps: [{ tap: "Menu" }, { tap: "Resume" }],
+    expect: { screen: "home", shown: { paused: true, resumed: true, Resume: false, Menu: true } },
+  },
+  {
+    id: "layer-toast-keeps-input",
+    title: "分层：提示层不松开世界的输入，也不挡住 HUD",
+    ref: "分层；世界宿主契约“分层”",
+    design: {
+      screens: [ARENA, HUD, NOTE],
+      parts: [
+        world("arena", "Arena"),
+        btn("fire", "Hold fire", stay(press("attack")), { screen: "hud" }),
+        btn("shownote", "Show note", goTo("note"), { screen: "hud" }),
+        btn("leap", "Leap", stay(press("leap")), { screen: "hud" }),
+        text("saved", "Saved", { screen: "note" }),
+      ],
+    },
+    steps: [{ tap: "Hold fire" }, { tap: "Show note" }, { tap: "Leap" }],
+    expect: { shown: { Saved: true, "attack ↑": false, "leap ↓": true } },
+  },
+  {
+    id: "layer-page-takes-place",
+    title: "分层：从弹窗层去一个页面，叠着的层都关上；回到世界屏，它的 HUD 又在上面",
+    ref: "分层；跳转",
+    design: {
+      screens: [ARENA, HUD, BAG, { id: "shop", name: "Shop" }],
+      parts: [
+        world("arena", "Arena"),
+        btn("openbag", "Open bag", goTo("bag"), { screen: "hud" }),
+        text("items", "Bag items", { screen: "bag" }),
+        btn("buy", "To the shop", goTo("shop"), { screen: "bag" }),
+        text("wares", "Wares", { screen: "shop" }),
+        btn("leave", "Leave shop", goTo("back"), { screen: "shop" }),
+      ],
+    },
+    steps: [{ tap: "Open bag" }, { tap: "To the shop" }, { tap: "Leave shop" }],
+    expect: { screen: "home", shown: { "Open bag": true, Arena: true, "Bag items": false, Wares: false } },
   },
 
   /* ---------- input actions: what a tap sends a world view (its stand-in lists what it heard) ---------- */

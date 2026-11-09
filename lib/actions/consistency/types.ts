@@ -44,7 +44,9 @@ export type PartSpec = {
   field?: string;
 };
 
-export type ScreenSpec = { id: string; name: string; params?: string[]; auth?: "required" | "login" };
+/** a screen of the design; `layer` lays it over the page on show (`over` a HUD's page, `pauses` a dialog that pauses
+ *  the world), as `set_screen` sets them (docs/交互规则.md “分层”) */
+export type ScreenSpec = { id: string; name: string; params?: string[]; auth?: "required" | "login"; layer?: "world" | "hud" | "dialog" | "toast"; over?: string; pauses?: boolean };
 
 /** an operation of the contract: its query parameters, its body's fields (strings unless said; a form's inputs are
  *  labelled with their titles), the fields of its answer */
@@ -118,7 +120,7 @@ export type SeenCall = { op: string; in: Record<string, unknown> };
 export type Expect = {
   /** the variables, by id */
   vars?: Record<string, VarValue>;
-  /** whether the words are on show on the screen on show (or the overlay over it) */
+  /** whether the words are on show on the screen on show (or the layers over it) */
   shown?: Record<string, boolean>;
   /** the snackbar on show, null for none */
   toast?: string | null;

@@ -66,7 +66,7 @@ describe("a product with a world view", () => {
   it("is no platform capability: the product has no capabilities package for it", () => {
     expect(Object.keys(p.files).some((f) => f.startsWith("packages/capabilities/"))).toBe(false);
     /* the channel, the contract and the example engine are the app runtime's */
-    for (const f of ["types", "contract", "hostContract", "channel", "example"]) expect(p.files[`packages/app-runtime/src/engine/world/${f}.ts`]?.kind, f).toBe("generated");
+    for (const f of ["types", "contract", "hostContract", "channel", "example", "layers"]) expect(p.files[`packages/app-runtime/src/engine/world/${f}.ts`]?.kind, f).toBe("generated");
   });
 
   it("hands the slot the world's state, the channel and the world's events on every app", () => {
@@ -153,7 +153,7 @@ describe("the app runtime's world files", () => {
     const repo = fileURLToPath(new URL("../../", import.meta.url));
     const dir = mkdtempSync(join(tmpdir(), "m3e-world-runtime-"));
     try {
-      const files = ["types", "contract", "hostContract", "channel", "example"].map((f) => join(repo, `lib/world/${f}.ts`));
+      const files = ["types", "contract", "hostContract", "channel", "example", "layers"].map((f) => join(repo, `lib/world/${f}.ts`));
       writeFileSync(join(dir, "tsconfig.json"), JSON.stringify({ compilerOptions: { target: "ES2022", lib: ["ES2022"], types: [], strict: true, noEmit: true, module: "esnext", moduleResolution: "bundler", skipLibCheck: true, verbatimModuleSyntax: true }, files }));
       const run = spawnSync(join(repo, "node_modules/.bin/tsc"), ["--noEmit", "-p", join(dir, "tsconfig.json")], { encoding: "utf8" });
       expect(`${run.stdout}${run.stderr}`).toBe("");

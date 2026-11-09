@@ -68,7 +68,7 @@ mock.module("@tarojs/taro", () => {
 });
 mock.module("@tarojs/components", () => fakeComponents());
 
-const { RuntimeProvider, inputLog } = await import("@m3e/app-runtime");
+const { RuntimeProvider, hostLog, inputLog } = await import("@m3e/app-runtime");
 type WorldChannel = import("@m3e/app-runtime").WorldChannel;
 const { AppSpecProvider } = await import("../src/kit/app/screen");
 const { goBack, lastMove, movesSoFar, openPlace, screenOfPath } = await import("../src/kit/app/nav");
@@ -135,6 +135,8 @@ describe("the consistency table on the mini-program kit", () => {
         if (!c || typeof c.listen !== "function" || heard.has(c)) continue;
         heard.set(c, []);
         c.listen((action, value) => heard.set(c, inputLog(heard.get(c) ?? [], action, value)));
+        /* and what the app tells the world beside its inputs: to pause, to go on (docs/世界宿主契约.md “分层”) */
+        c.watch?.((signal) => heard.set(c, hostLog(heard.get(c) ?? [], signal)));
       }
     };
     /** what the world views drawn on a page list of what they heard */

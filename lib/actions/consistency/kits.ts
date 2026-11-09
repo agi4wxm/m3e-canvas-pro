@@ -129,7 +129,25 @@ export type RnRow = KitRow & {
   initial: string;
   /** the screens that need a session, and the sign-in screen, by key (the app's routes guard them) */
   auth: Record<string, "required" | "login">;
+  /** the screens marked as layers, by key (docs/交互规则.md “分层”): the layer each is laid over as, the HUDs each screen's
+   *  route draws over it, the dialogs that pause the worlds (the app's routes say so: lib/export/targets/mobile.ts) */
+  layers: { of: Record<string, "hud" | "dialog" | "toast">; over: Record<string, string[]>; pauses: string[] };
 };
+
+/** what the routes of a printed app know of its screens in layers, by key */
+function layersOf(doc: Doc, keys: Record<string, string>): RnRow["layers"] {
+  const out: RnRow["layers"] = { of: {}, over: {}, pauses: [] };
+  const keyOf = new Map(Object.entries(keys).map(([k, id]) => [id, k]));
+  for (const f of doc.frames) {
+    const k = keyOf.get(f.id);
+    if (!k || (f.layer !== "hud" && f.layer !== "dialog" && f.layer !== "toast")) continue;
+    out.of[k] = f.layer;
+    const page = f.layer === "hud" && f.over ? keyOf.get(f.over) : undefined;
+    if (page) out.over[page] = [...(out.over[page] ?? []), k];
+    if (f.layer === "dialog" && f.pauses) out.pauses.push(k);
+  }
+  return out;
+}
 
 /** Every file of the table in the React Native kit's test bed (rn/__tests__/table), by its path from the repo's root.
  *  Each row is the exported phone app's own code for its design (lib/export/targets/mobile.ts): its screens, its
@@ -183,7 +201,8 @@ export const fileName = (f: { name?: string } | undefined) => f?.name ?? "";
     const printed = printRnScreens(doc, {}, { kitImport: "../../kit", runtime: { bind: "../bind" } });
     files[`${dir}/screens/index.ts`] = screensIndex(printed);
     const auth = Object.fromEntries(printed.screens.flatMap((s) => (s.auth ? [[s.key, s.auth] as const] : [])));
-    rows.push({ ...kitRow(row, doc, Object.fromEntries(printed.screens.map((s) => [s.key, s.id]))), appVars: printed.vars, hidden: printed.hidden, triggers: printed.triggers, initial: printed.initial, auth });
+    const keys = Object.fromEntries(printed.screens.map((s) => [s.key, s.id]));
+    rows.push({ ...kitRow(row, doc, keys), appVars: printed.vars, hidden: printed.hidden, triggers: printed.triggers, initial: printed.initial, auth, layers: layersOf(doc, keys) });
   }
   files[`${at}/rows.ts`] = `${head}
 import type { KitRow } from "./types";
@@ -196,6 +215,7 @@ export const ROWS: (KitRow & {
   triggers: string[];
   initial: string;
   auth: Record<string, "required" | "login">;
+  layers: { of: Record<string, "hud" | "dialog" | "toast">; over: Record<string, string[]>; pauses: string[] };
 })[] = ${json(rows)};
 `;
   return files;

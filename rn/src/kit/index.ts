@@ -10,10 +10,10 @@ export { ButtonGroup, DatePicker, Menu, SegmentedButton, Select, TextField, Time
 export { Accordion, CodeBlock, FileUpload, IconGrid, InputGroup, RadioGroup, Scene, Sidebar } from "./composites/more";
 export { ActionSheet, AlertDialog, Dialog, Sheet } from "./composites/overlays";
 export { Placeholder } from "./Placeholder";
-export { At, NavProvider, OnShowProvider, OverlayFrame, Pin, Screen, ScreenStack, moved, movesSoFar, screenShown, useNav, useOnShow, type BackOptions, type GoOptions, type Nav, type ScreenComponent } from "./runtime";
-export { AppProvider, SnackHost, eventOf, optionOf, rowsOf, slotTaps, useAct, useAfter, useApp, type Action, type ActionBody, type AppState, type AppVar, type Condition, type Effect, type EventFields, type Here, type Interpreter, type KitHost, type Reader, type Scope, type ScreenParts, type VarValue } from "./app";
+export { At, LaidProvider, NavProvider, OnShowProvider, OverlayFrame, Pin, Screen, ScreenStack, moved, movesSoFar, screenShown, useNav, useOnShow, type BackOptions, type GoOptions, type Nav, type ScreenComponent } from "./runtime";
+export { AppProvider, Laid, SnackHost, eventOf, optionOf, rowsOf, slotTaps, useAct, useAfter, useApp, type Action, type ActionBody, type AppState, type AppVar, type Condition, type Effect, type EventFields, type Here, type Interpreter, type KitHost, type LaidLayer, type Reader, type Scope, type ScreenParts, type VarValue } from "./app";
 export { Repeat, type RepeatProps } from "./list";
-export { WorldStandIn, createWorldChannels, entitiesOf, inputLog, inputWords, vectorOf, type WorldChannel, type WorldChannels, type WorldEntity, type WorldInput, type WorldStandInProps } from "./world";
+export { WorldStandIn, createWorldChannels, entitiesOf, hostLog, inputLog, inputWords, vectorOf, type WorldChannel, type HostSignal, type WorldChannels, type WorldEntity, type WorldInput, type WorldRect, type WorldStandInProps } from "./world";
 export { SplitView, type SplitViewProps } from "./split";
 export { dateOfValue, dayOf, timeOf, usePicker } from "./picker";
 export { Glyph, glyphFor, hasGlyph, registerIcons, type IconData } from "./icons/Icon";

@@ -1,12 +1,13 @@
 /* The table's reference host: the smallest app the interpreter can run in, kept as plain state (a stack of screens and
- * an overlay, the variables, what is shown and open, what was typed, the session, the snackbar) over a row's document.
+ * the layers laid over the page, the variables, what is shown and open, what was typed, the session, the snackbar) over a row's document.
  * It is what the interpreter's own run of the table uses, and a model of what every host's side of `Host` has to do. */
 
 import { endpointOf, formFields, paramsOf } from "../../bindings/contract";
 import { eventAction, eventsOf, payloadOf, slotAction } from "../../partContract";
-import { groupsInFrame, type Doc, type Frame, type Group, type Item } from "../../tokens";
+import { frameOfPart, groupsInFrame, type Doc, type Frame, type Group, type Item } from "../../tokens";
 import type { BackOptions, CallArgs, Change, FormRef, GoOptions, Host, InvokeOutcome, Outcome, Tap, WorldInput } from "../host";
-import { inputLog } from "../../world/channel";
+import { createWorlds, hostLog, inputLog } from "../../world/channel";
+import { closeTop, covers, inputFloor, laidAs, layOver, pausesWorld, standingWith, stood, type Layer } from "../../world/layers";
 import type { FailureKind } from "../../capabilities/types";
 import type { VarValue } from "../model";
 import { run, startOf } from "../run";
@@ -23,14 +24,15 @@ export const wordsOf = (it: Item): string => {
   const p = (it.props ?? {}) as Record<string, unknown>;
   /* a number pad by its confirm button, a group of buttons by its first */
   const first = Array.isArray(p.items) ? (p.items[0] as { label?: unknown } | undefined)?.label : undefined;
-  const w = p.label ?? p.text ?? p.headline ?? p.placeholder ?? (it.component === "number-pad" ? p.action : it.component === "button-group" ? first : undefined);
+  const w = p.label ?? p.text ?? p.headline ?? p.title ?? p.placeholder ?? (it.component === "number-pad" ? p.action : it.component === "button-group" ? first : undefined);
   return typeof w === "string" ? w : "";
 };
 
 export class ReferenceHost implements Host {
   vars: Record<string, VarValue>;
   stack: Entry[];
-  overlay: Entry | null = null;
+  /** the screens the visitor laid over the page, bottom up (docs/交互规则.md “分层”): HUDs, dialogs, toasts, an overlay */
+  laid: Layer<Entry>[] = [];
   hidden: Record<string, boolean> = {};
   opened: Record<string, boolean> = {};
   props: Record<string, Record<string, VarValue>> = {};
@@ -39,8 +41,10 @@ export class ReferenceHost implements Host {
   signedIn = false;
   /** the last screen move */
   move: Move | undefined;
-  /** what each world view's stand-in lists of the inputs it heard, by its item id */
+  /** what each world view's stand-in lists of the inputs it heard, and of what the host told it, by its item id */
   heard: Record<string, string[]> = {};
+  /** the world views' channels: the inputs go there, as in every host, and so does what the layers tell the worlds */
+  private readonly worlds = createWorlds();
   private epoch = 0;
   private count = 0;
   private sending = new Set<string>();
@@ -54,6 +58,14 @@ export class ReferenceHost implements Host {
     this.vars = Object.fromEntries((doc.vars ?? []).map((v) => [v.id, v.value]));
     this.stack = [{ id: doc.frames[0].id }];
     for (const g of doc.groups) for (const it of g.items) this.groupOfItem.set(it.id, g);
+    /* a world view's stand-in lists what its channel brings: the inputs, and what the host tells the world */
+    for (const g of doc.groups)
+      for (const it of g.items)
+        if (it.component === "world-view") {
+          const c = this.worlds.channel(it.id);
+          c.listen((action, value) => (this.heard = { ...this.heard, [it.id]: inputLog(this.heard[it.id] ?? [], action, value) }));
+          c.watch?.((signal) => (this.heard = { ...this.heard, [it.id]: hostLog(this.heard[it.id] ?? [], signal) }));
+        }
     this.inUse();
   }
 
@@ -61,6 +73,24 @@ export class ReferenceHost implements Host {
 
   private frame = (id: string): Frame | undefined => this.doc.frames.find((f) => f.id === id);
   private top = () => this.stack[this.stack.length - 1];
+  /** what stands over the page on show, bottom up: the HUDs that stand with it, then what was laid over it */
+  private layers = (): Layer<Entry>[] => stood(standingWith(this.doc.frames, this.top().id).map((f) => ({ id: f.id })), this.laid);
+  /** the screens on show, bottom up: the page, then its layers */
+  private onShow = (): Entry[] => [this.top(), ...this.layers().map((l) => l.entry)];
+  /** the screens that take input now, top down: the layers above the topmost modal one (or all of them and the page) */
+  private inputOrder = (): Entry[] => {
+    const layers = this.layers();
+    const floor = inputFloor(layers);
+    return [...layers.slice(Math.max(0, floor)).map((l) => l.entry), ...(floor < 0 ? [this.top()] : [])].reverse();
+  };
+  /** the part with these words on the topmost screen that takes input, with its screen */
+  private find(words: string): { it: Item; on: Entry } {
+    for (const on of this.inputOrder()) {
+      const it = this.partsOn(on.id).find((x) => wordsOf(x) === words);
+      if (it) return { it, on };
+    }
+    throw new Error(`no words "${words}" on show`);
+  }
   private groupsOn = (id: string) => {
     const f = this.frame(id);
     return f ? groupsInFrame(this.doc.groups, f, this.doc.frames, {}) : [];
@@ -73,7 +103,7 @@ export class ReferenceHost implements Host {
 
   observe(): Observed {
     const words: string[] = [];
-    for (const on of [this.top().id, ...(this.overlay ? [this.overlay.id] : [])])
+    for (const on of this.onShow().map((e) => e.id))
       for (const it of this.partsOn(on)) {
         const set = this.props[it.id];
         words.push(typeof set?.text === "string" ? set.text : typeof set?.label === "string" ? set.label : wordsOf(it));
@@ -84,7 +114,7 @@ export class ReferenceHost implements Host {
     return { vars: { ...this.vars }, words, toast: this.snack, screen: this.top().id, calls: this.backend.calls, ...(this.move ? { move: this.move } : {}) };
   }
 
-  /** the tap on the part with these words, on the overlay if one is up, else the screen on show; what it starts is
+  /** the tap on the part with these words, on the topmost screen that takes input (a layer over the page, the page); what it starts is
    *  left to run (an answer may be held) */
   tap(words: string) {
     this.start(words, "tap");
@@ -97,18 +127,14 @@ export class ReferenceHost implements Host {
 
   /** a tap on a place of the part: its own action, else its family's, which reads the place as `slot` */
   tapSlot(words: string, slot: string) {
-    const on = this.overlay ?? this.top();
-    const it = this.partsOn(on.id).find((x) => wordsOf(x) === words);
-    if (!it) throw new Error(`no words "${words}" on show`);
+    const { it, on } = this.find(words);
     const wired = slotAction(it, slot);
     if (wired) this.runOn(it, on, wired.action, wired.scope?.slot ? { slot: wired.scope.slot } : {});
   }
 
   /** the part sends one of its events: what it declares of the payload is what the action reads as `event` */
   emit(words: string, name: string, payload?: Record<string, unknown>) {
-    const on = this.overlay ?? this.top();
-    const it = this.partsOn(on.id).find((x) => wordsOf(x) === words);
-    if (!it) throw new Error(`no words "${words}" on show`);
+    const { it, on } = this.find(words);
     const declared = eventsOf(it).find((e) => e.name === name);
     const a = eventAction(it, name);
     if (declared && a) this.runOn(it, on, a, { event: payloadOf(declared, payload) });
@@ -116,9 +142,7 @@ export class ReferenceHost implements Host {
 
   /** the part's action, if it starts this way (a part whose action starts on a hover does nothing on a tap) */
   private start(words: string, how: "tap" | "hover") {
-    const on = this.overlay ?? this.top();
-    const it = this.partsOn(on.id).find((x) => wordsOf(x) === words);
-    if (!it) throw new Error(`no words "${words}" on show`);
+    const { it, on } = this.find(words);
     if (it.action && startOf(it.action, { pointer: true }).on === how) this.runOn(it, on);
   }
 
@@ -134,7 +158,7 @@ export class ReferenceHost implements Host {
   /** the subscriptions open on the screens on show, by screen and name: what each is asked with, what it has kept */
   private listening = new Map<string, { key: string; close: () => void; state: ChannelState; live: boolean }>();
 
-  /** The subscriptions of the screens on show (the top of the stack, the overlay over it) are open; one asked with
+  /** The subscriptions of the screens on show (the top of the stack, the layers over it) are open; one asked with
    *  another address is opened again afresh, one of a screen gone is closed. `fresh` closes every one first (a restart). */
   private listen(fresh = false) {
     const wanted = new Set<string>();
@@ -146,7 +170,7 @@ export class ReferenceHost implements Host {
       this.listening.delete(k);
     };
     if (fresh) for (const k of this.listening.keys()) close(k);
-    for (const on of [this.top(), ...(this.overlay ? [this.overlay] : [])]) {
+    for (const on of this.onShow()) {
       for (const sub of this.frame(on.id)?.subscriptions ?? []) {
         const tap: Tap = { screen: on.id, ...(on.params ? { params: on.params } : {}) };
         const spec = channelSpecOf(this.doc.api ?? {}, sub, this.scope(tap), this.ctx());
@@ -183,11 +207,25 @@ export class ReferenceHost implements Host {
   private inUse() {
     this.listen();
     for (const t of this.timers) clearTimeout(t);
-    const on = this.overlay ?? this.top();
-    this.timers = this.partsOn(on.id).flatMap((it) => {
-      const s = startOf(it.action, { pointer: true });
-      return s.on === "delay" ? [setTimeout(() => this.runOn(it, on), s.ms)] : [];
+    this.timers = this.inputOrder().flatMap((on) =>
+      this.partsOn(on.id).flatMap((it) => {
+        const s = startOf(it.action, { pointer: true });
+        return s.on === "delay" ? [setTimeout(() => this.runOn(it, on), s.ms)] : [];
+      }),
+    );
+  }
+
+  /** What the layers tell the worlds under them (lib/world/layers.ts): covered while a modal layer or an overlay part is
+   *  up (what they hold let go, nothing more sent), asked to pause while a dialog that pauses is. */
+  private told() {
+    const layers = this.layers();
+    const shown = new Set(this.onShow().map((e) => e.id));
+    const overlayOpen = Object.entries(this.opened).some(([part, on]) => {
+      const g = this.groupOfItem.get(part);
+      return on && !!g && shown.has(frameOfPart(g, this.doc.groups, this.doc.frames, {})?.id ?? "");
     });
+    this.worlds.cover(covers(layers, overlayOpen));
+    this.worlds.pause(pausesWorld(layers, (e) => !!this.frame(e.id)?.pauses, overlayOpen));
   }
 
   /** stops what is timed: the run is over */
@@ -197,8 +235,7 @@ export class ReferenceHost implements Host {
   }
 
   type(words: string, value: string) {
-    const it = this.partsOn((this.overlay ?? this.top()).id).find((x) => wordsOf(x) === words);
-    if (!it) throw new Error(`no field with the words "${words}"`);
+    const { it } = this.find(words);
     this.fields[it.id] = value;
   }
 
@@ -283,6 +320,7 @@ export class ReferenceHost implements Host {
     /* an overlay with no trigger of its own stands only while it is open */
     const it = g.items.find((x) => x.id === part);
     if (on || it?.component !== "dropdown-menu") this.hidden = { ...this.hidden, [g.id]: !on };
+    this.told();
   }
 
   setProp(part: string, prop: string, value: VarValue) {
@@ -295,7 +333,7 @@ export class ReferenceHost implements Host {
 
   /** an input for a world view: its channel delivers it at once, and its stand-in lists it */
   worldInput(part: string, action: string, value: WorldInput) {
-    this.heard = { ...this.heard, [part]: inputLog(this.heard[part] ?? [], action, value) };
+    this.worlds.send(part, action, value);
   }
 
   go(to: string, o: Pick<GoOptions, "overlay" | "params" | "motion">) {
@@ -305,28 +343,35 @@ export class ReferenceHost implements Host {
     const login = this.doc.frames.find((x) => x.auth === "login");
     if (f.auth === "required" && !this.signedIn && login && login.id !== to) {
       this.returnTo = { id: to, ...(o.params ? { params: o.params } : {}) };
-      this.overlay = null;
+      this.laid = [];
       this.stack = [...this.stack, { id: login.id }];
       return;
     }
-    if (o.overlay) {
-      this.overlay = { id: to, ...(o.params ? { params: o.params } : {}) };
+    /* a HUD, a dialog, a toast, or a screen the action lays over: over the page, which stays (docs/交互规则.md “分层”) */
+    const laid = laidAs(f.layer, o.overlay);
+    if (laid) {
+      this.laid = layOver(this.laid, { layer: laid, entry: { id: to, ...(o.params ? { params: o.params } : {}) } }, (a, b) => a.id === b.id);
+      this.told();
       return;
     }
-    this.overlay = null;
+    /* a page takes the place of the one on show, and what was laid over that goes with it */
+    this.laid = [];
     const motion = o.motion?.kind;
     this.move = { back: false, motion: motion ?? "none" };
     this.stack = [...this.stack, { id: to, ...(o.params ? { params: o.params } : {}), ...(motion ? { motion } : {}) }];
+    this.told();
   }
 
-  /** back: an overlay closes; else the screen goes as the back action's motion says, played backwards, or the way it came */
+  /** back: the topmost layer laid over the page closes; else the screen goes as the back action's motion says, played backwards, or the way it came */
   back(o?: BackOptions) {
     this.moved();
-    if (this.overlay) this.overlay = null;
+    /* the topmost screen laid over the page closes first; a HUD that stands with the page goes with the page */
+    if (this.laid.length) this.laid = closeTop(this.laid);
     else if (this.stack.length > 1) {
       this.move = { back: true, motion: o?.motion?.kind ?? this.top().motion ?? "none" };
       this.stack = this.stack.slice(0, -1);
     }
+    this.told();
   }
 
   openLink() {}
@@ -400,7 +445,7 @@ export class ReferenceHost implements Host {
     if (login && this.frame(this.top().id)?.auth === "required") {
       this.moved();
       this.returnTo = null;
-      this.overlay = null;
+      this.laid = [];
       this.stack = [...this.stack, { id: login.id }];
     }
   }
@@ -421,6 +466,9 @@ export class ReferenceHost implements Host {
   /** a move: counted, and the screen it leaves in use starts what it times (done once the move is made) */
   private moved() {
     this.count++;
-    queueMicrotask(() => this.inUse());
+    queueMicrotask(() => {
+      this.told();
+      this.inUse();
+    });
   }
 }

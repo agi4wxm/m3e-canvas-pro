@@ -10,7 +10,7 @@ import { cleanCapabilities } from "./capabilities/clean";
 import { fitsType, startValueOf } from "./variables";
 import { cleanMotion, cleanTrigger } from "./prototype";
 import { H_CONSTRAINTS, V_CONSTRAINTS } from "./constraints";
-import { COLOR_TOKENS, type Action, type ActionBody, Collection, ComponentDef, ComponentProp, ComponentSet, Condition, VarCollection, Doc, DocVar, Effect, Frame, Group, Item, Palette, VARIANTS, VarValue, isPlace, isTextToken } from "./tokens";
+import { COLOR_TOKENS, SCREEN_LAYERS, type Action, type ActionBody, Collection, ComponentDef, ComponentProp, ComponentSet, Condition, VarCollection, Doc, DocVar, Effect, Frame, Group, Item, Palette, VARIANTS, VarValue, isPlace, isTextToken } from "./tokens";
 import { cleanDataSources, cleanExpr, cleanExprMap, cleanForm, cleanRegion, cleanScreenParams, cleanSubscriptions } from "./bindings/clean";
 import { BARE_VERSION, PROJECT_VERSION, migrate, versionOf, type Migration } from "./migrations";
 import { fields, withUnknown } from "./keep";
@@ -282,6 +282,7 @@ const cleanItem = (it: Item) =>
     scope: () => undefined,
     constraints: cleanConstraints,
     field: (v) => (typeof v === "string" && v && v.length <= 200 ? v : undefined),
+    occlude: (v) => (typeof v === "boolean" ? v : undefined),
   }) as unknown as Item;
 
 const cleanOverrides = (map: unknown) => (isRecord(map) ? Object.fromEntries(Object.entries(map).filter(([, v]) => isValue(v))) : undefined);
@@ -341,6 +342,10 @@ const cleanFrame = (f: Frame) =>
     subscriptions: (v) => cleanSubscriptions(v, (a) => cleanAction(a) as Action | undefined, (cleanDataSources(f.data) ?? []).map((d) => d.name)),
     params: cleanScreenParams,
     auth: (v) => (v === "required" || v === "login" ? v : undefined),
+    /* a layer of the ones there are; a HUD stands over another screen, never itself; only a dialog pauses */
+    layer: (v) => ((SCREEN_LAYERS as readonly unknown[]).includes(v) ? v : undefined),
+    over: (v) => (typeof v === "string" && v && v !== f.id && f.layer === "hud" ? v : undefined),
+    pauses: (v) => (v === true && f.layer === "dialog" ? v : undefined),
   }) as unknown as Frame;
 
 /** A scheme of the author's own: colors, and only colors, since every one of them is painted with and printed.

@@ -192,6 +192,7 @@ export function outline(doc: Doc, widths: Widths, o: OutlineOptions = {}): strin
       n.kit ? `kit ${n.kit}` : "",
       n.locked ? "locked" : "",
       n.hidden ? "hidden" : "",
+      it?.occlude !== undefined ? (it.occlude ? "occludes the world" : "lets touches through") : "",
       g?.showWhen ? ("expr" in g.showWhen ? `showWhen ${clip(g.showWhen.expr, 40)}` : "showWhen") : "",
       g?.repeat ? `repeats ${g.repeat.data ?? g.repeat.collection}` : "",
       g?.states ? `region of ${g.states.source ?? "no source"}${g.states.show ? `, showing ${g.states.show}` : ""}` : "",
@@ -210,6 +211,7 @@ export function outline(doc: Doc, widths: Widths, o: OutlineOptions = {}): strin
       f.data?.length ? `data ${f.data.map((d) => `${d.name}=${d.operationId}`).join(", ")}` : "",
       f.params?.length ? `params ${f.params.map((p) => p.name).join(", ")}` : "",
       f.auth ? `auth ${f.auth}` : "",
+      f.layer ? `layer ${f.layer}${f.over ? ` over ${f.over}` : ""}${f.pauses ? ", pauses the world" : ""}` : "",
     ].filter(Boolean);
     lines.push(`## screen ${s.id} "${s.name}" ${s.w}×${s.h}${s.length > s.h ? ` scrolls to ${s.length}` : ""}${f.bg ? ` bg=${f.bg}` : ""}${f.variantOf ? ` size of ${f.variantOf}` : ""}${bound.length ? ` [${bound.join("; ")}]` : ""}${f.note ? ` — ${clip(f.note, 80)}` : ""}`);
     for (const n of s.nodes) walk(n, 1);

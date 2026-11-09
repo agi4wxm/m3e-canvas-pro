@@ -22,7 +22,7 @@ const REPO = fileURLToPath(new URL("../", import.meta.url));
 const code = readFileSync(join(REPO, RUNTIME_TEMPLATE), "utf8");
 
 /** the configuration the file is written in */
-const REFERENCE = { proto: true, overlay: true, scroll: true, hover: true, delay: true, modes: true, boundFields: true, flows: true, product: true, page: true, varNames: true, colorMode: true, acts: true, families: true, worlds: true, exprs: false, dark: false, mocks: false };
+const REFERENCE = { proto: true, overlay: true, scroll: true, hover: true, delay: true, modes: true, boundFields: true, flows: true, product: true, page: true, varNames: true, colorMode: true, acts: true, families: true, worlds: true, layers: true, exprs: false, dark: false, mocks: false };
 
 describe("the web app's runtime as it stands in the repo", () => {
   it("names exactly the flags the export gives it", () => {
@@ -61,6 +61,7 @@ const acts = { parts: { menu: { overlay: "menu" as const }, card: { shows: "card
 const proto = { overlay: true, scroll: true, hover: true, delay: true };
 const modes = { collections: ["theme"], screens: { home: { theme: ["light", "dark"] as [string, string] }, login: { theme: ["light", "light"] as [string, string] } }, values: { count: { collection: "theme", values: { light: 1, dark: 2 } } }, bound: [{ key: "count", css: "count", kind: "number" as const }], followsDark: true };
 const bound = { runtime: "@m3e/app-runtime", params: { home: [{ name: "id", type: "string", example: "7" }] }, auth: ["home"], signIn: "login", login: "signIn" };
+const layers = { of: { login: "dialog" as const }, over: { home: ["login"] }, pauses: ["login"], covers: { login: [{ x: 0, y: 0, w: 40, h: 40 }] }, worlds: { home: [{ part: "arena", x: 0, y: 100, w: 360, h: 240 }] } };
 const darkVars = [...base.vars, { key: "night", type: "bool" as const, start: false }];
 
 /** the configurations: synthetic ones that cross the features, and the fixtures' own */
@@ -75,6 +76,11 @@ function configurations(): Record<string, RuntimeSpec> {
     "a prototype whose taps reach a world view": { ...base, worlds: true, acts, exprs: { vars: {} } },
     "a prototype that draws a world view and has no taps": { ...base, worlds: true },
     "a product whose taps reach a world view": { ...base, worlds: true, bound, acts, exprs: { vars: {} } },
+    "a prototype in layers over a world, with taps and moves": { ...base, worlds: true, overlayOn: { menu: "home" }, layers, proto, acts, exprs: { vars: {} } },
+    "a prototype in layers, no world, no moves": { ...base, layers: { ...layers, covers: {}, worlds: {} }, acts, exprs: { vars: {} } },
+    "a prototype in layers that draws a world and has no taps": { ...base, worlds: true, layers },
+    "a product in layers over a world": { ...base, worlds: true, overlayOn: { menu: "home" }, layers, bound, acts, proto, exprs: { vars: {} } },
+    "a product in layers, no moves": { ...base, layers, worlds: true, bound, acts, exprs: { vars: {} } },
     "a prototype in modes, taps but no overlay": { ...base, families: true, proto: { overlay: false, scroll: false, hover: false, delay: true }, modes, acts, exprs: { vars: { count: ["Count"] } } },
     "a prototype with bound fields and no collections": { ...base, modes: { ...modes, collections: [], screens: {}, values: {}, followsDark: false } },
     "a product with no taps": { ...base, bound, exprs: { vars: {} } },

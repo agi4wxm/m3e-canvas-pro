@@ -52,8 +52,11 @@ export type { Host as ActionHost, Tap, Outcome, CallArgs, Change, FormRef, GoOpt
 export type { Action, ActionBody, Effect, Condition } from "../actions/model";
 /* The world views (lib/world, docs/边界与契约.md “实时玩法”): the channel each one's input actions come in on, its
  * contract with an engine, and M3E's example engine */
-export { createWorlds, inputLog, inputWords, QUIET_CHANNEL, type Worlds } from "../world/channel";
+export { createWorlds, hostLog, hostWords, inputLog, inputWords, QUIET_CHANNEL, type Worlds } from "../world/channel";
 export { connectWorld, createExampleWorld, type ExampleWorld, type ExampleWorldOptions } from "../world/example";
 export { EXAMPLE_WORLD_CONTRACT, contractInputs, type WorldContract, type WorldSchema } from "../world/contract";
-export { WORLD_HOST_CONTRACT, WORLD_LIFECYCLE, type InputPriority, type OverlayPolicy, type PausePolicy, type WorldHostContract, type WorldLifecycleStep } from "../world/hostContract";
-export { WORLD_EVENTS, type Vec2, type World, type WorldChannel, type WorldClock, type WorldEntity, type WorldInputDecl, type WorldInputType, type WorldEventName, type WorldEvents, type WorldInput, type WorldListener, type WorldPointer, type WorldRect, type WorldSlotProps, type WorldState, type WorldStatus } from "../world/types";
+export { SCREEN_LAYERS, WORLD_HOST_CONTRACT, WORLD_LIFECYCLE, type InputPriority, type LayerInput, type LayerPolicy, type OverlayPolicy, type PausePolicy, type ScreenLayer, type WorldHostContract, type WorldLifecycleStep } from "../world/hostContract";
+/* screens in layers over a world (docs/交互规则.md “分层”): what opening and going back do to them, which take input,
+ * when the worlds under them are let go of and paused, what of a HUD covers a world, where a pointer goes */
+export { LAID_RANK, closeTop, covers, createPointerRouter, inputFloor, isModal, laidAs, layOver, layerInput, occlusionOf, pausesWorld, pointerOwner, sameRects, standingWith, stood, takesInput, type Box, type Laid, type Layer, type LayeredScreen, type PointerOwner, type PointerStage } from "../world/layers";
+export { WORLD_EVENTS, type Vec2, type World, type WorldChannel, type WorldClock, type WorldEntity, type WorldInputDecl, type WorldInputType, type WorldEventName, type WorldEvents, type HostSignal, type WorldInput, type WorldListener, type WorldPointer, type WorldRect, type WorldSlotProps, type WorldState, type WorldStatus } from "../world/types";

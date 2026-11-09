@@ -9,6 +9,7 @@ export const ROWS: (KitRow & {
   triggers: string[];
   initial: string;
   auth: Record<string, "required" | "login">;
+  layers: { of: Record<string, "hud" | "dialog" | "toast">; over: Record<string, string[]>; pauses: string[] };
 })[] = [
  {
   "id": "order-setvar-then-call",
@@ -52,7 +53,12 @@ export const ROWS: (KitRow & {
   "hidden": [],
   "triggers": [],
   "initial": "Home",
-  "auth": {}
+  "auth": {},
+  "layers": {
+   "of": {},
+   "over": {},
+   "pauses": []
+  }
  },
  {
   "id": "order-call-then-setvar",
@@ -96,7 +102,12 @@ export const ROWS: (KitRow & {
   "hidden": [],
   "triggers": [],
   "initial": "Home",
-  "auth": {}
+  "auth": {},
+  "layers": {
+   "of": {},
+   "over": {},
+   "pauses": []
+  }
  },
  {
   "id": "order-local-reads-previous",
@@ -137,7 +148,12 @@ export const ROWS: (KitRow & {
   "hidden": [],
   "triggers": [],
   "initial": "Home",
-  "auth": {}
+  "auth": {},
+  "layers": {
+   "of": {},
+   "over": {},
+   "pauses": []
+  }
  },
  {
   "id": "order-nav-params-after-effects",
@@ -176,7 +192,12 @@ export const ROWS: (KitRow & {
   "hidden": [],
   "triggers": [],
   "initial": "Home",
-  "auth": {}
+  "auth": {},
+  "layers": {
+   "of": {},
+   "over": {},
+   "pauses": []
+  }
  },
  {
   "id": "order-call-not-awaited",
@@ -223,7 +244,12 @@ export const ROWS: (KitRow & {
   "hidden": [],
   "triggers": [],
   "initial": "Home",
-  "auth": {}
+  "auth": {},
+  "layers": {
+   "of": {},
+   "over": {},
+   "pauses": []
+  }
  },
  {
   "id": "cond-var-else",
@@ -263,7 +289,12 @@ export const ROWS: (KitRow & {
   "hidden": [],
   "triggers": [],
   "initial": "Home",
-  "auth": {}
+  "auth": {},
+  "layers": {
+   "of": {},
+   "over": {},
+   "pauses": []
+  }
  },
  {
   "id": "cond-expr-unreadable",
@@ -296,7 +327,12 @@ export const ROWS: (KitRow & {
   "hidden": [],
   "triggers": [],
   "initial": "Home",
-  "auth": {}
+  "auth": {},
+  "layers": {
+   "of": {},
+   "over": {},
+   "pauses": []
+  }
  },
  {
   "id": "cond-expr-holds",
@@ -336,7 +372,12 @@ export const ROWS: (KitRow & {
   "hidden": [],
   "triggers": [],
   "initial": "Home",
-  "auth": {}
+  "auth": {},
+  "layers": {
+   "of": {},
+   "over": {},
+   "pauses": []
+  }
  },
  {
   "id": "cond-filled",
@@ -373,7 +414,12 @@ export const ROWS: (KitRow & {
   "hidden": [],
   "triggers": [],
   "initial": "Home",
-  "auth": {}
+  "auth": {},
+  "layers": {
+   "of": {},
+   "over": {},
+   "pauses": []
+  }
  },
  {
   "id": "cond-filled-form-field",
@@ -410,7 +456,12 @@ export const ROWS: (KitRow & {
   "hidden": [],
   "triggers": [],
   "initial": "Home",
-  "auth": {}
+  "auth": {},
+  "layers": {
+   "of": {},
+   "over": {},
+   "pauses": []
+  }
  },
  {
   "id": "trigger-delay",
@@ -433,7 +484,12 @@ export const ROWS: (KitRow & {
   "hidden": [],
   "triggers": [],
   "initial": "Home",
-  "auth": {}
+  "auth": {},
+  "layers": {
+   "of": {},
+   "over": {},
+   "pauses": []
+  }
  },
  {
   "id": "trigger-hover",
@@ -455,7 +511,12 @@ export const ROWS: (KitRow & {
   "hidden": [],
   "triggers": [],
   "initial": "Home",
-  "auth": {}
+  "auth": {},
+  "layers": {
+   "of": {},
+   "over": {},
+   "pauses": []
+  }
  },
  {
   "id": "event-runs-action",
@@ -494,7 +555,12 @@ export const ROWS: (KitRow & {
   "hidden": [],
   "triggers": [],
   "initial": "Home",
-  "auth": {}
+  "auth": {},
+  "layers": {
+   "of": {},
+   "over": {},
+   "pauses": []
+  }
  },
  {
   "id": "family-runs-action",
@@ -540,7 +606,12 @@ export const ROWS: (KitRow & {
   "hidden": [],
   "triggers": [],
   "initial": "Home",
-  "auth": {}
+  "auth": {},
+  "layers": {
+   "of": {},
+   "over": {},
+   "pauses": []
+  }
  },
  {
   "id": "family-entry-added-later",
@@ -574,7 +645,12 @@ export const ROWS: (KitRow & {
   "hidden": [],
   "triggers": [],
   "initial": "Home",
-  "auth": {}
+  "auth": {},
+  "layers": {
+   "of": {},
+   "over": {},
+   "pauses": []
+  }
  },
  {
   "id": "hide-visible",
@@ -599,7 +675,12 @@ export const ROWS: (KitRow & {
   "hidden": [],
   "triggers": [],
   "initial": "Home",
-  "auth": {}
+  "auth": {},
+  "layers": {
+   "of": {},
+   "over": {},
+   "pauses": []
+  }
  },
  {
   "id": "show-hidden",
@@ -625,7 +706,12 @@ export const ROWS: (KitRow & {
   ],
   "triggers": [],
   "initial": "Home",
-  "auth": {}
+  "auth": {},
+  "layers": {
+   "of": {},
+   "over": {},
+   "pauses": []
+  }
  },
  {
   "id": "toggle-twice",
@@ -652,7 +738,12 @@ export const ROWS: (KitRow & {
   "hidden": [],
   "triggers": [],
   "initial": "Home",
-  "auth": {}
+  "auth": {},
+  "layers": {
+   "of": {},
+   "over": {},
+   "pauses": []
+  }
  },
  {
   "id": "close-menu-keeps-trigger",
@@ -682,7 +773,12 @@ export const ROWS: (KitRow & {
    "n2"
   ],
   "initial": "Home",
-  "auth": {}
+  "auth": {},
+  "layers": {
+   "of": {},
+   "over": {},
+   "pauses": []
+  }
  },
  {
   "id": "open-menu",
@@ -709,7 +805,12 @@ export const ROWS: (KitRow & {
    "n2"
   ],
   "initial": "Home",
-  "auth": {}
+  "auth": {},
+  "layers": {
+   "of": {},
+   "over": {},
+   "pauses": []
+  }
  },
  {
   "id": "setvar-expr",
@@ -756,7 +857,12 @@ export const ROWS: (KitRow & {
   "hidden": [],
   "triggers": [],
   "initial": "Home",
-  "auth": {}
+  "auth": {},
+  "layers": {
+   "of": {},
+   "over": {},
+   "pauses": []
+  }
  },
  {
   "id": "setvar-coerce",
@@ -789,7 +895,12 @@ export const ROWS: (KitRow & {
   "hidden": [],
   "triggers": [],
   "initial": "Home",
-  "auth": {}
+  "auth": {},
+  "layers": {
+   "of": {},
+   "over": {},
+   "pauses": []
+  }
  },
  {
   "id": "addvar-tenths",
@@ -828,7 +939,12 @@ export const ROWS: (KitRow & {
   "hidden": [],
   "triggers": [],
   "initial": "Home",
-  "auth": {}
+  "auth": {},
+  "layers": {
+   "of": {},
+   "over": {},
+   "pauses": []
+  }
  },
  {
   "id": "togglevar",
@@ -861,7 +977,12 @@ export const ROWS: (KitRow & {
   "hidden": [],
   "triggers": [],
   "initial": "Home",
-  "auth": {}
+  "auth": {},
+  "layers": {
+   "of": {},
+   "over": {},
+   "pauses": []
+  }
  },
  {
   "id": "snackbar-template",
@@ -892,7 +1013,12 @@ export const ROWS: (KitRow & {
   "hidden": [],
   "triggers": [],
   "initial": "Home",
-  "auth": {}
+  "auth": {},
+  "layers": {
+   "of": {},
+   "over": {},
+   "pauses": []
+  }
  },
  {
   "id": "setprop-text",
@@ -917,7 +1043,12 @@ export const ROWS: (KitRow & {
   "hidden": [],
   "triggers": [],
   "initial": "Home",
-  "auth": {}
+  "auth": {},
+  "layers": {
+   "of": {},
+   "over": {},
+   "pauses": []
+  }
  },
  {
   "id": "call-then-response",
@@ -968,7 +1099,12 @@ export const ROWS: (KitRow & {
   "hidden": [],
   "triggers": [],
   "initial": "Home",
-  "auth": {}
+  "auth": {},
+  "layers": {
+   "of": {},
+   "over": {},
+   "pauses": []
+  }
  },
  {
   "id": "call-catch-error",
@@ -999,7 +1135,12 @@ export const ROWS: (KitRow & {
   "hidden": [],
   "triggers": [],
   "initial": "Home",
-  "auth": {}
+  "auth": {},
+  "layers": {
+   "of": {},
+   "over": {},
+   "pauses": []
+  }
  },
  {
   "id": "call-then-branch",
@@ -1043,7 +1184,12 @@ export const ROWS: (KitRow & {
   "hidden": [],
   "triggers": [],
   "initial": "Home",
-  "auth": {}
+  "auth": {},
+  "layers": {
+   "of": {},
+   "over": {},
+   "pauses": []
+  }
  },
  {
   "id": "call-catch-branch",
@@ -1074,7 +1220,12 @@ export const ROWS: (KitRow & {
   "hidden": [],
   "triggers": [],
   "initial": "Home",
-  "auth": {}
+  "auth": {},
+  "layers": {
+   "of": {},
+   "over": {},
+   "pauses": []
+  }
  },
  {
   "id": "call-unauthorized-no-catch",
@@ -1102,7 +1253,12 @@ export const ROWS: (KitRow & {
   "hidden": [],
   "triggers": [],
   "initial": "Home",
-  "auth": {}
+  "auth": {},
+  "layers": {
+   "of": {},
+   "over": {},
+   "pauses": []
+  }
  },
  {
   "id": "call-then-tap-screen",
@@ -1142,7 +1298,12 @@ export const ROWS: (KitRow & {
   "hidden": [],
   "triggers": [],
   "initial": "Home",
-  "auth": {}
+  "auth": {},
+  "layers": {
+   "of": {},
+   "over": {},
+   "pauses": []
+  }
  },
  {
   "id": "call-then-reads-vars-now",
@@ -1195,7 +1356,12 @@ export const ROWS: (KitRow & {
   "hidden": [],
   "triggers": [],
   "initial": "Home",
-  "auth": {}
+  "auth": {},
+  "layers": {
+   "of": {},
+   "over": {},
+   "pauses": []
+  }
  },
  {
   "id": "call-nesting-limit",
@@ -1241,7 +1407,12 @@ export const ROWS: (KitRow & {
   "hidden": [],
   "triggers": [],
   "initial": "Home",
-  "auth": {}
+  "auth": {},
+  "layers": {
+   "of": {},
+   "over": {},
+   "pauses": []
+  }
  },
  {
   "id": "late-restart",
@@ -1287,7 +1458,12 @@ export const ROWS: (KitRow & {
   "hidden": [],
   "triggers": [],
   "initial": "Home",
-  "auth": {}
+  "auth": {},
+  "layers": {
+   "of": {},
+   "over": {},
+   "pauses": []
+  }
  },
  {
   "id": "late-superseded",
@@ -1342,7 +1518,12 @@ export const ROWS: (KitRow & {
   "hidden": [],
   "triggers": [],
   "initial": "Home",
-  "auth": {}
+  "auth": {},
+  "layers": {
+   "of": {},
+   "over": {},
+   "pauses": []
+  }
  },
  {
   "id": "late-moved-then",
@@ -1390,7 +1571,12 @@ export const ROWS: (KitRow & {
   "hidden": [],
   "triggers": [],
   "initial": "Home",
-  "auth": {}
+  "auth": {},
+  "layers": {
+   "of": {},
+   "over": {},
+   "pauses": []
+  }
  },
  {
   "id": "late-moved-catch",
@@ -1427,7 +1613,12 @@ export const ROWS: (KitRow & {
   "hidden": [],
   "triggers": [],
   "initial": "Home",
-  "auth": {}
+  "auth": {},
+  "layers": {
+   "of": {},
+   "over": {},
+   "pauses": []
+  }
  },
  {
   "id": "form-submit",
@@ -1464,7 +1655,12 @@ export const ROWS: (KitRow & {
   "hidden": [],
   "triggers": [],
   "initial": "Home",
-  "auth": {}
+  "auth": {},
+  "layers": {
+   "of": {},
+   "over": {},
+   "pauses": []
+  }
  },
  {
   "id": "form-invalid",
@@ -1487,7 +1683,12 @@ export const ROWS: (KitRow & {
   "hidden": [],
   "triggers": [],
   "initial": "Home",
-  "auth": {}
+  "auth": {},
+  "layers": {
+   "of": {},
+   "over": {},
+   "pauses": []
+  }
  },
  {
   "id": "form-second-press",
@@ -1533,7 +1734,12 @@ export const ROWS: (KitRow & {
   "hidden": [],
   "triggers": [],
   "initial": "Home",
-  "auth": {}
+  "auth": {},
+  "layers": {
+   "of": {},
+   "over": {},
+   "pauses": []
+  }
  },
  {
   "id": "signout-ends-session",
@@ -1578,7 +1784,12 @@ export const ROWS: (KitRow & {
   "hidden": [],
   "triggers": [],
   "initial": "Home",
-  "auth": {}
+  "auth": {},
+  "layers": {
+   "of": {},
+   "over": {},
+   "pauses": []
+  }
  },
  {
   "id": "signout-on-required-screen",
@@ -1622,6 +1833,11 @@ export const ROWS: (KitRow & {
   "auth": {
    "Account": "required",
    "Login": "login"
+  },
+  "layers": {
+   "of": {},
+   "over": {},
+   "pauses": []
   }
  },
  {
@@ -1671,7 +1887,12 @@ export const ROWS: (KitRow & {
   "hidden": [],
   "triggers": [],
   "initial": "Home",
-  "auth": {}
+  "auth": {},
+  "layers": {
+   "of": {},
+   "over": {},
+   "pauses": []
+  }
  },
  {
   "id": "invoke-then-branch",
@@ -1712,7 +1933,12 @@ export const ROWS: (KitRow & {
   "hidden": [],
   "triggers": [],
   "initial": "Home",
-  "auth": {}
+  "auth": {},
+  "layers": {
+   "of": {},
+   "over": {},
+   "pauses": []
+  }
  },
  {
   "id": "invoke-catch-type",
@@ -1759,7 +1985,12 @@ export const ROWS: (KitRow & {
   "hidden": [],
   "triggers": [],
   "initial": "Home",
-  "auth": {}
+  "auth": {},
+  "layers": {
+   "of": {},
+   "over": {},
+   "pauses": []
+  }
  },
  {
   "id": "invoke-not-implemented",
@@ -1797,7 +2028,12 @@ export const ROWS: (KitRow & {
   "hidden": [],
   "triggers": [],
   "initial": "Home",
-  "auth": {}
+  "auth": {},
+  "layers": {
+   "of": {},
+   "over": {},
+   "pauses": []
+  }
  },
  {
   "id": "invoke-not-awaited",
@@ -1841,7 +2077,12 @@ export const ROWS: (KitRow & {
   "hidden": [],
   "triggers": [],
   "initial": "Home",
-  "auth": {}
+  "auth": {},
+  "layers": {
+   "of": {},
+   "over": {},
+   "pauses": []
+  }
  },
  {
   "id": "invoke-args-at-step",
@@ -1882,7 +2123,12 @@ export const ROWS: (KitRow & {
   "hidden": [],
   "triggers": [],
   "initial": "Home",
-  "auth": {}
+  "auth": {},
+  "layers": {
+   "of": {},
+   "over": {},
+   "pauses": []
+  }
  },
  {
   "id": "invoke-in-call-then",
@@ -1942,7 +2188,12 @@ export const ROWS: (KitRow & {
   "hidden": [],
   "triggers": [],
   "initial": "Home",
-  "auth": {}
+  "auth": {},
+  "layers": {
+   "of": {},
+   "over": {},
+   "pauses": []
+  }
  },
  {
   "id": "invoke-late-moved",
@@ -1990,7 +2241,12 @@ export const ROWS: (KitRow & {
   "hidden": [],
   "triggers": [],
   "initial": "Home",
-  "auth": {}
+  "auth": {},
+  "layers": {
+   "of": {},
+   "over": {},
+   "pauses": []
+  }
  },
  {
   "id": "invoke-late-platform-back",
@@ -2041,7 +2297,12 @@ export const ROWS: (KitRow & {
   "hidden": [],
   "triggers": [],
   "initial": "Home",
-  "auth": {}
+  "auth": {},
+  "layers": {
+   "of": {},
+   "over": {},
+   "pauses": []
+  }
  },
  {
   "id": "invoke-late-restart",
@@ -2089,7 +2350,12 @@ export const ROWS: (KitRow & {
   "hidden": [],
   "triggers": [],
   "initial": "Home",
-  "auth": {}
+  "auth": {},
+  "layers": {
+   "of": {},
+   "over": {},
+   "pauses": []
+  }
  },
  {
   "id": "go-and-back",
@@ -2115,7 +2381,12 @@ export const ROWS: (KitRow & {
   "hidden": [],
   "triggers": [],
   "initial": "Home",
-  "auth": {}
+  "auth": {},
+  "layers": {
+   "of": {},
+   "over": {},
+   "pauses": []
+  }
  },
  {
   "id": "overlay-back-closes",
@@ -2145,7 +2416,12 @@ export const ROWS: (KitRow & {
   "hidden": [],
   "triggers": [],
   "initial": "Home",
-  "auth": {}
+  "auth": {},
+  "layers": {
+   "of": {},
+   "over": {},
+   "pauses": []
+  }
  },
  {
   "id": "back-own-motion",
@@ -2175,7 +2451,387 @@ export const ROWS: (KitRow & {
   "hidden": [],
   "triggers": [],
   "initial": "Home",
-  "auth": {}
+  "auth": {},
+  "layers": {
+   "of": {},
+   "over": {},
+   "pauses": []
+  }
+ },
+ {
+  "id": "layer-hud-stands-over-world",
+  "title": "分层：HUD 层随世界屏一起显示、叠在上面；HUD 的控件发出的输入到达世界",
+  "ref": "分层；世界宿主契约“分层”",
+  "steps": [
+   {
+    "tap": "Hold fire"
+   }
+  ],
+  "expect": {
+   "screen": "home",
+   "shown": {
+    "Arena": true,
+    "Hold fire": true,
+    "Score": true,
+    "attack ↓": true
+   }
+  },
+  "vars": [],
+  "screens": {
+   "Arena": "home",
+   "HUD": "hud"
+  },
+  "appVars": [],
+  "hidden": [],
+  "triggers": [],
+  "initial": "Arena",
+  "auth": {},
+  "layers": {
+   "of": {
+    "HUD": "hud"
+   },
+   "over": {
+    "Arena": [
+     "HUD"
+    ]
+   },
+   "pauses": []
+  }
+ },
+ {
+  "id": "layer-input-falls-through",
+  "title": "分层：HUD 只拿落在自己控件上的输入，别处的到达下面的世界屏",
+  "ref": "分层；世界宿主契约“输入”（HUD 先、落空的给世界）",
+  "steps": [
+   {
+    "tap": "Go right"
+   },
+   {
+    "tap": "Hold fire"
+   }
+  ],
+  "expect": {
+   "screen": "home",
+   "shown": {
+    "move 1,0": true,
+    "attack ↓": true
+   }
+  },
+  "vars": [],
+  "screens": {
+   "Arena": "home",
+   "HUD": "hud"
+  },
+  "appVars": [],
+  "hidden": [],
+  "triggers": [],
+  "initial": "Arena",
+  "auth": {},
+  "layers": {
+   "of": {
+    "HUD": "hud"
+   },
+   "over": {
+    "Arena": [
+     "HUD"
+    ]
+   },
+   "pauses": []
+  }
+ },
+ {
+  "id": "layer-stack-back-pops-top",
+  "title": "分层：弹窗层、提示层按打开的顺序叠上去，返回只关最上面一层，世界和 HUD 留着",
+  "ref": "分层；跳转",
+  "steps": [
+   {
+    "tap": "Open bag"
+   },
+   {
+    "tap": "Show note"
+   },
+   {
+    "tap": "Close note"
+   }
+  ],
+  "expect": {
+   "screen": "home",
+   "shown": {
+    "Arena": true,
+    "Hold fire": true,
+    "Bag items": true,
+    "Saved": false
+   }
+  },
+  "vars": [],
+  "screens": {
+   "Arena": "home",
+   "HUD": "hud",
+   "Bag": "bag",
+   "Note": "note"
+  },
+  "appVars": [],
+  "hidden": [],
+  "triggers": [],
+  "initial": "Arena",
+  "auth": {},
+  "layers": {
+   "of": {
+    "HUD": "hud",
+    "Bag": "dialog",
+    "Note": "toast"
+   },
+   "over": {
+    "Arena": [
+     "HUD"
+    ]
+   },
+   "pauses": []
+  }
+ },
+ {
+  "id": "layer-dialog-releases-world",
+  "title": "分层：弹窗层打开时松开世界按住的输入，打开期间不再送新的输入，关上后恢复；不暂停世界",
+  "ref": "分层；世界宿主契约“浮层打开时松开”",
+  "steps": [
+   {
+    "tap": "Hold fire"
+   },
+   {
+    "tap": "Open bag"
+   },
+   {
+    "tap": "Jump"
+   },
+   {
+    "tap": "Close bag"
+   },
+   {
+    "tap": "Leap"
+   }
+  ],
+  "expect": {
+   "shown": {
+    "attack ↓": true,
+    "attack ↑": true,
+    "jump ↓": false,
+    "leap ↓": true,
+    "paused": false
+   }
+  },
+  "vars": [],
+  "screens": {
+   "Arena": "home",
+   "HUD": "hud",
+   "Bag": "bag"
+  },
+  "appVars": [],
+  "hidden": [],
+  "triggers": [],
+  "initial": "Arena",
+  "auth": {},
+  "layers": {
+   "of": {
+    "HUD": "hud",
+    "Bag": "dialog"
+   },
+   "over": {
+    "Arena": [
+     "HUD"
+    ]
+   },
+   "pauses": []
+  }
+ },
+ {
+  "id": "layer-overlay-part-releases-world",
+  "title": "分层：屏幕上的浮层部件（对话框）打开时也松开世界按住的输入，关上后恢复",
+  "ref": "分层；世界宿主契约“浮层打开时松开”；第五批 K2 遗留",
+  "steps": [
+   {
+    "tap": "Hold fire"
+   },
+   {
+    "tap": "Ask"
+   },
+   {
+    "tap": "Shut"
+   },
+   {
+    "tap": "Leap"
+   }
+  ],
+  "expect": {
+   "shown": {
+    "attack ↑": true,
+    "leap ↓": true
+   }
+  },
+  "vars": [],
+  "screens": {
+   "Arena": "home",
+   "HUD": "hud"
+  },
+  "appVars": [],
+  "hidden": [
+   "n8"
+  ],
+  "triggers": [],
+  "initial": "Arena",
+  "auth": {},
+  "layers": {
+   "of": {
+    "HUD": "hud"
+   },
+   "over": {
+    "Arena": [
+     "HUD"
+    ]
+   },
+   "pauses": []
+  }
+ },
+ {
+  "id": "layer-pause-dialog",
+  "title": "分层：设计说暂停的弹窗层打开时请世界暂停，关上后请它继续",
+  "ref": "分层；世界宿主契约“暂停”",
+  "steps": [
+   {
+    "tap": "Menu"
+   },
+   {
+    "tap": "Resume"
+   }
+  ],
+  "expect": {
+   "screen": "home",
+   "shown": {
+    "paused": true,
+    "resumed": true,
+    "Resume": false,
+    "Menu": true
+   }
+  },
+  "vars": [],
+  "screens": {
+   "Arena": "home",
+   "HUD": "hud",
+   "Pause": "pause"
+  },
+  "appVars": [],
+  "hidden": [],
+  "triggers": [],
+  "initial": "Arena",
+  "auth": {},
+  "layers": {
+   "of": {
+    "HUD": "hud",
+    "Pause": "dialog"
+   },
+   "over": {
+    "Arena": [
+     "HUD"
+    ]
+   },
+   "pauses": [
+    "Pause"
+   ]
+  }
+ },
+ {
+  "id": "layer-toast-keeps-input",
+  "title": "分层：提示层不松开世界的输入，也不挡住 HUD",
+  "ref": "分层；世界宿主契约“分层”",
+  "steps": [
+   {
+    "tap": "Hold fire"
+   },
+   {
+    "tap": "Show note"
+   },
+   {
+    "tap": "Leap"
+   }
+  ],
+  "expect": {
+   "shown": {
+    "Saved": true,
+    "attack ↑": false,
+    "leap ↓": true
+   }
+  },
+  "vars": [],
+  "screens": {
+   "Arena": "home",
+   "HUD": "hud",
+   "Note": "note"
+  },
+  "appVars": [],
+  "hidden": [],
+  "triggers": [],
+  "initial": "Arena",
+  "auth": {},
+  "layers": {
+   "of": {
+    "HUD": "hud",
+    "Note": "toast"
+   },
+   "over": {
+    "Arena": [
+     "HUD"
+    ]
+   },
+   "pauses": []
+  }
+ },
+ {
+  "id": "layer-page-takes-place",
+  "title": "分层：从弹窗层去一个页面，叠着的层都关上；回到世界屏，它的 HUD 又在上面",
+  "ref": "分层；跳转",
+  "steps": [
+   {
+    "tap": "Open bag"
+   },
+   {
+    "tap": "To the shop"
+   },
+   {
+    "tap": "Leave shop"
+   }
+  ],
+  "expect": {
+   "screen": "home",
+   "shown": {
+    "Open bag": true,
+    "Arena": true,
+    "Bag items": false,
+    "Wares": false
+   }
+  },
+  "vars": [],
+  "screens": {
+   "Arena": "home",
+   "HUD": "hud",
+   "Bag": "bag",
+   "Shop": "shop"
+  },
+  "appVars": [],
+  "hidden": [],
+  "triggers": [],
+  "initial": "Arena",
+  "auth": {},
+  "layers": {
+   "of": {
+    "HUD": "hud",
+    "Bag": "dialog"
+   },
+   "over": {
+    "Arena": [
+     "HUD"
+    ]
+   },
+   "pauses": []
+  }
  },
  {
   "id": "world-move-fixed",
@@ -2200,7 +2856,12 @@ export const ROWS: (KitRow & {
   "hidden": [],
   "triggers": [],
   "initial": "Home",
-  "auth": {}
+  "auth": {},
+  "layers": {
+   "of": {},
+   "over": {},
+   "pauses": []
+  }
  },
  {
   "id": "world-move-at-step",
@@ -2238,7 +2899,12 @@ export const ROWS: (KitRow & {
   "hidden": [],
   "triggers": [],
   "initial": "Home",
-  "auth": {}
+  "auth": {},
+  "layers": {
+   "of": {},
+   "over": {},
+   "pauses": []
+  }
  },
  {
   "id": "world-press-release",
@@ -2266,7 +2932,12 @@ export const ROWS: (KitRow & {
   "hidden": [],
   "triggers": [],
   "initial": "Home",
-  "auth": {}
+  "auth": {},
+  "layers": {
+   "of": {},
+   "over": {},
+   "pauses": []
+  }
  },
  {
   "id": "world-move-from-event",
@@ -2302,7 +2973,12 @@ export const ROWS: (KitRow & {
   "hidden": [],
   "triggers": [],
   "initial": "Home",
-  "auth": {}
+  "auth": {},
+  "layers": {
+   "of": {},
+   "over": {},
+   "pauses": []
+  }
  },
  {
   "id": "message-runs-action",
@@ -2360,7 +3036,12 @@ export const ROWS: (KitRow & {
   "hidden": [],
   "triggers": [],
   "initial": "Home",
-  "auth": {}
+  "auth": {},
+  "layers": {
+   "of": {},
+   "over": {},
+   "pauses": []
+  }
  },
  {
   "id": "message-own-action-first",
@@ -2415,7 +3096,12 @@ export const ROWS: (KitRow & {
   "hidden": [],
   "triggers": [],
   "initial": "Home",
-  "auth": {}
+  "auth": {},
+  "layers": {
+   "of": {},
+   "over": {},
+   "pauses": []
+  }
  },
  {
   "id": "message-address-params",
@@ -2470,7 +3156,12 @@ export const ROWS: (KitRow & {
   "hidden": [],
   "triggers": [],
   "initial": "Home",
-  "auth": {}
+  "auth": {},
+  "layers": {
+   "of": {},
+   "over": {},
+   "pauses": []
+  }
  },
  {
   "id": "message-after-leave",
@@ -2525,7 +3216,12 @@ export const ROWS: (KitRow & {
   "hidden": [],
   "triggers": [],
   "initial": "Home",
-  "auth": {}
+  "auth": {},
+  "layers": {
+   "of": {},
+   "over": {},
+   "pauses": []
+  }
  },
  {
   "id": "message-after-restart",
@@ -2571,7 +3267,12 @@ export const ROWS: (KitRow & {
   "hidden": [],
   "triggers": [],
   "initial": "Home",
-  "auth": {}
+  "auth": {},
+  "layers": {
+   "of": {},
+   "over": {},
+   "pauses": []
+  }
  },
  {
   "id": "clock-paused",
@@ -2615,7 +3316,12 @@ export const ROWS: (KitRow & {
   "hidden": [],
   "triggers": [],
   "initial": "Home",
-  "auth": {}
+  "auth": {},
+  "layers": {
+   "of": {},
+   "over": {},
+   "pauses": []
+  }
  },
  {
   "id": "clock-rate",
@@ -2659,6 +3365,11 @@ export const ROWS: (KitRow & {
   "hidden": [],
   "triggers": [],
   "initial": "Home",
-  "auth": {}
+  "auth": {},
+  "layers": {
+   "of": {},
+   "over": {},
+   "pauses": []
+  }
  }
 ];

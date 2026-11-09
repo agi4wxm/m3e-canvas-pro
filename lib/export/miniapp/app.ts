@@ -131,8 +131,15 @@ export function callsModule(api: ApiModel | undefined, o: { apiImport: string; k
 
 /** The app's own: its screens and their pages, where it starts, the variables, the calls and the sign-in. */
 export function specModule(doc: Doc, printed: MiniScreens, api: ApiModel | undefined, o: { kitImport: string; callsFrom: string }): string {
+  /* the screens marked as layers (docs/交互规则.md “分层”): laid over the screen on show, a HUD standing over its own */
+  const frameOf = (id: string) => doc.frames.find((f) => f.id === id);
+  const laidOf = (id: string) => { const l = frameOf(id)?.layer; return l === "hud" || l === "dialog" || l === "toast" ? l : undefined; };
+  const layered = (s: MiniScreens["screens"][number]) => {
+    const huds = printed.screens.filter((h) => laidOf(h.id) === "hud" && frameOf(h.id)?.over === s.id).map((h) => h.key);
+    return { ...(laidOf(s.id) ? { layer: laidOf(s.id) } : {}), ...(huds.length ? { over: huds } : {}), ...(laidOf(s.id) === "dialog" && frameOf(s.id)?.pauses ? { pauses: true } : {}) };
+  };
   const screens = Object.fromEntries(
-    printed.screens.map((s) => [s.key, { path: s.path, ...(s.params ? { params: s.params.map((p) => ({ name: p.name, ...(p.type ? { type: p.type } : {}), ...(p.example !== undefined ? { example: p.example } : {}) })) } : {}), ...(s.auth ? { auth: s.auth } : {}), ...(s.tab !== undefined ? { tab: s.tab } : {}) }]),
+    printed.screens.map((s) => [s.key, { path: s.path, ...(s.params ? { params: s.params.map((p) => ({ name: p.name, ...(p.type ? { type: p.type } : {}), ...(p.example !== undefined ? { example: p.example } : {}) })) } : {}), ...(s.auth ? { auth: s.auth } : {}), ...(s.tab !== undefined ? { tab: s.tab } : {}), ...layered(s) }]),
   );
   const vars = (doc.vars ?? []).map((v) => ({ id: v.id, name: v.name, type: v.type, value: v.value }));
   const status = Object.fromEntries((api?.operations ?? []).map((op) => [op.operationId, op.status]));

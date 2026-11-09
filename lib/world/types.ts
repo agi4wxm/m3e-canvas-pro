@@ -57,12 +57,20 @@ export const WORLD_EVENTS: readonly WorldEventName[] = ["hit", "collected", "end
 /** hears each input sent to a world as it is sent: its name, its value, the time (ms on the app's clock) */
 export type WorldListener = (action: string, value: WorldInput, at: number) => void;
 
+/** What a host tells a world besides its inputs (docs/世界宿主契约.md): to stand still or go on (`World.requestPause`), which
+ *  of the view the HUD covers (`World.occlude`), a pointer that fell through every layer onto it (`World.pointer`). */
+export type HostSignal = { pause: boolean } | { occlude: WorldRect[] } | { pointer: WorldPointer };
+
 /** The local channel a world view's inputs come in on: synchronous, through no network and no app state. */
 export interface WorldChannel {
   /** hears every input from now on; gives back how to stop */
   listen(fn: WorldListener): () => void;
   /** what each input holds now: the direction last sent, whether a button is held down */
   held(): Record<string, WorldInput>;
+  /** hears what the host tells the world from now on (`HostSignal`); a channel that never says anything may leave it out */
+  watch?(fn: (signal: HostSignal) => void): () => void;
+  /** what the host has told the world so far: whether it is to stand still, what the HUD covers */
+  hosted?(): { paused: boolean; occluded: WorldRect[] };
 }
 
 /** a rectangle of the view, in its own pixels */

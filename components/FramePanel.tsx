@@ -14,6 +14,8 @@ import {
   onToken,
   takesDeviceBars,
   TRACE_OPACITY,
+  SCREEN_LAYERS,
+  type ScreenLayer,
 } from "@/lib/tokens";
 import { popHistory } from "@/lib/ai";
 import { Icon } from "./Icon";
@@ -192,7 +194,10 @@ export function FrameInspector({
   onPhoneModel,
   variants,
   flowCount = 0,
+  screens = [],
 }: {
+  /** the document's other screens, for the page a HUD stands over */
+  screens?: Pick<Frame, "id" | "name" | "layer">[];
   /** how many screens a flow starts at, to name the next one */
   flowCount?: number;
   frame: Frame;
@@ -341,6 +346,34 @@ export function FrameInspector({
             onChange={(bg) => onChange({ bg })}
             p={p}
           />
+        </Section>
+        <Section id="frame-layer" icon="layers" title={t("screenLayer", lang)} p={p}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            <Select
+              label={t("screenLayer", lang)}
+              p={p}
+              value={frame.layer ?? ""}
+              options={[
+                { key: "", label: t("screenLayerPage", lang) },
+                { key: "world", label: t("screenLayerWorld", lang) },
+                { key: "hud", label: t("screenLayerHud", lang) },
+                { key: "dialog", label: t("screenLayerDialog", lang) },
+                { key: "toast", label: t("screenLayerToast", lang) },
+              ]}
+              onChange={(k) => onChange({ layer: (SCREEN_LAYERS as readonly string[]).includes(k) ? (k as ScreenLayer) : undefined })}
+            />
+            {frame.layer === "hud" && (
+              <Select
+                label={t("screenLayerOver", lang)}
+                p={p}
+                value={frame.over ?? ""}
+                options={[{ key: "", label: t("screenLayerOverNone", lang) }, ...screens.filter((s) => s.id !== frame.id && !["hud", "dialog", "toast"].includes(s.layer ?? "")).map((s) => ({ key: s.id, label: s.name || s.id }))]}
+                onChange={(k) => onChange({ over: k || undefined })}
+              />
+            )}
+            {frame.layer === "dialog" && <Toggle on={!!frame.pauses} onChange={(on) => onChange({ pauses: on || undefined })} p={p} label={t("screenLayerPauses", lang)} grow />}
+            <div style={{ fontSize: 12, lineHeight: 1.5, color: p.onSurfaceVariant, padding: "0 4px", textWrap: "pretty" }}>{t("screenLayerHint", lang)}</div>
+          </div>
         </Section>
         {takesDeviceBars(frame) && (
           <Section id="frame-device" icon="signal_cellular_alt" title={t("deviceBars", lang)} p={p}>

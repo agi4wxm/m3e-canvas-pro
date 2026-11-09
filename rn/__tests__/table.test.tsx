@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType }
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { RuntimeProvider, useRequireAuth, type Runtime } from "@m3e/app-runtime";
 
-import { AppProvider, MATERIAL, NavProvider, SnackHost, ThemeProvider, movesSoFar, screenShown, useApp, useNav, type AppState, type Interpreter, type Nav, type Reader } from "../src/kit";
+import { AppProvider, Laid, MATERIAL, NavProvider, SnackHost, ThemeProvider, movesSoFar, screenShown, useApp, useNav, type AppState, type Interpreter, type Nav, type Reader } from "../src/kit";
 import { answerWith } from "./table/backend";
 import { Backend, drive, turns, verdict, type Driver } from "./table/check";
 import { ROWS } from "./table/rows";
@@ -39,23 +39,25 @@ function Probe() {
   return null;
 }
 
-/** the routes: the screen on top of the stack and an overlay over it, a screen that needs a session guarded */
+/** The routes: the page on top of the stack, the HUDs its route draws over it, the screens laid over it as the router
+ *  keeps them (modal routes, the topmost last: an overlay, a screen marked as a layer), a screen that needs a session
+ *  guarded. A page opened from under laid screens dismisses them first, as the app's routing does. */
 function Routes({ row, m }: { row: Row; m: Modules }) {
   const [stack, setStack] = useState<Place[]>([{ key: row.initial }]);
-  const [overlay, setOverlay] = useState<Place | null>(null);
-  const live = useRef({ stack, overlay });
+  const [laid, setLaid] = useState<Place[]>([]);
+  const live = useRef({ stack, laid });
   useEffect(() => {
-    live.current = { stack, overlay };
+    live.current = { stack, laid };
     probe.place = stack[stack.length - 1];
   });
   /* the screen on show, as the app's ScreenRoute tells the kit when Expo Router focuses one */
-  const shown = overlay ?? stack[stack.length - 1];
+  const shown = laid[laid.length - 1] ?? stack[stack.length - 1];
   const shownKey = `${shown.key}:${JSON.stringify(shown.params ?? {})}`;
   useEffect(() => screenShown(shownKey), [shownKey]);
   /* the platform's own back (the system's button, a swipe): the router pops what is on top, asking no Nav */
   useEffect(() => {
     probe.platformBack = () => {
-      if (live.current.overlay) return setOverlay(null);
+      if (live.current.laid.length) return setLaid((l) => l.slice(0, -1));
       setStack((s) => (s.length > 1 ? s.slice(0, -1) : s));
     };
   });
@@ -65,14 +67,14 @@ function Routes({ row, m }: { row: Row; m: Modules }) {
       go: (key, o = {}) => {
         if (!m.SCREENS[key]) return;
         const place = { key, ...(o.params ? { params: o.params } : {}) };
-        if (o.overlay) return setOverlay(place);
-        setOverlay(null);
+        if (o.overlay) return setLaid((l) => [...l.filter((x) => x.key !== key), place]);
+        setLaid([]);
         probe.move = { back: false, motion: "none" };
         setStack((s) => (o.replace ? [...s.slice(0, -1), place] : [...s, place]));
       },
       /* the motion a back is handed is what Expo Router's stack would be told (it plays the platform's own) */
       back: (o) => {
-        if (live.current.overlay) return setOverlay(null);
+        if (live.current.laid.length) return setLaid((l) => l.slice(0, -1));
         if (live.current.stack.length > 1) probe.move = { back: true, motion: o?.motion?.kind ?? "none" };
         setStack((s) => (s.length > 1 ? s.slice(0, -1) : s));
       },
@@ -92,11 +94,25 @@ function Routes({ row, m }: { row: Row; m: Modules }) {
   useEffect(() => m.runtime.whenUnauthorized(() => toSignIn()), [m, toSignIn]);
   useRequireAuth(row.auth[top.key] === "required", toSignIn);
   const Top = m.SCREENS[top.key];
-  const Over = overlay ? m.SCREENS[overlay.key] : undefined;
   return (
     <NavProvider value={nav}>
       <Top key={stack.length} params={top.params} />
-      {Over ? <Over params={overlay?.params} /> : null}
+      {(row.layers.over[top.key] ?? []).map((hud) => {
+        const Hud = m.SCREENS[hud];
+        return Hud ? (
+          <Laid key={`hud:${hud}`} layer="hud">
+            <Hud />
+          </Laid>
+        ) : null;
+      })}
+      {laid.map((p) => {
+        const Over = m.SCREENS[p.key];
+        return Over ? (
+          <Laid key={`laid:${p.key}`} layer={row.layers.of[p.key] ?? "overlay"} pauses={row.layers.pauses.includes(p.key)} onClose={() => nav.back()}>
+            <Over params={p.params} />
+          </Laid>
+        ) : null;
+      })}
     </NavProvider>
   );
 }

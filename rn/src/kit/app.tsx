@@ -1,9 +1,11 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { View } from "react-native";
+import { StyleSheet, View } from "react-native";
 import { SafeAreaInsetsContext } from "react-native-safe-area-context";
 
 import { Snackbar } from "./composites/content";
-import { movesSoFar, useNav, type BackOptions, type Nav } from "./runtime";
+import { LaidProvider, OverlayFrame, movesSoFar, useNav, type BackOptions, type Nav } from "./runtime";
+import { withAlpha } from "./look";
+import { useKit } from "./theme/ThemeProvider";
 import { createWorldChannels, vectorOf, type WorldChannel, type WorldInput } from "./world";
 
 /* What a running app remembers beside the screen on show, and what a tap does with it: the variables, the parts a tap
@@ -136,6 +138,9 @@ export type AppState = {
   reader?: Reader;
   /** the channel the world view `part` (its item id) hears its input actions on */
   world: (part: string) => WorldChannel;
+  /** A screen laid over the one on show came up (`Laid`): a modal one (a dialog, an overlay) covers the worlds, letting go
+   *  of what they hold, and pauses them when it says so, until it goes. Gives back how to say it went. */
+  layerUp: (modal: boolean, pauses: boolean) => () => void;
 };
 
 const isNumber = (v: VarValue): number | null => {
@@ -183,6 +188,22 @@ export function AppProvider({ vars = NO_VARS, hidden = NO_KEYS, triggers = NO_KE
   const varScope = useMemo(() => varsOf(state.vars, vars), [state.vars, vars]);
   /* the world views' channels: an input goes straight there, through no state */
   const [worlds] = useState(() => createWorldChannels());
+  /* The screens laid over the one on show that are up (`Laid`), and the overlays open: a dialog, a screen an action lays
+     over or an overlay part covers the worlds (what they hold let go, nothing more sent) until it goes; a dialog that
+     says so pauses them (docs/世界宿主契约.md “浮层”, lib/world/layers.ts). */
+  const [layersUp, setLayersUp] = useState<{ id: number; modal: boolean; pauses: boolean }[]>([]);
+  const layerIds = useRef(0);
+  const layerUp = useCallback((modal: boolean, pauses: boolean) => {
+    const id = ++layerIds.current;
+    setLayersUp((l) => [...l, { id, modal, pauses }]);
+    return () => setLayersUp((l) => l.filter((x) => x.id !== id));
+  }, []);
+  const covered = layersUp.some((l) => l.modal) || Object.values(state.opened).some(Boolean);
+  const paused = layersUp.some((l) => l.modal && l.pauses);
+  useEffect(() => {
+    worlds.cover(covered);
+    worlds.pause(paused);
+  }, [worlds, covered, paused]);
 
   /* the memory as a host reads and writes it: always what the last step left, never what the last render drew */
   const kit = useMemo<KitHost>(() => {
@@ -332,8 +353,9 @@ export function AppProvider({ vars = NO_VARS, hidden = NO_KEYS, triggers = NO_KE
       ...(interpret ? { interpret } : {}),
       reader,
       world: (part) => worlds.channel(part),
+      layerUp,
     };
-  }, [state, varScope, vars, types, startHidden, reader, interpret, kit, update, worlds]);
+  }, [state, varScope, vars, types, startHidden, reader, interpret, kit, update, worlds, layerUp]);
 
   return <AppContext.Provider value={app}>{children}</AppContext.Provider>;
 }
@@ -399,6 +421,8 @@ const NOTHING: AppState = {
   kit: NOTHING_KIT,
   /* a world view drawn outside an app hears nothing */
   world: () => QUIET,
+  /* nor is anything laid over it */
+  layerUp: () => () => {},
 };
 
 /** the app's memory (see `AppProvider`); a screen drawn outside one reads the design as it is */
@@ -512,4 +536,26 @@ export function rowsOf<T>(v: unknown, design: T, max = 50): T {
 /** the option of a list a value names (a form's field holds the words of the option chosen): its place, or -1 */
 export function optionOf(rows: readonly { label?: string }[] | undefined, value: unknown): number {
   return value === undefined || value === null || value === "" ? -1 : (rows ?? []).findIndex((r) => r.label === String(value));
+}
+
+/** How a screen stands over the page on show (docs/交互规则.md “分层”): as the layer it is marked as, or laid over by an
+ *  action (`overlay`). */
+export type LaidLayer = "hud" | "dialog" | "toast" | "overlay";
+
+/** A screen laid over the one on show (docs/交互规则.md “分层”): a screen an action lays over sits in the middle at its own
+ *  size over a scrim that closes it; a dialog spreads over the dimmed screen and takes every touch; a HUD and a toast
+ *  have no ground of their own and let a touch on nothing of theirs through. While a dialog or an overlay is up, the
+ *  worlds under it let go of what they hold and take nothing more, and pause when it says so. */
+export function Laid({ layer, pauses = false, onClose, children }: { layer: LaidLayer; pauses?: boolean; onClose?: () => void; children?: ReactNode }) {
+  const app = useContext(AppContext);
+  const kit = useKit();
+  const up = app?.layerUp;
+  const modal = layer === "dialog" || layer === "overlay";
+  useEffect(() => up?.(modal, pauses), [up, modal, pauses]);
+  if (layer === "overlay") return <OverlayFrame onClose={onClose ?? (() => {})}>{children}</OverlayFrame>;
+  return (
+    <View pointerEvents={modal ? "auto" : "box-none"} style={[StyleSheet.absoluteFill, modal ? { backgroundColor: withAlpha(kit.colors.scrim ?? "#000000", 0.32) } : null]}>
+      <LaidProvider value={layer}>{children}</LaidProvider>
+    </View>
+  );
 }

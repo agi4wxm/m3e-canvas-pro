@@ -31,7 +31,8 @@ export function runtimeFlags(spec: RuntimeSpec): Record<string, boolean> {
   return {
     /* what of the prototype the screens use: an animation, an overlay, a part scrolled to, the pointer, time */
     proto: !!p,
-    overlay: !!p?.overlay,
+    /* screens in layers take an overlay's place: a screen an action lays over is one more layer (lib/world/layers.ts) */
+    overlay: !!p?.overlay && !spec.layers,
     scroll: !!p?.scroll,
     hover: !!p?.hover,
     delay: !!p?.delay,
@@ -57,6 +58,8 @@ export function runtimeFlags(spec: RuntimeSpec): Record<string, boolean> {
     families: !!spec.families,
     /* the world views' channels, which the taps' input actions are sent on (lib/world) */
     worlds: !!spec.worlds,
+    /* screens marked as layers (a HUD, a dialog, a toast) stand over the screen on show (docs/交互规则.md “分层”) */
+    layers: !!spec.layers,
   };
 }
 
@@ -109,7 +112,13 @@ function runtimeValues(spec: RuntimeSpec, on: Record<string, boolean>): Record<s
     /* whether the app is dark: as the screen is drawn, and as a tap's step finds it */
     darkOn: on.colorMode ? "darkOn" : "false",
     darkNow: spec.dark ? `!!live.current.vars.${spec.dark}` : on.colorMode ? "darkNow.current" : "false",
-    overlayGone: on.overlay ? "overlay: null, " : "",
+    overlayGone: `${on.overlay ? "overlay: null, " : ""}${on.layers ? "laid: [], " : ""}`,
+    layerRows: oneLine(Object.entries(spec.layers?.of ?? {}).map(([k, l]) => ` ${keyOf(k)}: ${str(l)}`)),
+    overRows: oneLine(Object.entries(spec.layers?.over ?? {}).map(([k, huds]) => ` ${keyOf(k)}: [${huds.map((h) => str(h)).join(", ")}]`)),
+    pauseRows: flags(spec.layers?.pauses ?? []),
+    overlayOn: oneLine(Object.entries(spec.overlayOn ?? {}).map(([k, on]) => ` ${keyOf(k)}: ${str(on)}`)),
+    coverRows: oneLine(Object.entries(spec.layers?.covers ?? {}).map(([k, boxes]) => ` ${keyOf(k)}: ${literal(boxes)}`)),
+    worldBoxRows: oneLine(Object.entries(spec.layers?.worlds ?? {}).map(([k, views]) => ` ${keyOf(k)}: ${literal(views)}`)),
   };
 }
 

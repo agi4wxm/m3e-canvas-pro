@@ -5,12 +5,12 @@ import { OVERLAY_ROOTS, partBySlug, reader, treeOf, withoutPickedImages } from "
 import type { PartDef, PropDef } from "../parts/types";
 import { WIDGET_SOURCES } from "../parts/widgets/sources";
 import { type Row, fillCurrent, firstRows, markCurrent } from "./collections";
-import { INPUT_PROP, coerce, isOverlayPart } from "./interact";
+import { INPUT_PROP, coerce, isOverlayPart, occludes, occluderBoxes } from "./interact";
 import { demoRuns, familiesOf, isPlaceKey, optionsOf } from "./partContract";
 import { collectionIdOf, collectionsOf, cssNameOf, isBindField, modeFor, valueIn, varValues } from "./variables";
 import { cleanMotion, cleanTrigger, flowStarts } from "./prototype";
 import type { BoundPrint } from "./printBindings";
-import { BACK_TARGET, LINK_TARGET, STAY_TARGET, actionSlotsOf, presetOf, actionsOf, darkVarOf, heldBy, holdsParts, linkUrlOf, type Action, type ActionBody, type Condition, type Doc, type Effect, type Frame, type Group, type Item, type VarType, type VarValue } from "./tokens";
+import { BACK_TARGET, LINK_TARGET, STAY_TARGET, actionSlotsOf, frameOfPart, presetOf, actionsOf, darkVarOf, heldBy, holdsParts, linkUrlOf, type Action, type ActionBody, type Condition, type Doc, type Effect, type Frame, type Group, type Item, type VarType, type VarValue } from "./tokens";
 import { WORLD_EFFECTS, eventKey, familyKey, type Answer } from "./actions/model";
 import { evaluate, parseExpr, rootsOf, truthy } from "./bindings/expr";
 import { boundVar, comparisonOf, fieldVarOf, type Comparison } from "./bindings/bind";
@@ -63,6 +63,22 @@ export type RuntimeSpec = {
   families?: true;
   /** the screens draw world views, which the taps' input actions reach on a channel each (lib/world) */
   worlds?: true;
+  /** the screen each overlay part an effect opens is on (by part key, screen key): one open over the screen on show
+   *  lets go of the worlds under it (docs/世界宿主契约.md “浮层”); with world views only */
+  overlayOn?: Record<string, string>;
+  /** screens marked as layers (docs/交互规则.md “分层”), by screen key: what stands over the screen on show */
+  layers?: LayersSpec;
+};
+
+/** What the runtime keeps of the screens in layers, by screen key: the layer each is (a HUD, a dialog, a toast), the
+ *  HUDs that stand over a screen, the dialogs that pause the worlds, and, with world views, what of each HUD or toast
+ *  covers a world and where each screen's world views are (in the screen's own pixels, as designed). */
+export type LayersSpec = {
+  of: Record<string, "hud" | "dialog" | "toast">;
+  over: Record<string, string[]>;
+  pauses: string[];
+  covers: Record<string, { x: number; y: number; w: number; h: number }[]>;
+  worlds: Record<string, { part: string; x: number; y: number; w: number; h: number }[]>;
 };
 
 /** What the runtime runs the taps over (lib/actions' `Host`, src/runtime.tsx): where each part an effect reaches stands,
@@ -320,6 +336,7 @@ const standingOf = (def: PartDef | undefined): Standing => (!def?.open ? "plain"
 export class Behaviour {
   readonly live: boolean;
   private readonly doc: Doc;
+  private readonly widths: Record<string, number>;
   private readonly image: Options["image"];
   private readonly screens = new Map<string, string>();
   private readonly vars = new Map<string, VarInfo>();
@@ -386,6 +403,7 @@ export class Behaviour {
 
   constructor(doc: Doc, widths: Record<string, number>, o: Options) {
     this.doc = doc;
+    this.widths = widths;
     this.live = o.live;
     this.image = o.image;
     this.readsCurrent = JSON.stringify(doc.groups).includes("{{current.");
@@ -573,7 +591,62 @@ export class Behaviour {
       ...(this.acts ? { acts: this.actsSpec() } : {}),
       ...(this.printedFamilies ? { families: true as const } : {}),
       ...(this.printedWorlds ? { worlds: true as const } : {}),
+      ...(this.printedWorlds ? { overlayOn: this.overlayOn() } : {}),
+      ...this.layersSpec(),
     };
+  }
+
+  /** the screen key of the frame a group is on, among those printed */
+  private screenOfGroup(g: Group): string | undefined {
+    const f = frameOfPart(g, this.doc.groups, this.doc.frames, this.widths);
+    return f ? this.screens.get(f.id) : undefined;
+  }
+
+  /** the screen each overlay part an effect reaches is on: where it lets go of the worlds while it is open */
+  private overlayOn(): Record<string, string> {
+    const out: Record<string, string> = {};
+    for (const [key, r] of this.reach) {
+      if (!r.overlay) continue;
+      const id = [...this.partKeys].find(([, k]) => k === key)?.[0];
+      const g = id ? this.owner.get(id) : undefined;
+      const on = g ? this.screenOfGroup(g) : undefined;
+      if (on) out[key] = on;
+    }
+    return out;
+  }
+
+  /** the screens in layers, by key, when any printed screen is laid over another (a HUD, a dialog, a toast) */
+  private layersSpec(): { layers: LayersSpec } | undefined {
+    const laid = this.shown.filter((f) => f.layer === "hud" || f.layer === "dialog" || f.layer === "toast");
+    if (!laid.length) return undefined;
+    const key = (id: string) => this.screens.get(id);
+    const spec: LayersSpec = { of: {}, over: {}, pauses: [], covers: {}, worlds: {} };
+    for (const f of laid) {
+      const k = key(f.id);
+      if (!k) continue;
+      spec.of[k] = f.layer as "hud" | "dialog" | "toast";
+      const page = f.layer === "hud" && f.over ? key(f.over) : undefined;
+      if (page) spec.over[page] = [...(spec.over[page] ?? []), k];
+      if (f.layer === "dialog" && f.pauses) spec.pauses.push(k);
+      if (this.printedWorlds && f.layer !== "dialog") {
+        const boxes = occluderBoxes(f, this.doc.groups.filter((g) => this.screenOfGroup(g) === k), this.widths).map(({ id: _id, ...b }) => b);
+        if (boxes.length) spec.covers[k] = boxes;
+      }
+    }
+    if (this.printedWorlds)
+      for (const f of this.shown) {
+        const k = key(f.id);
+        const views = this.doc.groups.flatMap((g) => (g.items.length === 1 && partBySlug(g.items[0].component)?.world && this.screenOfGroup(g) === k ? occluderBoxes(f, [{ ...g, items: [{ ...g.items[0], occlude: true }] }], this.widths) : []));
+        if (k && views.length) spec.worlds[k] = views.map(({ id, ...b }) => ({ part: this.partKeys.get(id) ?? id, ...b }));
+      }
+    return { layers: spec };
+  }
+
+  /** whether a part is drawn on a HUD or a toast, where it covers the world under it (lib/interact.ts `occludes`) */
+  private covers(it: Item, g: Group | undefined): boolean {
+    if (!g || !occludes(it)) return false;
+    const f = frameOfPart(g, this.doc.groups, this.doc.frames, this.widths);
+    return f?.layer === "hud" || f?.layer === "toast";
   }
 
   /** what the runtime runs the taps over */
@@ -1263,6 +1336,9 @@ export class Behaviour {
         tree = widget === tree ? wired : { ...tree, children: tree.children?.map((c) => (c === widget ? wired : c)) };
       }
     }
+    /* a part of a HUD or a toast that covers the world takes what lands on it; the rest of the layer lets touches
+       through to under it (src/App.tsx) */
+    if (this.covers(it, g)) tree = { ...tree, props: { ...tree.props, "data-cover": true } };
     /* a world view listens on its channel, which the taps' input actions are sent on (lib/world) */
     if (def.world && tree.type in WIDGET_SOURCES) {
       uses.app.add("worldChannel");

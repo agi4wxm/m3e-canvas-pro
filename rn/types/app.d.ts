@@ -13,7 +13,7 @@ declare module "expo-secure-store" {
 declare module "expo-router" {
   import type { EffectCallback } from "react"
   export type Href = string | { pathname: string; params?: Record<string, string> }
-  export const router: { push(href: Href): void; replace(href: Href): void; navigate(href: Href): void; back(): void; canGoBack(): boolean }
+  export const router: { push(href: Href): void; replace(href: Href): void; navigate(href: Href): void; back(): void; canGoBack(): boolean; dismiss(count?: number): void }
   export function useFocusEffect(effect: EffectCallback): void
   export function useLocalSearchParams(): Record<string, string | string[] | undefined>
 }

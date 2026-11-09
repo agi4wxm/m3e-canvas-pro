@@ -17,7 +17,7 @@ export const EXPORT_SOURCE_GLOBS = [
   "/lib/api/body.ts",
   "/lib/capabilities/{types,catalog,registry,mock}.ts",
   "/lib/actions/{model,host,run}.ts",
-  "/lib/world/{types,contract,hostContract,channel,example}.ts",
+  "/lib/world/{types,contract,hostContract,channel,example,layers}.ts",
   "/lib/export/files/api/*.ts",
   "/lib/export/files/appRuntime/*.ts",
   "/lib/export/files/web/*.{ts,tsx}",

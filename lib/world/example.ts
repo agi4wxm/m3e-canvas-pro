@@ -10,7 +10,7 @@
  * phone app, a mini-program and, later, in a Cocos or Godot host. Plain TypeScript, so it goes into an exported app's
  * runtime as it is. */
 
-import type { Vec2, World, WorldChannel, WorldClock, WorldEntity, WorldEventName, WorldEvents, WorldInput, WorldState, WorldStatus } from "./types";
+import type { HostSignal, Vec2, World, WorldChannel, WorldClock, WorldEntity, WorldEventName, WorldEvents, WorldInput, WorldState, WorldStatus } from "./types";
 import { WORLD_EVENTS } from "./types";
 
 /** how far the player goes in a second at full tilt, in hundredths of the view */
@@ -134,6 +134,16 @@ export function createExampleWorld(start: WorldState = {}, o: ExampleWorldOption
  *  implements `World` connects the same way. */
 export function connectWorld(world: World, channel: WorldChannel, emit?: <K extends WorldEventName>(name: K, payload: WorldEvents[K]) => void): () => void {
   for (const [action, value] of Object.entries(channel.held())) world.input(action, value, 0);
-  const off = [channel.listen((action, value, at) => world.input(action, value, at)), ...(emit ? WORLD_EVENTS.map((name) => world.on(name, (payload) => emit(name, payload as never))) : [])];
+  /* what the host has told it already (a pause menu open as it mounts, what the HUD covers), then what it tells it next
+     (docs/世界宿主契约.md “分层”): asked to pause or go on, told what the HUD covers, handed a pointer that fell through */
+  const hosted = channel.hosted?.();
+  if (hosted?.paused) void world.requestPause(true);
+  if (hosted?.occluded.length) world.occlude(hosted.occluded);
+  const told = (s: HostSignal) => {
+    if ("pause" in s) void world.requestPause(s.pause);
+    else if ("occlude" in s) world.occlude(s.occlude);
+    else world.pointer(s.pointer);
+  };
+  const off = [channel.listen((action, value, at) => world.input(action, value, at)), ...(channel.watch ? [channel.watch(told)] : []), ...(emit ? WORLD_EVENTS.map((name) => world.on(name, (payload) => emit(name, payload as never))) : [])];
   return () => off.forEach((fn) => fn());
 }

@@ -32,6 +32,29 @@ export type OcclusionPolicy = { from: "hud-controls"; when: "layout-changes" };
  *  the HUD reads the world's own times off (`World.clock()`) */
 export type ClockPolicy = { domain: "app"; hudReads: "world-clock" };
 
+/** The layers a screen can be marked as, from the bottom up (docs/世界宿主契约.md “分层”, docs/交互规则.md “分层”): the
+ *  `world` (a screen that holds a world view, a page of its own), a `hud` laid over it, a `dialog` over that, a `toast`
+ *  over everything. A layer above is drawn over one below and is asked first for what lands on it. */
+export const SCREEN_LAYERS = ["world", "hud", "dialog", "toast"] as const;
+export type ScreenLayer = (typeof SCREEN_LAYERS)[number];
+
+/** What a layer takes of the visitor's input. `all`: whatever lands on it (a page, a world). `controls`: only what lands
+ *  on its controls, the rest falls through to the layer under it (a HUD over the world, a toast). `modal`: everything,
+ *  and nothing under it takes any while it is up (a dialog, a screen laid over by `overlay`). */
+export type LayerInput = "all" | "controls" | "modal";
+
+/** How layers stand over a page: their order from the bottom up, what each takes of the input, which of them let go of
+ *  what the worlds under them hold as they open (the overlay policy's `release`), and who says a layer pauses the world:
+ *  the design (`Frame.pauses` on a dialog layer), else the overlay policy's `pause`. Going back closes the topmost layer
+ *  the visitor opened; a HUD that stands with its page (`over`) goes with the page. */
+export type LayerPolicy = {
+  order: readonly ScreenLayer[];
+  input: Record<ScreenLayer, LayerInput>;
+  releases: readonly ScreenLayer[];
+  pause: "design";
+  back: "top-opened";
+};
+
 /** A host's contract with the worlds it hosts. */
 export type WorldHostContract = {
   version: 1;
@@ -40,6 +63,7 @@ export type WorldHostContract = {
   occlusion: OcclusionPolicy;
   overlay: OverlayPolicy;
   pause: PausePolicy;
+  layers: LayerPolicy;
   clock: ClockPolicy;
   /** everything that crosses between M3E and the world is plain JSON: numbers, strings, `Vec2`, ids */
   serialisable: true;
@@ -53,6 +77,7 @@ export const WORLD_HOST_CONTRACT: WorldHostContract = {
   occlusion: { from: "hud-controls", when: "layout-changes" },
   overlay: { release: true, pause: false },
   pause: { onBackground: true, onOverlay: false, mayRefuse: true },
+  layers: { order: SCREEN_LAYERS, input: { world: "all", hud: "controls", dialog: "modal", toast: "controls" }, releases: ["dialog"], pause: "design", back: "top-opened" },
   clock: { domain: "app", hudReads: "world-clock" },
   serialisable: true,
 };

@@ -48,7 +48,11 @@ beforeAll(async () => {
 
 describe("the prototype export", () => {
   /* The single-app export stays as it was, to the byte, beside the product. These digests were taken from the export
-     before the product existed; one that changes on purpose is written again here (last: the world view and its input
+     before the product existed; one that changes on purpose is written again here (last: screens in layers, batch 6
+     H1: the every-parts document's world view lets go of what it holds while an overlay part is open over it, so its
+     runtime keeps the screen each overlay part is on (`OVERLAY_ON`) and covers its worlds (`Worlds.cover`), and the
+     lib/world copied beside it tells a world to pause, what the HUD covers and a pointer (channel.ts, types.ts,
+     example.ts `connectWorld`); before that the world view and its input
      actions, batch 5 K2: the interpreter copied into src/lib/actions runs move, press and release (model.ts, host.ts,
      run.ts), the widgets' host contract hands a world view its channel (parts/widgets/host.ts), parts/types.ts says
      what `world` is, the joystick sends `move` with each push, and the every-parts document draws a world view
@@ -90,7 +94,7 @@ describe("the prototype export", () => {
     systems: [47, "42e116738aba93300d77a0f5ab04094c4cd36f7ec700b3ea32a02ee3cd07df78"],
     reuse: [38, "45f2eeffec96e6987a68be50863bd53e5a0096fa8506f0c6f95c79955b524d04"],
     sweep: [100, "56281f14bfb278ca1256149f351854d2ab9bdb334c2dd2cb37c5e7068228a0c5"],
-    parts: [150, "21190e3bcb8f9ab8e760ea966341e85e050452e4257d471d2031484969413b9f"],
+    parts: [150, "13b53f95bbe9e718fa81a0eb1df587c732325c28ce88b59cd5823aa71f804b9c"],
   };
   const DOCS: Record<string, () => { doc: Doc; widths: Record<string, number> }> = { proof: proofDoc, systems: systemsDoc, reuse: reuseDoc, sweep: sweepDoc, parts: () => ({ doc: allPartsDoc(), widths: {} }) };
   it.each(Object.keys(DIGESTS))("is byte for byte what it was: %s", async (name) => {

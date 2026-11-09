@@ -14,6 +14,7 @@ import { EntryList, IconRow, NoteSection, PartHeader, PartTabs, PlaceFn, SlotStr
 import { demoTakenOver, optionsOf } from "@/lib/partContract";
 import { segmentedFits } from "@/lib/choices";
 import { tableOf, tableText } from "@/lib/collections";
+import { occludes } from "@/lib/interact";
 import { FlowControl } from "./FlowPanel";
 import { PartDesign } from "./DesignPanel";
 import { FLOW_KEYS } from "@/parts/flow";
@@ -261,6 +262,14 @@ export function ComponentProps({ item, palette: p, onChange, frame, layoutApart,
       {def.slug === "fab" && !!values.s("label") && !!values.s("icon") && <Toggle on={!!item.collapseOnScroll} onChange={(collapseOnScroll) => onChange({ collapseOnScroll: collapseOnScroll || undefined })} label={t("fabScrollSwitch", lang)} p={p} />}
       {/* the exported apps draw the part with a slot of the product's own (docs/平台能力.md 插槽); a capability view always has one */}
       {!def.capability && <Toggle on={!!item.slot} onChange={(on) => onChange({ slot: on ? (item.slot ?? true) : undefined })} label={t("partSlot", lang)} p={p} />}
+      {/* on a HUD or a toast, whether the part covers the world under it (docs/交互规则.md “分层”): left as it is, a part that
+          does something when used covers */}
+      {(frame?.layer === "hud" || frame?.layer === "toast") && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+          <Toggle on={occludes(item)} onChange={(on) => onChange({ occlude: on })} label={t("partOccludes", lang)} p={p} />
+          <div style={{ fontSize: 12, lineHeight: 1.5, color: p.onSurfaceVariant, padding: "0 4px", textWrap: "pretty" }}>{t("partOccludesHint", lang)}</div>
+        </div>
+      )}
     </div>
   );
 }

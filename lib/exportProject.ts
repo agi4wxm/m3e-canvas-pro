@@ -368,20 +368,24 @@ ${bound ? "  const { varStyle } = useApp()\n" : ""}  const { Screen } = SCREENS[
 function appSource(screens: ScreenCode[], motion: string, usesToast: boolean, families: string[][], runtime: RuntimeSpec): string {
   /* what of the prototype and the variables the app plays; with none of it, the app is written as it always was */
   const proto = runtime.proto;
-  const overlay = !!proto?.overlay;
+  /* screens in layers take an overlay's place: a screen an action lays over is one more layer (docs/交互规则.md “分层”) */
+  const layers = !!runtime.layers;
+  const overlay = !!proto?.overlay && !layers;
+  /* a pointer on a world view that no control over it took goes to its world */
+  const pointing = layers && !!runtime.worlds;
   const bound = !!runtime.modes?.bound.length;
   const params = !!runtime.bound;
   const live = !!proto || !!runtime.modes || params;
   const imports = screens.map((s) => `import { ${s.component} } from "./screens/${s.component}"`).join("\n");
-  const table = screens.map((s) => `  ${s.key}: { Screen: ${s.component}, width: ${s.width}, height: ${s.height}, foot: ${Math.round(s.foot)}${overlay ? `, radius: ${Math.round(s.radius)}` : ""} },`).join("\n");
-  const fromApp = [families.length ? "screen: asked" : "screen", "move", "snack", ...(overlay ? ["overlay", "closeOverlay"] : []), ...(bound ? ["varStyle"] : []), ...(params ? ["params"] : [])];
-  return `import { useEffect, useLayoutEffect, useRef, useState, type ComponentType } from "react"
+  const table = screens.map((s) => `  ${s.key}: { Screen: ${s.component}, width: ${s.width}, height: ${s.height}, foot: ${Math.round(s.foot)}${overlay || layers ? `, radius: ${Math.round(s.radius)}` : ""} },`).join("\n");
+  const fromApp = [families.length ? "screen: asked" : "screen", "move", "snack", ...(overlay ? ["overlay", "closeOverlay"] : []), ...(layers ? ["layers", "inputFloor", "closeLayer"] : []), ...(pointing ? ["worldPointer"] : []), ...(bound ? ["varStyle"] : []), ...(params ? ["params"] : [])];
+  return `import { useEffect, useLayoutEffect, useRef, useState, type ComponentType${pointing ? ", type PointerEvent" : ""} } from "react"
 import { AnimatePresence, MotionConfig, motion, useIsPresent, ${proto ? "" : "type TargetAndTransition, "}type Variants } from "motion/react"
 import { PortalContainer } from "@/components/m3e/portal-container"
 ${usesToast ? `import { Toaster } from "@/components/m3e/sonner"\n` : ""}${proto ? `import { screenPoses } from "@/lib/screenMotion"\n` : ""}import { ${live ? "ScreenContext, " : ""}useApp, type App as AppState, type ScreenId${params ? ", type ScreenParams" : ""} } from "./runtime"
 ${imports}
 
-const SCREENS: Record<ScreenId, { Screen: ComponentType; width: number; height: number; foot: number${overlay ? "; radius: number" : ""} }> = {
+const SCREENS: Record<ScreenId, { Screen: ComponentType; width: number; height: number; foot: number${overlay || layers ? "; radius: number" : ""} }> = {
 ${table}
 }
 
@@ -428,7 +432,30 @@ export function App() {
     window.addEventListener("keydown", onKey)
     return () => window.removeEventListener("keydown", onKey)
   }, [overlay, closeOverlay])`
+      : layers
+        ? `
+  /* the topmost screen laid over this one closes on Escape, as going back closes it */
+  const opened = layers.length > 0
+  useEffect(() => {
+    if (!opened) return
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") closeLayer()
+    }
+    window.addEventListener("keydown", onKey)
+    return () => window.removeEventListener("keydown", onKey)
+  }, [opened, closeLayer])${
+    pointing
+      ? `
+  /* a pointer on the screen, in its own pixels: what no control over the world took is the world's (src/runtime.tsx) */
+  const toWorld = (event: PointerEvent<HTMLDivElement>) => {
+    const box = event.currentTarget.getBoundingClientRect()
+    const kind = event.type === "pointerdown" ? "down" : event.type === "pointermove" ? "move" : "up"
+    if (kind === "down") event.currentTarget.setPointerCapture?.(event.pointerId)
+    worldPointer(kind, event.pointerId, (event.clientX - box.left) / fit, (event.clientY - box.top) / fit)
+  }`
       : ""
+  }`
+        : ""
   }
   return (
     <MotionConfig reducedMotion="user">
@@ -442,8 +469,8 @@ export function App() {
           >
             <PortalContainer container={stage}>
               <AnimatePresence initial={false} mode="popLayout" custom={custom}>
-                <motion.div key={screen} custom={custom} variants={VARIANTS} initial="initial" animate="animate" exit="exit" className="absolute inset-0"${proto ? " data-move={custom.motion?.kind ?? custom.transition}" : ""}>
-                  <Page screen={screen}${overlay ? " covered={!!overlay}" : ""}${params ? " params={params}" : ""} />
+                <motion.div key={screen} custom={custom} variants={VARIANTS} initial="initial" animate="animate" exit="exit" className="absolute inset-0"${proto ? " data-move={custom.motion?.kind ?? custom.transition}" : ""}${pointing ? " onPointerDown={toWorld} onPointerMove={toWorld} onPointerUp={toWorld} onPointerCancel={toWorld}" : ""}>
+                  <Page screen={screen}${overlay ? " covered={!!overlay}" : layers ? " covered={inputFloor >= 0}" : ""}${params ? " params={params}" : ""} />
                 </motion.div>
               </AnimatePresence>${
                 overlay
@@ -475,7 +502,50 @@ export function App() {
                   </motion.div>
                 )}
               </AnimatePresence>`
-                  : ""
+                  : layers
+                    ? `
+              {/* The screens laid over this one (docs/交互规则.md “分层”): a dialog over the dimmed screen, taking every touch;
+                  a HUD and a toast taking only what lands on their parts that cover what is under them${proto?.overlay ? "; a screen an\n                  action lays over in the middle, at its own size, over a backdrop a tap on which closes it" : ""} */}
+              <AnimatePresence>
+                {layers.map((l, i) => {
+                  const page = <Page screen={l.entry.screen} covered={i < inputFloor}${params ? " params={l.entry.params}" : ""} />${
+                    proto?.overlay
+                      ? `
+                  if (l.layer === "overlay")
+                    return (
+                      <motion.div key={\`overlay:\${l.entry.screen}\`} data-overlay={l.entry.screen} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.18 }} className="absolute inset-0 z-40 grid place-items-center">
+                        <div aria-hidden data-overlay-backdrop onClick={() => closeLayer(l.entry)} className="absolute inset-0 bg-black/32" />
+                        <motion.div
+                          custom={{ transition: l.entry.transition, backwards: false, motion: l.entry.motion }}
+                          variants={VARIANTS}
+                          initial="initial"
+                          animate="animate"
+                          data-move={l.entry.motion?.kind ?? l.entry.transition}
+                          className="relative overflow-hidden shadow-[0_12px_40px_rgba(0,0,0,0.3)]"
+                          style={{ width: SCREENS[l.entry.screen].width, height: SCREENS[l.entry.screen].height, borderRadius: SCREENS[l.entry.screen].radius }}
+                        >
+                          {page}
+                        </motion.div>
+                      </motion.div>
+                    )`
+                      : ""
+                  }
+                  return (
+                    <motion.div
+                      key={\`layer:\${l.entry.screen}\`}
+                      data-layer={l.layer}
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      transition={{ duration: 0.18 }}
+                      className={l.layer === "dialog" ? "absolute inset-0 z-40 bg-black/32" : "pointer-events-none absolute inset-0 z-40 [&_[data-cover]]:pointer-events-auto"}
+                    >
+                      {page}
+                    </motion.div>
+                  )
+                })}
+              </AnimatePresence>`
+                    : ""
               }${usesToast ? "\n              <Toaster />" : ""}
             </PortalContainer>
             {snack && (

@@ -164,6 +164,8 @@ const ITEM_FIELDS: Record<string, (v: unknown, s: CoreState, it: Item) => string
   noteHistory: (v) => (v === undefined || (Array.isArray(v) && v.every((x) => typeof x === "string")) ? null : "should be a list of text"),
   label: (v) => (typeof v === "string" ? null : "should be text"),
   /* the product draws the part with a slot of its own (lib/export/appCapabilities.ts): its name, or true to have one made */
+  /* on a HUD or toast layer, whether the part covers the world under it (docs/交互规则.md “分层”) */
+  occlude: (v) => (v === undefined || typeof v === "boolean" ? null : "should be true (the part covers the world under its HUD) or false (touches go through it to the world)"),
   slot: (v) => (v === undefined || v === true || (typeof v === "string" && /^[A-Z][A-Za-z0-9]{0,39}$/.test(v)) ? null : "should be true, or the slot's component name: a capital letter, then letters and digits (\"BuyButton\")"),
   collapseOnScroll: (v) => (v === undefined || typeof v === "boolean" ? null : "should be true or false"),
   navTabs: (v) => (v === undefined || typeof v === "boolean" ? null : "should be true or false"),

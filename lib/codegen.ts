@@ -614,7 +614,10 @@ function screensOf(source: Doc, widths: Record<string, number>, o: BuildOptions)
         ? [`<DataScroll ${label}${binds!.scrollProps()}${scrollHandler}><div className="relative" style={{ height: ${length} }}>${content.join("")}</div></DataScroll>`, ...overlays]
         : [`<div role="region" ${label} tabIndex={0} className="absolute inset-0 overflow-x-hidden overflow-y-auto overscroll-contain"${scrollHandler}><div className="relative" style={{ height: ${length} }}>${content.join("")}</div></div>`, ...overlays];
     } else body = screenBody(frame, runs, c, widths, all);
-    const bg = frame.bg && COLOR_TOKENS.some((t) => t.key === frame.bg) ? `bg-${role(frame.bg)}` : "bg-surface";
+    /* a screen laid over another as a layer (a HUD, a dialog, a toast) has no background unless it says one: what is under
+       it shows through (docs/交互规则.md “分层”) */
+    const laid = frame.layer === "hud" || frame.layer === "dialog" || frame.layer === "toast";
+    const bg = frame.bg && COLOR_TOKENS.some((t) => t.key === frame.bg) ? `bg-${role(frame.bg)}` : laid ? "bg-transparent" : "bg-surface";
     /* a style may draw something behind its screens (src/style.css) */
     const styles = styleContext(doc.styles);
     const open = `<div${hasBackdrop(normalizeTheme(doc.theme, styles), styles) ? " data-backdrop" : ""} className=${str(`relative overflow-hidden ${bg} w-[${w}px] h-[${h}px]`)}>`;

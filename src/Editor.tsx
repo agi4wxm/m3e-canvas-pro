@@ -2195,6 +2195,7 @@ export default function Editor({ initialLang, onReady, persist = editorProjects(
                 <FrameInspector
                   frame={selectedFrame}
                   flowCount={frames.filter((f) => typeof f.flow === "string").length}
+                  screens={frames}
                   palette={p}
                   onSize={(preset) => setFramePreset(selectedFrame.id, preset)}
                   onPhoneModel={setPhoneModel}

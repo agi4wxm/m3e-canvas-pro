@@ -18,7 +18,7 @@ import { ROWS } from "./rows";
 import { tiny } from "./tiny";
 import type { Element } from "./tinyReact";
 import type { HostName, Observed } from "./types";
-import { inputLog } from "../../world/channel";
+import { hostLog, inputLog } from "../../world/channel";
 import type { WorldChannel } from "../../world/types";
 
 /* The table on both web exports, as the printers write them: the screens printed by lib/codegen (lib/printBehaviour.ts,
@@ -42,6 +42,9 @@ type App = {
   /** the last screen move (src/runtime.tsx `Move`) */
   move?: { backwards: boolean; motion?: { kind: string } };
   overlay?: { screen: string; params?: Record<string, unknown> } | null;
+  /** what stands over the screen on show, bottom up (src/runtime.tsx with screens in layers) */
+  layers?: { layer: string; entry: { screen: string; params?: Record<string, unknown> } }[];
+  inputFloor?: number;
   params?: Record<string, unknown>;
   vars: Record<string, string | number | boolean>;
   snack: { message: string } | null;
@@ -164,7 +167,8 @@ async function webOf(doc: Doc, backend: Backend, product: boolean): Promise<Driv
   const { rt, screens, spec } = await printed(doc, product, () => runtime);
   let app: App | undefined;
   let tree: unknown;
-  /* the app as src/App.tsx mounts it: the screen on show, and an overlay over it, each in its page's context */
+  /* the app as src/App.tsx mounts it: the screen on show, and an overlay or the layers over it, each in its page's
+     context, covered where something over it takes every touch */
   function Mount() {
     app = rt.useApp();
     const page = (key: string, params: Record<string, unknown> | undefined, covered: boolean) => {
@@ -172,6 +176,10 @@ async function webOf(doc: Doc, backend: Backend, product: boolean): Promise<Driv
       const el = tiny.react.createElement(Screen as never, { key });
       return rt.ScreenContext ? tiny.react.createElement(rt.ScreenContext.Provider, { value: { screen: key, active: !covered, ...(params ? { params } : {}) }, key }, el) : el;
     };
+    if (app.layers) {
+      const floor = app.inputFloor ?? -1;
+      return [page(app.screen, app.params, floor >= 0), ...app.layers.map((l, i) => page(l.entry.screen, l.entry.params, i < floor))];
+    }
     return [page(app.screen, app.params, !!app.overlay), ...(app.overlay ? [page(app.overlay.screen, app.overlay.params, false)] : [])];
   }
   /* the runtime's Pressable is drawn too: what starts as the pointer comes over a part, or some time after its screen */
@@ -186,6 +194,8 @@ async function webOf(doc: Doc, backend: Backend, product: boolean): Promise<Driv
       if (!c || typeof c.listen !== "function" || heard.has(c)) continue;
       heard.set(c, []);
       c.listen((action, value) => heard.set(c, inputLog(heard.get(c) ?? [], action, value)));
+      /* and what the app tells the world beside its inputs: to pause, to go on (docs/世界宿主契约.md “分层”) */
+      c.watch?.((signal) => heard.set(c, hostLog(heard.get(c) ?? [], signal)));
     }
   };
   /** what the world views drawn on a page show: their names, and what each heard */
@@ -200,24 +210,37 @@ async function webOf(doc: Doc, backend: Backend, product: boolean): Promise<Driv
     return all.length ? all : [tree];
   };
   const top = () => pages()[pages().length - 1];
+  /** the pages that take input, the topmost first: what a tap reaches, a HUD before the world under it */
+  const usable = (): unknown[] =>
+    pages()
+      .filter((p) => !isElement(p) || (p.props.value as { active?: boolean } | undefined)?.active !== false)
+      .reverse();
+  /** the handler of the first page from the top that has the words on show */
+  const reach = (words: string, props?: string[], slot?: string) => {
+    for (const p of usable()) {
+      const h = handlerOf(p, words, [], props, slot ?? null);
+      if (h) return h;
+    }
+    return null;
+  };
   draw();
   /* the design's variables come first, in its order; an input's own state comes after them */
   const varIds = new Map((doc.vars ?? []).map((v, i) => [spec.vars[i].key, v.id]));
   return {
     tap: (words) => {
-      const h = handlerOf(top(), words);
+      const h = reach(words);
       if (!h) throw new Error(`no words "${words}" on show`);
       h();
       draw();
     },
     hover: (words) => {
-      const h = handlerOf(top(), words, [], ["onPointerEnter"]);
+      const h = reach(words, ["onPointerEnter"]);
       if (!h) throw new Error(`no words "${words}" on show`);
       h();
       draw();
     },
     tapSlot: (words, slot) => {
-      const h = handlerOf(top(), words, [], ["onClick", "onPress"], slot);
+      const h = reach(words, ["onClick", "onPress"], slot);
       if (!h) throw new Error(`no words "${words}" on show`);
       h();
       draw();

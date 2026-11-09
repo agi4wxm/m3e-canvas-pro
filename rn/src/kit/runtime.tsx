@@ -150,6 +150,11 @@ const BG: Record<string, string> = {
 /** a screen shown over another stands at its own size, its corners rounded, as the preview shows it */
 const Overlaid = createContext(false);
 
+/** the layer a screen is drawn in when it is laid over the one on show as one (app.tsx `Laid`): it has no ground of its
+ *  own unless it says one, and a HUD's and a toast's let a touch on nothing of theirs through */
+const LaidAs = createContext<"hud" | "dialog" | "toast" | null>(null);
+export const LaidProvider = LaidAs.Provider;
+
 export type ScreenProps = {
   /** the screen's ground: a fill role, as the document writes it */
   bg?: string;
@@ -166,16 +171,18 @@ export type ScreenProps = {
 export function Screen({ bg = "surface", width, length, height, children }: ScreenProps) {
   const kit = useKit();
   const overlaid = useContext(Overlaid);
+  const laid = useContext(LaidAs);
   const pinned: ReactNode[] = [];
   const body: ReactNode[] = [];
   Children.forEach(children, (child) => {
     if (isValidElement(child) && child.type === Pin) pinned.push(child);
     else body.push(child);
   });
-  const ground = kit.colors[BG[bg] ?? bg] ?? kit.colors.surface;
+  /* a layer's ground is what is under it, unless it says one of its own */
+  const ground = laid && bg === "surface" ? "transparent" : (kit.colors[BG[bg] ?? bg] ?? kit.colors.surface);
   const scrolls = !!length && !!height && length > height;
   return (
-    <View style={overlaid ? { width, height, borderRadius: 20, backgroundColor: ground, overflow: "hidden" } : { flex: 1, backgroundColor: ground, overflow: "hidden" }}>
+    <View pointerEvents={laid === "hud" || laid === "toast" ? "box-none" : "auto"} style={overlaid ? { width, height, borderRadius: 20, backgroundColor: ground, overflow: "hidden" } : { flex: 1, backgroundColor: ground, overflow: "hidden" }}>
       {scrolls ? (
         <ScrollView style={StyleSheet.absoluteFill} contentContainerStyle={{ height: length }}>
           {body}

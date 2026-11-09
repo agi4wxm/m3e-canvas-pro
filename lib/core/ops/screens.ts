@@ -11,6 +11,7 @@ import { rekeyedAll } from "../../instances";
 import {
   actionWithoutScreen,
   COLOR_TOKENS,
+  SCREEN_LAYERS,
   FRAME_GAP,
   frameLengthOf,
   frameOfGroup,
@@ -95,14 +96,15 @@ export const addTemplate = op<{ slug: string; x?: number; y?: number }, { frames
  *  to trace */
 export const patchScreen = op<{ id: string; patch: Partial<Frame> }>({
   name: "set_screen",
-  summary: "Sets a screen's fields: name, bg (a color role), note (what it is for), swipe ({left|right|up|down: screen id}), deviceBars, backgroundImage, backgroundOpacity. null clears one.",
+  summary: "Sets a screen's fields: name, bg (a color role), note (what it is for), swipe ({left|right|up|down: screen id}), deviceBars, backgroundImage, backgroundOpacity, layer (world | hud | dialog | toast: a hud, dialog or toast is laid over the screen on show instead of replacing it, and going back closes it), over (a hud's screen id it stands over whenever that screen is on show), pauses (a dialog layer that pauses the world while open). null clears one.",
   args: S.obj({ id: S.str(), patch: S.any() }, ["id", "patch"]),
   label: () => "Edit screen",
   run(s, a, ctx) {
     const f = frameById(s, a.id);
     let patch = a.patch as Record<string, unknown>;
     if (ctx.strict) {
-      const allowed = ["name", "bg", "note", "swipe", "deviceBars", "backgroundImage", "backgroundOpacity", "noteHistory"];
+      const allowed = ["name", "bg", "note", "swipe", "deviceBars", "backgroundImage", "backgroundOpacity", "noteHistory", "layer", "over", "pauses"];
+      const layer = "layer" in patch ? patch.layer : f.layer;
       for (const [k, v] of Object.entries(patch)) {
         if (!allowed.includes(k)) throw new OpError("invalid_value", `A screen has no field "${k}" to set here (it takes ${allowed.join(", ")}; size, length and place have operations of their own).`, k);
         if (v === null) continue;
@@ -110,14 +112,25 @@ export const patchScreen = op<{ id: string; patch: Partial<Frame> }>({
         if (k === "bg" && !COLOR_TOKENS.some((x) => x.key === v)) throw new OpError("invalid_value", `bg should be a color role: ${COLOR_TOKENS.map((x) => x.key).join(", ")}.`, k);
         if (k === "swipe" && (typeof v !== "object" || Object.entries(v as object).some(([d, to]) => !["left", "right", "up", "down"].includes(d) || !s.doc.frames.some((x) => x.id === to)))) throw new OpError("invalid_value", "swipe should be {left|right|up|down: an existing screen's id}.", k);
         if (k === "deviceBars" && typeof v !== "boolean") throw new OpError("invalid_value", "deviceBars should be true or false.", k);
+        if (k === "layer" && !(SCREEN_LAYERS as readonly unknown[]).includes(v)) throw new OpError("invalid_value", `layer should be one of ${SCREEN_LAYERS.join(", ")} (null makes it a page again).`, k);
+        if (k === "over" && (typeof v !== "string" || v === f.id || !s.doc.frames.some((x) => x.id === v))) throw new OpError("invalid_value", "over should be the id of another screen: the one this HUD stands over.", k);
+        if (k === "over" && layer !== "hud") throw new OpError("invalid_value", "Only a HUD layer stands over another screen: set layer to \"hud\" too.", k);
+        if (k === "pauses" && typeof v !== "boolean") throw new OpError("invalid_value", "pauses should be true or false.", k);
+        if (k === "pauses" && v && layer !== "dialog") throw new OpError("invalid_value", "Only a dialog layer pauses the world: set layer to \"dialog\" too.", k);
         const bad = k === "backgroundImage" ? pictureError(v) : null;
         if (bad) throw new OpError("invalid_value", `backgroundImage ${bad}`, k);
       }
       patch = Object.fromEntries(Object.entries(patch).map(([k, v]) => [k, v === null ? undefined : v]));
     }
-    return { state: withFrames(s, s.doc.frames.map((x) => (x.id === f.id ? { ...x, ...patch } : x))) };
+    return { state: withFrames(s, s.doc.frames.map((x) => (x.id === f.id ? layered({ ...x, ...patch }) : x))) };
   },
 });
+
+/** A screen with only the layer fields its layer takes: a HUD alone stands over another screen, a dialog alone pauses. */
+function layered(f: Frame): Frame {
+  const { over, pauses, ...rest } = f;
+  return { ...rest, ...(over !== undefined && f.layer === "hud" ? { over } : {}), ...(pauses && f.layer === "dialog" ? { pauses } : {}) };
+}
 
 /** A screen changing size: the screens to its right move over, its parts take the sizes the new screen calls for, and
  *  it is laid out again by the tidy rules. */
@@ -228,6 +241,8 @@ export const removeScreen = op<{ id: string }>({
     /* where another size of it is left, a way to it goes there instead of going altogether */
     const sibling = familyOf(s.doc.frames, id).find((f) => f.id !== id)?.id;
     const frames = framesWithout(s.doc.frames, id).map((f) => {
+      /* a HUD that stood over it stands over another size of it, or over nothing and waits to be opened */
+      if (f.over === id) f = sibling ? { ...f, over: sibling } : (({ over: _gone, ...rest }) => rest)(f);
       if (!f.swipe) return f;
       const swipe = Object.fromEntries(Object.entries(f.swipe).flatMap(([dir, to]) => (to !== id ? [[dir, to]] : sibling ? [[dir, sibling]] : [])));
       return { ...f, swipe: Object.keys(swipe).length ? swipe : undefined };

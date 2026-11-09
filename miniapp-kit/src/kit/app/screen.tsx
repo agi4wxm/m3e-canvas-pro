@@ -2,7 +2,15 @@ import Taro, { useDidHide, useDidShow, usePullDownRefresh, useReachBottom, useRo
 import { createContext, createElement, useCallback, useContext, useEffect, useMemo, useRef, useState, type ComponentType, type ReactNode } from "react";
 import {
   Bindings,
+  closeTop,
+  covers,
+  laidAs,
+  layOver,
+  pausesWorld,
   run,
+  stood,
+  type Laid,
+  type Layer as LaidOver,
   screenParams,
   useForm,
   useRequireAuth,
@@ -26,7 +34,10 @@ import {
 
 import { pickFiles, type PickedFile } from "../composites/forms";
 import { WORLDS } from "../world";
-import { Layer, OverlaidProvider } from "../screen";
+import { View } from "@tarojs/components";
+import { Layer, LaidProvider, OverlaidProvider } from "../screen";
+import { ca } from "../color";
+import { sx } from "../styles";
 import { setClock } from "../clock";
 import { currentPlace, goBack, loginScreen, moved, movesSoFar, openPlace, readQuery, type Place } from "./nav";
 import type { Action, ActionBody, AppSpec, Condition, VarValue } from "./spec";
@@ -162,7 +173,12 @@ const scalar = (v: unknown): VarValue | undefined => (v === undefined || v === n
 
 /** what a screen keeps for its taps: its state as the last step left it, its data and forms as the last render
  *  registered them, the screen laid over it, what it was opened with */
-type Live = { state: State; sources: Record<string, SourceHandle>; forms: Record<string, ScreenForm>; overlay: Place | null; params: Record<string, unknown> };
+type Live = { state: State; sources: Record<string, SourceHandle>; forms: Record<string, ScreenForm>; laid: LaidOver<Place>[]; params: Record<string, unknown> };
+
+/** What a screen laid over a page (a HUD, a dialog, a toast, an overlay: docs/交互规则.md “分层”) hands its moves to: the
+ *  page's own laying and going, and whether an overlay part of its own is open (which covers the worlds too). */
+type LayerNav = { go: ActionHost["go"]; back: ActionHost["back"]; opens: (screen: string, open: boolean) => void };
+const LayerNavContext = createContext<LayerNav | null>(null);
 
 /** a tap as the interpreter carries it, with where on the screen it was made */
 type At = Tap & { env: Env };
@@ -182,10 +198,13 @@ export function useScreen(key: string, init: ScreenInit = {}): ScreenHandle {
     props: {},
     fields: Object.fromEntries(Object.entries(init.inputs ?? {}).map(([id, x]) => [id, x.value])),
   }));
-  const [overlay, setOverlayState] = useState<Place | null>(null);
+  /* the screens laid over this page, bottom up: a HUD, a dialog, a toast, a screen an action lays over */
+  const [laid, setLaidState] = useState<LaidOver<Place>[]>([]);
+  /* a screen laid over a page hands its moves to the page */
+  const inLayer = useContext(LayerNavContext);
   /* what a tap reads when it runs: the screen as the last step left it, its data and forms as the last render
      registered them */
-  const live = useRef<Live>({ state, sources: {}, forms: {}, overlay, params });
+  const live = useRef<Live>({ state, sources: {}, forms: {}, laid, params });
   useEffect(() => {
     live.current.params = params;
   }, [params]);
@@ -193,10 +212,10 @@ export function useScreen(key: string, init: ScreenInit = {}): ScreenHandle {
     live.current.state = fn(live.current.state);
     setState(live.current.state);
   }, []);
-  const setOverlay = useCallback((p: Place | null) => {
-    if (p !== live.current.overlay) moved();
-    live.current.overlay = p;
-    setOverlayState(p);
+  const setLaid = useCallback((next: LaidOver<Place>[]) => {
+    if (next !== live.current.laid) moved();
+    live.current.laid = next;
+    setLaidState(next);
   }, []);
   const latestInit = useRef(init);
   useEffect(() => {
@@ -261,14 +280,19 @@ export function useScreen(key: string, init: ScreenInit = {}): ScreenHandle {
       go: (to, o) => {
         const target = spec.screens[to];
         if (!target) return;
+        if (inLayer) return inLayer.go(to, o);
         const place: Place = { screen: to, ...(o.params ? { params: o.params } : {}) };
-        if (o.overlay) return setOverlay(place);
-        if (live.current.overlay) setOverlay(null);
+        /* a HUD, a dialog, a toast, or a screen the action lays over: over this page, which stays on show */
+        const as: Laid | null = laidAs(target.layer, o.overlay);
+        if (as) return setLaid(layOver(live.current.laid, { layer: as, entry: place }, (a, b) => a.screen === b.screen));
+        if (live.current.laid.length) setLaid([]);
         /* leaving the sign-in screen does not keep it under the next one */
         void openPlace(spec, place, { replace: spec.screens[key]?.auth === "login" });
       },
       back: (o) => {
-        if (live.current.overlay) return setOverlay(null);
+        if (inLayer) return inLayer.back(o);
+        /* the topmost screen laid over the page closes first; a HUD that stands with it stays */
+        if (live.current.laid.length) return setLaid(closeTop(live.current.laid));
         void goBack(spec, o);
       },
       openLink: (url) =>
@@ -324,7 +348,7 @@ export function useScreen(key: string, init: ScreenInit = {}): ScreenHandle {
       /* an input action goes straight to the world view's channel */
       worldInput: (part, action, value) => WORLDS.send(part, action, value),
     };
-  }, [spec, runtime, key, update, setOverlay, fieldOf]);
+  }, [spec, runtime, key, update, setLaid, fieldOf, inLayer]);
 
   /* a condition as the screen is drawn now */
   const holds = useCallback(
@@ -356,10 +380,39 @@ export function useScreen(key: string, init: ScreenInit = {}): ScreenHandle {
     [key, host],
   );
 
-  const layer = overlay ? (
-    <Layer open onClose={() => setOverlay(null)}>
-      <OverlaidProvider value>{components[overlay.screen] ? createElement(components[overlay.screen]) : null}</OverlaidProvider>
-    </Layer>
+  /* What stands over the page (docs/交互规则.md “分层”): its own HUDs, then what was laid over it. While a dialog, a screen
+     an action lays over or an overlay part is up, the worlds under it let go of what they hold and take nothing more;
+     a dialog that says so pauses them. A screen laid over the page is a page's no more: its moves are the page's. */
+  const layers = useMemo(() => stood<Place>((me?.over ?? []).map((screen) => ({ screen })), laid), [me, laid]);
+  const [openIn, setOpenIn] = useState<Record<string, boolean>>({});
+  const overlayOpen = Object.values(state.opened).some(Boolean) || Object.values(openIn).some(Boolean);
+  const covered = covers(layers, overlayOpen);
+  const paused = pausesWorld(layers, (p) => !!spec.screens[p.screen]?.pauses, overlayOpen);
+  const pageShown = usePageShown();
+  useEffect(() => {
+    if (inLayer) return inLayer.opens(key, overlayOpen);
+    if (!pageShown) return;
+    WORLDS.cover(covered);
+    WORLDS.pause(paused);
+  }, [inLayer, key, overlayOpen, pageShown, covered, paused]);
+  const layerNav = useMemo<LayerNav>(() => ({ go: (to, o) => host.go(to, o), back: (o) => host.back(o), opens: (screen, open) => setOpenIn((m) => (!!m[screen] === open ? m : { ...m, [screen]: open })) }), [host]);
+  const layer = layers.length ? (
+    <LayerNavContext.Provider value={layerNav}>
+      {layers.map((l) => {
+        const drawn = components[l.entry.screen] ? createElement(components[l.entry.screen]) : null;
+        if (l.layer === "overlay")
+          return (
+            <Layer key={`overlay:${l.entry.screen}`} open onClose={() => setLaid(live.current.laid.filter((x) => x.entry !== l.entry))}>
+              <OverlaidProvider value>{drawn}</OverlaidProvider>
+            </Layer>
+          );
+        return (
+          <View key={`layer:${l.entry.screen}`} style={sx({ position: "fixed", left: 0, top: 0, right: 0, bottom: 0, zIndex: "100", backgroundColor: l.layer === "dialog" ? ca("scrim", 0.32) : "transparent", pointerEvents: l.layer === "dialog" ? "auto" : "none" })}>
+            <LaidProvider value={l.layer}>{drawn}</LaidProvider>
+          </View>
+        );
+      })}
+    </LayerNavContext.Provider>
   ) : null;
 
   return {

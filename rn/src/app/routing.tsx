@@ -38,8 +38,8 @@ let current: { key: string; params?: Record<string, unknown> } | undefined
 /** a screen and its params as one word */
 export const placeOf = (screen: { key: string; params?: Record<string, unknown> }) => `${screen.key}:${JSON.stringify(screen.params ?? {})}`
 
-/* What is on show: the screen last come on show, and the one under it when that is an overlay of the app's (the stack
-   keeps it drawn, and it stays on show under the overlay, as in the preview) */
+/* What is on show: the screen last come on show, and the ones under it while it is laid over them (an overlay, a layer:
+   the stack keeps them drawn, and they stay on show under it, as in the preview), the page first */
 let onShow: string[] = []
 const listeners = new Set<() => void>()
 
@@ -59,8 +59,9 @@ export const placesOnShow = () => onShow
  *  told (the kit's screenShown) */
 export function seen(screen: { key: string; params?: Record<string, unknown> }, overlay = false) {
   const place = placeOf(screen)
-  const under = overlay ? onShow.filter((p) => p !== place).slice(-1) : []
-  onShow = [...under, place]
+  /* back on one on show already (what was over it went), else over what is on show, else in its place */
+  const at = onShow.indexOf(place)
+  onShow = at >= 0 ? onShow.slice(0, at + 1) : overlay ? [...onShow, place] : [place]
   current = screen
   screenShown(place)
   for (const fn of listeners) fn()
@@ -72,6 +73,8 @@ export const routerNav: Nav = {
   go: (key, o = {}) => {
     const href = hrefOf(key, o.params, !!o.overlay && !!ROUTES[key]?.overlay)
     if (!href) return
+    /* a page takes the place of the page on show, and what was laid over that goes with it (docs/交互规则.md “分层”) */
+    if (!o.overlay && onShow.length > 1) router.dismiss(onShow.length - 1)
     if (o.replace) router.replace(href)
     else if (ROUTES[key]?.tab) router.navigate(href)
     else router.push(href)

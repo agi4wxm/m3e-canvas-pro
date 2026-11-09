@@ -45,6 +45,12 @@ export type ScreenSpec = {
   auth?: "required" | "login";
   /** its place in the tab bar, when the app has one and the screen is one of its tabs */
   tab?: number;
+  /** the layer it is laid over the screen on show as (docs/交互规则.md “分层”) instead of a page of its own */
+  layer?: "hud" | "dialog" | "toast";
+  /** the HUDs (by key) that stand over it whenever it is on show */
+  over?: string[];
+  /** a dialog that asks the worlds under it to pause while it is open */
+  pauses?: true;
 };
 
 export type VarSpec = { id: string; name: string; type: VarType; value: VarValue };

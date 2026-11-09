@@ -3,7 +3,7 @@ import { arrangeFlows, outOfPane } from "./flow";
 import { type Row, fillCurrent, fillDeep, firstRows, rowVars } from "./collections";
 import type { Action, ActionBody, Collection, Condition, Doc, DocVar, Effect, Frame, Group, Item, VarValue } from "./tokens";
 import { varValues } from "./variables";
-import { heldBy } from "./tokens";
+import { groupBounds, heldBy } from "./tokens";
 import { isColorRef } from "./look";
 import { display, evaluate, fillTemplate, holds, propValueOf, type PropRead, type Scope } from "./bindings/expr";
 import { NO_BINDINGS, scopeFor, type BindingContext } from "./bindings/scope";
@@ -328,3 +328,25 @@ export function liveGroups(groups: Group[], s: PreviewState, doc: DocScope, widt
   return arrangeFlows(gone.size ? live.filter((g) => !gone.has(g.id)) : live, widths);
 }
 
+
+/* ---------- layers (docs/交互规则.md “分层”, lib/world/layers.ts) ---------- */
+
+/** Whether a part of a HUD or toast layer covers the world under it: what lands on it is the HUD's, and the world is told
+ *  its box. The part says so (`occlude`); left out, one that does something when used covers (a button, a joystick, an
+ *  input, an overlay's trigger), one that only shows lets the touch through. */
+export function occludes(it: Item): boolean {
+  if (typeof it.occlude === "boolean") return it.occlude;
+  const def = partBySlug(it.component);
+  return !!it.action || Object.keys(it.actions ?? {}).length > 0 || INPUT_PROP[it.component ?? ""] !== undefined || !!def?.open || !!def?.world;
+}
+
+/** The boxes of a layer's parts that cover what is under it (`occludes`), in the screen's own pixels: what the world under
+ *  a HUD is told it cannot count on (`World.occlude`, cut to the view by lib/world/layers.ts `occlusionOf`). */
+export function occluderBoxes(frame: Frame, groups: Group[], widths: Record<string, number>): { id: string; x: number; y: number; w: number; h: number }[] {
+  return groups.flatMap((g) => {
+    const it = g.items.length === 1 ? g.items[0] : undefined;
+    if (!it || g.hidden || !occludes(it)) return [];
+    const b = groupBounds(g, widths);
+    return [{ id: it.id, x: b.l - frame.x, y: b.t - frame.y, w: b.r - b.l, h: b.b - b.t }];
+  });
+}

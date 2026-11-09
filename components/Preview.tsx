@@ -8,7 +8,7 @@
  *   preview/Screen.tsx   one screen and its parts; preview/LivePart.tsx one working part
  *   preview/swipe.ts     the screens' swipes; preview/Controls.tsx the bar beside the device
  *
- * What stays the preview's own is navigation (the stack of screens, an overlay over them, the slides between them),
+ * What stays the preview's own is navigation (the stack of screens, the layers laid over them, the slides between them),
  * the prototype's demos, the mock library's answers, scenarios and request log, and the look of all of it. */
 
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
@@ -44,7 +44,7 @@ import { PartThemeContext, usePartTheme } from "@/parts/theme";
 import { roleOf } from "@/parts/role";
 import { screenBackground } from "@/lib/styles";
 import { useLang } from "@/lib/i18n";
-import { applyEffects, closeOpened, liveGroups, screenVars, writeField, type FieldValue } from "@/lib/interact";
+import { applyEffects, closeOpened, liveGroups, occluderBoxes, screenVars, writeField, type FieldValue } from "@/lib/interact";
 import type { Transport, TransportFile } from "@/lib/api/transport";
 import { DesignRuntime, liveAuth, steadyTransport, type ScreenAt } from "@/lib/bindings/design";
 import { setDomainClock } from "@/parts/widgets/host";
@@ -64,6 +64,8 @@ import { PreviewStore, usePreviewState } from "./preview/store";
 import { useSwipe, type Peek } from "./preview/swipe";
 import { PreviewWorlds } from "./preview/worlds";
 import { createWorlds } from "@/lib/world/channel";
+import { closeTop, covers, inputFloor, laidAs, layOver, occlusionOf, pausesWorld, sameRects, standingWith, stood, takesInput, type Layer } from "@/lib/world/layers";
+import type { WorldRect } from "@/lib/world/types";
 
 /** room reserved for the wide preview controls: panel, right margin and breathing space */
 const WIDE_CONTROL_SPACE = 220;
@@ -78,7 +80,7 @@ type Entry = { id: string; m: Motion; params?: Record<string, unknown> };
 const FADE = TRANSITION_MOTIONS.fade;
 const INSTANT = TRANSITION_MOTIONS.none;
 
-/** the screen a tap lands on: the one on show or the overlay laid over it, and what it was opened with */
+/** the screen a tap lands on: the one on show or a layer laid over it, and what it was opened with */
 type TapScreen = { frame: Frame; params?: Record<string, unknown> };
 
 /** where the app goes once signed in: back to where a refusal or a sign-out left it, or on to the screen that needed it */
@@ -94,6 +96,20 @@ const screenVariants: Variants = {
 
 /** how long a snackbar stands, M3's short duration */
 const SNACK_MS = 4000;
+
+/** What a screen laid over the page does while it is on show, as the page does in the preview: it loads its data as it
+ *  comes on show (and when the session or the transport changes), again when what that is asked with changes, and
+ *  listens to what it subscribes to while it is up. The functions are read as the render that changed a key made them. */
+function InUse({ id, paramsKey, args, channels, epoch, via, session, enter, reload, listen }: { id: string; paramsKey: string; args: string; channels: string; epoch: number; via: unknown; session: number; enter: () => void; reload: () => void; listen: () => (() => void) | undefined }) {
+  // the screen and its params are read through their keys
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => enter(), [id, paramsKey, via, session]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => reload(), [args]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => listen(), [id, paramsKey, channels, epoch, !!via]);
+  return null;
+}
 
 /** the parts inside it are drawn in the mode the preview's own switch is on */
 function PreviewTheme({ dark, children }: { dark: boolean; children: React.ReactNode }) {
@@ -127,15 +143,16 @@ export function Preview({
   const mocks = usePreviewMocks(doc);
   const [logOpen, setLogOpen] = useState(false);
 
-  /* ---------- where the visitor is: a stack of screens, and an overlay over the top one ---------- */
+  /* ---------- where the visitor is: a stack of screens, and the layers laid over the top one ---------- */
   /* with no screen chosen, the preview starts where the first flow does */
   const [stack, setStackNow] = useState<Entry[]>(() => [{ id: startId ?? flowStarts(frames)[0]?.id ?? frames[0]?.id ?? "", m: INSTANT }]);
-  /** a screen laid over the one on show by an interaction, and how it came in */
-  const [overlay, setOverlayNow] = useState<Entry | null>(null);
+  /** the screens laid over the one on show by an interaction (a HUD, a dialog, a toast, an overlay), bottom up, and how
+   *  each came in (docs/交互规则.md “分层”, lib/world/layers.ts) */
+  const [laid, setLaidNow] = useState<Layer<Entry>[]>([]);
   /* What a tap's steps read of where the visitor is: written as each move is made, ahead of React drawing it, so a
      step after a move (an answer, a guard) knows where the visitor now is. */
   const stackRef = useRef(stack);
-  const overlayRef = useRef(overlay);
+  const laidRef = useRef(laid);
   /* How many times the visitor has gone somewhere: a screen opened, gone back from, laid over or closed, picked, swiped
      to. An answer to a tap made before the last move still runs its effects, but goes nowhere (lib/actions). */
   const moves = useRef(0);
@@ -145,11 +162,13 @@ export function Preview({
     moves.current++;
     setStackNow(value);
   }, []);
-  const setOverlay = useCallback((next: Entry | null) => {
-    if (next !== null || overlayRef.current !== null) moves.current++;
-    overlayRef.current = next;
-    setOverlayNow(next);
+  const setLaid = useCallback((next: Layer<Entry>[]) => {
+    if (next.length || laidRef.current.length) moves.current++;
+    laidRef.current = next;
+    setLaidNow(next);
   }, []);
+  /** the layers laid over the page closed: a page, a sign-in, a screen picked takes the page's place */
+  const setOverlay = useCallback((next: null) => setLaid(next ?? []), [setLaid]);
   const [anim, setAnim] = useState<ScreenMove>({ motion: INSTANT, backwards: false });
   const theme = normalizeTheme(doc.theme);
   const spring = theme.motion === "expressive";
@@ -173,6 +192,11 @@ export function Preview({
 
   const top = stack[stack.length - 1];
   const current = frames.find((f) => f.id === (top ? shownId(top.id) : undefined)) ?? frames[0];
+  /** what stands over the page on show, bottom up: the HUDs that stand with it, then what was laid over it */
+  const pageId = top?.id;
+  const layers = useMemo(() => stood<Entry>(standingWith(frames, pageId).map((f) => ({ id: f.id, m: INSTANT })), laid), [frames, pageId, laid]);
+  /** where input stops: the layers from the topmost modal one up take it, and the page only when none is modal */
+  const floor = inputFloor(layers);
 
   /* ---------- the data, the calls, the forms, the session: the runtime every exported app runs on (lib/app) ---------- */
   /* What the calls go through: a page's own back end (a test's fake, an embedding app's), the transport the preview is
@@ -233,9 +257,9 @@ export function Preview({
     },
     [frames, shownId],
   );
-  /** the screen a step lands on now: the overlay, else the top of the stack */
+  /** the screen a step lands on now: the topmost layer laid over the page, else the top of the stack */
   const onShow = (): Frame | undefined => {
-    const id = overlayRef.current?.id ?? stackRef.current[stackRef.current.length - 1]?.id;
+    const id = laidRef.current[laidRef.current.length - 1]?.entry.id ?? stackRef.current[stackRef.current.length - 1]?.id;
     return id ? frames.find((f) => f.id === shownId(id)) : undefined;
   };
   const loginFrame = frames.find((f) => f.auth === "login");
@@ -257,9 +281,9 @@ export function Preview({
   /** a swipe under way (its peek), which going back waits for */
   const peeking = useRef<{ current: unknown }>({ current: null });
   const back = useCallback((o?: BackOptions) => {
-    /* an overlay is what going back closes first */
-    if (overlayRef.current) {
-      setOverlay(null);
+    /* the topmost layer laid over the page is what going back closes first; a HUD that stands with the page stays */
+    if (laidRef.current.length) {
+      setLaid(closeTop(laidRef.current));
       return;
     }
     const s = stackRef.current;
@@ -271,7 +295,7 @@ export function Preview({
     const m = same ? (o?.motion ?? from.m) : FADE;
     setAnim({ motion: m, backwards: true, spring });
     setStack(s.slice(0, -1));
-  }, [spring, sameSize, setStack, setOverlay]);
+  }, [spring, sameSize, setStack, setLaid]);
 
   /** opens a screen, as an interaction asks: one that needs a session, without one, has the sign-in screen first */
   const go = (to: string, o: GoOptions) => {
@@ -284,11 +308,13 @@ export function Preview({
       setStack((cur) => [...cur, { id: loginFrame.id, m: FADE }]);
       return;
     }
-    if (o.overlay) {
-      setOverlay({ id: to, m: o.motion ?? DEFAULT_MOTION, ...(o.params ? { params: o.params } : {}) });
+    /* a HUD, a dialog, a toast, or a screen the action lays over: over the page, which stays on show */
+    const as = laidAs(target.layer, o.overlay);
+    if (as) {
+      setLaid(layOver(laidRef.current, { layer: as, entry: { id: to, m: o.motion ?? DEFAULT_MOTION, ...(o.params ? { params: o.params } : {}) } }, (a, b) => a.id === b.id));
       return;
     }
-    /* an overlay closes when its screen goes on to another */
+    /* what was laid over the page closes when it goes on to another */
     setOverlay(null);
     const s = stackRef.current;
     const same = sameSize(s[s.length - 1].id, to);
@@ -393,14 +419,6 @@ export function Preview({
     // the params are read through their key: a new object with the same values loads nothing again
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [current?.id, paramsKey, data, answering, mockSession]);
-  const overlayParams = overlay?.params;
-  const overlayKey = JSON.stringify(overlayParams ?? null);
-  useEffect(() => {
-    const f = overlay ? frames.find((x) => x.id === shownId(overlay.id)) : undefined;
-    if (!answering || !f?.data?.length) return;
-    void data.enter(atNow(f, overlayParams));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [overlay?.id, overlayKey, data, answering, mockSession]);
   /* What a source is asked with can change while its screen is up: its params read a variable a search field writes,
      another source's answer, the session. Read as the screen's scope has them now, they are the key it loads by, as in
      the exported app (lib/app/react.ts `useDataSource`): a change enters it again with them, a key that holds what it
@@ -420,14 +438,10 @@ export function Preview({
   // the arguments are read through their key: the screen coming on show is loaded just above
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => reload(current, topParams), [currentArgs]);
-  const overlayShown = overlay ? frames.find((x) => x.id === shownId(overlay.id)) : undefined;
-  const overlayArgs = argsKey(overlayShown, overlayParams);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => reload(overlayShown, overlayParams), [overlayArgs]);
 
   /* ---------- listening to what the screens on show subscribe to ---------- */
-  /* Each subscription of a screen on show (the top of the stack, and the overlay over it) is open while it is (an
-     overlay over a screen leaves it on show), afresh when what it is asked with changes or the preview starts over, and
+  /* Each subscription of a screen on show (the top of the stack, and the layers over it) is open while it is (a
+     layer over a screen leaves it on show), afresh when what it is asked with changes or the preview starts over, and
      closed as the screen goes. A message runs the action on it on that screen, with the message as the event, as a
      part's event does (docs/交互规则.md “订阅”). */
   const epoch = useSyncExternalStore(runtime.epoch.subscribe, runtime.epoch.get, runtime.epoch.get);
@@ -445,9 +459,28 @@ export function Preview({
   // the screen's params and what its subscriptions are asked with are read through their keys
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => listenOn(current, topParams), [current?.id, paramsKey, currentChannels, epoch, !!answering]);
-  const overlayChannels = channelsKey(overlayShown, overlayParams);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => listenOn(overlayShown, overlayParams), [overlayShown?.id, overlayKey, overlayChannels, epoch, !!answering]);
+  /** what a layer over the page does while it is on show: what the page does just above (`InUse`) */
+  const inUse = (l: Layer<Entry>) => {
+    const f = frames.find((x) => x.id === shownId(l.entry.id));
+    const params = l.entry.params;
+    return (
+      <InUse
+        key={`use:${l.entry.id}`}
+        id={f?.id ?? ""}
+        paramsKey={JSON.stringify(params ?? null)}
+        args={argsKey(f, params)}
+        channels={channelsKey(f, params)}
+        epoch={epoch}
+        via={answering}
+        session={mockSession}
+        enter={() => {
+          if (answering && f?.data?.length) void data.enter(atNow(f, params));
+        }}
+        reload={() => reload(f, params)}
+        listen={() => listenOn(f, params)}
+      />
+    );
+  };
   /* the parts' countdowns read the time off the runtime's clock: the mock library's, which the bar can stop */
   useEffect(() => setDomainClock(() => runtime.now()), [runtime]);
 
@@ -476,7 +509,7 @@ export function Preview({
   const peekRef = swipe.peekRef;
   const peekFrame = peek ? frames.find((f) => f.id === peek.frameId) : undefined;
 
-  /* A tap on a screen (the one on show, or the overlay over it): the interpreter runs it where it was made. A tap from
+  /* A tap on a screen (the one on show, or a layer over it): the interpreter runs it where it was made. A tap from
      a repeated part of a collection makes its row the current one (`{{current.field}}`), when it runs anything. */
   const fire = (a: Action, it: Item | undefined, on: TapScreen, extra?: TapExtra) => {
     if (swipe.swiped.current) return;
@@ -555,9 +588,9 @@ export function Preview({
       /* an input method putting a character together owns every key, Escape too */
       if (composing(e)) return;
       if (e.key === "Escape") {
-        /* an open menu is the thing Escape dismisses, then an overlay */
+        /* an open menu is the thing Escape dismisses, then the topmost layer laid over the page */
         if (picker) setPicker(false);
-        else if (overlayRef.current) setOverlay(null);
+        else if (laidRef.current.length) setLaid(closeTop(laidRef.current));
         else onClose();
       }
       /* Backspace in a field deletes, ← in a slider or a row of tabs moves: only elsewhere do they go back */
@@ -565,7 +598,7 @@ export function Preview({
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [back, onClose, picker, setOverlay]);
+  }, [back, onClose, picker, setLaid]);
   /* The control that opened the preview gets the keyboard back when it closes, whichever
    * screens were shown in between. Read
    * during the first render, before a screen's effect moves focus onto its rail. */
@@ -607,8 +640,55 @@ export function Preview({
   const boundFor = useCallback((f: Frame | undefined) => (doc.vars?.length && f ? screenVars(state, doc, f, dark).vars : null), [doc, state, dark]);
   const live = useMemo(() => (current ? groupsFor(current, top?.params) : { groups: [], widths }), [current, groupsFor, top?.params, widths]);
   const groups = live.groups;
-  const overlayFrame = overlay ? frames.find((f) => f.id === shownId(overlay.id)) : undefined;
-  const overlayLive = useMemo(() => (overlayFrame ? groupsFor(overlayFrame, overlay?.params) : { groups: [], widths }), [overlayFrame, groupsFor, overlay?.params, widths]);
+  /* the screens laid over the page, as the state has them */
+  const layerFrames = useMemo(() => layers.map((l) => frames.find((f) => f.id === shownId(l.entry.id))), [layers, frames, shownId]);
+  const layersLive = useMemo(() => layers.map((l, i) => { const f = layerFrames[i]; return f ? groupsFor(f, l.entry.params) : { groups: [], widths }; }), [layers, layerFrames, groupsFor, widths]);
+
+  /* ---------- what the layers tell the worlds under them (docs/世界宿主契约.md, lib/world/layers.ts) ---------- */
+  /* A modal layer up, or an overlay part open on a screen on show, covers the worlds: what they hold is let go and
+     nothing more is sent until it closes. A dialog that says so asks them to pause, and to go on as it closes. */
+  const shownParts = new Set([...groups, ...layersLive.flatMap((l) => l.groups)].flatMap((g) => g.items.map((it) => it.id)));
+  const overlayOpen = Object.entries(state.opened).some(([id, on]) => on && shownParts.has(id));
+  const covered = covers(layers, overlayOpen);
+  const pausedWorld = pausesWorld(layers, (e) => !!frames.find((f) => f.id === e.id)?.pauses, overlayOpen);
+  useEffect(() => {
+    worlds.cover(covered);
+    worlds.pause(pausedWorld);
+  }, [covered, pausedWorld, worlds]);
+  /* what of each world view on the page the HUDs and toasts over it cover, in the view's own pixels (`World.occlude`) */
+  const occlusion = useMemo(() => {
+    const views = current ? live.groups.flatMap((g) => (g.items.length === 1 && partBySlug(g.items[0].component)?.world ? occluderBoxes(current, [{ ...g, items: [{ ...g.items[0], occlude: true }] }], live.widths) : [])) : [];
+    if (!views.length) return [];
+    const boxes = layers.flatMap((l, i) => ((l.layer === "hud" || l.layer === "toast") && layerFrames[i] ? occluderBoxes(layerFrames[i]!, layersLive[i].groups, layersLive[i].widths) : []));
+    return views.map((v) => [v.id, occlusionOf(v, boxes)] as const);
+  }, [current, live, layers, layerFrames, layersLive]);
+  const occludedNow = useRef<Record<string, WorldRect[]>>({});
+  useEffect(() => {
+    for (const [part, rects] of occlusion) {
+      if (sameRects(occludedNow.current[part] ?? [], rects)) continue;
+      occludedNow.current[part] = rects;
+      worlds.occlude(part, rects);
+    }
+  }, [occlusion, worlds]);
+  /* A pointer that goes down on a world view of the page (no HUD control took it: those stand over it and take what
+     lands on them) is the world's until it is lifted, wherever it moves (`World.pointer`, with capture). */
+  const pointers = useRef(new Map<number, { part: string; el: Element }>());
+  const worldPointer = (e: React.PointerEvent) => {
+    let at = pointers.current.get(e.pointerId);
+    if (e.type === "pointerdown") {
+      const el = (e.target as Element).closest?.('[data-slot="world-view"]');
+      const part = el?.closest("[data-part]")?.getAttribute("data-part");
+      if (!el || !part) return;
+      at = { part, el };
+      pointers.current.set(e.pointerId, at);
+      (e.target as Element).setPointerCapture?.(e.pointerId);
+    }
+    if (!at) return;
+    const r = at.el.getBoundingClientRect();
+    const kind = e.type === "pointerdown" ? "down" : e.type === "pointermove" ? "move" : "up";
+    worlds.pointer(at.part, { kind, x: Math.round((e.clientX - r.left) / scale), y: Math.round((e.clientY - r.top) / scale), at: runtime.now() });
+    if (kind === "up") pointers.current.delete(e.pointerId);
+  };
   const peekLive = useMemo(() => (peekFrame ? groupsFor(peekFrame) : { groups: [], widths }), [peekFrame, groupsFor, widths]);
 
   if (!current) {
@@ -722,6 +802,10 @@ export function Preview({
             }}
           >
             <motion.div
+              onPointerDown={worldPointer}
+              onPointerMove={worldPointer}
+              onPointerUp={worldPointer}
+              onPointerCancel={worldPointer}
               style={{
                 position: "absolute",
                 inset: 0,
@@ -741,26 +825,45 @@ export function Preview({
                   exit="exit"
                   style={{ position: "absolute", inset: 0 }}
                 >
-                  <Screen frame={current} groups={groups} {...screenProps} onAction={(a, it, extra) => fire(a, it, { frame: current, params: top?.params }, extra)} widths={live.widths} {...dataHandlers(current, top?.params)} active={!overlayFrame} bound={boundFor(current)} />
+                  <Screen frame={current} groups={groups} {...screenProps} onAction={(a, it, extra) => fire(a, it, { frame: current, params: top?.params }, extra)} widths={live.widths} {...dataHandlers(current, top?.params)} active={floor < 0} bound={boundFor(current)} />
                 </motion.div>
               </AnimatePresence>
             </motion.div>
             <AnimatePresence>
-              {overlayFrame && overlay && (
-                <motion.div key={`overlay:${overlay.id}`} data-preview-overlay={overlay.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.18 }} style={{ position: "absolute", inset: 0, zIndex: 4, display: "grid", placeItems: "center" }}>
-                  <div aria-hidden onClick={() => setOverlay(null)} style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.32)" }} />
-                  <motion.div
-                    custom={{ motion: overlay.m, backwards: false, spring } satisfies ScreenMove}
-                    variants={screenVariants}
-                    initial="initial"
-                    animate="animate"
-                    style={{ position: "relative", width: frameSizeOf(overlayFrame).w, height: frameSizeOf(overlayFrame).h, borderRadius: frameRadius(overlayFrame) / 2, overflow: "hidden", boxShadow: "0 12px 40px rgba(0,0,0,0.3)" }}
-                  >
-                    <Screen frame={overlayFrame} groups={overlayLive.groups} {...screenProps} onAction={(a, it, extra) => fire(a, it, { frame: overlayFrame, params: overlay.params }, extra)} widths={overlayLive.widths} {...dataHandlers(overlayFrame, overlay?.params)} bound={boundFor(overlayFrame)} />
+              {layers.map((l, i) => {
+                const f = layerFrames[i];
+                if (!f) return null;
+                const lv = layersLive[i];
+                const screen = (
+                  <Screen frame={f} groups={lv.groups} {...screenProps} onAction={(a, it, extra) => fire(a, it, { frame: f, params: l.entry.params }, extra)} widths={lv.widths} {...dataHandlers(f, l.entry.params)} active={takesInput(layers, i)} bound={boundFor(f)} layer={l.layer === "overlay" ? undefined : l.layer} />
+                );
+                /* a screen an action lays over sits in the middle, at its own size, over a dimmed backdrop a tap on which closes it */
+                if (l.layer === "overlay")
+                  return (
+                    <motion.div key={`overlay:${l.entry.id}`} data-preview-overlay={l.entry.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.18 }} style={{ position: "absolute", inset: 0, zIndex: 4 + i, display: "grid", placeItems: "center" }}>
+                      <div aria-hidden onClick={() => setLaid(laidRef.current.filter((x) => x.entry !== l.entry))} style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.32)" }} />
+                      <motion.div
+                        custom={{ motion: l.entry.m, backwards: false, spring } satisfies ScreenMove}
+                        variants={screenVariants}
+                        initial="initial"
+                        animate="animate"
+                        style={{ position: "relative", width: frameSizeOf(f).w, height: frameSizeOf(f).h, borderRadius: frameRadius(f) / 2, overflow: "hidden", boxShadow: "0 12px 40px rgba(0,0,0,0.3)" }}
+                      >
+                        {screen}
+                      </motion.div>
+                    </motion.div>
+                  );
+                /* A layer the screen is marked as covers the page: a dialog over a dimmed world, taking every touch; a HUD
+                   and a toast only where their controls are, the rest falling through to what is under them */
+                return (
+                  <motion.div key={`layer:${l.entry.id}`} data-preview-layer={l.layer} data-preview-layer-screen={l.entry.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.18 }} style={{ position: "absolute", inset: 0, zIndex: 4 + i, pointerEvents: l.layer === "dialog" ? undefined : "none" }}>
+                    {l.layer === "dialog" && <div aria-hidden data-preview-layer-scrim style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.32)" }} />}
+                    {screen}
                   </motion.div>
-                </motion.div>
-              )}
+                );
+              })}
             </AnimatePresence>
+            {layers.map(inUse)}
             {peek && peekFrame && (
               <motion.div
                 style={{
@@ -802,7 +905,7 @@ export function Preview({
         current={current}
         p={p}
         wide={wide}
-        canGoBack={stack.length >= 2 || !!overlay}
+        canGoBack={stack.length >= 2 || laid.length > 0}
         onBack={() => back()}
         picker={picker}
         setPicker={setPicker}

@@ -13,6 +13,7 @@ import type { CapabilitySpec } from "./capabilities/types";
 import type { MaterialDef, MaterialLayer } from "./material";
 import { fields, withUnknown } from "./keep";
 import { mapAction, mapBody, mapCondition, type RefMap } from "./refs";
+import type { ScreenLayer } from "./world/hostContract";
 
 /* the API section's model (lib/api): data models, endpoints, auth, channels, servers */
 export type * from "./api/types";
@@ -747,6 +748,11 @@ export type Item = {
    *  (`src/custom/slots/<Name>.tsx`, kept on every export), handed what the part is and drawing the design's part until
    *  it is changed (docs/平台能力.md 插槽). `true` names the slot after the part; a name (`"BuyButton"`) keeps it. */
   slot?: true | string;
+  /** On a HUD or toast layer (`Frame.layer`), whether the part covers the world under it (docs/交互规则.md “分层”): what
+   *  lands on it is the HUD's, and the world is told the part's box (`World.occlude`) to keep what matters out from
+   *  under it. Left out, a part that does something when used covers (a joystick, a button), one that only shows (a
+   *  label, a bar) lets the touch through to the world. */
+  occlude?: boolean;
   /** Runtime only, never saved: the fields of the row this copy was drawn for (lib/collections.ts).
    *  A tap on it runs with them as `row.field`. */
   row?: Record<string, string>;
@@ -1127,7 +1133,18 @@ export type Frame = {
   /** "required": only with a session (else the app goes to the sign-in screen); "login": the sign-in screen, where a
    *  401 or a screen that needs a session sends the app */
   auth?: "required" | "login";
+  /** What the screen is when it comes on show (docs/交互规则.md “分层”, lib/world/layers.ts): a `world` is a page that
+   *  holds a world view; a `hud`, a `dialog` or a `toast` is laid over the screen on show, drawn over it and asked first
+   *  for what lands on it, instead of taking its place; going back closes it. Left out, a page as always. */
+  layer?: ScreenLayer;
+  /** A HUD layer that stands over this screen (by id) whenever it is on show, instead of being opened by a tap. */
+  over?: string;
+  /** a dialog layer that asks the worlds under it to stand still while it is open (a pause menu) */
+  pauses?: boolean;
 };
+
+/** the layers a screen can be marked as, from the bottom up */
+export { SCREEN_LAYERS, type ScreenLayer } from "./world/hostContract";
 
 /** how much of `backgroundImage` shows when the author has said nothing */
 export const TRACE_OPACITY = 0.5;

@@ -11,7 +11,7 @@ import { tiny } from "./tiny";
 import type { Element } from "./tinyReact";
 import type { ScreenMove } from "../../screenMotion";
 import type { Observed } from "./types";
-import { inputLog, type Worlds } from "../../world/channel";
+import { hostLog, inputLog, type Worlds } from "../../world/channel";
 
 /* The table on the editor's preview: the real `Preview` component (components/Preview.tsx) and everything a tap goes
  * through there (its `fire`, the interpreter on its host, its calls through the bindings engine, its forms, its
@@ -82,7 +82,12 @@ function previewOf(doc: Doc, backend: Backend): Driver {
   /* what each world view's stand-in lists: it listens on the channel the preview gives it (parts/widgets/World.tsx) */
   const heard: Record<string, string[]> = {};
   const worlds = tiny.elements(tree).find((e) => { const v = e.props.value as Partial<Worlds> | undefined; return !!v && typeof v.channel === "function" && typeof v.send === "function"; })?.props.value as Worlds | undefined;
-  for (const it of doc.groups.flatMap((g) => g.items)) if (it.component === "world-view") worlds?.channel(it.id).listen((action, value) => (heard[it.id] = inputLog(heard[it.id] ?? [], action, value)));
+  for (const it of doc.groups.flatMap((g) => g.items))
+    if (it.component === "world-view") {
+      worlds?.channel(it.id).listen((action, value) => (heard[it.id] = inputLog(heard[it.id] ?? [], action, value)));
+      /* and what the preview tells the world beside its inputs: to pause, to go on (docs/世界宿主契约.md “分层”) */
+      worlds?.channel(it.id).watch?.((signal) => (heard[it.id] = hostLog(heard[it.id] ?? [], signal)));
+    }
   return {
     tap: (words) => {
       const { screen, it } = find(words);

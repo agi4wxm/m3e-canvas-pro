@@ -11,7 +11,7 @@ import { pinOf } from "@/lib/tidy";
 import { FOOT_GAP, footOf } from "@/lib/foot";
 import { paneClips } from "@/lib/flow";
 import { screenBackground } from "@/lib/styles";
-import { INPUT_PROP, isOverlayPart, type FieldValue } from "@/lib/interact";
+import { INPUT_PROP, isOverlayPart, occludes, type FieldValue } from "@/lib/interact";
 import type { TransportFile } from "@/lib/api/transport";
 import { demoRuns, eventAction, eventOfKey, eventsOf, payloadOf, slotAction } from "@/lib/partContract";
 import { partBySlug } from "@/parts/registry";
@@ -41,7 +41,12 @@ export function Screen({
   onNearEnd,
   refreshing,
   onWordHeights,
+  layer,
 }: {
+  /** The layer the screen is laid over the page as (docs/交互规则.md “分层”): it has no background of its own unless
+   *  it says one; a HUD's and a toast's own touches land only on their parts that cover what is under them
+   *  (lib/interact.ts `occludes`), the rest fall through. */
+  layer?: "hud" | "dialog" | "toast";
   /** how tall bound words in an auto layout are drawn here, where that is not what the canvas measured (`${id}:h`) */
   onWordHeights?: (heights: Record<string, number>) => void;
   /** a file input of the screen took files */
@@ -132,6 +137,9 @@ export function Screen({
       if (lift !== undefined) pins.set(g.id, lift);
     }
   }
+  /* a HUD or a toast takes the touches that land on its parts that cover the world; the rest go through to under it */
+  const passThrough = layer === "hud" || layer === "toast";
+  const covering = (g: Group) => g.items.some((it) => occludes(it) || !!opened[it.id]);
   /* what an effect opened floats over the screen: it stands on the glass, over a scrim, not on the body */
   const isOpen = (g: Group) => g.items.some((it) => opened[it.id]);
   const openGroups = groups.filter(isOpen);
@@ -265,7 +273,8 @@ export function Screen({
       role="group"
       aria-label={frame.name || t("screen", lang)}
       tabIndex={-1}
-      style={{ position: "absolute", inset: 0, background: screenBackground(p[frame.bg ?? "surface"], styled), overflow: "hidden", outline: "none" }}
+      data-preview-layer-of={layer}
+      style={{ position: "absolute", inset: 0, background: layer && !frame.bg ? "transparent" : screenBackground(p[frame.bg ?? "surface"], styled), overflow: "hidden", outline: "none", ...(passThrough ? { pointerEvents: "none" } : {}) }}
     >
       {openGroups.length > 0 && <div data-preview-scrim aria-hidden onClick={onScrim} style={{ position: "absolute", inset: 0, zIndex: 1, background: dims ? "rgba(0,0,0,0.32)" : "transparent" }} />}
       <BoundValues.Provider value={bound}>
@@ -278,7 +287,7 @@ export function Screen({
           data-in-flow={g.inFlow ? "" : undefined}
           style={
             g.free
-              ? { position: "absolute", left: g.x - frame.x, top: g.y - frame.y - lift(g), zIndex: isOpen(g) ? 2 : undefined, clipPath: clips.get(g.id) }
+              ? { position: "absolute", left: g.x - frame.x, top: g.y - frame.y - lift(g), zIndex: isOpen(g) ? 2 : undefined, clipPath: clips.get(g.id), ...(passThrough ? { pointerEvents: covering(g) ? "auto" : "none" } : {}) }
               : {
                   position: "absolute",
                   left: g.x - frame.x,
@@ -287,7 +296,7 @@ export function Screen({
                   clipPath: clips.get(g.id),
                   /* a split's pane is drawn over the split, not inside it: a press near the divider goes through it to
                      the divider, unless the pane does something of its own when tapped */
-                  pointerEvents: g.splitPane && !g.items.some((it) => it.action || it.actions) ? "none" : undefined,
+                  pointerEvents: passThrough ? (covering(g) ? "auto" : "none") : g.splitPane && !g.items.some((it) => it.action || it.actions) ? "none" : undefined,
                   display: "flex",
                   flexDirection: g.axis === "x" ? "row" : "column",
                   alignItems: g.axis === "x" ? "center" : "stretch",
@@ -413,7 +422,7 @@ export function Screen({
           <style>{"@keyframes m3e-spin { to { transform: rotate(360deg) } }"}</style>
         </div>
       )}
-      {frame.deviceBars && takesDeviceBars(frame) && <DeviceBars p={p} bg={frame.bg ?? "surface"} height={viewH} zIndex={3} />}
+      {!layer && frame.deviceBars && takesDeviceBars(frame) && <DeviceBars p={p} bg={frame.bg ?? "surface"} height={viewH} zIndex={3} />}
     </div>
   );
 }

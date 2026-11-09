@@ -112,6 +112,7 @@ const ITEM_PATCH: Schema = {
     flowMin: nullable(wh({ type: "number", minimum: 0 })),
     flowMax: nullable(wh({ type: "number", minimum: 0 })),
     flowSpan: nullable({ type: "integer", minimum: 1, maximum: 12, description: "grid columns it spans" }),
+    occlude: nullable({ type: "boolean", description: "on a hud or toast screen: true covers the world (takes the touches on it), false lets them through; left out, a part that does something covers" }),
   },
 };
 
@@ -143,6 +144,9 @@ const SCREEN_PATCH: Schema = {
     deviceBars: nullable({ type: "boolean", description: "draw the phone's status and gesture bars" }),
     backgroundImage: nullable({ type: "string", description: "a tracing image under the screen" }),
     backgroundOpacity: nullable({ type: "number", minimum: 0, maximum: 100 }),
+    layer: nullable({ type: "string", enum: ["world", "hud", "dialog", "toast"], description: "a hud, dialog or toast is laid over the screen on show instead of replacing it; going back closes it" }),
+    over: nullable({ type: "string", description: "a hud's: the screen id it stands over whenever that screen is on show" }),
+    pauses: nullable({ type: "boolean", description: "a dialog's: the world pauses while it is open" }),
   },
 };
 

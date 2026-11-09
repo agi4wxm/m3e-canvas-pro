@@ -47,6 +47,8 @@ export function designDoc(d: Design): { doc: Doc; widths: Record<string, number>
       if (s.params?.length) tx.run(ops.setScreenParams, { screen: s.id, params: s.params.map((name) => ({ name, type: "string" as const })) });
       if (s.auth) tx.run(ops.setScreenAuth, { screen: s.id, auth: s.auth });
     }
+    /* the layers once every screen is there: a HUD names the page it stands over */
+    for (const s of d.screens) if (s.layer) tx.run(ops.patchScreen, { id: s.id, patch: { layer: s.layer, ...(s.over ? { over: s.over } : {}), ...(s.pauses ? { pauses: true } : {}) } });
     for (const v of d.vars ?? []) tx.run(ops.addVar, { id: v.id, name: v.name, type: v.type, value: v.value });
     /* one part under another, down each screen */
     const y: Record<string, number> = {};
@@ -60,7 +62,7 @@ export function designDoc(d: Design): { doc: Doc; widths: Record<string, number>
           : kind === "menu"
             ? { label: p.label, items: (p.items ?? []).map((label) => ({ label })), destructive: "" }
             : kind === "dialog"
-              ? { headline: p.label, supporting: "", confirm: p.items?.[0] ?? "OK", dismiss: "" }
+              ? { title: p.label, description: "", confirm: p.items?.[0] ?? "OK", dismiss: "" }
               : kind === "numpad"
                 ? { action: p.label }
                 : kind === "buttons"

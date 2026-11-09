@@ -20,26 +20,60 @@ import { corner, typeStyle, useKit, type Kit } from "./theme/ThemeProvider";
 /** a direction (x and y from -1 to 1), or whether a button of the world is held down */
 export type WorldInput = { x: number; y: number } | boolean;
 
+/** a rectangle of the view, in its own pixels */
+export type WorldRect = { x: number; y: number; w: number; h: number };
+
+/** what the app tells a world beside its inputs: to stand still or go on, what of it a HUD covers, a pointer on it */
+export type HostSignal = { pause: boolean } | { occlude: WorldRect[] } | { pointer: { kind: "down" | "move" | "up"; x: number; y: number; at: number } };
+
 /** the local channel a world view's inputs come in on */
 export type WorldChannel = {
   /** hears every input from now on; gives back how to stop */
   listen(fn: (action: string, value: WorldInput, at: number) => void): () => void;
   /** what each input holds now */
   held(): Record<string, WorldInput>;
+  /** hears what the app tells the world from now on */
+  watch?(fn: (signal: HostSignal) => void): () => void;
+  /** what the app has told the world so far */
+  hosted?(): { paused: boolean; occluded: WorldRect[] };
 };
 
-/** a channel for each world view, by its item id */
-export type WorldChannels = { send(part: string, action: string, value: WorldInput): void; channel(part: string): WorldChannel; clear(): void };
+/** A channel for each world view, by its item id. `cover` (a dialog, an overlay open over the screen: docs/世界宿主契约.md
+ *  “浮层”) lets go of every input each view holds and sends nothing more until uncovered; `pause` asks every world to
+ *  stand still or go on. */
+export type WorldChannels = { send(part: string, action: string, value: WorldInput): void; channel(part: string): WorldChannel; cover(on: boolean): void; pause(on: boolean): void; clear(): void };
 
 export function createWorldChannels(now: () => number = () => Date.now()): WorldChannels {
   const listeners = new Map<string, Set<(action: string, value: WorldInput, at: number) => void>>();
   const holding = new Map<string, Record<string, WorldInput>>();
   const channels = new Map<string, WorldChannel>();
+  const watchers = new Map<string, Set<(s: HostSignal) => void>>();
+  let covered = false;
+  let paused = false;
+  const deliver = (part: string, action: string, value: WorldInput) => {
+    holding.set(part, { ...holding.get(part), [action]: value });
+    const at = now();
+    for (const fn of Array.from(listeners.get(part) ?? [])) fn(action, value, at);
+  };
+  const parts = () => new Set([...listeners.keys(), ...holding.keys(), ...watchers.keys()]);
   return {
     send(part, action, value) {
-      holding.set(part, { ...holding.get(part), [action]: value });
-      const at = now();
-      for (const fn of Array.from(listeners.get(part) ?? [])) fn(action, value, at);
+      if (!covered) deliver(part, action, value);
+    },
+    cover(on) {
+      if (on === covered) return;
+      if (on)
+        for (const part of parts())
+          for (const [action, value] of Object.entries(holding.get(part) ?? {})) {
+            if (value === true) deliver(part, action, false);
+            else if (typeof value === "object" && (value.x !== 0 || value.y !== 0)) deliver(part, action, { x: 0, y: 0 });
+          }
+      covered = on;
+    },
+    pause(on) {
+      if (on === paused) return;
+      paused = on;
+      for (const part of parts()) for (const fn of Array.from(watchers.get(part) ?? [])) fn({ pause: on });
     },
     channel(part) {
       const known = channels.get(part);
@@ -52,6 +86,13 @@ export function createWorldChannels(now: () => number = () => Date.now()): World
           return () => void set.delete(fn);
         },
         held: () => ({ ...holding.get(part) }),
+        watch(fn) {
+          const set = watchers.get(part) ?? new Set();
+          watchers.set(part, set);
+          set.add(fn);
+          return () => void set.delete(fn);
+        },
+        hosted: () => ({ paused, occluded: [] }),
       };
       channels.set(part, made);
       return made;
@@ -64,6 +105,12 @@ const two = (n: number) => String(Math.round(n * 100) / 100 || 0);
 
 /** an input as a stand-in says it: `move 0.5,-1`, `attack ↓` pressed, `attack ↑` let go */
 export const inputWords = (action: string, value: WorldInput) => (typeof value === "boolean" ? `${action} ${value ? "↓" : "↑"}` : `${action} ${two(value.x)},${two(value.y)}`);
+
+/** what a stand-in says of what the app told the world: `paused`, `resumed` (lib/world/channel.ts `hostWords`) */
+export function hostLog(log: readonly string[], signal: HostSignal): string[] {
+  const line = "pause" in signal ? (signal.pause ? "paused" : "resumed") : null;
+  return line ? [...log, line].slice(-4) : [...log];
+}
 
 /** the inputs a stand-in lists, the newest last: a direction takes the place of the one before it of the same input */
 export function inputLog(log: readonly string[], action: string, value: WorldInput): string[] {
@@ -132,6 +179,8 @@ export function WorldStandIn(props: WorldStandInProps) {
   const [log, setLog] = useState<string[]>([]);
   const channel = p.channel;
   useEffect(() => (channel ? channel.listen((action, value) => setLog((l) => inputLog(l, action, value))) : undefined), [channel]);
+  /* and what the app tells the world: to pause, to go on */
+  useEffect(() => channel?.watch?.((signal) => setLog((l) => hostLog(l, signal))), [channel]);
   const chip = { ...typeStyle(kit, "label-medium"), color: c(kit, "on-surface"), backgroundColor: withAlpha(c(kit, "surface"), 0.8), borderRadius: corner(kit, "md"), paddingHorizontal: 8, overflow: "hidden" as const };
   return (
     <Surface base={{ width: w, height: h, borderRadius: corner(kit, "lgi"), backgroundColor: c(kit, "surface-container-high"), overflow: "hidden", ...fill }} appearance={p} testID={p.testID}>
