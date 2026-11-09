@@ -30,6 +30,8 @@ vi.mock("react", async (original) => ({
   useLayoutEffect: () => {},
   useMemo: (value: () => unknown) => value(),
   useCallback: (callback: unknown) => callback,
+  /* a screen drawn on its own, outside any preview: a context reads as its default (no frame loop) */
+  useContext: (context: { _currentValue: unknown }) => context._currentValue,
   /* the preview's interaction state lives in a store of its own: read as it is */
   useSyncExternalStore: (_subscribe: unknown, get: () => unknown) => get(),
 }));

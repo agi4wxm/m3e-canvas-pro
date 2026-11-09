@@ -41,6 +41,8 @@ export const MINIAPP_KIT_FILES = [
   "value.ts",
   /* the world view's stand-in and its channels (docs/组件规范.md “世界视口”) */
   "world.tsx",
+  /* what a frame writes: a text and a stat bar bound per frame (docs/数据绑定.md “每帧绑定”) */
+  "frame.tsx",
   /* D3: pickers and entry parts */
   "composites/entry.tsx",
   "composites/pickers.tsx",
