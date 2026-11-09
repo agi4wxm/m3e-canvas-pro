@@ -115,7 +115,7 @@ export const PARTS: Record<string, PartInfo> = {
    "follow": "",
    "score": 0,
    "status": "running",
-   "inputs": "move, attack",
+   "inputs": "move: vec2, attack: bool",
    "width": 360,
    "height": 240
   }

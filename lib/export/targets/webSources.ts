@@ -70,14 +70,21 @@ export function authSource(api: ApiSpec): string {
   return `{\n${lines.map((l) => `  ${l}\n`).join("")}  security: {\n${security.join("\n")}${security.length ? "\n" : ""}  },\n}`;
 }
 
-export const API_CLIENT = (scope: string, name: string, lang: string, api: ApiSpec, capabilities = false) => `${GENERATED}
-import { createApi, createFetchTransport, type Transport } from ${str(`${scope}/api`)}
+export const API_CLIENT = (scope: string, name: string, lang: string, api: ApiSpec, capabilities = false) => {
+  const realtime = !!api.channels?.length;
+  const fetchTransport = "withUploads(createFetchTransport({ baseUrl: BASE_URL }), BASE_URL)";
+  return `${GENERATED}
+import { createApi, createFetchTransport, ${realtime ? "CHANNELS, REALTIME_URL, withRealtime, " : ""}type Transport } from ${str(`${scope}/api`)}
 import { createRuntime, type AuthConfig } from ${str(`${scope}/app-runtime`)}
 ${capabilities ? 'import { registry } from "./capabilities"\n' : ""}import { webStorage, withUploads } from "./platform"
 
 /** where the API is: VITE_API_BASE_URL, else /api on this site (the dev server forwards it to the server) */
 const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "/api"
-
+${realtime ? `
+/** where the realtime channels are: VITE_REALTIME_URL, else the contract's dev server's, else /realtime on this site
+ *  (in development the mocks answer them, as the API) */
+const REALTIME = import.meta.env.VITE_REALTIME_URL ?? (REALTIME_URL || \`\${window.location.origin.replace(/^http/, "ws")}/realtime\`)
+` : ""}
 /** what the session needs of the contract: the operations that sign in, refresh and sign out, and how each operation's
  *  token rides (null for one anyone may call) */
 const AUTH: AuthConfig = ${authSource(api)}
@@ -85,7 +92,7 @@ const AUTH: AuthConfig = ${authSource(api)}
 /** The app's runtime (${scope}/app-runtime): the session, kept in this tab's sessionStorage and put on the calls that
  *  need it; the data the screens load; the language. */
 export const runtime = createRuntime({
-  transport: withUploads(createFetchTransport({ baseUrl: BASE_URL }), BASE_URL),
+  transport: ${realtime ? `withRealtime(${fetchTransport}, { url: REALTIME, channels: CHANNELS })` : fetchTransport},
   auth: AUTH,
   storage: webStorage(),
   storageKey: ${str(`${name}:session`)},
@@ -101,6 +108,7 @@ export function setTransport(next: Transport, o: { presumed?: boolean } = {}) {
 /** the API as the screens call it: one function per operation of the contract, the session's token on those that need it */
 export const api = createApi(runtime.transport)
 `;
+};
 
 export const SCENARIO_PICKER = (scope: string) => `${GENERATED}
 import { useState } from "react"
@@ -159,6 +167,9 @@ async function dataFile(file: Blob & { name?: string }) {
 /** the mocks over the files a form sends: each picked file made a data URL first */
 function withDataFiles(inner: Transport): Transport {
   return {
+    /* the mocks' realtime channels and their clock, as they are */
+    ...(inner.connect ? { connect: inner.connect.bind(inner) } : {}),
+    ...(inner.now ? { now: inner.now.bind(inner) } : {}),
     async request(request: TransportRequest) {
       const body = request.body
       if (!body || typeof body !== "object" || Array.isArray(body)) return inner.request(request)
@@ -362,5 +373,7 @@ interface ImportMetaEnv {
   readonly VITE_API_MOCKS?: string
   /** development only: the scenario of the mocks to play (new-user, network-error…); ?scenario= in the address wins */
   readonly VITE_MOCK_SCENARIO?: string
+  /** where the realtime channels are (default: the contract's dev server's realtime address, else /realtime on this site) */
+  readonly VITE_REALTIME_URL?: string
 }
 `;

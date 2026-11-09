@@ -223,8 +223,8 @@ function changedKind(kind: Effect["do"], was: Effect | null, b: Behavior, bindin
     case "press":
     case "release": {
       const id = first(isWorldView);
-      const takes = worldInputsOf(parts.find((it) => it.id === id) ?? { component: "" }).filter((n) => n !== "move");
-      return { do: kind, part: id, action: was && "action" in was && was.action ? was.action : (takes[0] ?? "attack") };
+      const takes = worldInputsOf(parts.find((it) => it.id === id) ?? { component: "" }).filter((d) => d.type !== "vec2");
+      return { do: kind, part: id, action: was && "action" in was && was.action ? was.action : (takes[0]?.name ?? "attack") };
     }
   }
 }
@@ -416,7 +416,9 @@ function EffectRow({ effect, index, onChange, onRemove, onUp, p, depth = 0 }: { 
     case "move":
     case "press":
     case "release": {
-      const takes = worldInputsOf(parts.find((it) => it.id === effect.part) ?? { component: "" });
+      /* the inputs of the kind this effect sends: a direction to a vec2 one, a press to a bool one */
+      const wants = effect.do === "move" ? "vec2" : "bool";
+      const takes = worldInputsOf(parts.find((it) => it.id === effect.part) ?? { component: "" }).filter((d) => !d.type || d.type === wants).map((d) => d.name);
       const action = effect.do === "move" ? (effect.action ?? "move") : effect.action;
       body = (
         <div data-world-effect style={{ display: "flex", flexDirection: "column", gap: 8 }}>

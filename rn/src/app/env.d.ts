@@ -9,5 +9,7 @@ declare namespace NodeJS {
     readonly EXPO_PUBLIC_API_BASE_URL?: string
     /** development only: "off" calls the real server instead of the mocks */
     readonly EXPO_PUBLIC_API_MOCKS?: string
+    /** where the realtime channels are (default: the contract's dev server's, else /realtime beside the API) */
+    readonly EXPO_PUBLIC_REALTIME_URL?: string
   }
 }

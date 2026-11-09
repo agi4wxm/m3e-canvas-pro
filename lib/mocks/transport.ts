@@ -76,6 +76,8 @@ export interface MockTransport extends Transport {
   /** opens a realtime channel by its id, its address or a URL ending in it; the server's messages come to `onMessage`,
    *  each with its `frame` as it goes over the wire (lib/mocks/realtime.ts) */
   connect(address: string, onMessage: (message: MockMessage) => void): MockConnection;
+  /** the time on the mocks' clock (ms): what the app reads as the back end's `now` */
+  now(): number;
   /** stops every timer and closes every connection */
   close(): void;
 }
@@ -870,6 +872,7 @@ export function createMockTransport(source: MockSource, options: MockOptions = {
     },
     records: (model) => clone(store(model)),
     connect: (address, onMessage) => realtime.connect(address, onMessage),
+    now: () => clock.now(),
     close: () => realtime.closeAll(),
     async request(req: TransportRequest): Promise<TransportResponse> {
       const asked = clock.now();

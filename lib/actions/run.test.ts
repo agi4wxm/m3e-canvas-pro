@@ -217,12 +217,16 @@ describe("lib/actions", () => {
     const set = (effects: Effect[]) => () => store.transact("set", "mcp", (tx) => tx.run(ops.setAction, { id: "go", action: { to: "none", effects } as never }));
     store.transact("build", "mcp", (tx) => {
       tx.run(ops.addScreen, { id: "home", name: "Home" });
-      tx.run(ops.addPart, { slug: "world-view", id: "arena", screen: "home", at: { x: 16, y: 16 }, props: { inputs: "move, attack" } });
+      tx.run(ops.addPart, { slug: "world-view", id: "arena", screen: "home", at: { x: 16, y: 16 }, props: { inputs: "move: vec2, attack: bool, jump" } });
       tx.run(ops.addPart, { slug: "button", id: "go", screen: "home", at: { x: 16, y: 300 }, props: { label: "Go" } });
     });
     expect(set([{ do: "move", part: "arena", vector: "event" }, { do: "press", part: "arena", action: "attack" }])).not.toThrow();
     expect(set([{ do: "press", part: "go", action: "attack" }])).toThrow(/world view/);
-    expect(set([{ do: "press", part: "arena", action: "jump" }])).toThrow(/takes move, attack/);
+    expect(set([{ do: "press", part: "arena", action: "kick" }])).toThrow(/takes move: vec2, attack: bool, jump/);
+    /* each declared once with its type: a direction to a vec2 input, a press to a bool one; an untyped one takes either */
+    expect(set([{ do: "press", part: "arena", action: "move" }])).toThrow(/vec2 input/);
+    expect(set([{ do: "move", part: "arena", action: "attack", vector: "1,0" }])).toThrow(/bool input/);
+    expect(set([{ do: "press", part: "arena", action: "jump" }, { do: "move", part: "arena", action: "jump", vector: "1,0" }])).not.toThrow();
     expect(set([{ do: "move", part: "arena", vector: "" }])).toThrow(/vector/);
     expect(set([{ do: "move", part: "arena", vector: "event." }])).toThrow();
     expect(set([{ do: "move", part: "missing", vector: "1,0" }])).toThrow(/no part/);

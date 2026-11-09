@@ -12,6 +12,7 @@ import { capsOf } from "../recipes";
 import { Surface } from "../Surface";
 import { controlRadius, corner, typeStyle, useKit, type Kit } from "../theme/ThemeProvider";
 import { tapOf } from "./bars";
+import { clockNow } from "../clock";
 
 /* The game parts on a phone (parts/defs/game.ts, parts/defs/more.ts; drawn on the canvas by parts/widgets/Draws.tsx,
  * Joystick.tsx and GameParts.tsx): six prize machines, a movement pad, a skill with a cooldown, the map of a game's
@@ -536,8 +537,6 @@ export function Joystick(props: JoystickProps) {
 
 /* ---------- a skill with a cooldown ---------- */
 
-/** the time on the other side's clock: the device's, and how far that one is ahead of it */
-const clockNow = (skew = 0) => Date.now() + (Number.isFinite(skew) ? skew : 0);
 
 /** seconds left of a cooldown that ends at `endsAt` (ms on the other side's clock), none once it has passed or with none */
 export const cooldownLeft = (endsAt: number | undefined, now: number) => (endsAt && endsAt > 0 ? Math.max(0, (endsAt - now) / 1000) : 0);

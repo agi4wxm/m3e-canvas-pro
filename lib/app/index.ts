@@ -8,6 +8,8 @@ export * from "./actions";
 export type { CapabilityError, CapabilityHost, FailureKind, InvokeOutcome } from "../capabilities/types";
 export { SessionStore, memoryStorage, sessionOf, sessionTransport, type AuthConfig, type AuthOperation, type Session, type SessionState, type TokenPlacement, type TokenStorage } from "./session";
 export { SourceCache, sourceKey, type LoadInit, type PageValue, type SourceSpec } from "./sources";
+export { ChannelHub, channelSpecFor, type ChannelDef, type ChannelSpec } from "./channels";
+export { KEEP_DEFAULT, KEEP_MAX, addressOf, channelView, isoOf, keepOf, messageAction, type ChannelEntry, type ChannelEvent, type ChannelState, type ChannelStatus, type ChannelView } from "../bindings/channels";
 export { FormController, type CallResult, type FormFields, type FormState, type SendInit } from "./forms";
 export { Bindings, keyOf, type EvalContext, type Scope } from "./scope";
 export { Store, type Listener } from "./store";
@@ -16,6 +18,8 @@ export {
   useAuthScope,
   useBindings,
   useCall,
+  useChannel,
+  useSubscription,
   useDataSource,
   useInvoke,
   useEpoch,
@@ -37,7 +41,7 @@ export { appMessage, APP_MESSAGES, type AppLang, type MessageKey } from "../bind
 export { fieldError, isBlank, pointerField, problemFieldErrors, problemMessage, problemOf, statusMessage, typedValue, type FieldKind, type FieldRule, type Problem } from "../bindings/rules";
 export { MAX_ITEMS, regionOf, screenParams, sourceView, typedParam, type ListAt, type Paging, type ParamSpec, type RegionShows, type SourceState, type SourceStatus, type SourceView } from "../bindings/sources";
 export { formViewOf, readFields, setPath, type FormRun, type FormView } from "../bindings/form";
-export type { AbortSignalLike, HttpMethod, Transport, TransportFile, TransportRequest, TransportResponse } from "../api/transport";
+export type { AbortSignalLike, ChannelConnection, ChannelMessage, HttpMethod, Transport, TransportFile, TransportRequest, TransportResponse } from "../api/transport";
 /* how a transport of the platform's reads an answer (the mini-program's does; packages/api has the same file) */
 export { readBody, textBody, utf8Bytes, type RawResponse, type ResponseFile } from "../api/body";
 /* The interpreter every host runs the design's taps with (lib/actions, docs/交互规则.md): the exported phone app and
@@ -49,5 +53,7 @@ export type { Action, ActionBody, Effect, Condition } from "../actions/model";
 /* The world views (lib/world, docs/边界与契约.md “实时玩法”): the channel each one's input actions come in on, its
  * contract with an engine, and M3E's example engine */
 export { createWorlds, inputLog, inputWords, QUIET_CHANNEL, type Worlds } from "../world/channel";
-export { connectWorld, createExampleWorld, type ExampleWorld } from "../world/example";
-export { WORLD_EVENTS, type Vec2, type World, type WorldChannel, type WorldEntity, type WorldEventName, type WorldEvents, type WorldInput, type WorldListener, type WorldPointer, type WorldRect, type WorldSlotProps, type WorldState, type WorldStatus } from "../world/types";
+export { connectWorld, createExampleWorld, type ExampleWorld, type ExampleWorldOptions } from "../world/example";
+export { EXAMPLE_WORLD_CONTRACT, contractInputs, type WorldContract, type WorldSchema } from "../world/contract";
+export { WORLD_HOST_CONTRACT, WORLD_LIFECYCLE, type InputPriority, type OverlayPolicy, type PausePolicy, type WorldHostContract, type WorldLifecycleStep } from "../world/hostContract";
+export { WORLD_EVENTS, type Vec2, type World, type WorldChannel, type WorldClock, type WorldEntity, type WorldInputDecl, type WorldInputType, type WorldEventName, type WorldEvents, type WorldInput, type WorldListener, type WorldPointer, type WorldRect, type WorldSlotProps, type WorldState, type WorldStatus } from "../world/types";

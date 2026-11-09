@@ -119,3 +119,24 @@ export async function browserCapability(capability: string, args: Record<string,
   }
   return failed("not-implemented");
 }
+
+/* Where the time a countdown is read off comes from: the back end's clock as the app's transport tells it (the preview
+   hands in its runtime's, which follows the mock library's clock, paused or faster; the product's web app its
+   runtime's), the device's until one is handed in (the canvas). docs/边界与契约.md: a part never takes its own wall
+   clock for the domain's. */
+let domainClock: (() => number) | null = null;
+
+/** Hands in the clock countdowns are read off (the app's runtime's `now`); what it gives back hands back the one before. */
+export function setDomainClock(now: () => number): () => void {
+  const was = domainClock;
+  domainClock = now;
+  return () => {
+    if (domainClock === now) domainClock = was;
+  };
+}
+
+/** the time now on the app's clock (`setDomainClock`), the device's until one is handed in */
+export function domainNow(): number {
+  const n = domainClock?.();
+  return typeof n === "number" && Number.isFinite(n) ? n : Date.now();
+}

@@ -524,7 +524,11 @@ export const updateChannel = op<Partial<ChannelArgs> & { id: string; rename?: st
     if (a.rename) checkChannelId(a.rename, api, was.id);
     const c = channelFrom(was, a, id, a.address ?? was.address);
     if (JSON.stringify(c) === JSON.stringify(was)) throw new OpError("nothing_to_do", `The channel ${id} is that already.`);
-    return { state: withApi(s, { ...api, channels: replaced(api.channels, at, c) }), result: { id } };
+    const state = withApi(s, { ...api, channels: replaced(api.channels, at, c) });
+    /* the screens that subscribe to it follow its new id */
+    if (id === was.id || !state.doc.frames.some((f) => f.subscriptions?.some((x) => x.channel === was.id))) return { state, result: { id } };
+    const frames = state.doc.frames.map((f) => (f.subscriptions?.some((x) => x.channel === was.id) ? { ...f, subscriptions: f.subscriptions.map((x) => (x.channel === was.id ? { ...x, channel: id } : x)) } : f));
+    return { state: withDoc(state, { frames }), result: { id } };
   },
 });
 

@@ -26,7 +26,7 @@ export function ArenaScreen() {
           follow="hero"
           score={0}
           status="running"
-          inputs={["move", "attack"]}
+          inputs={[{ name: "move" }, { name: "attack" }]}
           width={360}
           height={240}
           onEvent={(name: string, payload: unknown) => { if (name === "hit") s.run(A2, { $: $, event: eventOf(E1, payload) }); if (name === "collected") s.run(A4, { $: $, event: eventOf(E3, payload) }); if (name === "ended") s.run(A6, { $: $, event: eventOf(E5, payload) }); }}
@@ -36,6 +36,7 @@ export function ArenaScreen() {
             label="Arena"
             entities={{ columns: ["Id", "Kind", "X", "Y", "Label"], rows: [["hero", "player", "20", "40", "Hero"], ["coin", "coin", "32", "40", ""], ["slime", "enemy", "25", "52", "Slime"]] }}
             follow="hero"
+            inputs="move, attack"
             channel={s.world("arena")}
             testID="arena"
           />

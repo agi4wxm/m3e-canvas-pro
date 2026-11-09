@@ -12,6 +12,8 @@ import type { Runtime } from "./runtime";
 import { Bindings, type Scope } from "./scope";
 import type { SessionState } from "./session";
 import type { SourceSpec } from "./sources";
+import { channelView, isoOf, messageAction, type ChannelEvent, type ChannelView } from "../bindings/channels";
+import { channelSpecFor, type ChannelDef, type ChannelSpec } from "./channels";
 
 const RuntimeContext = createContext<Runtime | null>(null);
 
@@ -119,6 +121,62 @@ export function useDataSource<T>(spec: SourceSpec<T>, o: { load?: "enter" | "dem
       patch: (row: unknown, fields: (row: Record<string, unknown>) => Record<string, unknown>) => runtime.sources.optimistic(key, row, { patch: fields }),
     };
   }, [runtime, key, state]);
+}
+
+/** A subscription to a realtime channel, as `data.<name>` reads it: opened as its screen comes on show, again (afresh)
+ *  when what it is asked with changes or the runtime starts over, closed as the screen goes. Each message it keeps is
+ *  handed to `onMessage` (what the screen runs on it: the design's `on:message`), with its time as `now` reads one,
+ *  once the screen has been drawn with it: what the action reads of the screen (`data.<name>.count`) holds it, as in
+ *  the preview. `active: false` keeps it closed: a page the platform keeps under another (a mini-program's stack) is
+ *  not on show. */
+export function useChannel(spec: ChannelSpec, o: { newest?: boolean; onMessage?: (event: ChannelEvent) => void; active?: boolean } = {}): ChannelView {
+  const runtime = useRuntime();
+  const epoch = useEpoch();
+  const latest = useRef({ spec, on: o.onMessage });
+  useEffect(() => {
+    latest.current = { spec, on: o.onMessage };
+  });
+  const [id, setId] = useState<string | undefined>(undefined);
+  /* the messages kept and not yet handed on, and a draw asked for them */
+  const pending = useRef<ChannelEvent[]>([]);
+  const [, draw] = useState(0);
+  const key = spec.key;
+  const active = o.active !== false;
+  useEffect(() => {
+    pending.current = [];
+    if (!active) {
+      setId(undefined);
+      return;
+    }
+    const sub = runtime.channels.subscribe(latest.current.spec, (m) => {
+      if (!latest.current.on) return;
+      pending.current.push({ channel: m.channel, message: m.message, payload: m.payload, at: isoOf(m.at) });
+      draw((n) => n + 1);
+    });
+    setId(sub.id);
+    return () => {
+      pending.current = [];
+      sub.close();
+    };
+  }, [runtime, key, epoch, active]);
+  useEffect(() => {
+    if (!pending.current.length) return;
+    const out = pending.current;
+    pending.current = [];
+    for (const e of out) latest.current.on?.(e);
+  });
+  const read = () => runtime.channels.state(id);
+  const state = useSyncExternalStore(runtime.channels.store.subscribe, read, read);
+  const newest = !!o.newest;
+  return useMemo(() => channelView(state, { newest }), [state, newest]);
+}
+
+/** A screen's subscription as a printed screen has it (`ChannelDef`): its address read in the screen's scope, and what
+ *  runs on each message, by key (`on:<message>` for one message, else `on:message`: lib/bindings/channels.ts
+ *  `messageAction`). */
+export function useSubscription(def: ChannelDef, $: Bindings, on?: Readonly<Record<string, (event: ChannelEvent) => void>>, o: { active?: boolean } = {}): ChannelView {
+  const spec = channelSpecFor(def, $);
+  return useChannel(spec, { newest: def.newest, ...(o.active === false ? { active: false } : {}), ...(on ? { onMessage: (e: ChannelEvent) => messageAction(on, e.message)?.(e) } : {}) });
 }
 
 /** the state a region shows for its source (lib/bindings/sources.ts `regionOf`, as the preview chooses it) */
@@ -229,5 +287,5 @@ export function useBindings(scope: Scope): Bindings {
   const auth = useAuthScope();
   const lang = useLang();
   const ctx = runtime.ctx();
-  return new Bindings({ auth, now: new Date(ctx.now ?? Date.now()).toISOString(), ...scope }, { ...ctx, lang });
+  return new Bindings({ auth, now: new Date(ctx.now ?? runtime.now()).toISOString(), ...scope }, { ...ctx, lang });
 }

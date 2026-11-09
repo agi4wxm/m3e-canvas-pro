@@ -4,15 +4,16 @@
 
 import { partBySlug } from "../../parts/registry";
 import type { Item } from "../tokens";
-import { inputNamesOf } from "../../parts/defs/world";
+import { inputDeclsOf } from "../../parts/defs/world";
+import type { WorldInputDecl } from "./types";
 
-export { inputNamesOf };
+export { inputDeclsOf };
 
 /** The input actions a world view says its world takes (its `inputs` prop, the definition's default when it has none
- *  of its own); none when the part is no world view or says none, which takes any. */
-export function worldInputsOf(it: Pick<Item, "component" | "props">): string[] {
+ *  of its own), each with its type where it says one; none when the part is no world view or says none, which takes any. */
+export function worldInputsOf(it: Pick<Item, "component" | "props">): WorldInputDecl[] {
   const def = partBySlug(it.component);
   if (!def?.world) return [];
   const given = it.props?.inputs;
-  return inputNamesOf(given === undefined ? def.props.find((p) => p.key === "inputs")?.default : given);
+  return inputDeclsOf(given === undefined ? def.props.find((p) => p.key === "inputs")?.default : given);
 }

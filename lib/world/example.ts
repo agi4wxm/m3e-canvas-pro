@@ -2,11 +2,15 @@
  * prototype something to play. It is not a game engine and decides nothing for a product: an exported app plugs its own
  * engine into the world view's slot (types.ts `World`). The player (the first entity of kind `player`, else the first)
  * moves the way the `move` input points; touching an entity of kind `item` or `coin` picks it up (`collected`) and, the
- * last one gone, ends the round (`ended`); pressing `attack` near an `enemy` hits it (`hit`). It keeps its own time:
- * whoever hosts it calls `step` (a requestAnimationFrame loop, a timer). No picture of its own: the host draws `view()`.
- * Plain TypeScript, so it goes into an exported app's runtime as it is. */
+ * last one gone, ends the round (`ended`); pressing `attack` near an `enemy` hits it (`hit`). Its contract is
+ * contract.ts `EXAMPLE_WORLD_CONTRACT`. A host talks to it only through `World` (docs/世界宿主契约.md): `mount` starts its
+ * own loop and `unmount` stops it; its time is world time, run off the clock it is made with (the app's domain clock: the
+ * back end's, the mocks' in a preview, which may stand still or run faster) at its own rate, paused by `requestPause`.
+ * No picture of its own: whatever `mount` is given, the host draws `view()`. So the same engine runs in a web page, a
+ * phone app, a mini-program and, later, in a Cocos or Godot host. Plain TypeScript, so it goes into an exported app's
+ * runtime as it is. */
 
-import type { Vec2, World, WorldChannel, WorldEntity, WorldEventName, WorldEvents, WorldInput, WorldState, WorldStatus } from "./types";
+import type { Vec2, World, WorldChannel, WorldClock, WorldEntity, WorldEventName, WorldEvents, WorldInput, WorldState, WorldStatus } from "./types";
 import { WORLD_EVENTS } from "./types";
 
 /** how far the player goes in a second at full tilt, in hundredths of the view */
@@ -16,9 +20,13 @@ const REACH = { pick: 8, hit: 15 };
 /** the most time one step may cover: a tab left in the background does not jump the player across the world */
 const MAX_STEP_MS = 100;
 
-/** what the example engine is, beside the contract: stepped by whoever hosts it */
+/** How the example engine is made (its own, not the contract's): the clock its world time runs off (the app's domain
+ *  clock, ms; the device's when none is given), how often its loop runs, how fast its world time goes against the clock. */
+export type ExampleWorldOptions = { now?: () => number; tickMs?: number; rate?: number };
+
+/** what the example engine is, beside the contract: `step` moves it on by hand (its tests do; a host never needs to) */
 export type ExampleWorld = World & {
-  /** moves the world on by `ms` milliseconds */
+  /** moves the world on by `ms` milliseconds of world time */
   step(ms: number): void;
 };
 
@@ -26,7 +34,14 @@ const clamp = (n: number) => Math.min(100, Math.max(0, n));
 const round = (n: number) => Math.round(n * 100) / 100;
 
 /** the example engine, starting from the entities the design gives it */
-export function createExampleWorld(start: WorldState = {}): ExampleWorld {
+export function createExampleWorld(start: WorldState = {}, o: ExampleWorldOptions = {}): ExampleWorld {
+  const clockNow = () => {
+    const n = o.now?.();
+    return typeof n === "number" && Number.isFinite(n) ? n : Date.now();
+  };
+  const rate = typeof o.rate === "number" && o.rate > 0 ? o.rate : 1;
+  let loop: ReturnType<typeof setInterval> | undefined;
+  let last = 0;
   let entities: WorldEntity[] = (start.entities ?? []).map((e) => ({ ...e }));
   let score = Number.isFinite(start.score) ? (start.score as number) : 0;
   let status: WorldStatus = start.status ?? "running";
@@ -42,9 +57,23 @@ export function createExampleWorld(start: WorldState = {}): ExampleWorld {
   const pickable = (e: WorldEntity) => e.kind === "item" || e.kind === "coin";
 
   const world: ExampleWorld = {
-    mount: () => {},
+    /* the loop of its own: each turn moves world time on by how far the app's clock went, at the world's rate */
+    mount: () => {
+      if (loop) return;
+      last = clockNow();
+      loop = setInterval(() => {
+        const at = clockNow();
+        const ms = Math.max(0, at - last) * rate;
+        last = at;
+        world.step(ms);
+      }, Math.max(8, o.tickMs ?? 33));
+    },
     occlude: () => {},
-    unmount: () => changed.clear(),
+    unmount: () => {
+      if (loop) clearInterval(loop);
+      loop = undefined;
+      changed.clear();
+    },
     pointer: () => {},
     input(action: string, value: WorldInput) {
       if (typeof value !== "boolean") {
@@ -56,10 +85,11 @@ export function createExampleWorld(start: WorldState = {}): ExampleWorld {
       for (const e of entities) if (e !== me && e.kind === "enemy" && near(me, e, REACH.hit)) send("hit", { id: e.id, by: me.id });
     },
     step(ms: number) {
-      const me = player();
-      if (!me || status !== "running" || paused || (heading.x === 0 && heading.y === 0)) return;
+      if (paused) return;
       const dt = Math.min(MAX_STEP_MS, Math.max(0, ms)) / 1000;
       time += dt * 1000;
+      const me = player();
+      if (!me || status !== "running" || (heading.x === 0 && heading.y === 0)) return;
       const moved = { ...me, x: round(clamp(me.x + heading.x * SPEED * dt)), y: round(clamp(me.y + heading.y * SPEED * dt)) };
       const left = entities.filter((e) => pickable(e));
       const picked = left.filter((e) => near(moved, e, REACH.pick));
@@ -85,7 +115,7 @@ export function createExampleWorld(start: WorldState = {}): ExampleWorld {
       set.add(run);
       return () => void set.delete(run);
     },
-    clock: () => ({ now: time, paused }),
+    clock: (): WorldClock => ({ now: time, paused, rate }),
     requestPause(on: boolean) {
       paused = on;
       tell();

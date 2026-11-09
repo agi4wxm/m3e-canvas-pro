@@ -19,6 +19,7 @@ import { PARTS as KIT_PARTS } from "../../../miniapp-kit/src/kit/parts.generated
 import { SET_ONLY, propValues, type AtomTaps, type PlainNode } from "../rn/data";
 import { Imports, NAME, andThen, draws, el, exprOf, handler, jsx, objOf, printHandler, same, svgMarkup, type Handler, type J } from "../ir/code";
 import { answers, backMotion, setsProp, type DocFacts } from "../ir/facts";
+import { subscriptionPlans } from "../ir/channels";
 import { OPENS_BY_PROP, atomsOf, iconNamesOf, keepsTrigger, linesOf, partNode, planScreens, selectsByProp, slotGiven, type Loose, type PartNode, type RunNode, type ScreenPlan } from "../ir/screen";
 
 /* The Taro code of a document: one screen component per screen, built from the mini-program kit (miniapp-kit/src/kit),
@@ -861,7 +862,16 @@ function screensOf(source: Doc, widths: Record<string, number>, o: MiniPrintOpti
     const bg = frame.bg && COLOR_TOKENS.some((t) => t.key === frame.bg) ? frame.bg : undefined;
     /* the screen's data: each source's arguments read in the screen's scope, loaded through the generated calls */
     const sources = (frame.data ?? []).map((d) => sourceHook(p, doc.api ?? {}, d));
-    const names = sources.map((x) => x.name);
+    /* its subscriptions to realtime channels: each open while its page is on show, the design's actions run on its
+       messages where the screen's taps run, with the message as `event` */
+    const subs = subscriptionPlans(doc, frame).map((plan) => {
+      const name = identOf(plan.def.name);
+      const def = p.constant("C", plan.def, "ChannelDef");
+      p.runtime.type("ChannelDef");
+      const on = plan.actions.map(([k, a]) => `${str(k)}: (event) => ${p.run(a, "", { $: "$" }, ["event"])}`);
+      return { name, line: `const ${name} = useScreenSubscription(${def}, $0${sources.length ? `.with({ data: { ${sources.map((x) => x.name).join(", ")} } })` : ""}${on.length ? `, { ${on.join(", ")} }` : ""});` };
+    });
+    const names = [...sources.map((x) => x.name), ...subs.map((x) => x.name)];
     const usesBody = draws(body, "TabBar");
     const top: string[] = [];
     const init: string[] = [];
@@ -878,11 +888,18 @@ function screensOf(source: Doc, widths: Record<string, number>, o: MiniPrintOpti
     if (sources.length) {
       p.runtime.add("useBindings").add("useDataSource").add("sourceKey");
       p.usesCalls = true;
-      /* the sources' arguments are read in the screen's scope before the sources are there */
-      if (sources.some((src) => src.reads0)) top.push("const $0 = useBindings({ params: s.params, vars: s.vars });");
-      for (const src of sources) top.push(...src.lines);
     }
-    const needs$ = p.uses$ || p.hooks.length > 0 || sources.length > 0;
+    /* the sources' arguments (and the subscriptions' addresses) are read in the screen's scope before they are there */
+    if (sources.some((src) => src.reads0) || subs.length) {
+      p.runtime.add("useBindings");
+      top.push("const $0 = useBindings({ params: s.params, vars: s.vars });");
+    }
+    for (const src of sources) top.push(...src.lines);
+    if (subs.length) {
+      p.kit.add("useScreenSubscription");
+      for (const x of subs) top.push(x.line);
+    }
+    const needs$ = p.uses$ || p.hooks.length > 0 || sources.length > 0 || subs.length > 0;
     if (needs$) {
       p.runtime.add("useBindings");
       top.push(`const $ = useBindings({ ${names.length ? `data: { ${names.join(", ")} }, ` : ""}params: s.params, vars: s.vars });`);

@@ -12,6 +12,9 @@ export type Worlds = {
   send(part: string, action: string, value: WorldInput): void;
   /** the channel the world view `part` listens on */
   channel(part: string): WorldChannel;
+  /** Lets go of every input the world view `part` holds (docs/世界宿主契约.md “浮层”): each held direction goes back to the
+   *  middle, each button held down is let go, sent as inputs are. What a host does as an overlay opens over the world. */
+  release(part: string): void;
   /** forgets every input held (the app started over) */
   clear(): void;
 };
@@ -42,6 +45,12 @@ export function createWorlds(now: () => number = () => Date.now()): Worlds {
       };
       channels.set(part, made);
       return made;
+    },
+    release(part) {
+      for (const [action, value] of Object.entries(holding.get(part) ?? {})) {
+        if (value === true) this.send(part, action, false);
+        else if (typeof value === "object" && (value.x !== 0 || value.y !== 0)) this.send(part, action, { x: 0, y: 0 });
+      }
     },
     clear() {
       holding.clear();

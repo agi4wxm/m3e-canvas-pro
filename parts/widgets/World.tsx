@@ -4,7 +4,7 @@ import { cn } from "@/lib/m3e/cn";
 import { inputLog } from "@/lib/world/channel";
 import { connectWorld, createExampleWorld } from "@/lib/world/example";
 import type { WorldEntity, WorldState } from "@/lib/world/types";
-import { PartHostContext, useHost, type HostProps, type InputChannel } from "./host";
+import { PartHostContext, domainNow, useHost, type HostProps, type InputChannel } from "./host";
 
 /* The world view's stand-in (docs/组件规范.md “世界视口”): the picture is an engine's, so here the scene is words, the
  * entities stand where the design (or its data) says, the camera's one ringed, and the inputs the design sends are
@@ -15,28 +15,6 @@ import { PartHostContext, useHost, type HostProps, type InputChannel } from "./h
 
 /** what each kind of entity is drawn in */
 const TONE: Record<string, string> = { player: "bg-primary text-on-primary", enemy: "bg-error text-on-error", coin: "bg-tertiary text-on-tertiary", item: "bg-tertiary text-on-tertiary" };
-
-/** the time on the page, for a frame's step */
-const nowMs = () => (typeof performance !== "undefined" ? performance.now() : Date.now());
-
-/** Calls `step` with the time since the last call, each frame (a timer where the page has no frames), until stopped. */
-function everyFrame(step: (ms: number) => void): () => void {
-  let last = nowMs();
-  const tick = () => {
-    const t = nowMs();
-    step(t - last);
-    last = t;
-  };
-  if (typeof requestAnimationFrame !== "function") {
-    const id = setInterval(tick, 33);
-    return () => clearInterval(id);
-  }
-  let id = requestAnimationFrame(function frame() {
-    tick();
-    id = requestAnimationFrame(frame);
-  });
-  return () => cancelAnimationFrame(id);
-}
 
 export function WorldView({ label = "", scene = "", entities = [], follow = "", score = 0, status = "running", width = 360, height = 240, channel, demo, onValueChange, onEvent, className, style }: WorldState & { width?: number; height?: number; channel?: InputChannel } & HostProps & Look) {
   const host = useHost({ demo, onValueChange, onEvent });
@@ -58,18 +36,19 @@ export function WorldView({ label = "", scene = "", entities = [], follow = "", 
       setPlayed(null);
       return;
     }
-    const w = createExampleWorld(JSON.parse(start) as WorldState);
+    /* only through the World interface (docs/世界宿主契约.md): its time runs off the app's clock (the mocks' in the
+       preview, which may stand still or run faster), it has no picture of its own, so the stand-in draws its view */
+    const w = createExampleWorld(JSON.parse(start) as WorldState, { now: domainNow });
     setPlayed(w.view());
     const unsub = w.subscribe(() => setPlayed(w.view()));
     const off = heard ? connectWorld(w, heard, (name, payload) => emit.current(name, payload as Record<string, unknown>)) : () => {};
-    const stop = everyFrame((ms) => w.step(ms));
+    w.mount(null, { w: width, h: height });
     return () => {
-      stop();
+      w.unmount();
       off();
       unsub();
-      w.unmount();
     };
-  }, [playing, start, heard]);
+  }, [playing, start, heard, width, height]);
 
   const shown: WorldEntity[] = played?.entities ?? entities;
   const scoreNow = played?.score ?? score;

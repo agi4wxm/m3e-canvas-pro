@@ -9,7 +9,10 @@ import { partBySlug } from "../../parts/registry";
 import { WIDGET_SOURCES } from "../../parts/widgets/sources";
 import { capabilitiesUsed, usedDefinitions } from "../capabilities/doc";
 import { groupsInFrame, type Doc } from "../tokens";
-import { GENERATED, str } from "./code";
+import { GENERATED, jsonCode, str } from "./code";
+import { schemaTypeTs } from "../api/typescript";
+import type { JsonSchema } from "../api/types";
+import { EXAMPLE_WORLD_CONTRACT, type WorldContract } from "../world/contract";
 import { typeBase } from "./targets/capabilities";
 import { generated, seeded, type ProductContext, type ProductFiles } from "./types";
 import { NATIVE as RN_NATIVE } from "../../rn/src/kit/coverage";
@@ -143,20 +146,54 @@ ${body}
 `;
 };
 
+/** The world's contract as the app has it (lib/world/contract.ts, docs/世界宿主契约.md): the contract itself, as data an
+ *  engine-side host can read too, and the TypeScript types generated from its JSON Schemas (the snapshot, each event's
+ *  payload) and its input actions. The world today is M3E's example engine's; a game loop authored elsewhere hands in
+ *  its own contract of the same shape later, and the same types come out of it. */
+export function worldContractModule(scope: string, contract: WorldContract = EXAMPLE_WORLD_CONTRACT): string {
+  const ts = (x: unknown) => schemaTypeTs(x as JsonSchema, { comments: false });
+  const inputs = Object.entries(contract.inputs).map(([name, d]) => `  ${name}: ${d.type === "vec2" ? "Vec2" : "boolean"}`);
+  const events = Object.entries(contract.events).map(([name, e]) => `  ${name}: ${ts(e.payload)}`);
+  return `${GENERATED}
+import type { Vec2, WorldContract } from ${str(`${scope}/app-runtime`)}
+
+/** the contract of the world the design's world views are drawn to: its input actions, its snapshot and its events as
+ *  JSON Schema, its clock (docs/世界宿主契约.md in the design editor) */
+export const WORLD_CONTRACT: WorldContract = ${jsonCode(contract)}
+
+/** what the world's view() gives, from its schema */
+export type WorldSnapshot = ${ts(contract.snapshot)}
+
+/** the input actions the world takes, by name, with what each carries */
+export type WorldInputs = {
+${inputs.join("\n")}
+}
+
+/** the events the world sends, by name, with what each carries, from their schemas */
+export type WorldEventPayloads = {
+${events.join("\n")}
+}
+`;
+}
+
 /** M3E's example engine (lib/world/example.ts) as a world view's slot draws it, on each platform: the web on a canvas
  *  in a requestAnimationFrame loop, a phone and a mini-program stepped by a timer and drawn by the kit's stand-in. Any
  *  engine plugs in the same way: create it, `connectWorld` it to the channel and `onEvent`, step it, draw it. */
 export function exampleWorldModule(scope: string, platform: AppPlatform, paths: SlotPaths = PRODUCT_PATHS): string {
   const runtime = `${scope}/app-runtime`;
+  const about = `/* M3E's example engine (src/engine/world/example.ts in ${runtime}): the player moves the way the move input points,
+   picks up coins and items (collected; the last one ends the round, ended) and hits enemies near it with attack (hit).
+   It decides nothing for the product: replace it with your engine in the world view's slot (src/custom/slots). It is
+   spoken to only through the World interface (mount, connectWorld, view, subscribe, unmount: docs/世界宿主契约.md in
+   the design editor), its world time runs off the app's clock, and it has no picture of its own: this host draws its
+   view`;
   if (platform === "web")
     return `${GENERATED}
 import { useEffect, useRef } from "react"
 import { connectWorld, createExampleWorld, type WorldSlotProps, type WorldState } from ${str(runtime)}
+import { domainNow } from "@/components/widgets/host"
 
-/* M3E's example engine (src/engine/world/example.ts in ${runtime}): the player moves the way the move input points,
-   picks up coins and items (collected; the last one ends the round, ended) and hits enemies near it with attack (hit).
-   It decides nothing for the product: replace it with your engine in the world view's slot (src/custom/slots). Drawn on
-   a canvas, a frame at a time. */
+${about} on a canvas. */
 
 /** what each kind of entity is drawn in */
 const TONE: Record<string, string> = { player: "--md-sys-color-primary", enemy: "--md-sys-color-error", coin: "--md-sys-color-tertiary", item: "--md-sys-color-tertiary" }
@@ -170,10 +207,12 @@ export function ExampleWorld({ label, entities, score, status, follow, width, he
   /* the engine starts over from what the design says whenever that changes */
   const start = JSON.stringify({ entities, score, status, follow })
   useEffect(() => {
-    const world = createExampleWorld(JSON.parse(start) as WorldState)
+    const world = createExampleWorld(JSON.parse(start) as WorldState, { now: domainNow })
     const off = connectWorld(world, channel, (name, payload) => emit.current?.(name, payload))
     const css = getComputedStyle(document.documentElement)
+    let frame = 0
     const draw = () => {
+      frame = 0
       const c = canvas.current?.getContext("2d")
       if (!c) return
       c.clearRect(0, 0, width, height)
@@ -184,17 +223,17 @@ export function ExampleWorld({ label, entities, score, status, follow, width, he
         c.fill()
       }
     }
-    let last = performance.now()
-    let frame = requestAnimationFrame(function tick(t) {
-      world.step(t - last)
-      last = t
-      draw()
-      frame = requestAnimationFrame(tick)
+    /* drawn again on the next frame after the world changed */
+    const unsub = world.subscribe(() => {
+      if (!frame) frame = requestAnimationFrame(draw)
     })
+    world.mount(canvas.current, { w: width, h: height })
+    draw()
     return () => {
-      cancelAnimationFrame(frame)
-      off()
+      if (frame) cancelAnimationFrame(frame)
       world.unmount()
+      unsub()
+      off()
     }
   }, [start, channel, width, height])
   return <canvas ref={canvas} width={width} height={height} aria-label={label || "World"} data-score={score} />
@@ -203,12 +242,9 @@ export function ExampleWorld({ label, entities, score, status, follow, width, he
   return `${GENERATED}
 import { useEffect, useRef, useState } from "react"
 import { connectWorld, createExampleWorld, type WorldSlotProps, type WorldState } from ${str(runtime)}
-import { WorldStandIn } from ${str(paths.kit)}
+import { kitNow, WorldStandIn } from ${str(paths.kit)}
 
-/* M3E's example engine (src/engine/world/example.ts in ${runtime}): the player moves the way the move input points,
-   picks up coins and items (collected; the last one ends the round, ended) and hits enemies near it with attack (hit).
-   It decides nothing for the product: replace it with your engine in the world view's slot (src/custom/slots). Stepped
-   by a timer and drawn by the kit's stand-in, the world's own state in place of the design's. */
+${about} with the kit's stand-in, the world's own state in place of the design's. */
 export function ExampleWorld({ label, scene, entities, score, status, follow, width, height, channel, onEvent }: WorldSlotProps) {
   const emit = useRef(onEvent)
   useEffect(() => {
@@ -219,22 +255,16 @@ export function ExampleWorld({ label, scene, entities, score, status, follow, wi
   const [seen, setSeen] = useState<{ start: string; view: WorldState } | null>(null)
   const shown = seen && seen.start === start ? seen.view : (JSON.parse(start) as WorldState)
   useEffect(() => {
-    const world = createExampleWorld(JSON.parse(start) as WorldState)
+    const world = createExampleWorld(JSON.parse(start) as WorldState, { now: kitNow })
     const off = connectWorld(world, channel, (name, payload) => emit.current?.(name, payload))
     const unsub = world.subscribe(() => setSeen({ start, view: world.view() }))
-    let last = Date.now()
-    const timer = setInterval(() => {
-      const now = Date.now()
-      world.step(now - last)
-      last = now
-    }, 33)
+    world.mount(null, { w: width, h: height })
     return () => {
-      clearInterval(timer)
+      world.unmount()
       unsub()
       off()
-      world.unmount()
     }
-  }, [start, channel])
+  }, [start, channel, width, height])
   return <WorldStandIn label={label} scene={scene} entities={shown.entities} follow={follow} score={shown.score} status={shown.status} width={width} height={height} channel={channel} />
 }
 `;
@@ -279,7 +309,10 @@ export function slotFiles(scope: string, slots: SlotSpec[], platform: AppPlatfor
   const files: ProductFiles = {};
   for (const s of slots) files[`src/custom/slots/${s.name}.tsx`] = seeded(s.view === WORLD_VIEW ? WORLD_SLOT(scope, s, platform, paths, !!o.plugExample) : s.view ? VIEW_SLOT(scope, s, platform) : PART_SLOT(s, platform, paths));
   /* M3E's example engine, for a world view's slot to plug in (rewritten on every export) */
-  if (slots.some((s) => s.view === WORLD_VIEW)) files["src/generated/exampleWorld.tsx"] = generated(exampleWorldModule(scope, platform, paths));
+  if (slots.some((s) => s.view === WORLD_VIEW)) {
+    files["src/generated/exampleWorld.tsx"] = generated(exampleWorldModule(scope, platform, paths));
+    files["src/generated/worldContract.ts"] = generated(worldContractModule(scope));
+  }
   const wrapped = slots.filter((s) => !s.view && kitComponent(s, platform));
   const passed = slots.filter((s) => !wrapped.includes(s));
   if (!wrapped.length) {

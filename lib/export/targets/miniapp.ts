@@ -66,6 +66,7 @@ export default defineConfig<"webpack5">(async (merge: <T>(...configs: T[]) => T)
       "process.env.TARO_APP_API_BASE_URL": env("TARO_APP_API_BASE_URL"),
       "process.env.TARO_APP_API_MOCKS": env("TARO_APP_API_MOCKS"),
       "process.env.TARO_APP_MOCK_SCENARIO": env("TARO_APP_MOCK_SCENARIO"),
+      "process.env.TARO_APP_REALTIME_URL": env("TARO_APP_REALTIME_URL"),
     },
     mini: {
       compile: { include: packages },
@@ -114,6 +115,8 @@ declare namespace NodeJS {
     TARO_APP_API_MOCKS: string
     /** development only: the mocks' scenario to start in */
     TARO_APP_MOCK_SCENARIO: string
+    /** where the realtime channels are (a mini-program connects only to wss addresses its admin allowed) */
+    TARO_APP_REALTIME_URL: string
   }
 }
 `;
@@ -181,9 +184,9 @@ export function Root({ children }: { children?: ReactNode }) {
 }
 `;
 
-const RUNTIME = (ctx: ProductContext, auth: string, capabilities = false) => `${GENERATED}
+const RUNTIME = (ctx: ProductContext, auth: string, capabilities = false, realtime = !!ctx.doc.api?.channels?.length) => `${GENERATED}
 import { createRuntime, type AuthConfig } from ${str(`${ctx.scope}/app-runtime`)}
-import { createTaroTransport, taroStorage } from "../kit"
+${realtime ? `import { CHANNELS, REALTIME_URL, withRealtime } from ${str(`${ctx.scope}/api`)}\n` : ""}import { createTaroTransport, ${realtime ? "taroSocket, " : ""}taroStorage } from "../kit"
 ${capabilities ? 'import { registry } from "./capabilities"\n' : ""}
 /** where the API is: TARO_APP_API_BASE_URL when the app is built, else the server on this computer (on the web its
  *  /api, which the dev server passes on to it, as the web app's does). A mini-program asks only https addresses its
@@ -192,10 +195,14 @@ export const API_BASE_URL = process.env.TARO_APP_API_BASE_URL || (process.env.TA
 
 /** what the session needs of the contract */
 const AUTH: AuthConfig = ${auth}
-
+${realtime ? `
+/** where the realtime channels are: TARO_APP_REALTIME_URL when the app is built, else the contract's dev server's (a
+ *  mini-program connects only to wss addresses on its socket domain list); in development the mocks answer them */
+const REALTIME = process.env.TARO_APP_REALTIME_URL || REALTIME_URL
+` : ""}
 /** the shared runtime: the session (its tokens in Taro's storage), the data, the calls, the language */
 export const runtime = createRuntime({
-  transport: createTaroTransport({ baseUrl: API_BASE_URL }),
+  transport: ${realtime ? "withRealtime(createTaroTransport({ baseUrl: API_BASE_URL }), { url: REALTIME, channels: CHANNELS, open: taroSocket })" : "createTaroTransport({ baseUrl: API_BASE_URL })"},
   auth: AUTH,
   storage: taroStorage,
   storageKey: ${str(`${ctx.name}:session`)},

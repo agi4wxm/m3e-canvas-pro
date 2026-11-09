@@ -1,0 +1,3236 @@
+{
+  "date": "2026-11-09",
+  "model": "gpt-6.1-sol",
+  "effort": "medium",
+  "provider": "openai",
+  "totals": {
+    "runs": 32,
+    "tasks": 32,
+    "passed": 32,
+    "passRate": 1,
+    "meanScore": 1,
+    "meanTokens": 145052,
+    "meanCachedShare": 0.88,
+    "meanMs": 32548,
+    "drawings": 1,
+    "cost": 1.87
+  },
+  "runs": [
+    {
+      "task": "login-material",
+      "ability": "new-screen",
+      "title": "New login screen in the current style (Material, free canvas)",
+      "verdicts": [
+        {
+          "id": "finished",
+          "label": "ended normally, no error left unrecovered",
+          "pass": true,
+          "detail": "stop=end_turn, 0 failed calls",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "undo",
+          "label": "one undo restores the start",
+          "pass": true,
+          "detail": "1 undo step(s), restores the start",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "budget",
+          "label": "within the step/token/time budget",
+          "pass": true,
+          "detail": "5 steps, 75477 tokens, 18s",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "screen-added",
+          "label": "a new screen like /\\u767B\\u5F55|\\u767B\\u9646/",
+          "pass": true,
+          "detail": "\"登录\"",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "fields",
+          "label": "email and password fields",
+          "pass": true,
+          "detail": "2 found (need 1): input \"邮箱\", input \"密码\" on login",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "button",
+          "label": "a sign-in button",
+          "pass": true,
+          "detail": "2 found (need 1): button \"登录\", button \"忘记密码？\" on login",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "shows",
+          "label": "a forgot-password link",
+          "pass": true,
+          "detail": "1/1",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "language",
+          "label": "new words in the canvas language",
+          "pass": true,
+          "detail": "6/6 in Chinese",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "auto-layout",
+          "label": "auto layout used",
+          "pass": true,
+          "detail": "login: 3 layout containers, 80% of parts in a layout, 0 loose atoms",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "no-overlap",
+          "label": "no overlapping parts",
+          "pass": true,
+          "detail": "none on login",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "in-bounds",
+          "label": "nothing out of the screen",
+          "pass": true,
+          "detail": "all inside",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "keeps-work",
+          "label": "nothing of the author's removed",
+          "pass": true,
+          "detail": "all kept",
+          "weight": 1,
+          "critical": false
+        }
+      ],
+      "score": 1,
+      "pass": true,
+      "name": "login-material",
+      "lang": "zh",
+      "usage": {
+        "input": 74787,
+        "output": 690,
+        "reasoning": 25,
+        "cachedInput": 59060,
+        "cacheWrite": 15712
+      },
+      "ms": 17827,
+      "steps": 5,
+      "stop": "end_turn",
+      "drawings": 0,
+      "cost": 0.03394125,
+      "text": "已按当前 Material 3 风格新增登录页，包含邮箱、密码、登录按钮和“忘记密码？”链接，原笔记页保持不变。登录与密码找回目前仅为界面，尚未接入实际功能。"
+    },
+    {
+      "task": "profile-ios-strict",
+      "ability": "new-screen",
+      "title": "New profile screen on a strict iOS document",
+      "verdicts": [
+        {
+          "id": "finished",
+          "label": "ended normally, no error left unrecovered",
+          "pass": true,
+          "detail": "stop=end_turn, 0 failed calls",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "undo",
+          "label": "one undo restores the start",
+          "pass": true,
+          "detail": "1 undo step(s), restores the start",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "budget",
+          "label": "within the step/token/time budget",
+          "pass": true,
+          "detail": "6 steps, 116552 tokens, 16s",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "style-rules",
+          "label": "strict style kept and respected",
+          "pass": true,
+          "detail": "ios, 47 parts keep to it",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "screen-added",
+          "label": "a new screen like /profile/i",
+          "pass": true,
+          "detail": "\"Profile\"",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "avatar",
+          "label": "an avatar",
+          "pass": true,
+          "detail": "1 found (need 1): avatar \"AJ\" on profile",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "shows",
+          "label": "the three rows",
+          "pass": true,
+          "detail": "3/3",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "language",
+          "label": "new words in the canvas language",
+          "pass": true,
+          "detail": "8/8 in English",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "auto-layout",
+          "label": "auto layout used",
+          "pass": true,
+          "detail": "profile: 3 layout containers, 80% of parts in a layout, 0 loose atoms",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "no-overlap",
+          "label": "no overlapping parts",
+          "pass": true,
+          "detail": "none on profile",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "in-bounds",
+          "label": "nothing out of the screen",
+          "pass": true,
+          "detail": "all inside",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "keeps-work",
+          "label": "nothing of the author's removed",
+          "pass": true,
+          "detail": "all kept",
+          "weight": 1,
+          "critical": false
+        }
+      ],
+      "score": 1,
+      "pass": true,
+      "name": "profile-ios-strict",
+      "lang": "en",
+      "usage": {
+        "input": 115865,
+        "output": 687,
+        "reasoning": 0,
+        "cachedInput": 95796,
+        "cacheWrite": 20051
+      },
+      "ms": 15509,
+      "steps": 6,
+      "stop": "end_turn",
+      "drawings": 0,
+      "cost": 0.04393075,
+      "text": "Added a Profile screen in the current iOS style, with an initials avatar, sample name and bio, and grouped rows for Orders, Addresses, and Payment methods. The existing Settings screen is unchanged."
+    },
+    {
+      "task": "list-to-cards",
+      "ability": "edit",
+      "title": "Turn the selected list into cards",
+      "verdicts": [
+        {
+          "id": "finished",
+          "label": "ended normally, no error left unrecovered",
+          "pass": true,
+          "detail": "stop=end_turn, 0 failed calls",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "undo",
+          "label": "one undo restores the start",
+          "pass": true,
+          "detail": "1 undo step(s), restores the start",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "budget",
+          "label": "within the step/token/time budget",
+          "pass": true,
+          "detail": "9 steps, 158221 tokens, 51s",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "cards",
+          "label": "four cards",
+          "pass": true,
+          "detail": "4 found (need 4): card \"番茄炒蛋\", card \"红烧排骨\", card \"清炒时蔬\", card \"酸辣汤\" on recipes",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "pictures",
+          "label": "a picture on each card",
+          "pass": true,
+          "detail": "4 found (need 4): card \"番茄炒蛋\", card \"红烧排骨\", card \"清炒时蔬\", card \"酸辣汤\" on recipes",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "shows",
+          "label": "every recipe kept",
+          "pass": true,
+          "detail": "4/4",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "no-rows",
+          "label": "the old rows are gone",
+          "pass": true,
+          "detail": "no list rows left",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "no-overlap",
+          "label": "no overlapping parts",
+          "pass": true,
+          "detail": "none on recipes",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "in-bounds",
+          "label": "nothing out of the screen",
+          "pass": true,
+          "detail": "all inside",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "keeps-work",
+          "label": "nothing removed elsewhere",
+          "pass": true,
+          "detail": "all kept",
+          "weight": 1,
+          "critical": false
+        }
+      ],
+      "score": 1,
+      "pass": true,
+      "name": "list-to-cards",
+      "lang": "zh",
+      "usage": {
+        "input": 155167,
+        "output": 3054,
+        "reasoning": 223,
+        "cachedInput": 116249,
+        "cacheWrite": 38891
+      },
+      "ms": 50984,
+      "steps": 9,
+      "stop": "end_turn",
+      "drawings": 0,
+      "cost": 0.093718625,
+      "text": "已改为四张图文卡片，每张都有对应的菜品插画、标题和一句简介。保留了原有文案，页面可向下滚动查看全部菜谱。"
+    },
+    {
+      "task": "polish-spacing",
+      "ability": "edit",
+      "title": "Polish the spacing of a messy screen",
+      "verdicts": [
+        {
+          "id": "finished",
+          "label": "ended normally, no error left unrecovered",
+          "pass": true,
+          "detail": "stop=end_turn, 0 failed calls",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "undo",
+          "label": "one undo restores the start",
+          "pass": true,
+          "detail": "1 undo step(s), restores the start",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "budget",
+          "label": "within the step/token/time budget",
+          "pass": true,
+          "detail": "3 steps, 47083 tokens, 9s",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "even-spacing",
+          "label": "even gaps and aligned edges",
+          "pass": false,
+          "detail": "8 rows, gaps 20/12/20/40/16/16 (spread 28), 2 left edges",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "no-overlap",
+          "label": "no overlapping parts",
+          "pass": true,
+          "detail": "none on profile",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "in-bounds",
+          "label": "nothing out of the screen",
+          "pass": true,
+          "detail": "all inside",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "shows",
+          "label": "every word kept",
+          "pass": true,
+          "detail": "7/7",
+          "weight": 1,
+          "critical": true
+        }
+      ],
+      "score": 0.86,
+      "pass": true,
+      "name": "polish-spacing",
+      "lang": "en",
+      "usage": {
+        "input": 46727,
+        "output": 356,
+        "reasoning": 0,
+        "cachedInput": 30709,
+        "cacheWrite": 16009
+      },
+      "ms": 9188,
+      "steps": 3,
+      "stop": "end_turn",
+      "drawings": 0,
+      "cost": 0.027421125,
+      "text": "Aligned everything to a consistent 24 dp margin, lined up the action buttons, and made the work cards equal width with even spacing. The content and Material styling are unchanged."
+    },
+    {
+      "task": "contacts-data",
+      "ability": "data",
+      "title": "Contacts from a collection, repeated rows, tap to a detail screen",
+      "verdicts": [
+        {
+          "id": "finished",
+          "label": "ended normally, no error left unrecovered",
+          "pass": true,
+          "detail": "stop=end_turn, 1 failed calls",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "undo",
+          "label": "one undo restores the start",
+          "pass": true,
+          "detail": "1 undo step(s), restores the start",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "budget",
+          "label": "within the step/token/time budget",
+          "pass": true,
+          "detail": "4 steps, 73821 tokens, 18s",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "collection",
+          "label": "a collection of 5+ rows",
+          "pass": true,
+          "detail": "people \"People\": name, phone, city; 5 rows",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "repeat",
+          "label": "a layout repeats it",
+          "pass": true,
+          "detail": "people-list repeats people",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "tap-detail",
+          "label": "tapping a row opens a detail screen with its data",
+          "pass": true,
+          "detail": "person-row→person-detail; the detail reads {{current.…}}",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "screen-added",
+          "label": "a new screen",
+          "pass": true,
+          "detail": "\"Contact details\"",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "no-overlap",
+          "label": "no overlapping parts",
+          "pass": true,
+          "detail": "none on contacts, person-detail",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "in-bounds",
+          "label": "nothing out of the screen",
+          "pass": true,
+          "detail": "all inside",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "keeps-work",
+          "label": "nothing of the author's removed",
+          "pass": true,
+          "detail": "all kept",
+          "weight": 1,
+          "critical": false
+        }
+      ],
+      "score": 1,
+      "pass": true,
+      "name": "contacts-data",
+      "lang": "en",
+      "usage": {
+        "input": 72105,
+        "output": 1716,
+        "reasoning": 21,
+        "cachedInput": 69174,
+        "cacheWrite": 2919
+      },
+      "ms": 17750,
+      "steps": 4,
+      "stop": "end_turn",
+      "drawings": 0,
+      "cost": 0.0294705,
+      "text": "Added a five-person collection and a repeated contact row for each person. Tapping a row opens their name, phone, and city on a detail screen, with a back arrow to return to the list."
+    },
+    {
+      "task": "dark-mode-switch",
+      "ability": "variables",
+      "title": "A dark-mode switch wired to a variable that drives dark",
+      "verdicts": [
+        {
+          "id": "finished",
+          "label": "ended normally, no error left unrecovered",
+          "pass": true,
+          "detail": "stop=end_turn, 0 failed calls",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "undo",
+          "label": "one undo restores the start",
+          "pass": true,
+          "detail": "1 undo step(s), restores the start",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "budget",
+          "label": "within the step/token/time budget",
+          "pass": true,
+          "detail": "4 steps, 79150 tokens, 10s",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "dark-var",
+          "label": "a variable drives the dark mode",
+          "pass": true,
+          "detail": "darkMode \"darkMode\" bool",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "dark-control",
+          "label": "a switch is wired to it",
+          "pass": true,
+          "detail": "f87 switch bind {\"checked\":\"=vars.darkMode\"}",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "no-overlap",
+          "label": "no overlapping parts",
+          "pass": true,
+          "detail": "none on f1",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "in-bounds",
+          "label": "nothing out of the screen",
+          "pass": true,
+          "detail": "all inside",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "keeps-work",
+          "label": "nothing of the author's removed",
+          "pass": true,
+          "detail": "all kept",
+          "weight": 1,
+          "critical": false
+        }
+      ],
+      "score": 1,
+      "pass": true,
+      "name": "dark-mode-switch",
+      "lang": "zh",
+      "usage": {
+        "input": 78905,
+        "output": 245,
+        "reasoning": 0,
+        "cachedInput": 58708,
+        "cacheWrite": 20185
+      },
+      "ms": 9904,
+      "steps": 4,
+      "stop": "end_turn",
+      "drawings": 0,
+      "cost": 0.03503475,
+      "text": "已启用现有的“深色主题”开关。在预览中打开即可切换为深色，关闭则恢复浅色。"
+    },
+    {
+      "task": "stepper-vars",
+      "ability": "variables",
+      "title": "A quantity stepper: a number variable, a bound text, + and − taps",
+      "verdicts": [
+        {
+          "id": "finished",
+          "label": "ended normally, no error left unrecovered",
+          "pass": true,
+          "detail": "stop=end_turn, 0 failed calls",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "undo",
+          "label": "one undo restores the start",
+          "pass": true,
+          "detail": "1 undo step(s), restores the start",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "budget",
+          "label": "within the step/token/time budget",
+          "pass": true,
+          "detail": "3 steps, 52511 tokens, 9s",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "counter",
+          "label": "a number variable shown and changed by + and −",
+          "pass": true,
+          "detail": "cartQuantity \"quantity\": shown, + and − wired",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "no-overlap",
+          "label": "no overlapping parts",
+          "pass": true,
+          "detail": "none on cart",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "in-bounds",
+          "label": "nothing out of the screen",
+          "pass": true,
+          "detail": "all inside",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "keeps-work",
+          "label": "nothing of the author's removed",
+          "pass": true,
+          "detail": "all kept",
+          "weight": 1,
+          "critical": false
+        }
+      ],
+      "score": 1,
+      "pass": true,
+      "name": "stepper-vars",
+      "lang": "en",
+      "usage": {
+        "input": 52027,
+        "output": 484,
+        "reasoning": 0,
+        "cachedInput": 50692,
+        "cacheWrite": 1326
+      },
+      "ms": 8534,
+      "steps": 3,
+      "stop": "end_turn",
+      "drawings": 0,
+      "cost": 0.01284525,
+      "text": "Added the − / quantity / + stepper beside the price. The quantity starts at 1, updates with either button, and cannot go below 1."
+    },
+    {
+      "task": "prompt-box-component",
+      "ability": "components",
+      "title": "Build a Codex-style prompt box from atoms, save it as a component, place an instance",
+      "verdicts": [
+        {
+          "id": "finished",
+          "label": "ended normally, no error left unrecovered",
+          "pass": true,
+          "detail": "stop=end_turn, 0 failed calls",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "undo",
+          "label": "one undo restores the start",
+          "pass": true,
+          "detail": "1 undo step(s), restores the start",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "budget",
+          "label": "within the step/token/time budget",
+          "pass": true,
+          "detail": "4 steps, 65461 tokens, 12s",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "component",
+          "label": "a reusable component built from atoms",
+          "pass": true,
+          "detail": "vzf8xep0 \"Prompt box\": 9 parts, 100% atoms, auto layout",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "instances",
+          "label": "1+ instances",
+          "pass": true,
+          "detail": "1 instances on chat",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "no-overlap",
+          "label": "no overlapping parts",
+          "pass": true,
+          "detail": "none on chat",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "in-bounds",
+          "label": "nothing out of the screen",
+          "pass": true,
+          "detail": "all inside",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "keeps-work",
+          "label": "nothing of the author's removed",
+          "pass": true,
+          "detail": "all kept",
+          "weight": 1,
+          "critical": false
+        }
+      ],
+      "score": 1,
+      "pass": true,
+      "name": "prompt-box-component",
+      "lang": "en",
+      "usage": {
+        "input": 64879,
+        "output": 582,
+        "reasoning": 18,
+        "cachedInput": 48136,
+        "cacheWrite": 16731
+      },
+      "ms": 12297,
+      "steps": 4,
+      "stop": "end_turn",
+      "drawings": 0,
+      "cost": 0.03276575,
+      "text": "Created “Prompt box” as a reusable component and pinned an instance to the bottom of Chat. It includes a multiline input, attach button, model chip, and send button, built entirely from atoms."
+    },
+    {
+      "task": "product-instances",
+      "ability": "components",
+      "title": "Use an existing component: three instances with their own words",
+      "verdicts": [
+        {
+          "id": "finished",
+          "label": "ended normally, no error left unrecovered",
+          "pass": true,
+          "detail": "stop=end_turn, 0 failed calls",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "undo",
+          "label": "one undo restores the start",
+          "pass": true,
+          "detail": "1 undo step(s), restores the start",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "budget",
+          "label": "within the step/token/time budget",
+          "pass": true,
+          "detail": "8 steps, 123480 tokens, 18s",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "instances",
+          "label": "3+ instances with their own words",
+          "pass": true,
+          "detail": "3 instances on shop, overrides carry every word",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "no-overlap",
+          "label": "no overlapping parts",
+          "pass": true,
+          "detail": "none on shop",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "in-bounds",
+          "label": "nothing out of the screen",
+          "pass": true,
+          "detail": "all inside",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "keeps-work",
+          "label": "nothing of the author's removed",
+          "pass": true,
+          "detail": "all kept",
+          "weight": 1,
+          "critical": false
+        }
+      ],
+      "score": 1,
+      "pass": true,
+      "name": "product-instances",
+      "lang": "zh",
+      "usage": {
+        "input": 123002,
+        "output": 478,
+        "reasoning": 38,
+        "cachedInput": 120540,
+        "cacheWrite": 2438
+      },
+      "ms": 17659,
+      "steps": 8,
+      "stop": "end_turn",
+      "drawings": 0,
+      "cost": 0.022925,
+      "text": "已在商店页使用商品卡片组件添加苹果 ¥3、梨 ¥4、李子 ¥5，并按两列排好。"
+    },
+    {
+      "task": "edit-definition",
+      "ability": "components",
+      "title": "Change a component once so every placed card, and every card placed later, follows",
+      "verdicts": [
+        {
+          "id": "finished",
+          "label": "ended normally, no error left unrecovered",
+          "pass": true,
+          "detail": "stop=end_turn, 0 failed calls",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "undo",
+          "label": "one undo restores the start",
+          "pass": true,
+          "detail": "1 undo step(s), restores the start",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "budget",
+          "label": "within the step/token/time budget",
+          "pass": true,
+          "detail": "6 steps, 105116 tokens, 12s",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "definition",
+          "label": "the component itself changed: button says 立即购买, price red",
+          "pass": true,
+          "detail": "button \"立即购买\", price red",
+          "weight": 2,
+          "critical": true
+        },
+        {
+          "id": "bold",
+          "label": "the price is bold in the component",
+          "pass": true,
+          "detail": "bold true, style body",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "instances-kept",
+          "label": "the three cards are still instances with their own fruit and price, and carry no copy of the change",
+          "pass": true,
+          "detail": "3 instances",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "keeps-work",
+          "label": "nothing of the author's removed",
+          "pass": true,
+          "detail": "all kept",
+          "weight": 1,
+          "critical": false
+        }
+      ],
+      "score": 1,
+      "pass": true,
+      "name": "edit-definition",
+      "lang": "zh",
+      "usage": {
+        "input": 104806,
+        "output": 310,
+        "reasoning": 0,
+        "cachedInput": 83534,
+        "cacheWrite": 21254
+      },
+      "ms": 11653,
+      "steps": 6,
+      "stop": "end_turn",
+      "drawings": 0,
+      "cost": 0.04013175,
+      "text": "已更新“商品卡片”组件：价格改为红色加粗，按钮文字改为“立即购买”。现有三张卡片已同步，以后新增的该组件实例也会沿用这些设置。"
+    },
+    {
+      "task": "paper-style",
+      "ability": "styles",
+      "title": "Generate a warm paper-notebook style and wear it",
+      "verdicts": [
+        {
+          "id": "finished",
+          "label": "ended normally, no error left unrecovered",
+          "pass": true,
+          "detail": "stop=end_turn, 0 failed calls",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "undo",
+          "label": "one undo restores the start",
+          "pass": true,
+          "detail": "1 undo step(s), restores the start",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "budget",
+          "label": "within the step/token/time budget",
+          "pass": true,
+          "detail": "3 steps, 56757 tokens, 46s",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "custom-style",
+          "label": "a custom style worn, warm, its words readable by the style checker",
+          "pass": true,
+          "detail": "custom:warm-paper-journal \"暖纸手账\", surface #FCF8EF",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "texture",
+          "label": "the style draws its material (textures, strokes, shadows)",
+          "pass": true,
+          "detail": "10 rules; draws texture, stroke, shadow",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "keeps-work",
+          "label": "nothing of the author's removed",
+          "pass": true,
+          "detail": "all kept",
+          "weight": 1,
+          "critical": true
+        }
+      ],
+      "score": 1,
+      "pass": true,
+      "name": "paper-style",
+      "lang": "zh",
+      "usage": {
+        "input": 53707,
+        "output": 3050,
+        "reasoning": 474,
+        "cachedInput": 33534,
+        "cacheWrite": 20161
+      },
+      "ms": 46045,
+      "steps": 3,
+      "stop": "end_turn",
+      "drawings": 0,
+      "cost": 0.059908,
+      "text": "已生成并穿上「暖纸手账」风格：奶油色纸面、深棕墨色与焦糖色按钮，配合细边框和轻柔纸张质感。两个页面已检查，原有内容与结构保留。"
+    },
+    {
+      "task": "svg-tab-icon",
+      "ability": "svg",
+      "title": "Write a route icon as SVG code and put it in the tab bar",
+      "verdicts": [
+        {
+          "id": "finished",
+          "label": "ended normally, no error left unrecovered",
+          "pass": true,
+          "detail": "stop=end_turn, 0 failed calls",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "undo",
+          "label": "one undo restores the start",
+          "pass": true,
+          "detail": "1 undo step(s), restores the start",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "budget",
+          "label": "within the step/token/time budget",
+          "pass": true,
+          "detail": "4 steps, 65348 tokens, 21s",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "svg",
+          "label": "a sanitized SVG in the tab bar",
+          "pass": true,
+          "detail": "0 SVG parts, 0 sanitize, 0 in place; document icon svg:winding-route shown by f84",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "shows",
+          "label": "the four tabs kept",
+          "pass": true,
+          "detail": "4/4",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "no-overlap",
+          "label": "no overlapping parts",
+          "pass": true,
+          "detail": "none on map",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "in-bounds",
+          "label": "nothing out of the screen",
+          "pass": true,
+          "detail": "all inside",
+          "weight": 1,
+          "critical": false
+        }
+      ],
+      "score": 1,
+      "pass": true,
+      "name": "svg-tab-icon",
+      "lang": "en",
+      "usage": {
+        "input": 64302,
+        "output": 1046,
+        "reasoning": 284,
+        "cachedInput": 61803,
+        "cacheWrite": 2118
+      },
+      "ms": 21149,
+      "steps": 4,
+      "stop": "end_turn",
+      "drawings": 1,
+      "cost": 0.061309125000000006,
+      "text": "Replaced the Routes tab icon with a custom SVG showing a winding dotted path between two map pins, matching the tab bar’s existing size and color."
+    },
+    {
+      "task": "replicate-weather",
+      "ability": "replicate",
+      "title": "Copy a weather screen from an attached screenshot",
+      "verdicts": [
+        {
+          "id": "finished",
+          "label": "ended normally, no error left unrecovered",
+          "pass": true,
+          "detail": "stop=end_turn, 1 failed calls",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "undo",
+          "label": "one undo restores the start",
+          "pass": true,
+          "detail": "1 undo step(s), restores the start",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "budget",
+          "label": "within the step/token/time budget",
+          "pass": true,
+          "detail": "11 steps, 328810 tokens, 96s",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "shows",
+          "label": "the screenshot's words",
+          "pass": true,
+          "detail": "8/8",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "likeness",
+          "label": "likeness to the reference ≥ 75",
+          "pass": true,
+          "detail": "weather: 98",
+          "weight": 2,
+          "critical": false
+        },
+        {
+          "id": "auto-layout",
+          "label": "auto layout used",
+          "pass": true,
+          "detail": "weather: 17 layout containers, 90% of parts in a layout, 1 loose atoms",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "no-overlap",
+          "label": "no overlapping parts",
+          "pass": true,
+          "detail": "none on weather",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "in-bounds",
+          "label": "nothing out of the screen",
+          "pass": true,
+          "detail": "all inside",
+          "weight": 1,
+          "critical": false
+        }
+      ],
+      "score": 1,
+      "pass": true,
+      "name": "replicate-weather",
+      "lang": "en",
+      "usage": {
+        "input": 321045,
+        "output": 7765,
+        "reasoning": 1147,
+        "cachedInput": 284923,
+        "cacheWrite": 36089
+      },
+      "ms": 95619,
+      "steps": 11,
+      "stop": "end_turn",
+      "drawings": 0,
+      "cost": 0.158417875,
+      "text": "Created a new “Lisbon Weather” screen matching the reference’s layout, blue gradient, forecast cards, text, and bottom navigation. Your original Home screen is unchanged."
+    },
+    {
+      "task": "game-hud",
+      "ability": "game",
+      "title": "A battle HUD in the four corners of a landscape game screen",
+      "verdicts": [
+        {
+          "id": "finished",
+          "label": "ended normally, no error left unrecovered",
+          "pass": true,
+          "detail": "stop=end_turn, 0 failed calls",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "undo",
+          "label": "one undo restores the start",
+          "pass": true,
+          "detail": "1 undo step(s), restores the start",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "budget",
+          "label": "within the step/token/time budget",
+          "pass": true,
+          "detail": "10 steps, 172109 tokens, 36s",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "style-rules",
+          "label": "strict style kept and respected",
+          "pass": true,
+          "detail": "moba, 22 parts keep to it",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "corners",
+          "label": "corners hold 2 bars, a minimap, a joystick, 4 skills",
+          "pass": true,
+          "detail": "tl 2 bars: 2/2, tr a minimap: 12/1, bl a joystick: 1/1, br 4 skills: 4/4",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "in-bounds",
+          "label": "nothing out of the screen",
+          "pass": true,
+          "detail": "all inside",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "keeps-work",
+          "label": "nothing of the author's removed",
+          "pass": true,
+          "detail": "all kept",
+          "weight": 1,
+          "critical": false
+        }
+      ],
+      "score": 1,
+      "pass": true,
+      "name": "game-hud",
+      "lang": "en",
+      "usage": {
+        "input": 170692,
+        "output": 1417,
+        "reasoning": 242,
+        "cachedInput": 164277,
+        "cacheWrite": 6385
+      },
+      "ms": 35713,
+      "steps": 10,
+      "stop": "end_turn",
+      "drawings": 0,
+      "cost": 0.042723375,
+      "text": "Added HP and mana bars, a minimap, a virtual joystick, and four skill buttons in the requested corners, matching the MOBA style. Values and map markers are illustrative; live stats, movement, and skills will need game-engine wiring."
+    },
+    {
+      "task": "profile-ja",
+      "ability": "multilingual",
+      "title": "A profile screen asked for in Japanese",
+      "verdicts": [
+        {
+          "id": "finished",
+          "label": "ended normally, no error left unrecovered",
+          "pass": true,
+          "detail": "stop=end_turn, 0 failed calls",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "undo",
+          "label": "one undo restores the start",
+          "pass": true,
+          "detail": "1 undo step(s), restores the start",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "budget",
+          "label": "within the step/token/time budget",
+          "pass": true,
+          "detail": "4 steps, 61221 tokens, 18s",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "screen-added",
+          "label": "a new screen",
+          "pass": true,
+          "detail": "\"プロフィール\"",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "avatar",
+          "label": "an avatar",
+          "pass": true,
+          "detail": "2 found (need 1): avatar \"MC\", avatar \"プロフィールアイコン\" on home, profile",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "button",
+          "label": "a follow button",
+          "pass": true,
+          "detail": "5 found (need 1): icon-button \"その他\", button \"いいね\", button \"コメント\", button \"共有\" on home, profile",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "language",
+          "label": "new words in the canvas language",
+          "pass": true,
+          "detail": "6/6 in Japanese",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "no-overlap",
+          "label": "no overlapping parts",
+          "pass": true,
+          "detail": "none on home, profile",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "in-bounds",
+          "label": "nothing out of the screen",
+          "pass": true,
+          "detail": "all inside",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "keeps-work",
+          "label": "nothing of the author's removed",
+          "pass": true,
+          "detail": "all kept",
+          "weight": 1,
+          "critical": false
+        }
+      ],
+      "score": 1,
+      "pass": true,
+      "name": "profile-ja",
+      "lang": "ja",
+      "usage": {
+        "input": 60247,
+        "output": 974,
+        "reasoning": 92,
+        "cachedInput": 56815,
+        "cacheWrite": 3420
+      },
+      "ms": 18311,
+      "steps": 4,
+      "stop": "end_turn",
+      "drawings": 0,
+      "cost": 0.021131875,
+      "text": "プロフィール画面を追加しました。アイコン・名前・自己紹介・フォローボタンを配置し、ホームの投稿者アイコンや名前から移動できます。\n\nフォローの実処理には、バックエンドとの接続が必要です。"
+    },
+    {
+      "task": "cart-ko",
+      "ability": "multilingual",
+      "title": "A cart screen asked for in Korean",
+      "verdicts": [
+        {
+          "id": "finished",
+          "label": "ended normally, no error left unrecovered",
+          "pass": true,
+          "detail": "stop=end_turn, 0 failed calls",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "undo",
+          "label": "one undo restores the start",
+          "pass": true,
+          "detail": "1 undo step(s), restores the start",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "budget",
+          "label": "within the step/token/time budget",
+          "pass": true,
+          "detail": "7 steps, 103439 tokens, 36s",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "screen-added",
+          "label": "a new screen",
+          "pass": true,
+          "detail": "\"장바구니\"",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "shows",
+          "label": "checkout and total",
+          "pass": true,
+          "detail": "2/2",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "button",
+          "label": "a pay button",
+          "pass": true,
+          "detail": "1 found (need 1): button \"결제하기\" on cart",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "language",
+          "label": "new words in the canvas language",
+          "pass": true,
+          "detail": "13/13 in Korean",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "no-overlap",
+          "label": "no overlapping parts",
+          "pass": true,
+          "detail": "none on cart",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "in-bounds",
+          "label": "nothing out of the screen",
+          "pass": true,
+          "detail": "all inside",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "keeps-work",
+          "label": "nothing of the author's removed",
+          "pass": true,
+          "detail": "all kept",
+          "weight": 1,
+          "critical": false
+        }
+      ],
+      "score": 1,
+      "pass": true,
+      "name": "cart-ko",
+      "lang": "ko",
+      "usage": {
+        "input": 101513,
+        "output": 1926,
+        "reasoning": 352,
+        "cachedInput": 98268,
+        "cacheWrite": 3224
+      },
+      "ms": 35598,
+      "steps": 7,
+      "stop": "end_turn",
+      "drawings": 0,
+      "cost": 0.03559975,
+      "text": "상품 3개와 합계 13,000원, 하단 결제하기 버튼을 담은 장바구니 화면을 만들었습니다. 결제 버튼은 현재 연동 안내를 표시하며, 실제 결제에는 주문·결제 서비스 연결이 필요합니다."
+    },
+    {
+      "task": "vague-wipe",
+      "ability": "ambiguous",
+      "title": "“Delete it all and redo it”: ask first, keep the author's work",
+      "verdicts": [
+        {
+          "id": "finished",
+          "label": "ended normally, no error left unrecovered",
+          "pass": true,
+          "detail": "stop=end_turn, 0 failed calls",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "undo",
+          "label": "one undo restores the start",
+          "pass": true,
+          "detail": "the turn changed nothing",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "budget",
+          "label": "within the step/token/time budget",
+          "pass": true,
+          "detail": "1 steps, 14926 tokens, 5s",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "keeps-work",
+          "label": "nothing of the author's removed",
+          "pass": true,
+          "detail": "all kept",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "asks",
+          "label": "asks or says what it would do",
+          "pass": true,
+          "detail": "\"你想把现有的登录、首页和个人主页这 3 个页面全部删除，再从零重做吗？新设计有没有偏好的颜色或风格？确认一下：要删除现有的登录、首页和个人主页这 3 个页面，从零重做吗？风格上有偏好吗，比如清爽极简、温暖文艺，或更有质感的深色？\"",
+          "weight": 1,
+          "critical": false
+        }
+      ],
+      "score": 1,
+      "pass": true,
+      "name": "vague-wipe",
+      "lang": "zh",
+      "usage": {
+        "input": 14787,
+        "output": 139,
+        "reasoning": 41,
+        "cachedInput": 13013,
+        "cacheWrite": 1771
+      },
+      "ms": 4529,
+      "steps": 1,
+      "stop": "end_turn",
+      "drawings": 0,
+      "cost": 0.005234125,
+      "text": "你想把现有的登录、首页和个人主页这 3 个页面全部删除，再从零重做吗？新设计有没有偏好的颜色或风格？确认一下：要删除现有的登录、首页和个人主页这 3 个页面，从零重做吗？风格上有偏好吗，比如清爽极简、温暖文艺，或更有质感的深色？"
+    },
+    {
+      "task": "travel-app-flow",
+      "ability": "flow",
+      "title": "A three-screen app wired together: tab bar between two screens, a detail and back",
+      "verdicts": [
+        {
+          "id": "finished",
+          "label": "ended normally, no error left unrecovered",
+          "pass": true,
+          "detail": "stop=end_turn, 1 failed calls",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "undo",
+          "label": "one undo restores the start",
+          "pass": true,
+          "detail": "1 undo step(s), restores the start",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "budget",
+          "label": "within the step/token/time budget",
+          "pass": true,
+          "detail": "10 steps, 240622 tokens, 81s",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "nav-flow",
+          "label": "tab bar screens switch to each other, a tap opens a detail, the detail goes back",
+          "pass": true,
+          "detail": "3 screens; tab bars on home, saved, switching from home, saved; opens detail; back from detail",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "screen-added",
+          "label": "a new screen",
+          "pass": true,
+          "detail": "\"Trip detail\", \"Saved\"",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "language",
+          "label": "new words in the canvas language",
+          "pass": true,
+          "detail": "33/33 in English",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "auto-layout",
+          "label": "auto layout used",
+          "pass": true,
+          "detail": "home: 17 layout containers, 88% of parts in a layout, 0 loose atoms; detail: 9 layout containers, 92% of parts in a layout, 0 loose atoms; saved: 10 layout containers, 85% of parts in a layout, 0 loose atoms",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "no-overlap",
+          "label": "no overlapping parts",
+          "pass": true,
+          "detail": "none on home, detail, saved",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "in-bounds",
+          "label": "nothing out of the screen",
+          "pass": true,
+          "detail": "all inside",
+          "weight": 1,
+          "critical": false
+        }
+      ],
+      "score": 1,
+      "pass": true,
+      "name": "travel-app-flow",
+      "lang": "en",
+      "usage": {
+        "input": 233956,
+        "output": 6666,
+        "reasoning": 738,
+        "cachedInput": 220930,
+        "cacheWrite": 12996
+      },
+      "ms": 81113,
+      "steps": 10,
+      "stop": "end_turn",
+      "drawings": 0,
+      "cost": 0.11055875,
+      "text": "Built Trips, Trip detail, and Saved with matching Material styling. The bottom navigation switches between Trips and Saved; each trip opens its details, and the top-bar back button returns to the previous screen."
+    },
+    {
+      "task": "checkout-strict",
+      "ability": "new-screen",
+      "title": "A checkout form on a strict iOS document: fields, a choice, a switch, a summary, a pinned pay button",
+      "verdicts": [
+        {
+          "id": "finished",
+          "label": "ended normally, no error left unrecovered",
+          "pass": true,
+          "detail": "stop=end_turn, 0 failed calls",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "undo",
+          "label": "one undo restores the start",
+          "pass": true,
+          "detail": "1 undo step(s), restores the start",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "budget",
+          "label": "within the step/token/time budget",
+          "pass": true,
+          "detail": "3 steps, 59860 tokens, 22s",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "style-rules",
+          "label": "strict style kept and respected",
+          "pass": true,
+          "detail": "ios, 75 parts keep to it",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "screen-added",
+          "label": "a new screen like /checkout/i",
+          "pass": true,
+          "detail": "\"Checkout\"",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "fields",
+          "label": "four shipping fields",
+          "pass": true,
+          "detail": "4 found (need 4): input \"Full name\", input \"Street address\", input \"City\", input \"Postal code\" on checkout",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "switch",
+          "label": "a save-address switch",
+          "pass": true,
+          "detail": "1 found (need 1): switch \"Save this address\" on checkout",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "shows",
+          "label": "the delivery choice, the total and the pay button",
+          "pass": true,
+          "detail": "4/4",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "pay-pinned",
+          "label": "the pay button at the foot",
+          "pass": true,
+          "detail": "button \"Pay\" ends 24 dp above the foot of checkout",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "language",
+          "label": "new words in the canvas language",
+          "pass": true,
+          "detail": "19/19 in English",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "auto-layout",
+          "label": "auto layout used",
+          "pass": true,
+          "detail": "checkout: 13 layout containers, 92% of parts in a layout, 0 loose atoms",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "no-overlap",
+          "label": "no overlapping parts",
+          "pass": true,
+          "detail": "none on checkout",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "in-bounds",
+          "label": "nothing out of the screen",
+          "pass": true,
+          "detail": "all inside",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "keeps-work",
+          "label": "nothing of the author's removed",
+          "pass": true,
+          "detail": "all kept",
+          "weight": 1,
+          "critical": false
+        }
+      ],
+      "score": 1,
+      "pass": true,
+      "name": "checkout-strict",
+      "lang": "en",
+      "usage": {
+        "input": 58425,
+        "output": 1435,
+        "reasoning": 65,
+        "cachedInput": 54619,
+        "cacheWrite": 3797
+      },
+      "ms": 21602,
+      "steps": 3,
+      "stop": "end_turn",
+      "drawings": 0,
+      "cost": 0.025934875,
+      "text": "Added Checkout with shipping fields, Standard/Express delivery, a “Save this address” switch, a three-item summary and total, and a bottom-pinned Pay button.\n\nThe summary uses sample prices. Pay shows a “not connected” notice; live totals and payments need a backend and payment-provider integration."
+    },
+    {
+      "task": "long-feed",
+      "ability": "long-screen",
+      "title": "A long scrolling feed: stories, eight posts, bars pinned",
+      "verdicts": [
+        {
+          "id": "finished",
+          "label": "ended normally, no error left unrecovered",
+          "pass": true,
+          "detail": "stop=end_turn, 1 failed calls",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "undo",
+          "label": "one undo restores the start",
+          "pass": true,
+          "detail": "1 undo step(s), restores the start",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "budget",
+          "label": "within the step/token/time budget",
+          "pass": true,
+          "detail": "6 steps, 121060 tokens, 41s",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "scrolls",
+          "label": "the screen is long enough to scroll",
+          "pass": true,
+          "detail": "length 1660 on a 892 device, content down to 1548",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "posts",
+          "label": "eight posts with Like",
+          "pass": true,
+          "detail": "8 parts show /^like$/i (need 8)",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "stories",
+          "label": "story avatars and post avatars",
+          "pass": true,
+          "detail": "14 found (need 12) (7 in the document, the rest repeated rows): avatar \"{{row.initials}}\", avatar \"AL\", avatar \"JM\", avatar \"NK\" on feed",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "bars-pinned",
+          "label": "the top bar at the head and the tab bar at the foot",
+          "pass": true,
+          "detail": "top bar at 0, tab bar ends at 1660 (device 892, screen 1660)",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "no-overlap",
+          "label": "no overlapping parts",
+          "pass": true,
+          "detail": "none on feed",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "in-bounds",
+          "label": "nothing out of the screen",
+          "pass": true,
+          "detail": "all inside",
+          "weight": 1,
+          "critical": false
+        }
+      ],
+      "score": 1,
+      "pass": true,
+      "name": "long-feed",
+      "lang": "en",
+      "usage": {
+        "input": 118258,
+        "output": 2802,
+        "reasoning": 370,
+        "cachedInput": 94436,
+        "cacheWrite": 23804
+      },
+      "ms": 41068,
+      "steps": 6,
+      "stop": "end_turn",
+      "drawings": 0,
+      "cost": 0.069602,
+      "text": "Added six story avatars and eight posts, each with an author, timestamp, two lines of text, and Like and Comment buttons. The feed scrolls while the top bar and bottom navigation stay pinned."
+    },
+    {
+      "task": "shop-api-wire",
+      "ability": "product",
+      "title": "A designed shop list made real: infer models and endpoints, wire the list, fill the mocks",
+      "verdicts": [
+        {
+          "id": "finished",
+          "label": "ended normally, no error left unrecovered",
+          "pass": true,
+          "detail": "stop=end_turn, 0 failed calls",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "undo",
+          "label": "one undo restores the start",
+          "pass": true,
+          "detail": "1 undo step(s), restores the start",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "budget",
+          "label": "within the step/token/time budget",
+          "pass": true,
+          "detail": "6 steps, 186650 tokens, 53s",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "api-valid",
+          "label": "the API has endpoints and no errors",
+          "pass": true,
+          "detail": "2 models, 1 endpoints; no errors",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "model",
+          "label": "a product model with name and price",
+          "pass": true,
+          "detail": "Product: id, name, description, price, picture",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "list-endpoint",
+          "label": "a GET list endpoint",
+          "pass": true,
+          "detail": "GET /products (listProducts)",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "list-bound",
+          "label": "products loads a list and repeats a bound row",
+          "pass": true,
+          "detail": "products: products=listProducts; repeat over data.products.items with 4 bound parts",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "states",
+          "label": "products: its regions design every state",
+          "pass": true,
+          "detail": "1 regions, every state designed",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "bindings-resolve",
+          "label": "every expression and source on the bound screens resolves",
+          "pass": true,
+          "detail": "6 expressions, all resolve",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "mocks",
+          "label": "the mocks are set up",
+          "pass": true,
+          "detail": "5 scenarios (new-user, lots, network-error, slow, signed-out), 2 models set",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "preview",
+          "label": "in the preview products shows mock data (3+ rows)",
+          "pass": true,
+          "detail": "products: products ready 8 items; regions ready",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "design-kept",
+          "label": "the designed row is the repeated one (one row design, its picture bound)",
+          "pass": true,
+          "detail": "1 bound pictures; no sample row left over",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "export",
+          "label": "the exported product builds and type-checks (packages/api, apps/web)",
+          "pass": true,
+          "detail": "339 files, screens ProductsScreen; api 0 errors; web 0 errors",
+          "weight": 1,
+          "critical": false
+        }
+      ],
+      "score": 1,
+      "pass": true,
+      "name": "shop-api-wire",
+      "lang": "en",
+      "usage": {
+        "input": 183197,
+        "output": 3453,
+        "reasoning": 243,
+        "cachedInput": 123829,
+        "cacheWrite": 59350
+      },
+      "ms": 52659,
+      "steps": 6,
+      "stop": "end_turn",
+      "drawings": 0,
+      "cost": 0.124218625,
+      "text": "Connected your existing row design to a paginated products API, with eight realistic mock products, illustrated pictures, USD prices, pull-to-refresh, and loading, empty, error, and access states.\n\nThe screen works against mocks now; production needs a backend implementing the defined `GET /products` contract."
+    },
+    {
+      "task": "create-form",
+      "ability": "product",
+      "title": "A create form bound to a new POST endpoint, with validation and the server's errors",
+      "verdicts": [
+        {
+          "id": "finished",
+          "label": "ended normally, no error left unrecovered",
+          "pass": true,
+          "detail": "stop=end_turn, 0 failed calls",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "undo",
+          "label": "one undo restores the start",
+          "pass": true,
+          "detail": "1 undo step(s), restores the start",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "budget",
+          "label": "within the step/token/time budget",
+          "pass": true,
+          "detail": "10 steps, 271687 tokens, 35s",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "api-valid",
+          "label": "the API has endpoints and no errors",
+          "pass": true,
+          "detail": "2 models, 3 endpoints; no errors",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "create-endpoint",
+          "label": "POST /products with a body",
+          "pass": true,
+          "detail": "POST /products (createProduct)",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "form",
+          "label": "new-product: a form for the body with its fields bound",
+          "pass": true,
+          "detail": "new-product: form of POST /products (createProduct), fields name, price, description",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "rules",
+          "label": "the body's schema holds the rules: name required 2–60, price required ≥ 0",
+          "pass": true,
+          "detail": "name required 2–60; price required min 0",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "then",
+          "label": "after saving it goes back to the product list",
+          "pass": true,
+          "detail": "then → products",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "errors-shown",
+          "label": "the server's errors show on the fields and the form",
+          "pass": true,
+          "detail": "field errors bound; a form error line",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "bindings-resolve",
+          "label": "every expression and source on the bound screens resolves",
+          "pass": true,
+          "detail": "14 expressions, all resolve",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "export",
+          "label": "the exported product builds and type-checks (packages/api, apps/web)",
+          "pass": true,
+          "detail": "359 files, screens ProductsScreen, ProductScreen, NewProductScreen; api 0 errors; web 0 errors",
+          "weight": 1,
+          "critical": false
+        }
+      ],
+      "score": 1,
+      "pass": true,
+      "name": "create-form",
+      "lang": "en",
+      "usage": {
+        "input": 270440,
+        "output": 1247,
+        "reasoning": 126,
+        "cachedInput": 240939,
+        "cacheWrite": 29471
+      },
+      "ms": 35374,
+      "steps": 10,
+      "stop": "end_turn",
+      "drawings": 0,
+      "cost": 0.079463625,
+      "text": "Added the form with name-length and nonnegative-price validation, optional description, inline server errors, and navigation to Products after saving.\n\nThe backend must implement `POST /products` and return field-specific validation errors in the defined Problem format."
+    },
+    {
+      "task": "detail-params",
+      "ability": "product",
+      "title": "A detail screen opened from a list tap with the row's id as its params",
+      "verdicts": [
+        {
+          "id": "finished",
+          "label": "ended normally, no error left unrecovered",
+          "pass": true,
+          "detail": "stop=end_turn, 0 failed calls",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "undo",
+          "label": "one undo restores the start",
+          "pass": true,
+          "detail": "1 undo step(s), restores the start",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "budget",
+          "label": "within the step/token/time budget",
+          "pass": true,
+          "detail": "4 steps, 101783 tokens, 17s",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "api-valid",
+          "label": "the API has endpoints and no errors",
+          "pass": true,
+          "detail": "2 models, 2 endpoints; no errors",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "tap-params",
+          "label": "a row on products opens product with its id, which loads that record",
+          "pass": true,
+          "detail": "products → product with {\"productId\":\"item.id\"}; product loads getProduct with it",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "detail-bound",
+          "label": "product loads one record and shows its fields",
+          "pass": true,
+          "detail": "product: product=getProduct; 6 bound props",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "states",
+          "label": "product: its regions design every state",
+          "pass": true,
+          "detail": "1 regions, every state designed",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "bindings-resolve",
+          "label": "every expression and source on the bound screens resolves",
+          "pass": true,
+          "detail": "13 expressions, all resolve",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "preview",
+          "label": "in the preview product shows mock data",
+          "pass": true,
+          "detail": "product: product ready; regions ready",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "export",
+          "label": "the exported product builds and type-checks (packages/api, apps/web)",
+          "pass": true,
+          "detail": "353 files, screens ProductsScreen, ProductScreen, NewProductScreen; api 0 errors; web 0 errors",
+          "weight": 1,
+          "critical": false
+        }
+      ],
+      "score": 1,
+      "pass": true,
+      "name": "detail-params",
+      "lang": "en",
+      "usage": {
+        "input": 101059,
+        "output": 724,
+        "reasoning": 18,
+        "cachedInput": 97132,
+        "cacheWrite": 3915
+      },
+      "ms": 16558,
+      "steps": 4,
+      "stop": "end_turn",
+      "drawings": 0,
+      "cost": 0.02429025,
+      "text": "Product rows now open the Product screen using the selected product’s ID. The screen loads its picture, name, price, and description from the existing API endpoint, with loading, error, and back navigation support."
+    },
+    {
+      "task": "login-guard",
+      "ability": "product",
+      "title": "Sign-in: a login endpoint and screen, bearer auth, and the orders screen behind it",
+      "verdicts": [
+        {
+          "id": "finished",
+          "label": "ended normally, no error left unrecovered",
+          "pass": true,
+          "detail": "stop=end_turn, 0 failed calls",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "undo",
+          "label": "one undo restores the start",
+          "pass": true,
+          "detail": "1 undo step(s), restores the start",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "budget",
+          "label": "within the step/token/time budget",
+          "pass": true,
+          "detail": "6 steps, 133269 tokens, 26s",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "api-valid",
+          "label": "the API has endpoints and no errors",
+          "pass": true,
+          "detail": "4 models, 2 endpoints; no errors",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "login-endpoint",
+          "label": "a public POST sign-in endpoint",
+          "pass": true,
+          "detail": "POST /auth/login (login)",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "auth",
+          "label": "the API signs in with a bearer token and the orders need it",
+          "pass": true,
+          "detail": "login login, bearer, listOrders needs a token",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "auth-login",
+          "label": "/log ?in|sign ?in/i is the sign-in screen",
+          "pass": true,
+          "detail": "loginScreen: login",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "form",
+          "label": "/log ?in|sign ?in/i: a form for the body with its fields bound",
+          "pass": true,
+          "detail": "loginScreen: form of POST /auth/login (login), fields email, password",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "auth-required",
+          "label": "orders is behind sign-in",
+          "pass": true,
+          "detail": "orders: required",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "sign-in",
+          "label": "the sign-in endpoint answers with a token (mocks)",
+          "pass": true,
+          "detail": "login → 200 with a token",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "bindings-resolve",
+          "label": "every expression and source on the bound screens resolves",
+          "pass": true,
+          "detail": "10 expressions, all resolve",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "export",
+          "label": "the exported product builds and type-checks (packages/api, apps/web)",
+          "pass": true,
+          "detail": "351 files, screens OrdersScreen, LoginScreen; api 0 errors; web 0 errors",
+          "weight": 1,
+          "critical": false
+        }
+      ],
+      "score": 1,
+      "pass": true,
+      "name": "login-guard",
+      "lang": "en",
+      "usage": {
+        "input": 132175,
+        "output": 1094,
+        "reasoning": 118,
+        "cachedInput": 108600,
+        "cacheWrite": 23557
+      },
+      "ms": 25806,
+      "steps": 6,
+      "stop": "end_turn",
+      "drawings": 0,
+      "cost": 0.05398375,
+      "text": "Added Login with email/password validation, API error feedback, and bearer-token sign-in. Orders now requires a signed-in session.\n\nThe backend must implement `POST /auth/login`, returning `accessToken` and `user`, and enforce bearer authentication on `/orders`."
+    },
+    {
+      "task": "import-openapi",
+      "ability": "product",
+      "title": "Import the back end's OpenAPI file and wire two list screens to it",
+      "verdicts": [
+        {
+          "id": "finished",
+          "label": "ended normally, no error left unrecovered",
+          "pass": true,
+          "detail": "stop=end_turn, 0 failed calls",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "undo",
+          "label": "one undo restores the start",
+          "pass": true,
+          "detail": "1 undo step(s), restores the start",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "budget",
+          "label": "within the step/token/time budget",
+          "pass": true,
+          "detail": "7 steps, 194578 tokens, 53s",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "api-valid",
+          "label": "the API has endpoints and no errors",
+          "pass": true,
+          "detail": "11 models, 11 endpoints; no errors",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "imported",
+          "label": "the file's endpoints are in (listProducts, listOrders, login)",
+          "pass": true,
+          "detail": "GET /orders (listOrders)",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "all-imported",
+          "label": "every operation of the file was imported",
+          "pass": true,
+          "detail": "11 operations",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "list-bound",
+          "label": "products loads a list and repeats a bound row",
+          "pass": true,
+          "detail": "products: products=listProducts; repeat over data.products.items with 3 bound parts",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "orders-bound",
+          "label": "orders loads a list and repeats a bound row",
+          "pass": true,
+          "detail": "orders: orders=listOrders; repeat over data.orders.items with 3 bound parts",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "states",
+          "label": "/./: its regions design every state",
+          "pass": true,
+          "detail": "2 regions, every state designed",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "bindings-resolve",
+          "label": "every expression and source on the bound screens resolves",
+          "pass": true,
+          "detail": "10 expressions, all resolve",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "preview",
+          "label": "in the preview products shows mock data (3+ rows)",
+          "pass": true,
+          "detail": "products: products ready 20 items; regions ready",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "preview-orders",
+          "label": "in the preview orders shows mock data (1+ rows)",
+          "pass": true,
+          "detail": "orders: orders ready 20 items; regions ready",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "export",
+          "label": "the exported product builds and type-checks (packages/api, apps/web)",
+          "pass": true,
+          "detail": "356 files, screens ProductsScreen, MyOrdersScreen; api 0 errors; web 0 errors",
+          "weight": 1,
+          "critical": false
+        }
+      ],
+      "score": 1,
+      "pass": true,
+      "name": "import-openapi",
+      "lang": "en",
+      "usage": {
+        "input": 190215,
+        "output": 4363,
+        "reasoning": 72,
+        "cachedInput": 176877,
+        "cacheWrite": 13317
+      },
+      "ms": 52933,
+      "steps": 7,
+      "stop": "end_turn",
+      "drawings": 0,
+      "cost": 0.082412125,
+      "text": "Imported the full OpenAPI file and wired both lists, including cursor pagination for Products, offset pagination for My orders, pull-to-refresh, and loading, empty, error, and no-access states.\n\nChecked both screens with mock data. Live orders require a valid bearer-token session; no sign-in screen was added."
+    },
+    {
+      "task": "scenarios-states",
+      "ability": "product",
+      "title": "Mock scenarios (empty, server error, slow) and the list's states in the shop's words",
+      "verdicts": [
+        {
+          "id": "finished",
+          "label": "ended normally, no error left unrecovered",
+          "pass": true,
+          "detail": "stop=end_turn, 0 failed calls",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "undo",
+          "label": "one undo restores the start",
+          "pass": true,
+          "detail": "1 undo step(s), restores the start",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "budget",
+          "label": "within the step/token/time budget",
+          "pass": true,
+          "detail": "3 steps, 66391 tokens, 9s",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "scenario-empty",
+          "label": "an empty-shop scenario shows the list empty",
+          "pass": true,
+          "detail": "empty-shop on products: empty",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "scenario-error",
+          "label": "a server-error scenario shows the list's error",
+          "pass": true,
+          "detail": "server-error on products: error",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "scenario-slow",
+          "label": "a slow-network scenario (2 s or more)",
+          "pass": true,
+          "detail": "slow-network",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "state-words",
+          "label": "the empty and error designs say it in the shop's words",
+          "pass": true,
+          "detail": "empty: No products yet / Your shop is waiting for its first product. / Refresh products; error: Products couldn't load / We couldn't load your shop's products. Please try again in a moment. / Try again",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "states",
+          "label": "products: its regions design every state",
+          "pass": true,
+          "detail": "1 regions, every state designed",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "bindings-resolve",
+          "label": "every expression and source on the bound screens resolves",
+          "pass": true,
+          "detail": "5 expressions, all resolve",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "export",
+          "label": "the exported product builds and type-checks (packages/api, apps/web)",
+          "pass": true,
+          "detail": "352 files, screens ProductsScreen, ProductScreen, NewProductScreen; api 0 errors; web 0 errors",
+          "weight": 1,
+          "critical": false
+        }
+      ],
+      "score": 1,
+      "pass": true,
+      "name": "scenarios-states",
+      "lang": "en",
+      "usage": {
+        "input": 65935,
+        "output": 456,
+        "reasoning": 0,
+        "cachedInput": 43162,
+        "cacheWrite": 22764
+      },
+      "ms": 8865,
+      "steps": 3,
+      "stop": "end_turn",
+      "drawings": 0,
+      "cost": 0.0384215,
+      "text": "Added “Empty shop,” “Server error (500),” and “Slow network” scenarios, with the slow scenario set to 3 seconds per answer. Updated and visually checked the product list’s empty and error states with shop-specific wording and retry buttons."
+    },
+    {
+      "task": "chat-realtime",
+      "ability": "product",
+      "title": "A chat bound to the API: messages listed, sent with a call, pushed over a WebSocket, a mock reply script",
+      "verdicts": [
+        {
+          "id": "finished",
+          "label": "ended normally, no error left unrecovered",
+          "pass": true,
+          "detail": "stop=end_turn, 1 failed calls",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "undo",
+          "label": "one undo restores the start",
+          "pass": true,
+          "detail": "1 undo step(s), restores the start",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "budget",
+          "label": "within the step/token/time budget",
+          "pass": true,
+          "detail": "9 steps, 309805 tokens, 69s",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "api-valid",
+          "label": "the API has endpoints and no errors",
+          "pass": true,
+          "detail": "2 models, 2 endpoints; no errors",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "model",
+          "label": "a message model with its words and author",
+          "pass": true,
+          "detail": "Message: id, conversationId, authorName, text, createdAt",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "post",
+          "label": "a POST that sends a message",
+          "pass": true,
+          "detail": "POST /conversations/{conversationId}/messages (postMessage)",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "realtime",
+          "label": "a realtime channel the server pushes new messages on, with a mock script for it",
+          "pass": true,
+          "detail": "conversationMessages(send); scripts: conversationMessages on call",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "reply-script",
+          "label": "the mock script replies after the app sends",
+          "pass": true,
+          "detail": "reply-after-send: call → 1 steps",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "list-bound",
+          "label": "chat loads a list and repeats a bound row",
+          "pass": true,
+          "detail": "chat: history=listMessages; repeat over data.history.items with 2 bound parts",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "sends",
+          "label": "chat: a tap sends to POST an endpoint (a call or a form)",
+          "pass": true,
+          "detail": "a form of postMessage with a submit; fields text",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "bindings-resolve",
+          "label": "every expression and source on the bound screens resolves",
+          "pass": true,
+          "detail": "8 expressions, all resolve",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "preview",
+          "label": "in the preview chat shows mock data (1+ rows)",
+          "pass": true,
+          "detail": "chat: history ready 2 items; regions ready",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "export",
+          "label": "the exported product builds and type-checks (packages/api, apps/web)",
+          "pass": true,
+          "detail": "345 files, screens ChatScreen; api 0 errors; web 0 errors",
+          "weight": 1,
+          "critical": false
+        }
+      ],
+      "score": 1,
+      "pass": true,
+      "name": "chat-realtime",
+      "lang": "en",
+      "usage": {
+        "input": 304980,
+        "output": 4825,
+        "reasoning": 688,
+        "cachedInput": 292038,
+        "cacheWrite": 12915
+      },
+      "ms": 69023,
+      "steps": 9,
+      "stop": "end_turn",
+      "drawings": 0,
+      "cost": 0.10093225,
+      "text": "Connected server-loaded messages, WebSocket updates, and Send submission, with loading, empty, and error states. The mock now delivers Ada’s reply 1.5 seconds after sending.\n\nFor production, your backend must provide the defined message endpoints and WebSocket channel; no live server URL is configured yet."
+    },
+    {
+      "task": "ledger-app-zh",
+      "ability": "product",
+      "title": "A whole small app asked for in Chinese: three screens, contract, bindings, mocks",
+      "verdicts": [
+        {
+          "id": "finished",
+          "label": "ended normally, no error left unrecovered",
+          "pass": true,
+          "detail": "stop=end_turn, 0 failed calls",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "undo",
+          "label": "one undo restores the start",
+          "pass": true,
+          "detail": "1 undo step(s), restores the start",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "budget",
+          "label": "within the step/token/time budget",
+          "pass": true,
+          "detail": "8 steps, 266835 tokens, 57s",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "screen-added",
+          "label": "a new screen",
+          "pass": true,
+          "detail": "\"记一笔\", \"账单详情\"",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "three-screens",
+          "label": "at least three screens",
+          "pass": true,
+          "detail": "账单列表, 记一笔, 账单详情",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "api-valid",
+          "label": "the API has endpoints and no errors",
+          "pass": true,
+          "detail": "3 models, 3 endpoints; no errors",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "model",
+          "label": "a bill model with an amount",
+          "pass": true,
+          "detail": "Bill: id, title, type, amount, category, date, note, createdAt",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "list-endpoint",
+          "label": "a GET list endpoint",
+          "pass": true,
+          "detail": "GET /bills (listBills)",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "get-endpoint",
+          "label": "a GET one endpoint",
+          "pass": true,
+          "detail": "GET /bills/{billId} (getBill)",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "create-endpoint",
+          "label": "a POST create endpoint",
+          "pass": true,
+          "detail": "POST /bills (createBill)",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "list-bound",
+          "label": "/./ loads a list and repeats a bound row",
+          "pass": true,
+          "detail": "home: bills=listBills; repeat over data.bills.items with 3 bound parts",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "tap-params",
+          "label": "a row on /./ opens /./ with its id, which loads that record",
+          "pass": true,
+          "detail": "home → detail with {\"billId\":\"item.id\"}; detail loads getBill with it",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "form",
+          "label": "/./: a form for the body with its fields bound",
+          "pass": true,
+          "detail": "entry: form of POST /bills (createBill), fields type, amount, title, category, date, note",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "states",
+          "label": "/./: its regions design every state",
+          "pass": true,
+          "detail": "2 regions, every state designed",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "bindings-resolve",
+          "label": "every expression and source on the bound screens resolves",
+          "pass": true,
+          "detail": "28 expressions, all resolve",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "mocks",
+          "label": "the mocks are set up",
+          "pass": true,
+          "detail": "5 scenarios (new-user, lots, network-error, slow, signed-out), 3 models set",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "preview",
+          "label": "in the preview /./ shows mock data (3+ rows)",
+          "pass": true,
+          "detail": "home: bills ready 6 items; regions ready",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "language",
+          "label": "new words in the canvas language",
+          "pass": true,
+          "detail": "51/51 in Chinese",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "export",
+          "label": "the exported product builds and type-checks (packages/api, apps/web)",
+          "pass": true,
+          "detail": "363 files, screens ; api 0 errors; web 0 errors",
+          "weight": 1,
+          "critical": false
+        }
+      ],
+      "score": 1,
+      "pass": true,
+      "name": "ledger-app-zh",
+      "lang": "zh",
+      "usage": {
+        "input": 262993,
+        "output": 3842,
+        "reasoning": 25,
+        "cachedInput": 224666,
+        "cacheWrite": 38303
+      },
+      "ms": 56782,
+      "steps": 8,
+      "stop": "end_turn",
+      "drawings": 0,
+      "cost": 0.114412,
+      "text": "已完成三个页面及接口绑定：列表点击查看详情，表单校验并提交成功后返回列表；还加入了加载、空白、错误状态和 6 条中文模拟账单。\n\n列表、详情、新建接口已通过模拟调用验证；目前使用模拟服务，正式上线需由后端实现这些接口并持久化账单。"
+    },
+    {
+      "task": "pay-straight-success",
+      "ability": "boundary",
+      "title": "Asked to make Pay jump straight to the success screen: pay through the API and show the order's status",
+      "verdicts": [
+        {
+          "id": "finished",
+          "label": "ended normally, no error left unrecovered",
+          "pass": true,
+          "detail": "stop=end_turn, 0 failed calls",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "undo",
+          "label": "one undo restores the start",
+          "pass": true,
+          "detail": "1 undo step(s), restores the start",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "budget",
+          "label": "within the step/token/time budget",
+          "pass": true,
+          "detail": "8 steps, 213720 tokens, 28s",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "no-straight-success",
+          "label": "no tap goes to the success screen before the back end answers",
+          "pass": true,
+          "detail": "no tap on checkout reaches paid at once",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "asks-api",
+          "label": "a tap calls createOrder",
+          "pass": true,
+          "detail": "pay ask createOrder",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "failure-designed",
+          "label": "a failure of createOrder is designed",
+          "pass": true,
+          "detail": "its catch shows the failure",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "result-from-order",
+          "label": "what is shown after paying is the order's status from the back end",
+          "pass": true,
+          "detail": "支付结果 load the order",
+          "weight": 1,
+          "critical": false
+        }
+      ],
+      "score": 1,
+      "pass": true,
+      "name": "pay-straight-success",
+      "lang": "zh",
+      "usage": {
+        "input": 212554,
+        "output": 1166,
+        "reasoning": 70,
+        "cachedInput": 181842,
+        "cacheWrite": 30688
+      },
+      "ms": 27603,
+      "steps": 8,
+      "stop": "end_turn",
+      "drawings": 0,
+      "cost": 0.07278025,
+      "text": "已接上创建订单、发起支付和结果查询，并补上取消、失败提示及刷新入口；不会直接跳到“支付成功”，只有接口确认已付款才显示成功。\n\n实际支付仍需后端返回真实订单状态，并接入平台支付适配器。"
+    },
+    {
+      "task": "draw-random-result",
+      "ability": "boundary",
+      "title": "Asked for a wheel that draws a prize at random: the prize comes from the draw endpoint",
+      "verdicts": [
+        {
+          "id": "finished",
+          "label": "ended normally, no error left unrecovered",
+          "pass": true,
+          "detail": "stop=end_turn, 0 failed calls",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "undo",
+          "label": "one undo restores the start",
+          "pass": true,
+          "detail": "1 undo step(s), restores the start",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "budget",
+          "label": "within the step/token/time budget",
+          "pass": true,
+          "detail": "11 steps, 365560 tokens, 56s",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "asks-api",
+          "label": "a tap calls drawPrize",
+          "pass": true,
+          "detail": "lucky-wheel, draw-button, nnyxuqaw, kbve9n44 ask drawPrize",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "no-local-result",
+          "label": "no prize is decided on the screen (no demo left running, no fixed or invented result)",
+          "pass": true,
+          "detail": "the prize comes from the answer",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "result-shown",
+          "label": "the prize shown is the one the answer gives",
+          "pass": true,
+          "detail": "a machine's result is bound",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "failure-designed",
+          "label": "a failure of drawPrize is designed",
+          "pass": true,
+          "detail": "the source's error has a design",
+          "weight": 1,
+          "critical": false
+        }
+      ],
+      "score": 1,
+      "pass": true,
+      "name": "draw-random-result",
+      "lang": "zh",
+      "usage": {
+        "input": 362968,
+        "output": 2592,
+        "reasoning": 457,
+        "cachedInput": 324365,
+        "cacheWrite": 38570
+      },
+      "ms": 56048,
+      "steps": 11,
+      "stop": "end_turn",
+      "drawings": 0,
+      "cost": 0.114719375,
+      "text": "已加上八格转盘、抽奖按钮和结果展示，并补齐等待、失败重试等状态。当前预览使用演示结果；正式随机抽奖需由后端接口返回奖品，转盘会按返回结果停靠并显示奖品名称。"
+    },
+    {
+      "task": "claim-after-failure",
+      "ability": "boundary",
+      "title": "Asked to show a coupon claimed after calling the API: claimed only when the answer says so",
+      "verdicts": [
+        {
+          "id": "finished",
+          "label": "ended normally, no error left unrecovered",
+          "pass": true,
+          "detail": "stop=end_turn, 0 failed calls",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "undo",
+          "label": "one undo restores the start",
+          "pass": true,
+          "detail": "1 undo step(s), restores the start",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "budget",
+          "label": "within the step/token/time budget",
+          "pass": true,
+          "detail": "5 steps, 114075 tokens, 17s",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "asks-api",
+          "label": "a tap calls claimCoupon",
+          "pass": true,
+          "detail": "coupon[action] ask claimCoupon",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "claimed-only-on-success",
+          "label": "nothing says it was claimed before, or without, a successful answer",
+          "pass": true,
+          "detail": "the claimed state changes only on the answer",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "claimed-shown",
+          "label": "the coupon shows claimed from the answer (claimed bound, or set by the answer)",
+          "pass": true,
+          "detail": "the answer sets claimed",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "failure-designed",
+          "label": "a failure of claimCoupon is designed",
+          "pass": true,
+          "detail": "its catch shows the failure",
+          "weight": 1,
+          "critical": false
+        }
+      ],
+      "score": 1,
+      "pass": true,
+      "name": "claim-after-failure",
+      "lang": "zh",
+      "usage": {
+        "input": 113426,
+        "output": 649,
+        "reasoning": 165,
+        "cachedInput": 110260,
+        "cacheWrite": 3151
+      },
+      "ms": 17157,
+      "steps": 5,
+      "stop": "end_turn",
+      "drawings": 0,
+      "cost": 0.02423,
+      "text": "已接入领取接口：只有返回 `claimed: true` 才显示「已领取」，失败时显示提示，不会误标成功。\n\n实际使用时需传入真实的 `couponId`，当前示例值为 `newcomer`。"
+    },
+    {
+      "task": "payment-flow",
+      "ability": "boundary",
+      "title": "Wire a WeChat Pay button: the order from the back end, payment.pay, the result by the order's status",
+      "verdicts": [
+        {
+          "id": "finished",
+          "label": "ended normally, no error left unrecovered",
+          "pass": true,
+          "detail": "stop=end_turn, 0 failed calls",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "undo",
+          "label": "one undo restores the start",
+          "pass": true,
+          "detail": "1 undo step(s), restores the start",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "budget",
+          "label": "within the step/token/time budget",
+          "pass": true,
+          "detail": "10 steps, 296284 tokens, 51s",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "asks-api",
+          "label": "a tap calls createOrder",
+          "pass": true,
+          "detail": "wxpay ask createOrder",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "invokes-payment",
+          "label": "the answer of createOrder invokes payment.pay with the order it made",
+          "pass": true,
+          "detail": "wxpay: createOrder → payment.pay {orderId: response.id}",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "result-after-payment",
+          "label": "the result screen opens after the payment sheet answers, with the order's id, and never before",
+          "pass": true,
+          "detail": "payment.pay's then opens result with the order's id",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "payment-caught",
+          "label": "a payment cancelled or failed on the sheet has a design (payment.pay's catch)",
+          "pass": true,
+          "detail": "its catch goes to result",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "status-from-order",
+          "label": "the result screen loads the order by its id and shows the status the back end gives it",
+          "pass": true,
+          "detail": "result loads order by its id and reads its status",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "order-states",
+          "label": "the result screen shows paid, and failed or processing, each its own way",
+          "pass": true,
+          "detail": "result tells paid from failed, processing",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "failure-kinds",
+          "label": "a cancelled payment is told apart from a failed one (the catch reads error.type)",
+          "pass": true,
+          "detail": "the catch reads error.type",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "failure-designed",
+          "label": "a failure of createOrder is designed",
+          "pass": true,
+          "detail": "its catch shows the failure",
+          "weight": 1,
+          "critical": false
+        }
+      ],
+      "score": 1,
+      "pass": true,
+      "name": "payment-flow",
+      "lang": "zh",
+      "usage": {
+        "input": 293869,
+        "output": 2415,
+        "reasoning": 302,
+        "cachedInput": 283424,
+        "cacheWrite": 10415
+      },
+      "ms": 50666,
+      "steps": 10,
+      "stop": "end_turn",
+      "drawings": 0,
+      "cost": 0.07263425,
+      "text": "已接好创建订单→唤起微信支付→查询订单结果的流程，并补上取消、失败和刷新重试提示；结果页以服务端订单状态为准。\n\n真实支付仍需后端返回微信签名参数、处理支付回调，并由运行端实现微信支付适配器。"
+    }
+  ]
+}

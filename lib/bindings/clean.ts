@@ -2,7 +2,8 @@
  * kept, and the rest stays as it came. Nothing here refuses a document; an expression that does not parse is kept,
  * for the author to see and fix (the preview reads it as nothing). */
 
-import { REGION_STATES, type ActionBody, type DataSource, type FormBinding, type RegionBinding, type ScreenParam } from "../tokens";
+import { REGION_STATES, type Action, type ActionBody, type DataSource, type FormBinding, type RegionBinding, type ScreenParam, type Subscription } from "../tokens";
+import { KEEP_MAX } from "./channels";
 import { exprRule } from "../rules";
 import { fields, withUnknown } from "../keep";
 
@@ -11,6 +12,7 @@ const DATA_SOURCE = fields("name", "operationId", "params", "body", "load", "pul
 const SCREEN_PARAM = fields("name", "type", "example");
 const FORM = fields("operationId", "params", "values", "then", "catch");
 const REGION = fields("source", "emptyWhen", "show");
+const SUBSCRIPTION = fields("name", "channel", "params", "messages", "keep", "newest", "actions");
 
 const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
 
@@ -86,4 +88,36 @@ export function cleanRegion(v: unknown): RegionBinding | undefined {
     ...(REGION_STATES.includes(v.show as never) && v.show !== "ready" ? { show: v.show as RegionBinding["show"] } : {}),
   };
   return withUnknown(v, built, REGION);
+}
+
+/** A screen's subscriptions as a file holds them: each with a name no data source of the screen has, a channel, its
+ *  params as expressions, the messages it keeps (names), how many, and its actions on them (`on:<message>`), each
+ *  cleaned as a part's action is. */
+export function cleanSubscriptions(v: unknown, cleanAction: (a: unknown) => Action | undefined, sources: readonly string[] = []): Subscription[] | undefined {
+  if (!Array.isArray(v)) return undefined;
+  const seen = new Set<string>(sources);
+  const out: Subscription[] = [];
+  for (const d of v.slice(0, 20)) {
+    if (!isRecord(d) || typeof d.name !== "string" || !BINDING_NAME.test(d.name) || seen.has(d.name) || typeof d.channel !== "string" || !d.channel || d.channel.length > 200) continue;
+    seen.add(d.name);
+    const params = cleanExprMap(d.params);
+    const messages = Array.isArray(d.messages) ? [...new Set(d.messages.filter((m): m is string => typeof m === "string" && !!m && m.length <= 200))].slice(0, 100) : [];
+    const actions: Record<string, Action> = {};
+    if (isRecord(d.actions))
+      for (const [k, a] of Object.entries(d.actions).slice(0, 100)) {
+        const action = /^on:[^\s]{1,200}$/.test(k) ? cleanAction(a) : undefined;
+        if (action) Object.defineProperty(actions, k, { value: action, enumerable: true, writable: true, configurable: true });
+      }
+    const built: Subscription = {
+      name: d.name,
+      channel: d.channel,
+      ...(params ? { params } : {}),
+      ...(messages.length ? { messages } : {}),
+      ...(typeof d.keep === "number" && Number.isInteger(d.keep) && d.keep >= 1 && d.keep <= KEEP_MAX ? { keep: d.keep } : {}),
+      ...(d.newest === true ? { newest: true } : {}),
+      ...(Object.keys(actions).length ? { actions } : {}),
+    };
+    out.push(withUnknown(d, built, SUBSCRIPTION));
+  }
+  return out.length ? out : undefined;
 }

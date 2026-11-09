@@ -45,6 +45,9 @@ function previewOf(doc: Doc, backend: Backend): Driver {
       const a = await backend.receive(r.operationId ?? "", givenOf(r.query, r.body));
       return { status: a.status, headers: { "content-type": "application/json" }, body: a.body };
     },
+    /* the back end's realtime channels and its clock */
+    connect: (address, onMessage) => backend.connect(address, onMessage),
+    now: () => backend.now(),
   });
   /* the platform's adapters: each invoke goes to the row's back end */
   const capabilitiesOf = (): CapabilityHost => ({

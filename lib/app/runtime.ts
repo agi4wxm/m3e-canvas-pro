@@ -9,6 +9,7 @@ import type { EvalContext } from "../bindings/expr";
 import { FormController, type CallResult, type FormFields } from "./forms";
 import { SessionStore, sessionTransport, type AuthConfig, type TokenStorage } from "./session";
 import { SourceCache } from "./sources";
+import { ChannelHub } from "./channels";
 import { Store } from "./store";
 import type { CapabilityError, CapabilityHost, InvokeOutcome } from "../capabilities/types";
 
@@ -27,7 +28,7 @@ export type RuntimeOptions = {
   lang?: string;
   /** the currency `currency()` writes when given none (by the language otherwise) */
   currency?: string;
-  /** the time now, in ms (a test pins it) */
+  /** the time now, in ms (a test pins it); the transport's (`Transport.now`, the back end's clock) when left out */
   now?: () => number;
   /** what a tap invokes platform capabilities through (packages/capabilities' registry); `setCapabilities` changes it */
   capabilities?: CapabilityHost;
@@ -73,6 +74,8 @@ export class Runtime {
   readonly session: SessionStore;
   /** the data sources, by operation and arguments */
   readonly sources: SourceCache;
+  /** the subscriptions to realtime channels the screens on show hold */
+  readonly channels: ChannelHub;
   /** how many times the runtime has started over (another back end, a new mock session): screens load again */
   readonly epoch = new Store(0);
   /** how many times the visitor has gone somewhere (`moved`): what an answer compares with where its tap left them */
@@ -100,6 +103,7 @@ export class Runtime {
     this.language = new Store(o.lang ?? "en");
     this.session = new SessionStore({ storage: o.storage, key: o.storageKey, presumed: o.presumed });
     this.sources = new SourceCache({ lang: () => this.lang, errorOf: (e) => this.errorOf(e) });
+    this.channels = new ChannelHub({ transport: () => this.base, now: () => this.now(), token: () => this.session.token });
     this.transport = sessionTransport({ inner: () => this.base, session: this.session, auth: o.auth, onUnauthorized: (r) => this.onUnauthorized?.(r), epoch: () => this.epoch.get() });
   }
 
@@ -120,9 +124,22 @@ export class Runtime {
     };
   }
 
+  /** The time now, in ms, on the back end's clock as the transport tells it (the mock library's can stand still or run
+   *  faster); the device's only for a transport that says nothing. Expressions read it as `now`, and a countdown counts
+   *  by it (docs/边界与契约.md: the app never takes its own wall clock for the domain's). */
+  now(): number {
+    if (this.o.now) return this.o.now();
+    const t = this.base;
+    if (typeof t.now === "function") {
+      const n = t.now();
+      if (typeof n === "number" && Number.isFinite(n)) return n;
+    }
+    return Date.now();
+  }
+
   /** what expressions are evaluated with: the language, the time, the currency */
   ctx(): EvalContext {
-    return { lang: this.lang, now: (this.o.now ?? Date.now)(), ...(this.o.currency ? { currency: this.o.currency } : {}) };
+    return { lang: this.lang, now: this.now(), ...(this.o.currency ? { currency: this.o.currency } : {}) };
   }
 
   /** the operation that signs in, and those that sign out and refresh */
@@ -168,6 +185,7 @@ export class Runtime {
     this.latest.clear();
     this.forms.clear();
     this.sources.clear();
+    this.channels.clear();
     this.session.reset(presumed);
     this.epoch.set((n) => n + 1);
   }

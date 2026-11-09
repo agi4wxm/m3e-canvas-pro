@@ -42,16 +42,31 @@ describe("a product with a world view", () => {
       expect(p.files[`apps/${app}/src/generated/exampleWorld.tsx`]?.kind, app).toBe("generated");
       expect(text(p, `apps/${app}/src/generated/exampleWorld.tsx`), app).toContain("createExampleWorld(");
     }
+    /* the world's contract beside them: the data, and the types generated from its JSON Schemas */
+    for (const app of ["web", "mobile", "miniapp"]) {
+      const c = text(p, `apps/${app}/src/generated/worldContract.ts`);
+      expect(c, app).toContain("export const WORLD_CONTRACT: WorldContract = {");
+      expect(c, app).toMatch(/export type WorldEventPayloads = \{\n {2}hit: \{\s*id: string;\s*by: string;?\s*\}/);
+      expect(c, app).toContain("move: Vec2");
+      expect(c, app).toContain("attack: boolean");
+    }
+    /* the example engine is spoken to only through World: mounted, connected, read, unmounted, its time the app's clock */
+    for (const app of ["web", "mobile", "miniapp"]) {
+      const ex = text(p, `apps/${app}/src/generated/exampleWorld.tsx`);
+      expect(ex, app).toContain("world.mount(");
+      expect(ex, app).not.toContain(".step(");
+      expect(ex, app).toMatch(/createExampleWorld\(JSON\.parse\(start\) as WorldState, \{ now: (domainNow|kitNow) \}\)/);
+    }
     /* the web's example draws on a canvas, a frame at a time; a phone's and a mini-program's with the kit's stand-in */
-    expect(text(p, "apps/web/src/generated/exampleWorld.tsx")).toContain("requestAnimationFrame(function tick(t)");
+    expect(text(p, "apps/web/src/generated/exampleWorld.tsx")).toContain("requestAnimationFrame(draw)");
     expect(text(p, "apps/web/src/generated/exampleWorld.tsx")).toContain("<canvas ref={canvas}");
-    expect(text(p, "apps/mobile/src/generated/exampleWorld.tsx")).toContain('import { WorldStandIn } from "../kit"');
+    expect(text(p, "apps/mobile/src/generated/exampleWorld.tsx")).toContain('import { kitNow, WorldStandIn } from "../kit"');
   });
 
   it("is no platform capability: the product has no capabilities package for it", () => {
     expect(Object.keys(p.files).some((f) => f.startsWith("packages/capabilities/"))).toBe(false);
     /* the channel, the contract and the example engine are the app runtime's */
-    for (const f of ["types", "channel", "example"]) expect(p.files[`packages/app-runtime/src/engine/world/${f}.ts`]?.kind, f).toBe("generated");
+    for (const f of ["types", "contract", "hostContract", "channel", "example"]) expect(p.files[`packages/app-runtime/src/engine/world/${f}.ts`]?.kind, f).toBe("generated");
   });
 
   it("hands the slot the world's state, the channel and the world's events on every app", () => {
@@ -109,14 +124,14 @@ describe("the web app's world view code", () => {
     const p = await buildProduct(doc, widths, { read: fromDisk, fetchIcons: noNetwork, lang: "en" });
     const dir = mkdtempSync(join(tmpdir(), "m3e-world-"));
     try {
-      for (const f of ["src/generated/exampleWorld.tsx", "src/custom/slots/Arena.tsx"]) {
+      for (const f of ["src/generated/exampleWorld.tsx", "src/generated/worldContract.ts", "src/custom/slots/Arena.tsx"]) {
         mkdirSync(join(dir, f, ".."), { recursive: true });
         writeFileSync(join(dir, f), text(p, `apps/web/${f}`));
       }
       const at = (x: string) => join(repo, x);
       const tsconfig = {
-        compilerOptions: { target: "ES2022", lib: ["dom", "dom.iterable", "esnext"], skipLibCheck: true, strict: true, noEmit: true, module: "esnext", moduleResolution: "bundler", types: [], isolatedModules: true, jsx: "react-jsx", paths: { "@world/app-runtime": [at("lib/export/files/appRuntime/index.ts")], react: [at("node_modules/@types/react/index.d.ts")], "react/jsx-runtime": [at("node_modules/@types/react/jsx-runtime.d.ts")] } },
-        files: [join(dir, "src/generated/exampleWorld.tsx"), join(dir, "src/custom/slots/Arena.tsx")],
+        compilerOptions: { target: "ES2022", lib: ["dom", "dom.iterable", "esnext"], skipLibCheck: true, strict: true, noEmit: true, module: "esnext", moduleResolution: "bundler", types: [], isolatedModules: true, jsx: "react-jsx", paths: { "@world/app-runtime": [at("lib/export/files/appRuntime/index.ts")], "@/components/widgets/*": [at("parts/widgets/*")], "@/*": [at("*")], react: [at("node_modules/@types/react/index.d.ts")], "react/jsx-runtime": [at("node_modules/@types/react/jsx-runtime.d.ts")] } },
+        files: [join(dir, "src/generated/exampleWorld.tsx"), join(dir, "src/generated/worldContract.ts"), join(dir, "src/custom/slots/Arena.tsx")],
       };
       writeFileSync(join(dir, "tsconfig.json"), JSON.stringify(tsconfig));
       const run = spawnSync(at("node_modules/.bin/tsc"), ["--noEmit", "-p", join(dir, "tsconfig.json")], { encoding: "utf8" });

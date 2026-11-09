@@ -26,7 +26,8 @@ import { identifierOf } from "./export/paths";
 import { literal } from "./export/code";
 import { commentText } from "./export/server/comments";
 import type { DataSource, Doc, FormBinding, Frame, Group, Item } from "./tokens";
-import type { Answer } from "./actions/model";
+import type { Action, Answer } from "./actions/model";
+import { subscriptionPlans, type SubscriptionPlan } from "./export/ir/channels";
 
 /** what the printer is told of the product: where the runtime is, the contract and its client's operations */
 export type BindPrintOptions = {
@@ -66,6 +67,8 @@ type ScreenBind = {
   frame: Frame;
   component: string;
   sources: SourceInfo[];
+  /** its subscriptions to realtime channels, each by the variable its view is held in */
+  subs: { plan: SubscriptionPlan; name: string }[];
   /** by the region host's group id */
   regions: Map<string, RegionInfo>;
   forms: Map<string, FormInfo>;
@@ -107,7 +110,7 @@ const inComment = (s: unknown) => commentText(s, 80).replace(/\*\//g, "* /");
 
 /** whether a document's screens use any bindings at all */
 export function usesBindings(doc: Pick<Doc, "frames" | "groups">): boolean {
-  if (doc.frames.some((f) => f.data?.length || f.params?.length || f.auth)) return true;
+  if (doc.frames.some((f) => f.data?.length || f.subscriptions?.length || f.params?.length || f.auth)) return true;
   return JSON.stringify(doc.groups).match(/"(repeat|states|form|field|showWhen|when)":|"=|"do":"(call|refresh|loadMore|submit|signOut)"|"params":\{|\{\{/) !== null;
 }
 
@@ -154,6 +157,7 @@ export class BoundPrint {
       const exprs = op ? [...Object.values(src.params ?? {}), ...(src.body && op.body ? [src.body] : []), ...op.params.filter((p) => src.params?.[p] === undefined).map((p) => `params.${p}`)] : [];
       return { src, name: n, hook: `use${pascal(n)}`, scoped: exprs.length > 0, readsData: exprs.some((x) => /\bdata\b/.test(x)), readsParams: exprs.some((x) => /\bparams\b/.test(x)) };
     });
+    const subs = subscriptionPlans(this.doc, frame).map((plan, i) => ({ plan, name: name(plan.def.name, `channel${i + 1}`) }));
     const regions = new Map<string, RegionInfo>();
     const forms = new Map<string, FormInfo>();
     const formOf = new Map<string, string>();
@@ -192,7 +196,7 @@ export class BoundPrint {
         const info = forms.get(f)!;
         if (!info.inputs.some((x) => x.field === it.field)) info.inputs.push({ field: it.field, start: startOf(it) });
       }
-    this.screen = { frame, component, sources, regions, forms, formOf, runtime: new Set(), api: false, platform: new Set(), types: new Set(), dollar: false, params: !!frame.params?.length, react: new Set(), app: new Set(), taken, scopes: new Set(["$", ...[...forms.values()].map((f) => f.scope)]), rows: new Set(), calls: new Map(), filled: new Map() };
+    this.screen = { frame, component, sources, subs, regions, forms, formOf, runtime: new Set(), api: false, platform: new Set(), types: new Set(), dollar: false, params: !!frame.params?.length, react: new Set(), app: new Set(), taken, scopes: new Set(["$", ...[...forms.values()].map((f) => f.scope)]), rows: new Set(), calls: new Map(), filled: new Map() };
     this.scope = "$";
     this.form = undefined;
   }
@@ -499,10 +503,16 @@ export class BoundPrint {
    *  what its taps run on (`useActions`). `answer` puts a form's then or catch in the screen's table of actions and says
    *  its name there; `acts` says, once the forms are printed, whether the screen has taps to run. Called after the
    *  screen's parts are printed (they say what is used). */
-  head(answer: (b: Answer, name: string) => string, usesVars: boolean, screen: string, acts: () => { any: boolean; tapped: boolean }): { lines: string[]; app: Set<string> } {
+  head(answer: (b: Answer, name: string) => string, usesVars: boolean, screen: string, acts: () => { any: boolean; tapped: boolean }, message?: (a: Action, name: string) => string | undefined): { lines: string[]; app: Set<string> } {
     const s = this.s;
     const app = new Set<string>();
     const lines: string[] = [];
+    /* what runs on a subscription's messages is a tap of the screen's, run by the interpreter with the message as
+       `event`: put in the screen's table first, so the screen knows it acts */
+    const onMessage = s.subs.map((x) => x.plan.actions.flatMap(([key, a]) => {
+      const run = message?.(a, `${x.plan.def.name} ${key}`);
+      return run ? [`${str(key)}: (event) => ${run}`] : [];
+    }));
     /* the forms first, so what follows them says what else they use */
     const forms: string[] = [];
     const refs: string[] = [];
@@ -528,26 +538,34 @@ export class BoundPrint {
       const fail = f.form.catch ? answer(f.form.catch, `${f.name} catch`) : undefined;
       refs.push(`${f.name}: { handle: ${f.name}, operationId: ${str(f.form.operationId)}${then ? `, then: ${then}` : ""}${fail ? `, catch: ${fail}` : ""} }`);
     }
-    if (s.dollar || s.sources.length) s.runtime.add("useBindings");
+    const loads = s.sources.length > 0 || s.subs.length > 0;
+    if (s.dollar || loads) s.runtime.add("useBindings");
     /* the params are read where there is a scope to read them in */
-    if ((s.params && (s.dollar || s.sources.length > 0)) || s.sources.some((x) => x.readsParams)) {
+    if ((s.params && (s.dollar || loads)) || s.sources.some((x) => x.readsParams) || s.subs.length) {
       lines.push("const params = useScreenParams()");
       app.add("useScreenParams");
     }
     /* the variables are in the scope only where there is one: a screen that reads no expression has none */
-    const scoped = usesVars && (s.dollar || s.sources.length > 0);
+    const scoped = usesVars && (s.dollar || loads);
     const base = [...(lines.length ? ["params"] : []), ...(scoped ? ["vars: scopeVars(vars)"] : [])];
     if (scoped) app.add("vars").add("scopeVars");
     for (const n of s.app) app.add(n);
     const scopeArg = `{ ${base.join(", ")} }`.replace("{  }", "{}");
-    if (s.sources.length) {
+    if (loads) {
       lines.push(`const scope = useBindings(${scopeArg})`);
       s.sources.forEach((x, i) => {
         const before = s.sources.slice(0, i).map((y) => y.name);
         const arg = !x.scoped ? "" : x.readsData && before.length ? `scope.with({ data: { ${before.join(", ")} } })` : "scope";
         lines.push(`const ${x.name} = ${x.hook}(${arg})`);
       });
-      lines.push(`const $ = scope.with({ data: { ${s.sources.map((x) => x.name).join(", ")} } })`);
+      /* each subscription reads its address in the scope of the sources, and runs the design's actions on its messages */
+      s.subs.forEach((x, i) => {
+        s.runtime.add("useSubscription");
+        const at = s.sources.length ? `scope.with({ data: { ${s.sources.map((y) => y.name).join(", ")} } })` : "scope";
+        lines.push(`const ${x.name} = useSubscription(${literal(x.plan.def)}, ${at}${onMessage[i].length ? `, { ${onMessage[i].join(", ")} }` : ""})`);
+      });
+      const data = [...s.sources.map((x) => x.name), ...s.subs.map((x) => (propName(x.plan.def.name) === x.name ? x.name : `${propName(x.plan.def.name)}: ${x.name}`))];
+      lines.push(`const $ = scope.with({ data: { ${data.join(", ")} } })`);
     } else if (s.dollar) lines.push(`const $ = useBindings(${scopeArg})`);
     for (const r of s.regions.values()) {
       const src = this.sourceOf(r.source)!;
@@ -561,7 +579,7 @@ export class BoundPrint {
       /* what the screen's taps run on: its scope as it was last drawn (the interpreter reads the variables, the session
          and the forms as they are at each step), the calls they make, its data, its forms */
       const parts: string[] = [];
-      if (s.dollar || s.sources.length) parts.push("scope: $.scope");
+      if (s.dollar || loads) parts.push("scope: $.scope");
       const calls = [...s.calls].flatMap(([op, given]) => {
         const send = this.sendCode(op, given);
         const status = this.ops.get(op)!.status;

@@ -16,8 +16,15 @@ export type WorldEntity = { id: string; kind: string; x: number; y: number; labe
 /** how the world is going, as it says */
 export type WorldStatus = "running" | "paused" | "ended";
 
+/** what an input action carries: a direction (`vec2`, x and y from -1 to 1) or a button held or not (`bool`) */
+export type WorldInputType = "vec2" | "bool";
+
+/** an input action the world takes, by its name and its type, as the document declares it once (a world view's `inputs`:
+ *  `"move: vec2, attack: bool"`): what a joystick, a skill key and later a keyboard or a gamepad are mapped to */
+export type WorldInputDecl = { name: string; type?: WorldInputType };
+
 /** What a world view is handed from the design: the world's state it shows (bindable to data), and the input actions the
- *  world says it takes. */
+ *  world says it takes. Plain JSON: it crosses to any engine (a web canvas, Cocos, Godot) as it is. */
 export type WorldState = {
   /** what the design calls the world */
   label?: string;
@@ -28,8 +35,8 @@ export type WorldState = {
   follow?: string;
   score?: number;
   status?: WorldStatus;
-  /** the input actions the world takes (`move`, `attack`…): the design sends only these */
-  inputs?: string[];
+  /** the input actions the world takes, each with its type (`move: vec2`, `attack: bool`): the design sends only these */
+  inputs?: WorldInputDecl[];
 };
 
 /** the events a world view sends, by name, with what each carries */
@@ -64,10 +71,20 @@ export type WorldRect = { x: number; y: number; w: number; h: number };
 /** a touch or a pointer that landed on the world and on no control of the screen */
 export type WorldPointer = { kind: "down" | "move" | "up"; x: number; y: number; at: number };
 
-/** What an engine implements to be hosted in a world view (docs/边界与契约.md): mounted on what the platform gives it,
+/** The world's own time (docs/世界宿主契约.md “时钟”): `now` in ms of world time, whether it stands still, and how fast it
+ *  runs against the app's clock (the domain clock the app's transport gives). A HUD's cooldowns and countdowns of the world
+ *  are read off this, never off the device's wall clock. */
+export type WorldClock = { now: number; paused: boolean; rate: number };
+
+/** What an engine implements to be hosted in a world view (docs/世界宿主契约.md): mounted on what the host gives it,
  *  told which part of it the HUD covers, sent the input actions with their time and the pointer that fell through, read
- *  for a small snapshot, listened to for its events, and asked for its own clock and to pause. */
+ *  for a small snapshot, listened to for its events, and asked for its own clock and to pause. Everything that crosses
+ *  is plain JSON (numbers, strings, `Vec2`, ids), so the same interface stands between M3E and any engine; the snapshot
+ *  and the events are described by JSON Schema in the world's contract (contract.ts). */
 export interface World {
+  /** `host` is whatever the host gives its engine to draw on, the host's to define and never assumed to be a DOM node:
+   *  a canvas element on the web, a native view's handle on a phone, a Cocos node in a mini-game, nothing for an engine
+   *  with no picture of its own (the host then draws `view()`). It starts the world's own loop; `unmount` stops it. */
   mount(host: unknown, size: { w: number; h: number }): void;
   /** the parts of the view the HUD covers */
   occlude(rects: WorldRect[]): void;
@@ -80,7 +97,7 @@ export interface World {
   subscribe(changed: () => void): () => void;
   on<K extends WorldEventName>(event: K, run: (payload: WorldEvents[K]) => void): () => void;
   /** the world's own time */
-  clock(): { now: number; paused: boolean };
+  clock(): WorldClock;
   /** a world played with others may say no */
   requestPause(paused: boolean): Promise<{ accepted: boolean; reason?: string }>;
   unmount(): void;

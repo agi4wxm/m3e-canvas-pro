@@ -35,6 +35,13 @@ export function designDoc(d: Design): { doc: Doc; widths: Record<string, number>
     tx.run(ops.setTitle, { title: "Consistency" });
     for (const o of d.api ?? []) tx.run(ops.addEndpoint, endpointArgs(o) as never);
     if (d.login) tx.run(ops.setAuth, { schemes: { bearerAuth: { type: "http", scheme: "bearer" } }, security: [{ bearerAuth: [] }], login: d.login, tokenField: "token" } as never);
+    for (const c of d.channels ?? [])
+      tx.run(ops.addChannel, {
+        id: c.id,
+        address: c.address,
+        messages: Object.entries(c.messages).map(([name, fields]) => ({ name, payload: { type: "object", properties: Object.fromEntries(Object.entries(fields).map(([k, t]) => [k, { type: t }])) } })),
+        operations: [{ id: `${c.id}Pushed`, action: "send" }],
+      } as never);
     for (const s of d.screens) {
       tx.run(ops.addScreen, { id: s.id, name: s.name });
       if (s.params?.length) tx.run(ops.setScreenParams, { screen: s.id, params: s.params.map((name) => ({ name, type: "string" as const })) });
@@ -66,6 +73,7 @@ export function designDoc(d: Design): { doc: Doc; widths: Record<string, number>
       if (p.action && !p.unchecked) tx.run(ops.setAction, { id: p.id, action: p.action as never });
       for (const [slot, action] of Object.entries(p.actions ?? {})) tx.run(ops.setAction, { id: p.id, slot, action: action as never });
     }
+    for (const sub of d.subscriptions ?? []) tx.run(ops.setSubscription, { screen: sub.screen ?? d.screens[0].id, name: sub.name, channel: sub.channel, ...(sub.params ? { params: sub.params } : {}), ...(sub.messages ? { messages: sub.messages } : {}), ...(sub.actions ? { actions: sub.actions } : {}) } as never);
     for (const f of d.forms ?? []) {
       // eslint-disable-next-line unicorn/no-thenable -- an action body, never a function: nothing awaits it
       tx.run(ops.makeForm, { screen: f.screen ?? d.screens[0].id, operationId: f.operationId, submitLabel: f.submit, ...(f.ok ? { then: f.ok } : {}), ...(f.fail ? { catch: f.fail } : {}) } as never);

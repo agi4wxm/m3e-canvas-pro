@@ -11,7 +11,7 @@ import { HELPERS, parseExpr, pathsOf } from "./expr";
 
 /** what the scope of one place holds, as far as the editor knows before anything runs */
 export type ScopeShape = {
-  sources: { name: string; operationId: string; value?: JsonSchema; item?: JsonSchema; paged: boolean }[];
+  sources: { name: string; operationId: string; value?: JsonSchema; item?: JsonSchema; paged: boolean; channel?: string }[];
   params: string[];
   vars: { name: string; type: string }[];
   /** the schema of one element of the data repeat around the place, when there is one */
@@ -41,6 +41,17 @@ const SOURCE_FIELDS: PathStep[] = [
   { name: "error", type: "Problem" },
   { name: "total", type: "integer" },
 ];
+/** what `data.<name>` reads of a subscription to a realtime channel (lib/bindings/channels.ts `ChannelView`) */
+const CHANNEL_FIELDS: PathStep[] = [
+  { name: "value", type: "payload", doc: "the latest message's payload" },
+  { name: "items", type: "list", doc: "every payload kept", list: true },
+  { name: "latest", type: "{message, payload, at}", doc: "the latest message" },
+  { name: "messages", type: "{message, payload, at}[]", list: true },
+  { name: "count", type: "integer" },
+  { name: "empty", type: "boolean" },
+  { name: "status", type: "connecting|open|closed" },
+  { name: "open", type: "boolean" },
+];
 const PROBLEM_FIELDS: PathStep[] = [
   { name: "status", type: "integer" },
   { name: "title", type: "string" },
@@ -60,11 +71,18 @@ const FORM_FIELDS: PathStep[] = [
  *  and the form it is inside. */
 export function shapeFor(doc: Pick<Doc, "api" | "vars" | "groups" | "collections">, frame: Frame | undefined, groupId: string | undefined, widths: Record<string, number> = {}): ScopeShape {
   const api = doc.api ?? {};
-  const sources = (frame?.data ?? []).map((d) => {
+  const sources: ScopeShape["sources"] = (frame?.data ?? []).map((d) => {
     const e = endpointOf(api, d.operationId);
     const list = e ? listOf(api, e) : undefined;
     return { name: d.name, operationId: d.operationId, value: e ? responseSchema(api, e) : undefined, item: list?.item, paged: !!e?.pagination };
   });
+  for (const sub of frame?.subscriptions ?? []) {
+    const c = (api.channels ?? []).find((x) => x.id === sub.channel);
+    /* the payload of the messages it keeps: one schema, or any of them */
+    const kept = (c?.messages ?? []).filter((m) => m.payload !== undefined && (!sub.messages?.length || sub.messages.includes(m.name))).map((m) => m.payload as JsonSchema);
+    const payload: JsonSchema | undefined = kept.length === 1 ? kept[0] : kept.length ? { anyOf: kept } : undefined;
+    sources.push({ name: sub.name, operationId: `channel:${sub.channel}`, value: payload, item: payload, paged: false, channel: sub.channel });
+  }
   const shape: ScopeShape = { sources, params: (frame?.params ?? []).map((p) => p.name), vars: (doc.vars ?? []).map((v) => ({ name: v.name || v.id, type: v.type })), inRepeat: false };
   const login = api.auth?.login ? endpointOf(api, api.auth.login) : undefined;
   if (login) {
@@ -120,7 +138,9 @@ function schemaOfPath(api: ApiSpec, shape: ScopeShape, path: string[]): Reached 
       if (!rest.length) return { kind: "steps", steps: shape.sources.map((s) => ({ name: s.name, type: s.operationId })) };
       const src = shape.sources.find((s) => s.name === rest[0]);
       if (!src) return { kind: "none" };
-      if (rest.length === 1) return { kind: "steps", steps: SOURCE_FIELDS };
+      if (rest.length === 1) return { kind: "steps", steps: src.channel ? CHANNEL_FIELDS : SOURCE_FIELDS };
+      if (src.channel && rest[1] === "latest") return rest.length === 2 ? { kind: "steps", steps: [{ name: "message", type: "string" }, { name: "payload", type: "payload" }, { name: "at", type: "date-time" }] } : rest[2] === "payload" ? inSchema(src.value, rest.slice(3)) : { kind: "none" };
+      if (src.channel && rest[1] === "messages") return { kind: "none" };
       if (rest[1] === "value") return inSchema(src.value, rest.slice(2));
       if (rest[1] === "items") return rest.length === 2 ? { kind: "items", schema: src.item } : inSchema(src.item, rest.slice(3));
       if (rest[1] === "error") return rest.length === 2 ? { kind: "steps", steps: PROBLEM_FIELDS } : { kind: "none" };

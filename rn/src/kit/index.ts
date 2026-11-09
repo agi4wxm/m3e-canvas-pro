@@ -10,7 +10,7 @@ export { ButtonGroup, DatePicker, Menu, SegmentedButton, Select, TextField, Time
 export { Accordion, CodeBlock, FileUpload, IconGrid, InputGroup, RadioGroup, Scene, Sidebar } from "./composites/more";
 export { ActionSheet, AlertDialog, Dialog, Sheet } from "./composites/overlays";
 export { Placeholder } from "./Placeholder";
-export { At, NavProvider, OverlayFrame, Pin, Screen, ScreenStack, moved, movesSoFar, screenShown, useNav, type BackOptions, type GoOptions, type Nav, type ScreenComponent } from "./runtime";
+export { At, NavProvider, OnShowProvider, OverlayFrame, Pin, Screen, ScreenStack, moved, movesSoFar, screenShown, useNav, useOnShow, type BackOptions, type GoOptions, type Nav, type ScreenComponent } from "./runtime";
 export { AppProvider, SnackHost, eventOf, optionOf, rowsOf, slotTaps, useAct, useAfter, useApp, type Action, type ActionBody, type AppState, type AppVar, type Condition, type Effect, type EventFields, type Here, type Interpreter, type KitHost, type Reader, type Scope, type ScreenParts, type VarValue } from "./app";
 export { Repeat, type RepeatProps } from "./list";
 export { WorldStandIn, createWorldChannels, entitiesOf, inputLog, inputWords, vectorOf, type WorldChannel, type WorldChannels, type WorldEntity, type WorldInput, type WorldStandInProps } from "./world";
@@ -43,3 +43,4 @@ export { FileDiff, FileList, Menubar, SortableList, SwipeRow, Tracker, Tree, Win
 /* D1: media, capability views' stand-ins, what talks and keeps time */
 export { Animation, AudioPlayer, CameraStandIn, ExpressiveCarousel, ImageCropper, ImageViewer, MapStandIn, Marquee, PhotoGrid, Playlist, QrCode, Video, WebPage, qrMatrix, type MapStandInProps } from "./composites/media";
 export { CallStandIn, Marker, MessageScroller, NumberTicker, Questionnaire, ShimmerText, StoryRow, Timer, VoiceMessage, timerSeconds } from "./composites/live";
+export { clockNow, kitNow, setClock } from "./clock";

@@ -1,14 +1,23 @@
 import { h } from "../node";
 import type { PartDef } from "../types";
 
-/** the input names in a world view's `inputs` (words: "move, attack"), in order, each once */
-export const inputNamesOf = (words: unknown): string[] =>
-  typeof words === "string" ? [...new Set(words.split(/[\s,，、]+/).map((w) => w.trim()).filter((w) => /^[a-z][a-zA-Z0-9]{0,31}$/.test(w)))] : [];
+/** The input actions a world view's `inputs` declares (words: "move: vec2, attack: bool"), in order, each once: a name,
+ *  and its type where one is given (`vec2` a direction, `bool` a button). A name of the wrong form is left out. */
+export function inputDeclsOf(words: unknown): { name: string; type?: "vec2" | "bool" }[] {
+  if (typeof words !== "string") return [];
+  const out = new Map<string, { name: string; type?: "vec2" | "bool" }>();
+  for (const piece of words.split(/[,，、;\n]+/)) {
+    const m = /^\s*([a-z][a-zA-Z0-9]{0,31})\s*(?::\s*(vec2|bool)\s*)?$/.exec(piece);
+    if (m && !out.has(m[1])) out.set(m[1], { name: m[1], ...(m[2] ? { type: m[2] as "vec2" | "bool" } : {}) });
+  }
+  return [...out.values()];
+}
 
 /* The world view (docs/组件规范.md “世界视口”, docs/边界与契约.md “实时玩法”): a viewport whose picture an engine draws.
  * M3E defines only what goes in and out: the world's state the design shows (its entities, the one the camera follows,
  * the score, how it is going: props, bindable to data), the input actions it takes (`inputs`; the design sends them with
- * `move`, `press` and `release`, on a channel of the view's own), and the events it sends (`hit`, `collected`, `ended`),
+ * `move`, `press` and `release`, on a channel of the view's own; each declared once with its type, `move: vec2`,
+ * `attack: bool`, what a joystick, a skill key and later a keyboard or a gamepad are mapped to), and the events it sends (`hit`, `collected`, `ended`),
  * on which the design's actions run. The canvas and the preview draw a stand-in: the scene in words, the entities where
  * they stand and, below them, the inputs as they come. A prototype plays M3E's example engine on it (lib/world/example.ts)
  * until the entities come from data; an exported app hands the view to a slot written once, where the real engine goes. */
@@ -45,7 +54,7 @@ export const world: PartDef[] = [
       { key: "follow", label: "The camera follows (an id)", labels: { ja: "カメラが追う（id）", zh: "镜头跟随（id）", ko: "카메라가 따라감 (id)" }, kind: "text", default: "" },
       { key: "score", label: "Score", labels: { ja: "スコア", zh: "得分", ko: "점수" }, kind: "number", default: 0, min: 0, max: 1e9, step: 1 },
       { key: "status", label: "How it is going", labels: { ja: "状態", zh: "状态", ko: "상태" }, kind: "enum", default: "running", options: ["running", "paused", "ended"] },
-      { key: "inputs", label: "Input actions it takes", labels: { ja: "受け取る入力アクション", zh: "接受的输入动作", ko: "받는 입력 동작" }, kind: "text", default: "move, attack" },
+      { key: "inputs", label: "Input actions it takes (name: vec2 | bool)", labels: { ja: "受け取る入力アクション（名前: vec2 | bool）", zh: "接受的输入动作（名字: vec2 | bool）", ko: "받는 입력 동작 (이름: vec2 | bool)" }, kind: "text", default: "move: vec2, attack: bool" },
       { key: "width", label: "Width", kind: "number", default: 360, min: 120, max: 1920, step: 4, unit: "px" },
       { key: "height", label: "Height", kind: "number", default: 240, min: 96, max: 1280, step: 4, unit: "px" },
     ],
@@ -70,7 +79,7 @@ export const world: PartDef[] = [
         follow: p.s("follow"),
         score: Math.round(p.n("score")),
         status: p.s("status"),
-        inputs: inputNamesOf(p.s("inputs")),
+        inputs: inputDeclsOf(p.s("inputs")),
         width: Math.round(p.n("width")),
         height: Math.round(p.n("height")),
       });

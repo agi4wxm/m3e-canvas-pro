@@ -19,6 +19,7 @@ import { PARTS as KIT_PARTS } from "../../../rn/src/kit/parts.generated";
 import { SET_ONLY, propValues, type AtomTaps, type PlainNode } from "./data";
 import { Imports, NAME, Raw, el, exprOf, jsx, same, svgMarkup, when, type Fn, type J } from "../ir/code";
 import { answers, backMotion, type DocFacts } from "../ir/facts";
+import { subscriptionPlans, type SubscriptionPlan } from "../ir/channels";
 import { OPENS_BY_PROP, atomsOf, iconNamesOf, keepsTrigger, labelsOf, linesOf, planScreens, selectsByProp, slotGiven, type Loose, type PartNode, type RunNode, type ScreenPlan } from "../ir/screen";
 
 export { iconNamesOf };
@@ -127,12 +128,14 @@ type Ctx = { $: string; form?: { v: string; id: string }; item?: string; locals?
 
 /** a data source of the screen as printed: its variable and what it is */
 type SourceInfo = { v: string; def: DataSource };
+/** a subscription of the screen to a realtime channel, by the variable its view is held in */
+type SubInfo = { v: string; plan: SubscriptionPlan };
 
 /** the words a reserved name of the printed screen cannot be a data source's variable */
 /** the kit's parts with a copy button of their own, which take `onCopy` */
 const COPIES = new Set(["copy-row", "qr-code"]);
 
-const RESERVED = new Set(["app", "act", "nav", "params", "given", "item", "index", "keyOf", "regionOf", "rowsOf", "optionOf", "pickFile", "fileName", "copyText", "useSource", "useFormFor", "useParams", "useScreenScope", "View", "IMAGES"]);
+const RESERVED = new Set(["app", "act", "nav", "params", "given", "item", "index", "keyOf", "regionOf", "rowsOf", "optionOf", "pickFile", "fileName", "copyText", "useSource", "useFormFor", "useParams", "useScreenScope", "useSubscription", "event", "View", "IMAGES"]);
 
 class ScreenPrinter {
   /** the kit's components this screen names */
@@ -150,6 +153,8 @@ class ScreenPrinter {
   head = { sources: [] as string[], scope: [] as string[], forms: [] as string[], regions: [] as string[], after: [] as string[] };
   uses = { nav: false, app: false, act: false, $: false };
   sources = new Map<string, SourceInfo>();
+  /** the screen's subscriptions to realtime channels, by name */
+  subs = new Map<string, SubInfo>();
   forms = new Map<string, string>();
   formInfos: { id: string; operationId: string; fields: string[] }[] = [];
   /** the inputs a form keeps that a condition asks whether they are filled: each by its id, what reads it */
@@ -193,6 +198,12 @@ class ScreenPrinter {
         while (taken.has(v)) v = `source${++this.n.source}`;
         taken.add(v);
         this.sources.set(d.name, { v, def: d });
+      }
+      for (const plan of subscriptionPlans(doc, frame)) {
+        let v = NAME.test(plan.def.name) && !taken.has(plan.def.name) ? plan.def.name : `source${++this.n.source}`;
+        while (taken.has(v)) v = `source${++this.n.source}`;
+        taken.add(v);
+        this.subs.set(plan.def.name, { v, plan });
       }
     }
   }
@@ -930,12 +941,30 @@ class ScreenPrinter {
     });
   }
 
+  /** The screen's subscriptions as hooks, each reading its address in the scope of the sources before it and running
+   *  the design's actions on its messages where the screen's taps run (`act`, with the message as `event`). */
+  private subscriptionHooks(before: string): string[] {
+    return [...this.subs.values()].map((x, i) => {
+      this.bind.add("useSubscription").type("ChannelDef");
+      const on = x.plan.actions.flatMap(([key, a]) => {
+        const run = this.run(a, "", ["event"]);
+        return run ? [`${str(key)}: (event) => ${run}`] : [];
+      });
+      return `const ${x.v} = useSubscription(C${i + 1}, ${before}${on.length ? `, { ${on.join(", ")} }` : ""});`;
+    });
+  }
+
   /** the component's hooks, in the order they may read each other */
   hooks(): string[] {
     const out: string[] = [];
+    /* what runs on a message is a tap of the screen's: printed first, so the screen knows it acts */
+    const subHooks = this.subs.size ? (() => {
+      const sources = [...this.sources.values()];
+      return this.subscriptionHooks(`$0${sources.length ? `.with({ data: { ${sources.map((x) => x.v).join(", ")} } })` : ""}`);
+    })() : [];
     if (this.uses.nav) out.push("const nav = useNav();");
     if (this.uses.app) out.push("const app = useApp();");
-    if (this.runtime && (this.uses.$ || this.sources.size)) {
+    if (this.runtime && (this.uses.$ || this.sources.size || this.subs.size)) {
       const params = this.frame.params?.length ? "params" : "{}";
       if (this.frame.params?.length) {
         this.bind.add("useParams");
@@ -943,13 +972,16 @@ class ScreenPrinter {
       }
       this.bind.add("useScreenScope");
       const sources = [...this.sources.values()];
-      out.push(`const ${sources.length ? "$0" : "$"} = useScreenScope(${params});`);
+      const subs = [...this.subs.values()];
+      out.push(`const ${sources.length || subs.length ? "$0" : "$"} = useScreenScope(${params});`);
       sources.forEach((s, i) => {
         this.bind.add("useSource").type("SourceDef");
         const before = sources.slice(0, i).map((x) => x.v);
         out.push(`const ${s.v} = useSource(S${i + 1}, $0${before.length ? `.with({ data: { ${before.join(", ")} } })` : ""});`);
       });
-      if (sources.length) out.push(`const $ = $0.with({ data: { ${sources.map((s) => (s.v === s.def.name ? s.v : `${NAME.test(s.def.name) ? s.def.name : str(s.def.name)}: ${s.v}`)).join(", ")} } });`);
+      out.push(...subHooks);
+      const named = [...sources.map((s) => [s.def.name, s.v] as const), ...subs.map((x) => [x.plan.def.name, x.v] as const)];
+      if (named.length) out.push(`const $ = $0.with({ data: { ${named.map(([n, v]) => (v === n ? v : `${NAME.test(n) ? n : str(n)}: ${v}`)).join(", ")} } });`);
     }
     out.push(...this.head.forms);
     /* the screen's taps, after its forms: what they act on is the screen's (its key and params, its data sources, its
@@ -968,6 +1000,11 @@ class ScreenPrinter {
     if (this.uses.app) this.kit.add("useApp");
     out.push(...this.head.after);
     return out;
+  }
+
+  /** the subscriptions' definitions, as module constants */
+  subConsts(): string[] {
+    return [...this.subs.values()].map((x, i) => `const C${i + 1}: ChannelDef = ${expr(x.plan.def)};`);
   }
 
   /** the data sources' definitions, as module constants */
@@ -1023,7 +1060,7 @@ function screensOf(source: Doc, widths: Record<string, number>, o: RnPrintOption
     if (p.uses.nav) p.kit.add("useNav");
     const component = screens.names.get(frame.id)!;
     const params = runtime && frame.params?.length ? frame.params : undefined;
-    const consts = [...(params ? [`const PARAMS: ParamSpec[] = ${expr(params.map((x) => ({ name: x.name, ...(x.type ? { type: x.type } : {}), ...(x.example !== undefined ? { example: x.example } : {}) })))};`] : []), ...p.sourceConsts(), ...p.consts];
+    const consts = [...(params ? [`const PARAMS: ParamSpec[] = ${expr(params.map((x) => ({ name: x.name, ...(x.type ? { type: x.type } : {}), ...(x.example !== undefined ? { example: x.example } : {}) })))};`] : []), ...p.sourceConsts(), ...p.subConsts(), ...p.consts];
     if (params) p.bind.type("ParamSpec");
     const imports = [
       ...(p.rn.size ? [`import { ${[...p.rn].sort().join(", ")} } from "react-native";`] : []),

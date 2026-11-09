@@ -368,7 +368,13 @@ function worldError(e: Record<string, unknown>, s: CoreState): string | null {
   const action = e.do === "move" && e.action === undefined ? MOVE_ACTION : e.action;
   if (typeof action !== "string" || !WORLD_ACTION.test(action)) return 'action should name an input of the world: a small letter, then letters and digits ("attack", "jump")';
   const takes = worldInputsOf(it);
-  return takes.length && !takes.includes(action) ? `the world ${JSON.stringify(e.part)} takes ${takes.join(", ")} (its inputs prop), not ${JSON.stringify(action)}` : null;
+  if (!takes.length) return null;
+  const decl = takes.find((d) => d.name === action);
+  const list = takes.map((d) => (d.type ? `${d.name}: ${d.type}` : d.name)).join(", ");
+  if (!decl) return `the world ${JSON.stringify(e.part)} takes ${list} (its inputs prop), not ${JSON.stringify(action)}`;
+  /* a direction goes to a vec2 input, a press or a let-go to a bool one */
+  const wants = e.do === "move" ? "vec2" : "bool";
+  return decl.type && decl.type !== wants ? `${action} is a ${decl.type} input of ${JSON.stringify(e.part)}: ${wants === "vec2" ? "move sends a direction to a vec2 input" : "press and release go to a bool input"} (it takes ${list})` : null;
 }
 
 /** A call's or an invoke's then or catch: a body, which may branch on the answer (`when` reading `response`, `status`,

@@ -146,6 +146,9 @@ async function webOf(doc: Doc, backend: Backend, product: boolean): Promise<Driv
       const a = await backend.receive(r.operationId ?? "", givenOf(r.query, r.body));
       return { status: a.status, headers: { "content-type": "application/json" }, body: a.body };
     },
+    /* the back end's realtime channels and its clock */
+    connect: (address, onMessage) => backend.connect(address, onMessage),
+    now: () => backend.now(),
   };
   // eslint-disable-next-line no-new-func -- the printer's own auth configuration, read as the app reads it
   const auth = (doc.api ? new Function(`return ${authSource(doc.api)}`)() : undefined) as AuthConfig | undefined;
@@ -157,7 +160,7 @@ async function webOf(doc: Doc, backend: Backend, product: boolean): Promise<Driv
       return a.ok ? { ok: true, result: a.result } : { ok: false, error: { type: a.type as FailureKind, capability: name } };
     },
   };
-  const runtime = createRuntime({ transport: base, ...(auth ? { auth } : {}), lang: "en", now: () => 0, capabilities });
+  const runtime = createRuntime({ transport: base, ...(auth ? { auth } : {}), lang: "en", capabilities });
   const { rt, screens, spec } = await printed(doc, product, () => runtime);
   let app: App | undefined;
   let tree: unknown;

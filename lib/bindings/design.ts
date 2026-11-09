@@ -17,7 +17,11 @@ import { evaluate, type EvalContext, type Scope } from "./expr";
 import type { FormView } from "./form";
 import { screenParams, sourceView, type SourceState, type SourceView } from "./sources";
 import { formEntries, type FormInputs } from "./view";
-import type { Collection, DataSource, Doc, Frame } from "../tokens";
+import type { Collection, DataSource, Doc, Frame, Subscription } from "../tokens";
+import { channelView, isoOf, messageAction, type ChannelEvent, type ChannelView } from "./channels";
+import { channelSpecFor, type ChannelDef, type ChannelSpec } from "../app/channels";
+import { Bindings } from "../app/scope";
+import type { Action } from "../actions/model";
 import type { FieldRule } from "./rules";
 import type { CallResult, FormController, FormFields, SendInit } from "../app/forms";
 import type { AuthConfig } from "../app/session";
@@ -123,7 +127,8 @@ export function requestFor(api: ApiSpec, e: ApiEndpoint, args: DesignArgs): Tran
 }
 
 /** A transport over whichever the host has now (`current`), whose answers are always answers: one that is missing or
- *  has no status is "no answer" (status 0), as a broken back end reads in the preview. */
+ *  has no status is "no answer" (status 0), as a broken back end reads in the preview. Its realtime channels and its
+ *  clock are those of the one it is over now, when that has them. */
 export function steadyTransport(current: () => Transport | null | undefined): Transport {
   return {
     async request(r): Promise<TransportResponse> {
@@ -131,7 +136,36 @@ export function steadyTransport(current: () => Transport | null | undefined): Tr
       const res = t ? await t.request(r) : undefined;
       return res && typeof res === "object" && typeof res.status === "number" ? res : { status: 0, headers: {}, body: res && typeof res === "object" ? (res as { body?: unknown }).body : undefined };
     },
+    connect(address, onMessage, o) {
+      const t = current();
+      if (!t || typeof t.connect !== "function") {
+        o?.onStatus?.("closed");
+        return { send: () => {}, close: () => {} };
+      }
+      return t.connect(address, onMessage, o);
+    },
+    now() {
+      const t = current();
+      const n = t && typeof t.now === "function" ? t.now() : NaN;
+      return Number.isFinite(n) ? n : Date.now();
+    },
   };
+}
+
+/** A subscription as the runtime opens it (lib/app/channels.ts `channelSpecFor`), read in a screen's scope: its
+ *  channel's address filled in with its params (each an expression; one it does not give is the screen's param of
+ *  that name), keyed by the channel and that address, as an exported screen keys it. Undefined for a channel the
+ *  contract lacks. */
+export function channelSpecOf(api: ApiSpec, sub: Subscription, scope: Scope, ctx: EvalContext): ChannelSpec | undefined {
+  const def = channelDefOf(api, sub);
+  return def ? channelSpecFor(def, new Bindings(scope, ctx)) : undefined;
+}
+
+/** a subscription as a printed screen holds it (lib/app/channels.ts `ChannelDef`), for a channel the contract has */
+export function channelDefOf(api: ApiSpec, sub: Subscription): ChannelDef | undefined {
+  const c = (api.channels ?? []).find((x) => x.id === sub.channel);
+  if (!c) return undefined;
+  return { name: sub.name, channel: c.id, address: c.address, ...(sub.params && Object.keys(sub.params).length ? { params: sub.params } : {}), ...(sub.messages?.length ? { messages: sub.messages } : {}), ...(sub.keep !== undefined ? { keep: sub.keep } : {}), ...(sub.newest ? { newest: true } : {}) };
 }
 
 /** a value a call's parameter takes: words, a number or yes/no (lib/app/scope.ts `Bindings.arg`); anything else is left out */
@@ -164,12 +198,13 @@ export class DesignRuntime {
 
   constructor(
     readonly runtime: Runtime,
-    private readonly doc: () => Pick<Doc, "api" | "collections">,
+    private readonly doc: () => Pick<Doc, "api" | "collections"> & { frames?: Frame[] },
     private readonly o: { tick?: (fn: () => void) => () => void } = {},
   ) {
     this.formsEpoch = runtime.epoch.get();
     const bump = () => this.bump();
     runtime.sources.store.subscribe(bump);
+    runtime.channels.store.subscribe(bump);
     runtime.session.subscribe(bump);
     runtime.epoch.subscribe(bump);
   }
@@ -302,7 +337,64 @@ export class DesignRuntime {
       sources.push({ src, spec });
       data[src.name] = this.view(spec);
     }
+    /* what its subscriptions have kept, when they are open on this screen: none yet reads as connecting */
+    const open = this.listening.get(at.frame.id);
+    for (const sub of at.frame.subscriptions ?? []) {
+      if (sub.name in data) continue;
+      const o = open?.get(sub.name);
+      (data as Record<string, SourceView | ChannelView>)[sub.name] = channelView(o ? this.runtime.channels.state(o.id) : undefined, { newest: sub.newest });
+    }
     return { scope, sources };
+  }
+
+  /* ---------- subscriptions ---------- */
+
+  /** the subscriptions open on each screen on show, by the screen's id and their names */
+  private listening = new Map<string, Map<string, { key: string; id: string; close: () => void }>>();
+
+  /** The subscriptions of a screen on show (`Frame.subscriptions`), opened through the runtime as they are asked for now:
+   *  one whose channel or address changed is opened again, afresh; one the screen no longer has is closed. Each message
+   *  a subscription keeps runs the action on it (`on:<message>`, else `on:message`) through `run`, with the message as
+   *  the event. What it gives back closes them all (the screen has gone). */
+  listen(at: ScreenAt, run: (action: Action, event: ChannelEvent) => void): () => void {
+    const id = at.frame.id;
+    const mine = this.listening.get(id) ?? new Map<string, { key: string; id: string; close: () => void }>();
+    this.listening.set(id, mine);
+    const { scope } = this.screen(at);
+    const ctx = this.runtime.ctx();
+    const wanted = new Set<string>();
+    for (const sub of at.frame.subscriptions ?? []) {
+      const spec = channelSpecOf(this.api, sub, scope, ctx);
+      if (!spec || wanted.has(sub.name)) continue;
+      wanted.add(sub.name);
+      const was = mine.get(sub.name);
+      if (was?.key === spec.key && this.runtime.channels.state(was.id)) continue;
+      was?.close();
+      const opened = this.runtime.channels.subscribe(spec, (m) => {
+        /* the action as the screen has it now */
+        const now = this.doc().frames?.find((f) => f.id === id)?.subscriptions?.find((x) => x.name === sub.name) ?? sub;
+        const action = messageAction(now.actions, m.message);
+        if (action) run(action, { channel: m.channel, message: m.message, payload: m.payload, at: isoOf(m.at) });
+      });
+      mine.set(sub.name, { key: spec.key, ...opened });
+    }
+    for (const [name, o] of mine) {
+      if (wanted.has(name)) continue;
+      o.close();
+      mine.delete(name);
+    }
+    return () => {
+      if (this.listening.get(id) !== mine) return;
+      for (const o of mine.values()) o.close();
+      this.listening.delete(id);
+    };
+  }
+
+  /** the keys the subscriptions of a screen are asked with now: what opens them again when it changes */
+  channelKeysOf(at: ScreenAt): string {
+    const { scope } = this.screen(at);
+    const ctx = { lang: this.runtime.lang };
+    return JSON.stringify((at.frame.subscriptions ?? []).map((sub) => channelSpecOf(this.api, sub, scope, ctx)?.key ?? ""));
   }
 
   /** the scope of a screen (see `screen`) */

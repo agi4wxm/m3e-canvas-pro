@@ -428,3 +428,90 @@ describe("renaming a screen's param", () => {
     expect(() => st.run(ops.renameScreenParam, { screen: "detail", from: "id", to: "2x" }, { origin: "ai" })).toThrow(/no param name/);
   });
 });
+
+describe("subscriptions to realtime channels", () => {
+  /** the shop with an order-updates channel, over rooms of each order */
+  function withChannel() {
+    const t = shop();
+    t.run(ops.addChannel, {
+      id: "orderUpdates",
+      address: "/orders/{orderId}/updates",
+      messages: [
+        { name: "statusChanged", payload: { type: "object", properties: { status: { type: "string" } }, required: ["status"] } },
+        { name: "note", payload: { type: "object", properties: { text: { type: "string" } } } },
+        { name: "ack", payload: { type: "object" } },
+      ],
+      operations: [
+        { id: "pushed", action: "send", messages: ["statusChanged", "note"] },
+        { id: "acked", action: "receive", messages: ["ack"] },
+      ],
+    });
+    return t;
+  }
+
+  it("are made, given the screen's params for the address, changed, with actions on their messages, and removed", () => {
+    const { s, run, frame } = withChannel();
+    const steps = s.history().length;
+    const out = run(ops.setSubscription, { screen: "detail", name: "updates", channel: "orderUpdates", actions: { "on:statusChanged": { to: "none", effects: [{ do: "snackbar", message: "Now {{event.payload.status}}" }] } } }) as { addedParams: string[] };
+    expect(out.addedParams).toEqual(["orderId"]);
+    expect(frame("detail").params?.some((p) => p.name === "orderId")).toBe(true);
+    expect(frame("detail").subscriptions).toEqual([{ name: "updates", channel: "orderUpdates", params: { orderId: "params.orderId" }, actions: { "on:statusChanged": { to: "none", effects: [{ do: "snackbar", message: "Now {{event.payload.status}}" }] } } }]);
+    expect(s.history().length).toBe(steps + 1);
+    run(ops.setSubscription, { screen: "detail", name: "updates", keep: 20, newest: true, messages: ["note"], actions: { "on:statusChanged": null, "on:message": { to: "none", effects: [{ do: "snackbar", message: "Hi" }] } } });
+    expect(frame("detail").subscriptions![0]).toMatchObject({ keep: 20, newest: true, messages: ["note"], actions: { "on:message": { to: "none" } } });
+    expect(frame("detail").subscriptions![0].actions).not.toHaveProperty("on:statusChanged");
+    run(ops.removeSubscription, { screen: "detail", name: "updates" });
+    expect(frame("detail").subscriptions).toBeUndefined();
+  });
+
+  it("refuse what they cannot be: an unknown channel, a param the address lacks, a message the server does not send, a name a source has, a trigger", () => {
+    const { run } = withChannel();
+    refused(() => run(ops.setSubscription, { screen: "detail", name: "x", channel: "nope" }), /no realtime channel "nope".*orderUpdates/);
+    refused(() => run(ops.setSubscription, { screen: "detail", name: "x" }), /give its channel/);
+    refused(() => run(ops.setSubscription, { screen: "detail", name: "x", channel: "orderUpdates", params: { roomId: "1" } }), /no param "roomId"/);
+    refused(() => run(ops.setSubscription, { screen: "detail", name: "x", channel: "orderUpdates", messages: ["ack"] }), /sends no message "ack".*statusChanged, note/);
+    refused(() => run(ops.setSubscription, { screen: "detail", name: "x", channel: "orderUpdates", actions: { "on:ack": { to: "none" } } }), /no key for an action/);
+    refused(() => run(ops.setSubscription, { screen: "detail", name: "x", channel: "orderUpdates", actions: { "on:message": { to: "none", trigger: { on: "delay", ms: 10 } } } }), /takes no trigger/);
+    run(ops.addDataSource, { screen: "detail", operationId: "getProduct" });
+    refused(() => run(ops.setSubscription, { screen: "detail", name: "product", channel: "orderUpdates" }), /loads data called "product"/);
+    run(ops.setSubscription, { screen: "detail", name: "updates", channel: "orderUpdates" });
+    refused(() => run(ops.addDataSource, { screen: "detail", operationId: "getProduct", name: "updates" }), /already/);
+  });
+
+  it("are read by expressions as data.<name>, and go through a project file and back as they were", () => {
+    const { run, doc, frame } = withChannel();
+    run(ops.setSubscription, { screen: "detail", name: "updates", channel: "orderUpdates", keep: 5 });
+    /* an expression of the screen may read it */
+    const id = doc().groups.find((g) => g.items.some((it) => it.component === "text"))?.items.find((it) => it.component === "text")?.id;
+    if (id) run(ops.bindExpression, { id, prop: "text", expr: "data.updates.value.status" });
+    const text = formatProject(projectFile(doc()));
+    const back = openProject(JSON.parse(text))!;
+    expect(back.frames.find((f) => f.id === "detail")!.subscriptions).toEqual(frame("detail").subscriptions);
+    expect(formatProject(projectFile(back))).toBe(text);
+  });
+
+  it("are cleaned on read: a wrong shape dropped, a name a source has dropped, an action cleaned as a part's is", () => {
+    const doc = shopDoc({ unwired: true });
+    const detail = doc.frames.find((f) => f.id === "detail")!;
+    const hostile = {
+      ...doc,
+      frames: doc.frames.map((f) =>
+        f.id === detail.id
+          ? { ...f, data: [{ name: "taken", operationId: "getProduct" }], subscriptions: [{ name: "taken", channel: "c" }, { name: "ok", channel: "c", keep: 99999, messages: ["a", 3], actions: { "on:a": { to: "none", effects: [{ do: "snackbar", message: "x" }] }, bad: { to: "none" }, "on:b": "nope" }, extra: 1 }, { name: "1bad", channel: "c" }, "junk"] }
+          : f,
+      ),
+    };
+    const back = openProject(JSON.parse(formatProject(projectFile(hostile as unknown as Doc))))!;
+    expect(back.frames.find((f) => f.id === "detail")!.subscriptions).toEqual([{ name: "ok", channel: "c", messages: ["a"], actions: { "on:a": { to: "none", effects: [{ do: "snackbar", message: "x" }] } }, extra: 1 }]);
+  });
+});
+
+describe("a channel renamed", () => {
+  it("takes the screens that subscribe to it along", () => {
+    const { run, frame } = shop();
+    run(ops.addChannel, { id: "feed", address: "/feed", messages: [{ name: "post", payload: { type: "object" } }], operations: [{ id: "pushed", action: "send" }] });
+    run(ops.setSubscription, { screen: "detail", name: "feed", channel: "feed" });
+    run(ops.updateChannel, { id: "feed", rename: "news" });
+    expect(frame("detail").subscriptions?.[0].channel).toBe("news");
+  });
+});
