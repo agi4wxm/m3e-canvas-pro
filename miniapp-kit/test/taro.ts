@@ -45,10 +45,20 @@ export const TARO_DEFAULTS: Record<string, unknown> = {
   env: {},
 };
 
+/* What the fakes do now: the last file's. Bun keeps the module a file met first, so a module loaded by an earlier file
+   (the kit's transport, its navigation) holds that file's fake; each name of every fake asks this for what to do, so
+   whichever fake a module holds, it does what the file running now says. */
+const current: Record<string, unknown> = { ...TARO_DEFAULTS };
+
 /** the module a test file's `mock.module("@tarojs/taro", …)` returns: every name, with the file's own in their place */
 export function fakeTaro(own: Record<string, unknown> = {}): Record<string, unknown> {
-  const taro = { ...TARO_DEFAULTS, ...own };
-  return { default: taro, ...taro };
+  for (const k of Object.keys(current)) delete current[k];
+  Object.assign(current, TARO_DEFAULTS, own);
+  const taro: Record<string, unknown> = {};
+  for (const k of Object.keys(current))
+    if (typeof current[k] === "function") taro[k] = (...args: unknown[]) => (current[k] as (...a: unknown[]) => unknown)(...args);
+    else Object.defineProperty(taro, k, { enumerable: true, get: () => current[k] });
+  return { default: taro, ...Object.fromEntries(Object.keys(taro).map((k) => [k, taro[k]])) };
 }
 
 /** every component the kit and the printed pages take from @tarojs/components, as the tag names the tiny renderer

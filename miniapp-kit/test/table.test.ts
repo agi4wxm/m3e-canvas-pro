@@ -5,13 +5,13 @@
  * toasts; the components are names. A row the kit does not do yet passes only while the row says so (`known.miniapp`). */
 import { describe, expect, it, mock } from "bun:test";
 
-import { createTinyReact, type Element } from "./table/tinyReact";
+import { runtimeTiny } from "./runtimeReact";
+import type { Element } from "./table/tinyReact";
 import { fakeComponents, fakeTaro } from "./taro";
 
-const tiny = createTinyReact();
-/* the kit's React, and the one the shared runtime (lib/app, outside this package) resolves */
+/* the kit's React is the one the shared runtime (lib/app, outside this package) is loaded with (./runtimeReact.ts) */
+const tiny = runtimeTiny;
 mock.module("react", () => tiny.react);
-mock.module(Bun.resolveSync("react", new URL("../../lib/app/", import.meta.url).pathname), () => tiny.react);
 mock.module("react/jsx-runtime", () => tiny.jsxRuntime);
 mock.module("react/jsx-dev-runtime", () => tiny.jsxRuntime);
 
@@ -39,33 +39,34 @@ const pageOf = (url: string): Page => {
   return { route: path, options: Object.fromEntries(query.split("&").filter(Boolean).map((kv) => kv.split("=") as [string, string])), n: ++opened };
 };
 
-mock.module("@tarojs/taro", () => {
-  const taro = {
-    navigateTo: async ({ url }: { url: string }) => void stack.push(pageOf(url)),
-    redirectTo: async ({ url }: { url: string }) => void stack.splice(stack.length - 1, 1, pageOf(url)),
-    navigateBack: async ({ delta = 1 }: { delta?: number } = {}) => void stack.splice(Math.max(1, stack.length - delta)),
-    reLaunch: async ({ url }: { url: string }) => void stack.splice(0, stack.length, pageOf(url)),
-    switchTab: async ({ url }: { url: string }) => void stack.splice(0, stack.length, pageOf(url)),
-    getCurrentPages: () => stack.map((p) => ({ route: p.route, options: p.options })),
-    showToast: async ({ title }: { title: string }) => void (toast = title),
-    setClipboardData: async () => {},
-    stopPullDownRefresh: () => {},
-    getSystemInfoSync: () => ({ statusBarHeight: 20, windowWidth: 375, screenHeight: 812, safeArea: { bottom: 778 } }),
-    getMenuButtonBoundingClientRect: () => ({ top: 24, height: 32, left: 280 }),
-    onThemeChange: () => {},
-    offThemeChange: () => {},
-    getStorage: async () => Promise.reject(new Error("none")),
-    setStorage: async () => {},
-    removeStorage: async () => {},
-    env: {},
-    useRouter: () => tiny.react.useContext(PageContext),
-    usePullDownRefresh: () => {},
-    useReachBottom: () => {},
-    useDidShow: onShown(true),
-    useDidHide: onShown(false),
-  };
-  return fakeTaro(taro);
-});
+const taroOwn = {
+  navigateTo: async ({ url }: { url: string }) => void stack.push(pageOf(url)),
+  redirectTo: async ({ url }: { url: string }) => void stack.splice(stack.length - 1, 1, pageOf(url)),
+  navigateBack: async ({ delta = 1 }: { delta?: number } = {}) => void stack.splice(Math.max(1, stack.length - delta)),
+  reLaunch: async ({ url }: { url: string }) => void stack.splice(0, stack.length, pageOf(url)),
+  switchTab: async ({ url }: { url: string }) => void stack.splice(0, stack.length, pageOf(url)),
+  getCurrentPages: () => stack.map((p) => ({ route: p.route, options: p.options })),
+  showToast: async ({ title }: { title: string }) => void (toast = title),
+  setClipboardData: async () => {},
+  stopPullDownRefresh: () => {},
+  getSystemInfoSync: () => ({ statusBarHeight: 20, windowWidth: 375, screenHeight: 812, safeArea: { bottom: 778 } }),
+  getMenuButtonBoundingClientRect: () => ({ top: 24, height: 32, left: 280 }),
+  onThemeChange: () => {},
+  offThemeChange: () => {},
+  getStorage: async () => Promise.reject(new Error("none")),
+  setStorage: async () => {},
+  removeStorage: async () => {},
+  env: {},
+  useRouter: () => tiny.react.useContext(PageContext),
+  usePullDownRefresh: () => {},
+  useReachBottom: () => {},
+  useDidShow: onShown(true),
+  useDidHide: onShown(false),
+};
+/* said now, not only when the module is first asked for: one an earlier file mocked is not asked for again, and what
+   its fake does is what the last fake said (./taro.ts) */
+fakeTaro(taroOwn);
+mock.module("@tarojs/taro", () => fakeTaro(taroOwn));
 mock.module("@tarojs/components", () => fakeComponents());
 
 const { RuntimeProvider, hostLog, inputLog } = await import("@m3e/app-runtime");

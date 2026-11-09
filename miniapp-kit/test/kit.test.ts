@@ -2,6 +2,7 @@
  * asked): colors as CSS variables, a part's look as CSS, icons as pictures, the transport over Taro.request and
  * Taro.uploadFile, the tokens in Taro's storage, the pages' addresses, the variables' types. */
 import { describe, expect, it, mock } from "bun:test";
+import "./runtimeReact";
 import { fakeComponents, fakeTaro } from "./taro";
 
 type Call = { api: string; o: Record<string, unknown> };
@@ -38,11 +39,9 @@ mock.module("@tarojs/taro", () => {
   return fakeTaro(taro);
 });
 
-/* the components draw nothing here: only the pure pieces are under test */
-mock.module("@tarojs/components", () => {
-  const none = () => null;
-  return fakeComponents({ View: none, Image: none, Text: none, Input: none, Textarea: none, Slider: none, Picker: none, ScrollView: none });
-});
+/* only the pure pieces are under test: the components are the names every file's fake gives them, since the kit's
+   modules loaded here keep them for the files after this one too (./taro.ts) */
+mock.module("@tarojs/components", () => fakeComponents());
 
 const { c, ca, css, inkVars } = await import("../src/kit/color");
 const { paint } = await import("../src/kit/look");
