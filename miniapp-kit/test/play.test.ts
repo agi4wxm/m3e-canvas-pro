@@ -202,26 +202,6 @@ describe("a movement pad", () => {
   });
 });
 
-describe("a world view's stand-in", () => {
-  it("draws the world's state as the props say, and lists the inputs it hears on its channel", async () => {
-    tiny.reset();
-    const W = await import("../src/kit/world");
-    const { createWorlds } = await import("@m3e/app-runtime");
-    const worlds = createWorlds();
-    const entities = { columns: ["Id", "Kind", "X", "Y", "Label"], rows: [["hero", "player", "20", "50", "Hero"], ["bad", "enemy", "x", "1", ""]] };
-    const w = drawn(W.WorldStandIn, { label: "Arena", entities, score: 3, status: "paused", channel: worlds.channel("arena") });
-    expect(w.words()).toEqual(expect.arrayContaining(["Arena", "Hero", "★ 3", "paused"]));
-    expect(W.entitiesOf(entities).map((e) => e.id)).toEqual(["hero"]);
-    worlds.send("arena", "move", { x: 0.5, y: -1 });
-    worlds.send("arena", "move", { x: 1, y: 0 });
-    worlds.send("arena", "attack", true);
-    worlds.send("other", "attack", true);
-    w.draw();
-    /* a new direction of the same input takes the place of the one before; another world's inputs are not its own */
-    expect(w.words().filter((t) => /^(move|attack) /.test(String(t)))).toEqual(["move 1,0", "attack ↓"]);
-  });
-});
-
 describe("a skill, a level map, a board", () => {
   it("a skill waits out the other side's cooldown, then asks", () => {
     tiny.reset();

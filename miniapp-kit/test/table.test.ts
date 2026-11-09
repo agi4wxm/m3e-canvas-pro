@@ -253,3 +253,27 @@ describe("a world view hosting the example engine, in the mini-program kit", () 
     expect(screenOfPath(SPEC, stack.at(-1)!.route)).toBe("won");
   });
 });
+
+describe("a world view's stand-in", () => {
+  it("draws the world's state as the props say, and lists the inputs it hears on its channel", async () => {
+    tiny.reset();
+    /* the stand-in imports the app runtime (its channels): it is drawn here, where the runtime's React is the stand-in's */
+    const W = await import("../src/kit/world");
+    const { createWorlds } = await import("@m3e/app-runtime");
+    const worlds = createWorlds();
+    const entities = { columns: ["Id", "Kind", "X", "Y", "Label"], rows: [["hero", "player", "20", "50", "Hero"], ["bad", "enemy", "x", "1", ""]] };
+    let tree: unknown;
+    const draw = () => void (tree = tiny.render(tiny.react.createElement(W.WorldStandIn as never, { label: "Arena", entities, score: 3, status: "paused", channel: worlds.channel("arena") }), (t) => t === W.WorldStandIn));
+    draw();
+    const w = { draw, words: () => tiny.elements(tree).filter((e) => typeof e.type === "function" && e.type.name === "Words").map((e) => e.props.text) };
+    expect(w.words()).toEqual(expect.arrayContaining(["Arena", "Hero", "★ 3", "paused"]));
+    expect(W.entitiesOf(entities).map((e) => e.id)).toEqual(["hero"]);
+    worlds.send("arena", "move", { x: 0.5, y: -1 });
+    worlds.send("arena", "move", { x: 1, y: 0 });
+    worlds.send("arena", "attack", true);
+    worlds.send("other", "attack", true);
+    w.draw();
+    /* a new direction of the same input takes the place of the one before; another world's inputs are not its own */
+    expect(w.words().filter((t) => /^(move|attack) /.test(String(t)))).toEqual(["move 1,0", "attack ↓"]);
+  });
+});
