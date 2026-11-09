@@ -279,11 +279,15 @@ export function useProject(o: ProjectInputs) {
 
   /** what a picked or dropped file or folder holds, offered to the person; an error when it holds no project */
   const offerHandle = async (handle: FileSystemHandle) => {
-    const { doc, text, name } = await readFromDisk(handle).catch(() => ({ doc: null, text: null, name: handle.name }));
+    const { doc, text, name, game } = await readFromDisk(handle).catch(() => ({ doc: null, text: null, name: handle.name, game: undefined }));
     if (!doc) {
       live.current.showToast(t(handle.kind === "directory" ? "fileFolderNoProject" : "invalidProject", lang), 4000, "error");
       return;
     }
+    /* the gameplay contract beside a folder's project, read again: what it broke in the design, or that it is gone */
+    if (game?.status === "updated" && game.report.gaps.length) live.current.showToast(t("gcBroke", lang).replace("{version}", game.report.contractVersion).replace("{n}", String(game.report.gaps.length)), 5000, "error");
+    else if (game?.status === "updated") live.current.showToast(t("gcImported", lang).replace("{version}", game.report.contractVersion), 2500, "check");
+    else if (game?.status === "missing" || game?.status === "invalid") live.current.showToast(t(game.status === "missing" ? "gcMissing" : "gcInvalid", lang).replace("{path}", game.path), 5000, "error");
     let written: FileRecord["written"];
     if (handle.kind === "file" && text !== null) {
       const f = await (handle as FileSystemFileHandle).getFile().catch(() => null);

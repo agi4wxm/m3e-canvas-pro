@@ -51,6 +51,8 @@ const DRAWING = new Set(["set_icon", "remove_icon"]);
 const API = new Set([
   "get_api", "describe_endpoint", "describe_model", "get_spec",
   "add_model", "update_model", "rename_model", "remove_model", "add_endpoint", "update_endpoint", "remove_endpoint", "set_auth", "add_channel", "update_channel", "remove_channel", "set_servers", "set_api_info", "import_openapi", "import_asyncapi",
+  /* the gameplay contract: the game loop's operations in the API, read and linked */
+  "get_game_contract", "import_game_contract", "remove_game_contract",
 ]);
 
 /** the mock library: its operations and the tools that read and try it */

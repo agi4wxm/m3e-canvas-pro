@@ -211,7 +211,7 @@ npx playwright install chromium
 
 <!-- tools:start (bun run mcp:docs) -->
 
-共 176 个工具：服务器环境里没有 OPENAI_API_KEY 时不含“生成”组，只读会话只列出“只读”一栏为“是”的，`undo`、`redo`、`export_product` 只在文件模式里有。说明取自工具给模型看的描述。
+共 179 个工具：服务器环境里没有 OPENAI_API_KEY 时不含“生成”组，只读会话只列出“只读”一栏为“是”的，`undo`、`redo`、`export_product` 只在文件模式里有。说明取自工具给模型看的描述。
 
 | 工具 | 组 | 只读 | 需作者确认 | 说明 |
 | --- | --- | --- | --- | --- |
@@ -239,6 +239,7 @@ npx playwright install chromium
 | `list_mock_records` | 读取 | 是 |  | The records the mocks have for a model, pinned ones first, as the app would get them (files shortened). |
 | `try_mock` | 读取 | 是 |  | Calls the API the way the app would, answered by the mocks on a fresh session (what one call makes, the next sees: create then list), with no waiting: each call by operationId wit… |
 | `list_capabilities` | 读取 | 是 |  | The platform capabilities (payment, sign-in with another service, location, scanning, push, share, clipboard, links, files, analytics, biometrics, calls; the views of a map, a cam… |
+| `get_game_contract` | 读取 | 是 |  | The document's gameplay contract, the game loop's (read-only): each command as the call a design makes (operationId game.&lt;command>, its args and response) with every refusal an… |
 | `describe_bindings` | 读取 | 是 |  | How a screen is bound to the API: its params and sign-in, each data source (endpoint, params, paging, and the paths it offers: data.&lt;name>.items[], value fields), its regions w… |
 | `sample_colors` | 读取 | 是 |  | Measures the colors of a picture: an attached reference (ref1…) or a screen or part of the canvas. |
 | `compare_to_reference` | 读取 | 是 |  | Holds a screen of the canvas against the reference picture it copies: draws the screen, hands back both pictures (the reference first), and lays them over each other in a grid, gi… |
@@ -369,6 +370,8 @@ npx playwright install chromium
 | `declare_capability` | 数据与交互 |  |  | Declares a platform capability of the product's own, beside the catalog's (list_capabilities): name (dotted, e.g. |
 | `remove_capability` | 数据与交互 |  | 是 | Removes a capability the product declared (declare_capability). |
 | `use_capabilities` | 数据与交互 |  |  | Says the product uses these capabilities beyond the ones its designs invoke or draw (those count anyway): an event such as push.opened, or one only the code will invoke. |
+| `import_game_contract` | 数据与交互 |  |  | Links the game loop's gameplay contract (an m3e-game file, version 1: its commands, rejection codes, events, snapshot, clock, facts), read-only, in place of the one before: each c… |
+| `remove_game_contract` | 数据与交互 |  | 是 | Unlinks the gameplay contract: the operations and mock scenarios it made go with it. |
 | `add_data_source` | 数据与交互 |  |  | Makes a screen load data from an endpoint: read as data.&lt;name> (value, items, status, loading, error, hasMore, empty). |
 | `update_data_source` | 数据与交互 |  |  | Changes a screen's data source: its endpoint, params, body, when it loads, pull to refresh, paging, page size (null clears one), or its name (rename: the screen's expressions, the… |
 | `remove_data_source` | 数据与交互 |  | 是 | Stops a screen loading a data source; what reads data.&lt;name> reads nothing. |

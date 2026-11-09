@@ -18,11 +18,13 @@ export const API_OPS = new Set(["add_model", "update_model", "rename_model", "re
 export const MOCK_OPS = new Set(["set_mocks", "set_mock_model", "pin_mock_records", "unpin_mock_records", "add_mock_scenario", "update_mock_scenario", "remove_mock_scenario", "add_mock_file", "generate_mock_files", "update_mock_file", "remove_mock_file", "set_mock_realtime", "remove_mock_realtime", "set_mock_auth", "set_mock_route", "fill_mocks", "clear_mocks", "set_mock_capability"]);
 /** the operations on the platform capabilities (lib/core/ops/capabilities.ts): the product's own, the ones it uses */
 export const CAPABILITY_OPS = new Set(["declare_capability", "remove_capability", "use_capabilities"]);
+/** the operations on the gameplay contract (lib/core/ops/game.ts): the game loop's, linked and unlinked */
+export const GAME_OPS = new Set(["import_game_contract", "remove_game_contract"]);
 /** the operations that bind screens to the contract (lib/core/ops/bindings.ts) */
 export const BINDING_OPS = new Set(["add_data_source", "update_data_source", "remove_data_source", "set_subscription", "remove_subscription", "set_screen_params", "rename_screen_param", "set_screen_auth", "bind_expression", "set_region", "remove_region", "set_form", "make_form", "bind_field", "wire_screen"]);
-const DATA_OPS = new Set([...BINDING_OPS, "add_collection", "update_collection", "remove_collection", "set_repeat", "add_var", "update_var", "remove_var", "set_action", "bind_prop", "add_var_collection", "update_var_collection", "remove_var_collection", "set_var_mode", ...API_OPS, ...MOCK_OPS, ...CAPABILITY_OPS]);
+const DATA_OPS = new Set([...BINDING_OPS, "add_collection", "update_collection", "remove_collection", "set_repeat", "add_var", "update_var", "remove_var", "set_action", "bind_prop", "add_var_collection", "update_var_collection", "remove_var_collection", "set_var_mode", ...API_OPS, ...MOCK_OPS, ...CAPABILITY_OPS, ...GAME_OPS]);
 /** what takes away something the author made: a client asks the author first */
-export const DESTRUCTIVE_OPS = new Set(["clear", "remove_screen", "remove_nodes", "remove_component", "remove_collection", "remove_var", "remove_var_collection", "set_custom_styles", "remove_icon", "remove_model", "remove_endpoint", "remove_channel", "unpin_mock_records", "remove_mock_scenario", "remove_mock_file", "remove_mock_realtime", "clear_mocks", "remove_data_source", "remove_subscription", "remove_region", "remove_capability"]);
+export const DESTRUCTIVE_OPS = new Set(["clear", "remove_screen", "remove_nodes", "remove_component", "remove_collection", "remove_var", "remove_var_collection", "set_custom_styles", "remove_icon", "remove_model", "remove_endpoint", "remove_channel", "unpin_mock_records", "remove_mock_scenario", "remove_mock_file", "remove_mock_realtime", "clear_mocks", "remove_data_source", "remove_subscription", "remove_region", "remove_capability", "remove_game_contract"]);
 
 const groupOf = (name: string): ToolGroup => (STYLE_OPS.has(name) ? "style" : DATA_OPS.has(name) ? "data" : "edit");
 
@@ -80,6 +82,7 @@ const MORE: Record<string, string> = {
   generate_mock_files: "Returns {ids}.",
   set_mock_realtime: "get_api lists each channel's messages. Returns {id}.",
   set_mock_capability: "list_capabilities lists the capabilities and how the mocks answer them now. For a shop: one scenario per outcome of a payment (cancelled, failed) and the order's status from the API per scenario (its getOrder answering status paid, pending or failed).",
+  import_game_contract: "Only with a file the game loop wrote, as the author gave it. get_game_contract then lists each command's call and refusals.",
   declare_capability: "Only for a capability the catalog does not have (list_capabilities): the standard ones are used as they are.",
   wire_screen:
     "The quickest way to a working screen: one call per screen and endpoint (a list with detail: the screen a row opens, given the row's id as its params, in either order). It composes a region of its own below what the screen holds: a list already designed is bound in place instead (set_repeat, bind_expression, set_region). Restyle what it made like any parts. Returns {source, region, template, states}.",
