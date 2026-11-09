@@ -892,6 +892,9 @@ function screensOf(source: Doc, widths: Record<string, number>, o: MiniPrintOpti
   const printed = plan.screens.map((sp): MiniScreen => {
     const { frame, key } = sp;
     const p = new ScreenPrinter(doc, sp, widths, screens, warnings, o, facts, { screens: new Set(tab.tabs.keys()), bars: tab.bars });
+    /* a template spawned on events (docs/交互规则.md “按事件生成”) is drawn once, as the design has it: the kit has no pool
+       of instances yet, and a spawn effect is left out */
+    for (const g of sp.groups) if (g.spawn) p.warn("event", "a template spawned on events is drawn once as the design has it: the mini-program kit does not spawn its instances yet", g.items[0]?.id);
     const body = p.body();
     p.icons.forEach((n) => icons.add(n));
     const { width: w, height: h, length } = sp;

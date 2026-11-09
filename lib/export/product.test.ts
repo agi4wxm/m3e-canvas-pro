@@ -48,7 +48,9 @@ beforeAll(async () => {
 
 describe("the prototype export", () => {
   /* The single-app export stays as it was, to the byte, beside the product. These digests were taken from the export
-     before the product existed; one that changes on purpose is written again here (last: format version 6, lib/converge.ts: parts/types.ts, which
+     before the product existed; one that changes on purpose is written again here (last: batch 6 H4, templates spawned on events: the interpreter
+     copied into src/lib/actions runs the `spawn` effect, model.ts, host.ts and run.ts, docs/交互规则.md “按事件生成”;
+     before that format version 6, lib/converge.ts: parts/types.ts, which
      ships, has the color prop kind, a palette's rows of colors, the row model's `P.rows` and places among rows (`of`), the widgets paint a color only when it is one
      (parts/widgets/look.ts `PAINTABLE`, the item cell's rarity and the palette's swatches), and a multiple choice's
      picks are its rows' places from 0 (`picked`); with it the icon component draws an asset of the asset pipeline's,
@@ -91,11 +93,11 @@ describe("the prototype export", () => {
      icons asking again and the ripple under reduced motion; in parts, form fields keyed by their item and resizable
      sizes as percentages). */
   const DIGESTS: Record<string, [number, string]> = {
-    proof: [91, "b15913f5d7359806be3b99497b6d7f71a460b302e88127037fb49be2f597e949"],
-    systems: [48, "18f4e60fd98fee038588bbd2eb2922adb6d03f8a3839d9fa5415acc69ed00c89"],
-    reuse: [38, "45f2eeffec96e6987a68be50863bd53e5a0096fa8506f0c6f95c79955b524d04"],
-    sweep: [101, "64d6ac1dd4da87277fe4cd59cc29afbc9965a96454de2411a913ec9ea83e0418"],
-    parts: [151, "e996951030ad5850cb52840b98d529343affd8cb0fe2c5d28df05939282c831c"],
+    proof: [91, "1a438e5c0672ab8d7acfb69e6ec60b1f124e872d2d7e518b81336f4b22dd74d5"],
+    systems: [48, "b5fdd4975e58dc9497e67070f1233d9118a246dae783586fb10ab6ad11ba17c9"],
+    reuse: [38, "dba9e17536592f2423886ecd3117806bafb46008ad0c53f9cb4403a7c89fce05"],
+    sweep: [101, "72b1f5034546272601ce8939991a083fcbbf0a8de123bc095a578aaf78961f88"],
+    parts: [151, "3ed3711891278cf3dea8877976253dc06db9cf7d45a6333e98951f0aab4b093b"],
   };
   const DOCS: Record<string, () => { doc: Doc; widths: Record<string, number> }> = { proof: proofDoc, systems: systemsDoc, reuse: reuseDoc, sweep: sweepDoc, parts: () => ({ doc: allPartsDoc(), widths: {} }) };
   it.each(Object.keys(DIGESTS))("is byte for byte what it was: %s", async (name) => {

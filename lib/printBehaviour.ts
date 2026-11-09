@@ -19,6 +19,7 @@ import { boundVar, comparisonOf, fieldVarOf, type Comparison } from "./bindings/
 import { inlineReads } from "./refs";
 import { literal } from "./export/code";
 import { screenToken, screenWords } from "./export/ir/names";
+import { spawnSpecOf, type SpawnSpec } from "./spawn";
 
 /* What a tap does and what state a part reads, as source text over the generated runtime
  * (lib/runtimeSource.ts). Pure, like the rest of the printer: a document in, strings out.
@@ -65,6 +66,9 @@ export type RuntimeSpec = {
   families?: true;
   /** the screens draw world views, which the taps' input actions reach on a channel each (lib/world) */
   worlds?: true;
+  /** The screens draw templates of instances spawned on events (lib/spawn.ts, docs/交互规则.md “按事件生成”): what each
+   *  says of its instances, by its group id, which the taps' `spawn` effects name. */
+  spawns?: Record<string, SpawnSpec>;
 };
 
 /** What the runtime runs the taps over (lib/actions' `Host`, src/runtime.tsx): where each part an effect reaches stands,
@@ -361,6 +365,16 @@ export class Behaviour {
   private printedFamilies = false;
   /** a world view has been printed with its channel */
   private printedWorlds = false;
+  /** the templates printed as pools of instances spawned on events, by group id (lib/spawn.ts) */
+  private printedSpawns = new Map<string, SpawnSpec>();
+
+  /** A template is printed as its pool (src/runtime.tsx `SpawnPool`): what the runtime needs of it. Only an app with a
+   *  runtime draws one; what has none (the code of a screen to read) prints the template as the design has it. */
+  spawnPool(g: Group): SpawnSpec | undefined {
+    const spec = this.live && g.spawn ? spawnSpecOf(g.spawn) : undefined;
+    if (spec) this.printedSpawns.set(g.id, spec);
+    return spec;
+  }
   /** the bindings, printed against the product's runtime */
   readonly bound?: BoundPrint;
   private readonly groupById: Map<string, Group>;
@@ -576,6 +590,7 @@ export class Behaviour {
       ...(this.acts ? { acts: this.actsSpec() } : {}),
       ...(this.printedFamilies ? { families: true as const } : {}),
       ...(this.printedWorlds ? { worlds: true as const } : {}),
+      ...(this.printedSpawns.size ? { spawns: Object.fromEntries(this.printedSpawns) } : {}),
     };
   }
 
@@ -834,6 +849,11 @@ export class Behaviour {
         if (!it || !partBySlug(it.component)?.world) return null;
         this.part(it.id);
         return { ...e, part: this.partKeys.get(it.id)! };
+      }
+      case "spawn": {
+        /* the template by its group id, which its pool is printed with (codegen.ts) */
+        const g = this.doc.groups.find((x) => x.id === e.group);
+        return g?.spawn ? { do: "spawn", group: g.id } : null;
       }
       default:
         /* a kind this version does not know, from a file saved by a later one */

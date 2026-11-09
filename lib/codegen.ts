@@ -48,6 +48,7 @@ import { partBySlug } from "../parts/registry";
 import { fullWidth, roleOf } from "../parts/role";
 import { pinOf } from "./tidy";
 import { footOf } from "./foot";
+import { markTemplates } from "./spawnPool";
 import { screenToken, screenWords } from "./export/ir/names";
 
 const REGISTRY_URL = "https://shadcn-m3e.crystaworld.dev/r/{name}.json";
@@ -115,6 +116,16 @@ class Ctx {
   usesToast = false;
   /** what this screen takes from the runtime */
   uses: Uses = { app: new Set(), press: false };
+  /** the screen draws a template once per event (src/runtime.tsx `SpawnPool`) */
+  pools = false;
+  /** A template drawn once per event (docs/交互规则.md “按事件生成”): what is printed for it, in its runtime's pool of
+   *  copies; anything else as it is. */
+  pooled(run: Group, source: string): string {
+    const spec = this.b.spawnPool(run);
+    if (!spec) return source;
+    this.pools = true;
+    return `<SpawnPool of={${str(run.id)}} max={${spec.max}}>${source}</SpawnPool>`;
+  }
   constructor(
     readonly b: Behaviour,
     readonly frame: Frame,
@@ -254,7 +265,7 @@ function flowJsx(run: Group, c: Ctx, all: Group[], parent?: Flow, inside = new S
   const template = bound && run.repeat?.data !== undefined ? templateOf(all, run) : undefined;
   const kid = (k: Group): string => {
     const gates = c.b.gates(k, within, c.uses);
-    if (k !== template || !bound || run.repeat?.data === undefined) return gated(gates, flowJsx(k, c, all, flow, within, tapped, box));
+    if (k !== template || !bound || run.repeat?.data === undefined) return gated(gates, c.pooled(k, flowJsx(k, c, all, flow, within, tapped, box)));
     /* the template once per element of the list, in the element's scope, keyed by its id */
     if (gates.includes("false")) return "";
     const r = bound.repeatOpen(run.repeat.data, gates, run.repeat.limit);
@@ -342,10 +353,10 @@ function screenBody(frame: Frame, runs: Group[], c: Ctx, widths: Record<string, 
     if (hosts.has(run.id)) {
       /* a box pinned as a bar (a kit's tab bar) spans the screen at its edge, and lays out what it holds across it */
       if (run.items.length === 1 && fullWidth(first)) {
-        out.push(gated(gates, `<div className="absolute inset-x-0 ${anchorOf(Math.round(run.y - frame.y))}${float}">${flowJsx(run, c, all, undefined, undefined, undefined, undefined, ["width"])}${end}</div>`));
+        out.push(gated(gates, `<div className="absolute inset-x-0 ${anchorOf(Math.round(run.y - frame.y))}${float}">${c.pooled(run, flowJsx(run, c, all, undefined, undefined, undefined, undefined, ["width"]))}${end}</div>`));
         continue;
       }
-      out.push(gated(gates, `<div className=${str(`absolute left-[${Math.round(run.x - frame.x)}px] top-[${Math.round(run.y - frame.y)}px]`)}>${flowJsx(run, c, all)}${end}</div>`));
+      out.push(gated(gates, `<div className=${str(`absolute left-[${Math.round(run.x - frame.x)}px] top-[${Math.round(run.y - frame.y)}px]`)}>${c.pooled(run, flowJsx(run, c, all))}${end}</div>`));
       continue;
     }
     const at = layoutOf(run, widths)[0];
@@ -359,11 +370,12 @@ function screenBody(frame: Frame, runs: Group[], c: Ctx, widths: Record<string, 
     });
     /* a part that spans the screen keeps to its edges; the bars stay pinned to the top or the bottom */
     if (run.items.length === 1 && fullWidth(first)) {
-      out.push(gated(gates, `<div className="absolute inset-x-0 ${anchorOf(top)}${float}">${body[0]}${end}</div>`));
+      out.push(gated(gates, `<div className="absolute inset-x-0 ${anchorOf(top)}${float}">${c.pooled(run, body[0])}${end}</div>`));
       continue;
     }
     const pos = `absolute left-[${left}px] top-[${top}px]${float}`;
-    if (body.length === 1) out.push(gated(gates, `<div className=${str(pos)}>${body[0]}${end}</div>`));
+    if (body.length === 1) out.push(gated(gates, `<div className=${str(pos)}>${c.pooled(run, body[0])}${end}</div>`));
+    else if (c.b.live && run.spawn) out.push(gated(gates, `<div className=${str(pos)}>${c.pooled(run, `<div className=${str(`flex ${run.axis === "x" ? "flex-row" : "flex-col"} gap-[${GAP}px]`)}>${body.join("")}</div>`)}${end}</div>`));
     else out.push(gated(gates, `<div className=${str(`${pos} flex ${run.axis === "x" ? "flex-row" : "flex-col"} gap-[${GAP}px]`)}>${body.join("")}${end}</div>`));
   }
   return out;
@@ -589,6 +601,9 @@ function screensOf(source: Doc, widths: Record<string, number>, o: BuildOptions)
       .filter((g) => (loose || frameOfPart(g, doc.groups, frames, widths)?.id === frame.id) && !offTab.has(g.id))
       .flatMap((g) => (g.free ? explodeGroup(g, widths) : [g]))
       .map(bound);
+    /* a template's words are read by each instance as it is spawned (lib/spawn.ts), not by the screen: an app with a
+       runtime prints them marked, and its pool fills them */
+    if (o.live && all.some((g) => g.spawn)) all.splice(0, all.length, ...markTemplates(all, widths));
     const runs = [...all].sort((a, b) => a.y - b.y || a.x - b.x);
     const { w, h } = frameSizeOf(frame);
     const length = frameLengthOf(frame);
@@ -635,6 +650,7 @@ function screensOf(source: Doc, widths: Record<string, number>, o: BuildOptions)
     }
     if (binds) for (const [source, names] of binds.imports()) c.imports.set(source, new Set([...(c.imports.get(source) ?? []), ...names]));
     const fromApp = c.uses.app.size ? `  const { ${[...c.uses.app].sort().join(", ")} } = useApp()\n` : "";
+    if (c.pools) fromRuntime.add("SpawnPool");
     if (c.uses.app.size || c.uses.press || fromRuntime.size) c.imports.set(RUNTIME, new Set([...(c.uses.app.size ? ["useApp"] : []), ...(c.uses.press ? ["Pressable"] : []), ...fromRuntime]));
     const data = binds?.dataFile();
     const hooks = (head?.lines.length ? `${head.lines.map((l) => `  ${l}\n`).join("")}` : "") + (acts && !binds ? `  const act = useActions(${str(key)})\n` : "");

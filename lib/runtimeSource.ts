@@ -57,6 +57,8 @@ export function runtimeFlags(spec: RuntimeSpec): Record<string, boolean> {
     families: !!spec.families,
     /* the world views' channels, which the taps' input actions are sent on (lib/world) */
     worlds: !!spec.worlds,
+    /* the templates drawn once per event, and the instances spawned of them (lib/spawn.ts) */
+    spawns: !!spec.spawns,
   };
 }
 
@@ -110,6 +112,7 @@ function runtimeValues(spec: RuntimeSpec, on: Record<string, boolean>): Record<s
     darkOn: on.colorMode ? "darkOn" : "false",
     darkNow: spec.dark ? `!!live.current.vars.${spec.dark}` : on.colorMode ? "darkNow.current" : "false",
     overlayGone: on.overlay ? "overlay: null, " : "",
+    spawnRows: oneLine(Object.entries(spec.spawns ?? {}).map(([k, v]) => ` ${keyOf(k)}: ${literal(v)}`)),
   };
 }
 

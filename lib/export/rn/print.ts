@@ -1098,6 +1098,9 @@ function screensOf(source: Doc, widths: Record<string, number>, o: RnPrintOption
     const { frame } = sp;
     kinds.push({ name: frame.name, slugs: kindsIn(sp.groups) });
     const p = new ScreenPrinter(doc, sp, widths, screens, warnings, o, facts);
+    /* a template spawned on events (docs/交互规则.md “按事件生成”) is drawn once, as the design has it: the kit has no pool
+       of instances yet, and a spawn effect does nothing there */
+    for (const g of sp.groups) if (g.spawn) p.warn("effects", "a template spawned on events is drawn once as the design has it: the phone kit does not spawn its instances yet", g.items[0]?.id);
     const body = p.body();
     p.icons.forEach((n) => icons.add(n));
     copies ||= p.copies;
