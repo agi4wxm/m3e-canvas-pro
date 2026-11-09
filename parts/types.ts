@@ -198,6 +198,11 @@ export type PartDef = {
    *  an exported app hands it to a slot written once (`src/custom/slots/<Name>.tsx`) that draws the real thing. Its
    *  events are the capability's. */
   capability?: string;
+  /** A world view (lib/world, docs/边界与契约.md “实时玩法”): a viewport whose picture is an engine's. Its props are the
+   *  world's state the design shows, its events the world's; input actions (`move`, `press`, `release`) reach it on a
+   *  channel of its own. The canvas and the preview draw a stand-in, an exported app hands it to a slot written once
+   *  where the real engine is plugged in. */
+  world?: true;
   /** retired: still drawn, no longer offered (see `PartRetired`); parts/defs/retired.ts says it for each */
   retired?: PartRetired;
   /** A container: what lies wholly inside it moves with it, the way a screen carries its parts.

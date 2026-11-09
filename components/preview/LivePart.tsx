@@ -6,7 +6,7 @@
  * part host, and a base-ui control (a text field, a switch, a select…) is drawn controlled by parts/render.tsx with the
  * same prop and the same host. */
 
-import { useEffect, useMemo, useRef } from "react";
+import { useContext, useEffect, useMemo, useRef } from "react";
 import type { Item } from "@/lib/tokens";
 import { sizeOf } from "@/lib/tokens";
 import type { TransportFile } from "@/lib/api/transport";
@@ -14,6 +14,8 @@ import { INPUT_PROP, fieldValueOf, type FieldValue } from "@/lib/interact";
 import { slotAction } from "@/lib/partContract";
 import { PartHostContext, type PartHost } from "@/parts/widgets/host";
 import { PartView } from "../PartView";
+import { partBySlug } from "@/parts/registry";
+import { PreviewWorlds } from "./worlds";
 
 /** the buttons inside an overlay that dismiss it, whichever overlay it is */
 const CLOSERS = '[data-slot$="-close"], [data-slot="alert-dialog-cancel"], [data-slot="alert-dialog-action"]';
@@ -56,6 +58,9 @@ export function LivePart({ item, widths, screen, onTap, onSlot, onHover, easeWid
     if ((onTap || onSlot) && !input) e.preventDefault();
   };
   const box = useRef<HTMLDivElement>(null);
+  /* a world view listens on its own channel, which the design's input actions are sent on */
+  const worlds = useContext(PreviewWorlds);
+  const world = worlds && partBySlug(item.component)?.world ? worlds.channel(item.id) : undefined;
   const live = useRef({ item, onField, onEvent });
   live.current = { item, onField, onEvent };
   /* What a part is handed (parts/widgets/host.ts): the preview is an explicit prototype, so a demo runs where nothing
@@ -75,8 +80,9 @@ export function LivePart({ item, widths, screen, onTap, onSlot, onHover, easeWid
       emit: (name, payload) => live.current.onEvent?.(name, payload),
       /* a control of the part's own reaches the slot's action, or its family's */
       wired: (slot) => !!slotAction(live.current.item, slot),
+      ...(world ? { world } : {}),
     }),
-    [demo, input],
+    [demo, input, world],
   );
   const slug = item.component;
   const files = useRef(onFiles);

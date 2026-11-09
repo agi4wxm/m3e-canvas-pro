@@ -23,6 +23,9 @@ import { bindRule, conditionRule } from "../../rules";
 import { mapNestedBodies } from "../../refs";
 import { convergedAction } from "../../converge";
 import { bindOfVar, fieldBindOf } from "../../bindings/bind";
+import { MOVE_ACTION, WORLD_ACTION } from "../../actions/model";
+import { vectorOf } from "../../actions/run";
+import { worldInputsOf } from "../../world/design";
 
 const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
 
@@ -350,9 +353,36 @@ function effectError(e: unknown, s: CoreState, depth = 0): string | null {
       return typeof e.form === "string" && s.doc.groups.some((g) => g.form && (g.id === e.form || g.items.some((it) => it.id === e.form))) ? null : `there is no form ${JSON.stringify(e.form)} (make_form makes one)`;
     case "signOut":
       return null;
+    case "move":
+    case "press":
+    case "release": {
+      const bad = worldError(e, s);
+      if (bad) return bad;
+      if (e.do !== "move") return null;
+      if (typeof e.vector !== "string" || !e.vector.trim()) return 'vector should be an expression that comes to a direction: "event" (a joystick\'s on:move), "vars.dir", or a fixed one written "1,0"';
+      return vectorOf(e.vector) ? null : exprSyntaxError(e.vector);
+    }
     default:
-      return `"${String(e.do)}" is not an effect (show, hide, toggle, open, close, setVar, toggleVar, addVar, setProp, snackbar, call, invoke, refresh, loadMore, submit, signOut)`;
+      return `"${String(e.do)}" is not an effect (show, hide, toggle, open, close, setVar, toggleVar, addVar, setProp, snackbar, call, invoke, refresh, loadMore, submit, signOut, move, press, release)`;
   }
+}
+
+/** What an input effect (`move`, `press`, `release`) names: a world view on the design, and an input of it, among the ones
+ *  the world says it takes (its `inputs`) when it says (docs/交互规则.md “输入动作”). */
+function worldError(e: Record<string, unknown>, s: CoreState): string | null {
+  const it = typeof e.part === "string" ? s.doc.groups.flatMap((g) => g.items).find((x) => x.id === e.part) : undefined;
+  if (!it) return `there is no part ${JSON.stringify(e.part)}`;
+  if (!partBySlug(it.component)?.world) return `${JSON.stringify(e.part)} is a ${it.component}: input actions go to a world view (world-view)`;
+  const action = e.do === "move" && e.action === undefined ? MOVE_ACTION : e.action;
+  if (typeof action !== "string" || !WORLD_ACTION.test(action)) return 'action should name an input of the world: a small letter, then letters and digits ("attack", "jump")';
+  const takes = worldInputsOf(it);
+  if (!takes.length) return null;
+  const decl = takes.find((d) => d.name === action);
+  const list = takes.map((d) => (d.type ? `${d.name}: ${d.type}` : d.name)).join(", ");
+  if (!decl) return `the world ${JSON.stringify(e.part)} takes ${list} (its inputs prop), not ${JSON.stringify(action)}`;
+  /* a direction goes to a vec2 input, a press or a let-go to a bool one */
+  const wants = e.do === "move" ? "vec2" : "bool";
+  return decl.type && decl.type !== wants ? `${action} is a ${decl.type} input of ${JSON.stringify(e.part)}: ${wants === "vec2" ? "move sends a direction to a vec2 input" : "press and release go to a bool input"} (it takes ${list})` : null;
 }
 
 /** A call's or an invoke's then or catch: a body, which may branch on the answer (`when` reading `response`, `status`,

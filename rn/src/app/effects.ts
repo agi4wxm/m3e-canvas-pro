@@ -120,6 +120,8 @@ const host: ActionHost = {
     return true
   },
   moves: () => kit?.moves() ?? 0,
+  /* an input action goes straight to the world view's channel, which the app's memory keeps */
+  worldInput: (part, action, value) => kit?.worldInput?.(part, action, value),
 }
 
 /** Runs a tap where it was made: its screen and params, the part, its row, its form, the place or event it came from. */

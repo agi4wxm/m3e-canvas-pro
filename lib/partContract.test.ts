@@ -161,6 +161,14 @@ describe("a demo", () => {
     expect(demoRuns(part("text"), "prototype")).toBe(false);
     expect(untakenDemos([part("coupon"), part("coupon", { actions: { action: claim } }), part("text")]).map((x) => x.component)).toEqual(["coupon"]);
   });
+
+  it("of a world view's example engine stops only once the world's state comes from data, not when its events call the API", () => {
+    expect(demoRuns(part("world-view"), "prototype")).toBe(true);
+    /* the round over sends the score to the back end: the world is still the example engine's */
+    expect(demoTakenOver(part("world-view", { actions: { "on:ended": claim } }))).toBe(false);
+    expect(demoTakenOver(part("world-view", { bind: { entities: "=data.world.value.entities" } }))).toBe(true);
+    expect(demoTakenOver(part("world-view", { bind: { status: "=vars.state" } }))).toBe(true);
+  });
 });
 
 /* ---------- the exports ---------- */

@@ -523,8 +523,16 @@ describe("what report 3.5 found", () => {
     Object.assign(pad.props.ref as object, { current: { getBoundingClientRect: () => ({ left: 0, top: 0, width: 100, height: 100 }) } });
     m.press(pad, "onPointerDown", at(50, 0));
     expect(given.at(-1)).toBe("0,-1");
+    /* each direction is sent as `move` too, what a world view's input action reads */
+    expect(sent.at(-1)).toEqual(["move", { x: 0, y: -1 }]);
+    /* the finger moving within the same direction is no new push */
+    m.press(m.by("data-slot", "joystick"), "onPointerMove", at(50, 0));
+    expect(sent.filter(([name]) => name === "move").length).toBe(1);
     m.press(m.by("data-slot", "joystick"), "onPointerUp", at(50, 0));
-    expect(sent.at(-1)).toEqual(["release", { x: 0, y: -1 }]);
+    expect(sent.slice(-2)).toEqual([
+      ["release", { x: 0, y: -1 }],
+      ["move", { x: 0, y: 0 }],
+    ]);
     expect(given.at(-1)).toBe("0,0");
   });
 

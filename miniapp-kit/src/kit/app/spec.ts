@@ -23,7 +23,10 @@ export type Effect =
   | { do: "refresh"; source: string }
   | { do: "loadMore"; source: string }
   | { do: "submit"; form?: string }
-  | { do: "signOut" };
+  | { do: "signOut" }
+  /* an input action for a world view (docs/交互规则.md “输入动作”), by its printed name */
+  | { do: "move"; part: string; action?: string; vector: string }
+  | { do: "press" | "release"; part: string; action: string };
 
 /** where a tap goes once its effects have run: a screen's key, "back", "link", or "none" */
 export type ActionBody = { to: string; transition?: string; url?: string; effects?: Effect[]; overlay?: boolean; scrollTo?: string; params?: Record<string, string>; motion?: { kind: string; dir?: string; easing?: string; ms?: number } };

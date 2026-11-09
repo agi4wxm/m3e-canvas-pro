@@ -50,3 +50,10 @@ export { run, startOf, chooseBranch, conditionHolds } from "../actions/run";
 export { linkUrlOf, MAX_CALL_DEPTH } from "../actions/model";
 export type { Host as ActionHost, Tap, Outcome, CallArgs, Change, FormRef, GoOptions as ActionGoOptions } from "../actions/host";
 export type { Action, ActionBody, Effect, Condition } from "../actions/model";
+/* The world views (lib/world, docs/边界与契约.md “实时玩法”): the channel each one's input actions come in on, its
+ * contract with an engine, and M3E's example engine */
+export { createWorlds, inputLog, inputWords, QUIET_CHANNEL, type Worlds } from "../world/channel";
+export { connectWorld, createExampleWorld, type ExampleWorld, type ExampleWorldOptions } from "../world/example";
+export { EXAMPLE_WORLD_CONTRACT, contractInputs, type WorldContract, type WorldSchema } from "../world/contract";
+export { WORLD_HOST_CONTRACT, WORLD_LIFECYCLE, type InputPriority, type OverlayPolicy, type PausePolicy, type WorldHostContract, type WorldLifecycleStep } from "../world/hostContract";
+export { WORLD_EVENTS, type Vec2, type World, type WorldChannel, type WorldClock, type WorldEntity, type WorldInputDecl, type WorldInputType, type WorldEventName, type WorldEvents, type WorldInput, type WorldListener, type WorldPointer, type WorldRect, type WorldSlotProps, type WorldState, type WorldStatus } from "../world/types";

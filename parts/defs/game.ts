@@ -260,9 +260,13 @@ export const game: PartDef[] = [
       { key: "value", label: "Direction (x,y from -1 to 1)", labels: { ja: "方向（x,y は -1 から 1）", zh: "方向（x,y 在 -1 到 1 之间）", ko: "방향 (x,y는 -1에서 1)" }, kind: "text", default: "" },
       ariaLabelProp(),
     ],
-    /* the direction the finger pushes is what the visitor enters; letting go is also sent */
+    /* the direction the finger pushes is what the visitor enters; each push is sent too (`move`, what a world view's
+       input action reads: docs/交互规则.md “输入动作”), and letting go */
     input: { prop: "value", kind: "vec2" },
-    events: [{ name: "release", label: "Let go", labels: { ja: "指を離した", zh: "松开了", ko: "손을 뗌" }, payload: { x: "number", y: "number" } }],
+    events: [
+      { name: "move", label: "Pushed a way", labels: { ja: "方向を押した", zh: "推向一个方向", ko: "방향을 밀었음" }, payload: { x: "number", y: "number" } },
+      { name: "release", label: "Let go", labels: { ja: "指を離した", zh: "松开了", ko: "손을 뗌" }, payload: { x: "number", y: "number" } },
+    ],
     tree: (p) => h("Joystick", { size: Math.round(p.n("size")), angle: Math.round(p.n("angle")), autoCenter: p.b("autoCenter"), ...(p.s("value") ? { value: p.s("value") } : {}), ...(p.b("disabled") ? { disabled: true } : {}), ...(p.s("ariaLabel").trim() ? { label: p.s("ariaLabel").trim() } : {}) }),
   },
   {

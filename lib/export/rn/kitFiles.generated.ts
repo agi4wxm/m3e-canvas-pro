@@ -45,5 +45,6 @@ export const KIT_FILES: string[] = [
  "theme/ThemeProvider.tsx",
  "theme/default.generated.ts",
  "theme/types.ts",
- "tree.tsx"
+ "tree.tsx",
+ "world.tsx"
 ];

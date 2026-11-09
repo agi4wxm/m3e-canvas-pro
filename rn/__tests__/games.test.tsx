@@ -153,6 +153,19 @@ describe("a movement pad", () => {
     expect(value).toHaveBeenLastCalledWith("0,0");
   });
 
+  it("sends each new direction as a push (`move`, what a world view's input action reads), and the middle as it lets go", async () => {
+    const moved = jest.fn();
+    await draw(<Joystick testID="pad" size={100} onValueChange={() => {}} onMove={moved} />);
+    const pad = screen.getByTestId("pad");
+    await fireEvent(pad, "responderGrant", touch(100, 50));
+    expect(moved).toHaveBeenLastCalledWith({ x: 1, y: 0 });
+    await fireEvent(pad, "responderMove", touch(50, 0));
+    expect(moved).toHaveBeenLastCalledWith({ x: 0, y: -1 });
+    await fireEvent(pad, "responderRelease", touch(50, 0));
+    expect(moved).toHaveBeenLastCalledWith({ x: 0, y: 0 });
+    expect(moved).toHaveBeenCalledTimes(3);
+  });
+
   it("shows the direction it is given, is pushed by a screen reader, and does nothing held still", async () => {
     const value = jest.fn();
     await draw(<Joystick testID="pad" value="0.71,-0.71" ariaLabel="Move" onValueChange={value} />);

@@ -15,6 +15,7 @@ import { ArgFields, BindingsContext, NavParams, endpointOptions, usePartShape } 
 import { ExprField } from "./ExprField";
 import { endpointOf, responseSchema } from "@/lib/bindings/contract";
 import { allCapabilities, argNamesOf, capabilityOf } from "@/lib/capabilities/catalog";
+import { worldInputsOf } from "@/lib/world/design";
 
 /* The panels that say what a prototype does beyond going to another screen: what else a tap runs, when
  * it runs, what hides, and the variables behind it all. What they need of the document comes by context,
@@ -167,7 +168,13 @@ const KINDS: { key: Effect["do"]; text: UIKey; icon: string }[] = [
   { key: "loadMore", text: "bdEffLoadMore", icon: "expand_more" },
   { key: "submit", text: "bdEffSubmit", icon: "send" },
   { key: "signOut", text: "bdEffSignOut", icon: "logout" },
+  { key: "move", text: "worldEffMove", icon: "gamepad" },
+  { key: "press", text: "worldEffPress", icon: "radio_button_checked" },
+  { key: "release", text: "worldEffRelease", icon: "radio_button_unchecked" },
 ];
+
+/** a world view (docs/交互规则.md “输入动作”): what a move, a press or a release goes to */
+const isWorldView = (it: Item) => !!partBySlug(it.component)?.world;
 
 /** the data sources of every screen, for an effect that loads one */
 const sourceNames = (frames: { data?: { name: string }[] }[] | undefined) => [...new Set((frames ?? []).flatMap((f) => (f.data ?? []).map((d) => d.name)))];
@@ -211,6 +218,14 @@ function changedKind(kind: Effect["do"], was: Effect | null, b: Behavior, bindin
       return { do: kind };
     case "signOut":
       return { do: kind };
+    case "move":
+      return { do: kind, part: first(isWorldView), vector: "event" };
+    case "press":
+    case "release": {
+      const id = first(isWorldView);
+      const takes = worldInputsOf(parts.find((it) => it.id === id) ?? { component: "" }).filter((d) => d.type !== "vec2");
+      return { do: kind, part: id, action: was && "action" in was && was.action ? was.action : (takes[0]?.name ?? "attack") };
+    }
   }
 }
 
@@ -398,12 +413,32 @@ function EffectRow({ effect, index, onChange, onRemove, onUp, p, depth = 0 }: { 
     }
     case "signOut":
       break;
+    case "move":
+    case "press":
+    case "release": {
+      /* the inputs of the kind this effect sends: a direction to a vec2 one, a press to a bool one */
+      const wants = effect.do === "move" ? "vec2" : "bool";
+      const takes = worldInputsOf(parts.find((it) => it.id === effect.part) ?? { component: "" }).filter((d) => !d.type || d.type === wants).map((d) => d.name);
+      const action = effect.do === "move" ? (effect.action ?? "move") : effect.action;
+      body = (
+        <div data-world-effect style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {parts.some(isWorldView) ? partSelect(isWorldView) : <div style={{ fontSize: 12, color: p.onSurfaceVariant, padding: "0 4px" }}>{t("worldNoViews", lang)}</div>}
+          {takes.length > 0 ? (
+            <Select options={[...new Set([...takes, action])].map((n) => ({ key: n, label: n, icon: "sports_esports" }))} value={action} onChange={(next) => onChange({ ...effect, action: next })} p={p} label={t("worldAction", lang)} />
+          ) : (
+            <Field value={action} onChange={(next) => onChange({ ...effect, action: next.trim() })} placeholder={t("worldAction", lang)} p={p} height={40} />
+          )}
+          {effect.do === "move" && <ExprField name="vector" value={effect.vector} onCommit={(vector) => onChange({ ...effect, vector })} shape={shape} api={bindings?.doc.api} p={p} label={t("worldVector", lang)} />}
+        </div>
+      );
+      break;
+    }
   }
   return (
     <div data-effect={effect.do} style={{ display: "flex", flexDirection: "column", gap: 8, padding: 8, borderRadius: 12, background: p.surfaceContainerLow }}>
       <div style={{ display: "flex", alignItems: "center", gap: 2 }}>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <Select options={KINDS.filter((k) => bindings || !BINDING_KINDS.has(k.key)).map((k) => ({ key: k.key, label: t(k.text, lang), icon: k.icon }))} value={effect.do} onChange={(k) => onChange(changedKind(k as Effect["do"], effect, b, bindings))} p={p} label={t("effectKind", lang)} />
+          <Select options={KINDS.filter((k) => (bindings || !BINDING_KINDS.has(k.key)) && (!WORLD_KINDS.has(k.key) || k.key === effect.do || parts.some(isWorldView))).map((k) => ({ key: k.key, label: t(k.text, lang), icon: k.icon }))} value={effect.do} onChange={(k) => onChange(changedKind(k as Effect["do"], effect, b, bindings))} p={p} label={t("effectKind", lang)} />
         </div>
         {index > 0 && <IconBtn icon="arrow_upward" p={p} size={32} onClick={onUp} title={t("effectUp", lang)} />}
         <IconBtn icon="close" p={p} size={32} onClick={onRemove} title={t("effectRemove", lang)} />
@@ -436,6 +471,9 @@ const withBranch = (e: Extract<Effect, { do: "call" | "invoke" }>, branch: "then
 
 /** the effects that reach the API, offered where the editor has the bindings */
 const BINDING_KINDS = new Set<string>(["call", "refresh", "loadMore", "submit", "signOut"]);
+
+/** the input actions, offered where a world view is on the design */
+const WORLD_KINDS = new Set<string>(["move", "press", "release"]);
 
 /** What a call does once it is answered: where it goes, with what params, and its effects. `response` or `error` is
  *  what its expressions can read. */

@@ -16,6 +16,7 @@ import { EXPORT_KO, EXPORT_UI } from "./i18n/export";
 import { BINDINGS_KO, BINDINGS_UI } from "./i18n/bindings";
 import { MOCKS_KO, MOCKS_UI } from "./i18n/mocks";
 import { CAPABILITIES_KO, CAPABILITIES_UI } from "./i18n/capabilities";
+import { WORLD_KO, WORLD_UI } from "./i18n/world";
 
 export type Lang = "ja" | "en" | "zh" | "ko";
 export const LANGS: { key: Lang; label: string }[] = [
@@ -583,6 +584,7 @@ export const UI = {
   ...EXPORT_UI,
   ...MOCKS_UI,
   ...CAPABILITIES_UI,
+  ...WORLD_UI,
 } as const satisfies Record<string, Str>;
 
 export type UIKey = keyof typeof UI;
@@ -689,6 +691,7 @@ export const KO: Record<UIKey, string> = {
   ...EXPORT_KO,
   ...MOCKS_KO,
   ...CAPABILITIES_KO,
+  ...WORLD_KO,
 };
 
 export const t = (key: UIKey, lang: Lang = current): string => (lang === "ko" ? KO[key] : UI[key][lang]);

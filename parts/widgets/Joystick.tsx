@@ -9,7 +9,8 @@ import { useHost, type HostProps } from "./host";
  *
  * An input of a direction (docs/组件规范.md "受控值和草稿"): its value is `value`, x and y from -1 to 1 ("0.71,-0.71";
  * "0,0" is the middle, "0,-1" straight up), handed out while a finger moves it and once more when it lets go, which
- * also sends `release` with where it was. Where the knob is under the finger is the pad's own; at rest it shows
+ * also sends `release` with where it was. Each direction handed out is sent as `move` too, the event a world view's
+ * input action reads (docs/交互规则.md “输入动作”). Where the knob is under the finger is the pad's own; at rest it shows
  * `value`, or, with none given, the direction `angle` draws it in (an older pad's way: 0 there is the middle). */
 
 /** how far the knob travels from the middle, as a share of the pad's side */
@@ -66,8 +67,15 @@ export function Joystick({ size = 132, angle = 0, autoCenter = true, value = "",
     const far = Math.hypot(dx, dy);
     /* the middle is not a direction: a finger there is worth nothing rather than a random angle */
     const at: Vec = far < travel * 0.22 ? { x: 0, y: 0 } : { x: round2(clamp(dx / Math.max(far, travel))), y: round2(clamp(dy / Math.max(far, travel))) };
+    push(at);
+  };
+  /* a direction handed out: the value, and the push as an event */
+  const push = (at: Vec) => {
+    const same = !!held && held.x === at.x && held.y === at.y;
     setHeld(at);
     host.input(wordsOf(at));
+    /* the finger moving within the same direction is no new push */
+    if (!same) host.emit("move", { x: at.x, y: at.y });
   };
   const release = () => {
     if (!held) return;
@@ -76,6 +84,7 @@ export function Joystick({ size = 132, angle = 0, autoCenter = true, value = "",
     setHeld(null);
     setLeft({ at, given: value });
     host.input(wordsOf(at));
+    host.emit("move", { x: at.x, y: at.y });
   };
 
   return (
@@ -107,8 +116,9 @@ export function Joystick({ size = 132, angle = 0, autoCenter = true, value = "",
         if (disabled || (!to && e.key !== "Escape")) return;
         e.preventDefault();
         if (!to) return release();
-        setHeld(to);
-        host.input(wordsOf(to));
+        /* a key held down repeats: the same way again is no new push */
+        if (held && held.x === to.x && held.y === to.y) return;
+        push(to);
       }}
       onKeyUp={(e) => {
         if (PUSH[e.key]) release();

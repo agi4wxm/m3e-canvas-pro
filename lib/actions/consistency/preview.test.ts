@@ -11,6 +11,7 @@ import { tiny } from "./tiny";
 import type { Element } from "./tinyReact";
 import type { ScreenMove } from "../../screenMotion";
 import type { Observed } from "./types";
+import { inputLog, type Worlds } from "../../world/channel";
 
 /* The table on the editor's preview: the real `Preview` component (components/Preview.tsx) and everything a tap goes
  * through there (its `fire`, the interpreter on its host, its calls through the bindings engine, its forms, its
@@ -78,6 +79,10 @@ function previewOf(doc: Doc, backend: Backend): Driver {
     return tiny.elements(tree).find((e) => (e.props.item as Item | undefined)?.id === it.id && handler in e.props);
   };
   draw();
+  /* what each world view's stand-in lists: it listens on the channel the preview gives it (parts/widgets/World.tsx) */
+  const heard: Record<string, string[]> = {};
+  const worlds = tiny.elements(tree).find((e) => { const v = e.props.value as Partial<Worlds> | undefined; return !!v && typeof v.channel === "function" && typeof v.send === "function"; })?.props.value as Worlds | undefined;
+  for (const it of doc.groups.flatMap((g) => g.items)) if (it.component === "world-view") worlds?.channel(it.id).listen((action, value) => (heard[it.id] = inputLog(heard[it.id] ?? [], action, value)));
   return {
     tap: (words) => {
       const { screen, it } = find(words);
@@ -130,6 +135,7 @@ function previewOf(doc: Doc, backend: Backend): Driver {
         for (const it of partsOf(s)) {
           words.push(wordsOf(it));
           if (it.component === "dropdown-menu" && opened[it.id]) for (const row of (it.props?.items as { label?: string }[] | undefined) ?? []) words.push(row.label ?? "");
+          words.push(...(heard[it.id] ?? []));
         }
       }
       /* the move the screen on show plays: what the preview hands the motion of its screens (`custom`) */

@@ -6,6 +6,8 @@
 export const NATIVE = {
   /* atoms */
   box: "Box",
+  /* the world view's stand-in (world.tsx): the engine's picture is the product's slot */
+  "world-view": "WorldStandIn",
   text: "Text",
   icon: "Icon",
   svg: "Svg",

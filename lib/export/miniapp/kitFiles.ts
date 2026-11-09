@@ -39,6 +39,8 @@ export const MINIAPP_KIT_FILES = [
   "theme.generated.ts",
   "theme.ts",
   "value.ts",
+  /* the world view's stand-in and its channels (docs/组件规范.md “世界视口”) */
+  "world.tsx",
   /* D3: pickers and entry parts */
   "composites/entry.tsx",
   "composites/pickers.tsx",

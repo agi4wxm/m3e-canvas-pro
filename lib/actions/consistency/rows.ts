@@ -22,6 +22,8 @@ const goTo = (to: string, ...effects: Effect[]): Action => ({ to, ...atOnce(to),
 const body = (to: string, ...effects: Effect[]): ActionBody => ({ to, ...atOnce(to), effects });
 const btn = (id: string, label: string, action: Action, more: Partial<PartSpec> = {}): PartSpec => ({ id, label, action, ...more });
 const text = (id: string, label: string, more: Partial<PartSpec> = {}): PartSpec => ({ id, kind: "text", label, ...more });
+/** a world view whose stand-in is called by these words; `items` the inputs its world takes (any when left out) */
+const world = (id: string, label: string, more: Partial<PartSpec> = {}): PartSpec => ({ id, kind: "world", label, ...more });
 /** a call; `ok` is its `then`, `fail` its `catch` */
 function call(operationId: string, more: { args?: Record<string, string>; ok?: Answer; fail?: Answer } = {}): Effect {
   const { ok, fail, ...rest } = more;
@@ -657,6 +659,44 @@ export const ROWS: Row[] = [
     steps: [{ tap: "Push in" }, { tap: "Fade back" }],
     expect: { screen: "home", move: { back: true, motion: "dissolve" } },
   },
+
+  /* ---------- input actions: what a tap sends a world view (its stand-in lists what it heard) ---------- */
+  {
+    id: "world-move-fixed",
+    title: "输入动作：一个固定方向发给世界视口，替身列出它听到的",
+    ref: "输入动作；报告 1.8（World 接口）",
+    design: { screens: [HOME], parts: [world("arena", "Arena"), btn("right", "Go right", stay({ do: "move", part: "arena", vector: "1,0" }))] },
+    steps: [{ tap: "Go right" }],
+    expect: { shown: { Arena: true, "move 1,0": true } },
+  },
+  {
+    id: "world-move-at-step",
+    title: "输入动作：方向在它那一步读，前一个效果写的值算数；长于 1 的方向截成长度 1",
+    ref: "输入动作；顺序",
+    design: { screens: [HOME], vars: [words("dir", "0,1")], parts: [world("arena", "Arena"), btn("aim", "Aim", stay(setVar("dir", "3,4"), { do: "move", part: "arena", vector: "vars.dir" }, setVar("dir", "0,-1")))] },
+    steps: [{ tap: "Aim" }],
+    expect: { vars: { dir: "0,-1" }, shown: { "move 0.6,0.8": true, "move 0,1": false, "move 0,-1": false } },
+  },
+  {
+    id: "world-press-release",
+    title: "输入动作：一次点击按下又松开一个命名输入，按顺序发出",
+    ref: "输入动作；报告 1.8（World 接口）",
+    design: { screens: [HOME], parts: [world("arena", "Arena"), btn("attack", "Attack", stay({ do: "press", part: "arena", action: "attack" }, { do: "release", part: "arena", action: "attack" }))] },
+    steps: [{ tap: "Attack" }, { tap: "Attack" }],
+    expect: { shown: { "attack ↓": true, "attack ↑": true } },
+  },
+  {
+    id: "world-move-from-event",
+    title: "输入动作：部件事件带来的方向（event）作为一个命名输入发出；读不出方向的不发",
+    ref: "输入动作；事件与槽位族",
+    design: {
+      screens: [HOME],
+      parts: [world("arena", "Arena"), { id: "pad", kind: "numpad", label: "Steer", actions: { "on:submit": stay({ do: "move", part: "arena", action: "aim", vector: "event.value" }, { do: "press", part: "arena", action: "jump" }) } }],
+    },
+    steps: [{ emit: "Steer", event: "submit", payload: { value: "0.5,-1" } }, { emit: "Steer", event: "submit", payload: { value: "nowhere" } }],
+    expect: { shown: { "aim 0.45,-0.89": true, "jump ↓": true } },
+  },
+
   /* ---------- subscriptions and the clock ---------- */
   {
     id: "message-runs-action",
