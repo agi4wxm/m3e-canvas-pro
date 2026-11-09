@@ -2,6 +2,7 @@ import { appearanceOf } from "../parts/appearance";
 import { isNode, isRaw, isWrap, mapNodes, raw, type PNode, type PValue } from "../parts/node";
 import { EXPR_NODE, namesIn, printValue, str } from "../parts/print";
 import { OVERLAY_ROOTS, partBySlug, reader, treeOf, withoutPickedImages } from "../parts/registry";
+import { markAssets, unmarkAssets } from "./export/assets";
 import type { PartDef, PropDef } from "../parts/types";
 import { WIDGET_SOURCES } from "../parts/widgets/sources";
 import { type Row, fillCurrent, firstRows, markCurrent } from "./collections";
@@ -1047,7 +1048,8 @@ export class Behaviour {
     const fields = new Map<string, string>();
     /* what a form fixes on it (required, as its contract says) is drawn as the design's own */
     const fixed = this.bound ? this.bound.formFixed(it, def) : {};
-    const base = markCurrent(withoutPickedImages(def, { ...it.props, ...fixed }, this.image), (field) => {
+    /* an asset of the pipeline's is read from the app's lookup at run time (lib/export/assets.ts) */
+    const base = markCurrent(withoutPickedImages(def, { ...markAssets(def, it.props), ...fixed }, this.image), (field) => {
       fields.set(`current.${field}`, currentField(field));
       uses.app.add("current");
       return markOf(`current.${field}`);
@@ -1066,7 +1068,7 @@ export class Behaviour {
       room = Math.floor(room / samples.length);
       return foldNodes(samples.map((s) => draw({ ...vals, [head.d.key]: s }, tail)), { expr: head.expr, samples, keepTap });
     };
-    const tree = draw(values, drawn);
+    const tree = unmarkAssets(draw(values, drawn));
     return words.length || fields.size ? unmarkNode(tree, new Map([...fields, ...words.map((x) => [x.d.key, x.expr] as const)])) : tree;
   }
 

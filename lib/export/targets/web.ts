@@ -26,12 +26,13 @@ const MOVED: Record<string, string> = {
   "src/index.css": "src/generated/index.css",
   "src/style.css": "src/generated/style.css",
   "src/doc-icons.ts": "src/generated/doc-icons.ts",
+  "src/assets.ts": "src/generated/assets.ts",
   "src/style-icons.ts": "src/generated/style-icons.ts",
 };
 /** what the workspace writes its own way */
 const REPLACED = new Set(["package.json", "README.md", "LICENSE", "NOTICE", ".gitignore", "src/main.tsx", "vite.config.ts", "tsconfig.json"]);
 /** the generated modules the prototype names by their old place */
-const RENAMED_IMPORTS: Record<string, string> = { "@/slots": "@/generated/slots", "@/runtime": "@/generated/runtime", "@/theme": "@/generated/theme", "@/style-icons": "@/generated/style-icons", "@/doc-icons": "@/generated/doc-icons", "@/api": "@/generated/api", "@/platform": "@/generated/platform", "@/DataScroll": "@/generated/DataScroll" };
+const RENAMED_IMPORTS: Record<string, string> = { "@/slots": "@/generated/slots", "@/runtime": "@/generated/runtime", "@/theme": "@/generated/theme", "@/style-icons": "@/generated/style-icons", "@/doc-icons": "@/generated/doc-icons", "@/assets": "@/generated/assets", "@/api": "@/generated/api", "@/platform": "@/generated/platform", "@/DataScroll": "@/generated/DataScroll" };
 
 /** An import line with its module renamed, when it names one of `map`; any other line as it is. */
 function renamedImport(line: string, map: Record<string, string>): string {
@@ -155,7 +156,7 @@ export const webTarget: ProductTarget = {
     const api = specOf(ctx);
     /* the capability views are drawn by slots the product writes once (lib/export/appCapabilities.ts) */
     const slots = slotsOf(ctx.doc, ctx.widths);
-    const project = await buildProject(ctx.doc, ctx.widths, { lang: ctx.lang, read: ctx.read, fetchIcons: ctx.fetchIcons, onProgress: ctx.onProgress, binds: { runtime: `${ctx.scope}/app-runtime`, api, operations: ctx.api.operations }, ...(slots.length ? { slots: slotNames(slots) } : {}) });
+    const project = await buildProject(ctx.doc, ctx.widths, { lang: ctx.lang, read: ctx.read, fetchIcons: ctx.fetchIcons, onProgress: ctx.onProgress, assets: ctx.assets, binds: { runtime: `${ctx.scope}/app-runtime`, api, operations: ctx.api.operations }, ...(slots.length ? { slots: slotNames(slots) } : {}) });
     ctx.warnings.push(...project.warnings);
     const proto: ProjectFiles = project.files;
     const files: ProductFiles = {};
@@ -205,7 +206,7 @@ export const webTarget: ProductTarget = {
     files["src/generated/env.d.ts"] = generated(ENV);
     /* what the web app leans on that is not there yet (a prototype demo, a part event, an interface, a capability),
        and what it prints differently: listed beside the screens, as the mobile apps list theirs */
-    const warnings = boundaryDifferences(ctx.doc, "web", ctx.widths).map(({ app: _app, ...w }) => w);
+    const warnings = boundaryDifferences(ctx.doc, "web", ctx.widths, ctx.assets).map(({ app: _app, ...w }) => w);
     files["src/generated/warnings.json"] = generated(`${JSON.stringify(warnings, null, 1)}\n`);
     ctx.differences.push(...warnings.map((w) => ({ app: "web" as const, ...w })));
     files["src/main.tsx"] = generated(MAIN(ctx.scope));

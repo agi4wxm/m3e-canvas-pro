@@ -18,6 +18,7 @@ import { MINIAPP_KIT_DIR, MINIAPP_KIT_FILES, kitFileFor } from "../miniapp/kitFi
 import { callsModule, iconsModule, pageConfig, pageModule, printMiniApp, screensIndex, specModule, tabBarModule, themeModule } from "../miniapp/app";
 import { generated, seeded, type ProductContext, type ProductFiles, type ProductTarget, type Workspace } from "../types";
 import { boundaryDifferences } from "../boundary";
+import { miniappAssetsFile } from "../assets";
 
 /** the packages the app is built with, at the versions the kit is built and checked with (miniapp-kit/package.json) */
 export function miniappDependencies(): { dependencies: Record<string, string>; devDependencies: Record<string, string> } {
@@ -337,7 +338,7 @@ export const miniappTarget: ProductTarget = {
     /* the capability views are drawn by slots the product writes once (lib/export/appCapabilities.ts) */
     const slots = slotsOf(ctx.doc, ctx.widths);
     const capabilities = capabilityFiles(ctx, "miniapp");
-    const app = await printMiniApp(ctx.doc, ctx.widths, { kitImport: "../../kit", runtimeImport: `${ctx.scope}/app-runtime`, callsImport: "../calls", image, ...(slots.length ? { slots: { from: "../slots", names: slotNames(slots) } } : {}) });
+    const app = await printMiniApp(ctx.doc, ctx.widths, { kitImport: "../../kit", runtimeImport: `${ctx.scope}/app-runtime`, callsImport: "../calls", image, assets: { from: "../assets" }, ...(slots.length ? { slots: { from: "../slots", names: slotNames(slots) } } : {}) });
     const { printed } = app;
     /* the design's mode, as the web app has it: light or dark, or the device's when the design is drawn in both */
     const look = normalizeTheme(ctx.doc.theme, styleContext(ctx.doc.styles));
@@ -345,7 +346,7 @@ export const miniappTarget: ProductTarget = {
     const files: ProductFiles = {};
     /* what the mini-program does not do as the design says (a part drawn as its atoms or as a placeholder, a tap not
        printed): listed beside the screens for the author, as the React Native printer lists its own */
-    const warnings = [...printed.warnings, ...boundaryDifferences(ctx.doc, "miniapp", ctx.widths).map(({ app: _app, ...w }) => w)];
+    const warnings = [...printed.warnings, ...boundaryDifferences(ctx.doc, "miniapp", ctx.widths, ctx.assets).map(({ app: _app, ...w }) => w)];
     files["src/generated/warnings.json"] = generated(`${JSON.stringify(warnings, null, 1)}\n`);
     ctx.differences.push(...warnings.map((w) => ({ app: "miniapp" as const, ...w })));
     for (const path of MINIAPP_KIT_FILES) files[`src/kit/${path}`] = generated(kitFileFor(await ctx.read(`${MINIAPP_KIT_DIR}/${path}`), `${ctx.scope}/app-runtime`));
@@ -358,6 +359,9 @@ export const miniappTarget: ProductTarget = {
     files["src/generated/theme.ts"] = generated(themeModule(app.theme, "../kit"));
     files["src/generated/theme.css"] = generated(app.css);
     files["src/generated/icons.ts"] = generated(iconsModule(app.icons, "../kit"));
+    /* the asset pipeline's assets the design names: a lookup from the manifest, never the files (lib/export/assets.ts) */
+    const assets = miniappAssetsFile(ctx.doc, ctx.assets);
+    if (assets) files["src/generated/assets.ts"] = generated(assets);
     files["src/generated/calls.ts"] = generated(callsModule(ctx.api, { apiImport: `${ctx.scope}/api`, kitImport: "../kit", runtimeFrom: "./runtime" }));
     files["src/generated/spec.ts"] = generated(specModule(ctx.doc, printed, ctx.api, { kitImport: "../kit", callsFrom: "./calls" }));
     files["src/generated/runtime.ts"] = generated(RUNTIME(ctx, authSource(specOf(ctx)), !!capabilities));
@@ -387,7 +391,10 @@ export const miniappTarget: ProductTarget = {
     files["src/index.html"] = generated(INDEX_HTML);
     files["src/custom/setup.ts"] = seeded(CUSTOM_SETUP);
     files["src/custom/Providers.tsx"] = seeded(CUSTOM_PROVIDERS);
-    files["config/index.ts"] = generated(Object.keys(images).length ? CONFIG.replace("    cache: { enable: false },\n", "    cache: { enable: false },\n    /* the pictures the design holds, as files beside the pages */\n    copy: { patterns: [{ from: \"src/assets/\", to: `dist/${process.env.TARO_ENV}/assets/` }], options: {} },\n") : CONFIG);
+    let taroConfig = Object.keys(images).length ? CONFIG.replace("    cache: { enable: false },\n", "    cache: { enable: false },\n    /* the pictures the design holds, as files beside the pages */\n    copy: { patterns: [{ from: \"src/assets/\", to: `dist/${process.env.TARO_ENV}/assets/` }], options: {} },\n") : CONFIG;
+    /* where the asset pipeline's files are read from, built in as the API's address is */
+    if (assets) taroConfig = taroConfig.replace('      "process.env.TARO_APP_REALTIME_URL": env("TARO_APP_REALTIME_URL"),\n', '      "process.env.TARO_APP_REALTIME_URL": env("TARO_APP_REALTIME_URL"),\n      "process.env.TARO_APP_ASSET_BASE": env("TARO_APP_ASSET_BASE"),\n');
+    files["config/index.ts"] = generated(taroConfig);
     files["babel.config.js"] = generated(BABEL);
     files["types/global.d.ts"] = generated(GLOBAL_TYPES);
     files["tsconfig.json"] = generated(TSCONFIG);

@@ -13,6 +13,9 @@
  *   and a sign-in or payment button whose tap invokes nothing.
  * - `custom`: a part the design marks as the product's own (`Item.slot`): every app draws it with a slot written once
  *   (`src/custom/slots/<Name>.tsx`), the design's drawing until it is changed, kept on every export.
+ * - `asset`: an asset of the asset pipeline's the design names (`asset:<id>`, lib/assetRefs.ts) that its manifest does
+ *   not have (removed, not delivered yet, of another type), or every one when no manifest was read: the app draws the
+ *   part's placeholder. The same gaps go to the hub in `.m3e/gaps.json` (lib/export/gaps.ts).
  *
  * The printers report what they draw differently themselves; this is what holds for the design whatever the printer. */
 
@@ -24,6 +27,8 @@ import { expandDoc } from "../expand";
 import { untakenDemos } from "../partContract";
 import { groupsInFrame, type ActionBody, type Doc, type Effect, type Item } from "../tokens";
 import type { DesignDifference } from "./types";
+import type { AssetManifest } from "../assetManifest";
+import { assetGapOf, assetUsesOfItem } from "../assetRefs";
 import { slotNames, slotsOf } from "./appCapabilities";
 
 /** the generic capabilities each app has a default adapter for (lib/export/appCapabilities.ts) */
@@ -50,7 +55,7 @@ function operationsOf(b: ActionBody | undefined, into: Set<string>, depth = 0): 
 
 /** What every app of the product leans on that is not there yet, for one app: its demos, part events, missing
  *  interfaces and platform capabilities, screen by screen. */
-export function boundaryDifferences(given: Doc, app: DesignDifference["app"], widths: Record<string, number> = {}): DesignDifference[] {
+export function boundaryDifferences(given: Doc, app: DesignDifference["app"], widths: Record<string, number> = {}, assets?: AssetManifest | null): DesignDifference[] {
   const doc = expandDoc(given, widths);
   const out: DesignDifference[] = [];
   const add = (kind: string, screen: string, it: Item | undefined, detail: string) => out.push({ app, kind, screen, ...(it ? { part: nameOf(it) } : {}), detail });
@@ -81,6 +86,10 @@ export function boundaryDifferences(given: Doc, app: DesignDifference["app"], wi
         else if (!def.silent && !DEFAULT_ADAPTERS[app].has(name)) add("capability", f.name, it, `invokes ${name}: it answers not-implemented until its adapter is written (src/custom/capabilities.ts)`);
       }
       if (it.component === "brand-button" && !invoked.has("auth.oauth") && !invoked.has("payment.pay")) add("capability", f.name, it, "a sign-in or payment button whose tap invokes neither auth.oauth nor payment.pay");
+      for (const u of assetUsesOfItem(it)) {
+        const gap = assetGapOf(u, assets);
+        if (gap) add("asset", f.name, it, `${u.prop}: ${gap.detail}; the app draws the part's placeholder`);
+      }
       /* the web prints what the mobile printers report for themselves */
       if (app !== "web") continue;
       const def = partBySlug(it.component);
