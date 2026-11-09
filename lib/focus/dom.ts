@@ -44,6 +44,9 @@ const IN_POPUP = '[data-tap]:not([data-tap="self"]), [role="menuitem"], [role="m
 const CONTROLS = 'input:not([type="hidden"]):not([disabled]), textarea:not([disabled]), select:not([disabled]), [role="switch"], [role="checkbox"], [role="slider"], [role="combobox"], [role="radio"]';
 /** what keeps the keys typed into it: a text field, a select, a slider */
 const TYPING = 'input:not([type="checkbox"]):not([type="radio"]):not([type="button"]):not([type="submit"]), textarea, select, [contenteditable]:not([contenteditable="false"]), [role="textbox"], [role="searchbox"], [role="combobox"], [role="slider"], [role="spinbutton"]';
+/** a widget that moves inside itself with the arrow keys and answers Enter and Space (a divider, a row of tabs, a
+ *  list, a menu): while it has the page's own focus the keys are its own, as the preview's back keys leave them */
+const OWNS_ARROWS = '[role="separator"], [role="tablist"], [role="radiogroup"], [role="listbox"], [role="menu"], [role="menubar"], [role="grid"], [role="tree"], [role="treegrid"], [role="toolbar"], [role="slider"], [role="spinbutton"]';
 /** a field of one line, which up and down leave */
 const ONE_LINE = 'input:not([type="range"])';
 
@@ -316,6 +319,7 @@ export function startFocus(host: DomFocusHost, win: Win = window): FocusDriver {
     const at = e.target as Element | null;
     if (at && typeof at.closest === "function" && at !== doc.body && at !== doc.documentElement && !host.layers().some((l) => l.root.contains(at))) return;
     const typing = typingIn(e.target);
+    if (!typing && e.key !== "Escape" && at && typeof at.closest === "function" && at.closest(OWNS_ARROWS)) return;
     if (device === "touch") {
       /* a pointer leaves every key as it was, but a direction shows the focus where it is */
       const reveals = (host.reveal ?? ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"]).includes(e.key);
