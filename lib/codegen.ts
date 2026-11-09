@@ -34,6 +34,7 @@ import { EXTERNAL } from "../parts/externals";
 import { FILE_OF } from "../parts/files.generated";
 import { WIDGET_SOURCES } from "../parts/widgets/sources";
 import { inlineNode, itemOfFile, localUsesIn, namesIn, str } from "../parts/print";
+import { ASSET_FN, WEB_ASSET_MODULE } from "./export/assets";
 import { flowClasses } from "../parts/flow";
 import { mapNodes, type PNode, type PValue } from "../parts/node";
 import { expandDoc } from "./expand";
@@ -133,7 +134,8 @@ class Ctx {
     for (const n of names) {
       if (n === "toast") this.usesToast = true;
       const file = FILE_OF[n];
-      const source = WIDGET_SOURCES[n] ?? EXTERNAL[n] ?? (file ? `@/components/m3e/${file}` : undefined);
+      /* the asset pipeline's assets are read from the app's lookup (lib/export/assets.ts) */
+      const source = n === ASSET_FN ? WEB_ASSET_MODULE : (WIDGET_SOURCES[n] ?? EXTERNAL[n] ?? (file ? `@/components/m3e/${file}` : undefined));
       if (!source) continue;
       const set = this.imports.get(source) ?? new Set<string>();
       set.add(n);
@@ -622,7 +624,7 @@ function screensOf(source: Doc, widths: Record<string, number>, o: BuildOptions)
     if (folds) c.imports.set("react", new Set([...(c.imports.get("react") ?? []), "useRef", "useState"]));
     /* the bindings' hooks: params, data, the scope, the regions' states, the forms (they say what else they use) */
     const key = b.screenKey(frame.id) ?? `screen${i + 1}`;
-    const head = binds?.head((answer, label) => b.answerOf(answer, c.uses, label), !!doc.vars?.length, key, () => b.hasScreenActions());
+    const head = binds?.head((answer, label) => b.answerOf(answer, c.uses, label), !!doc.vars?.length, key, () => b.hasScreenActions(), (a, label) => b.messageRun(a, c.uses, label));
     /* what the taps on the screen do, as data (lib/printBehaviour.ts): the table goes above the screen's function, and
        the interpreter runs them (src/runtime.tsx `useActions`) */
     const acts = b.screenActions();

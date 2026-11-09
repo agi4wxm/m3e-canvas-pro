@@ -1,5 +1,6 @@
 import { h, ic, listSlots, type PNode } from "../node";
 import type { ListItem, PartDef } from "../types";
+import { paintOf } from "../color";
 
 const TONES = [
   "bg-primary-container text-on-primary-container",
@@ -30,19 +31,22 @@ const SHAPES = [
   "slanted", "soft-boom", "square", "circle", "triangle",
 ];
 
+/* by the one color value (parts/color.ts): "" is the color of the words around it */
 const ICON_COLORS: Record<string, string | undefined> = {
-  default: undefined,
+  "": undefined,
   primary: "text-primary",
   secondary: "text-secondary",
   tertiary: "text-tertiary",
   error: "text-error",
-  muted: "text-on-surface-variant",
+  "on-surface-variant": "text-on-surface-variant",
   "on-surface": "text-on-surface",
   "on-primary": "text-on-primary",
-  inverse: "text-inverse-on-surface",
+  "inverse-on-surface": "text-inverse-on-surface",
 };
 
+/* "" and primary are the shape's own primary */
 const SHAPE_COLORS: Record<string, string | undefined> = {
+  "": undefined,
   primary: undefined,
   secondary: "bg-secondary",
   tertiary: "bg-tertiary",
@@ -53,6 +57,12 @@ const SHAPE_COLORS: Record<string, string | undefined> = {
   "surface-container-high": "bg-surface-container-high",
   outline: "bg-outline",
   error: "bg-error",
+};
+
+/** a part's className for a color, and the style of one it was not designed around (the key stays, as it always did) */
+const paintAs = (ref: string, classes: Record<string, string | undefined>, css: "color" | "background") => {
+  const { className, style } = paintOf(ref, classes, css);
+  return { className, ...(style ? { style } : {}) };
 };
 
 const RATIOS: Record<string, number> = { "16:9": 16 / 9, "4:3": 4 / 3, "1:1": 1, "3:4": 3 / 4, "21:9": 21 / 9 };
@@ -73,7 +83,7 @@ export const content: PartDef[] = [
       { key: "name", label: "Icon", kind: "icon", default: "favorite" },
       { key: "size", label: "Size", kind: "number", default: 24, min: 16, max: 96, step: 4, unit: "px" },
       { key: "filled", label: "Filled", kind: "bool", default: false },
-      { key: "color", label: "Color", kind: "enum", default: "default", options: Object.keys(ICON_COLORS) },
+      { key: "color", label: "Color", kind: "color", default: "", roles: Object.keys(ICON_COLORS).filter(Boolean), none: "default" },
     ],
     guess: (p) => ({ w: px(p.n("size")), h: px(p.n("size")) }),
     tree: (p) =>
@@ -81,7 +91,7 @@ export const content: PartDef[] = [
         name: p.s("name") || "favorite",
         size: p.n("size") === 24 ? undefined : px(p.n("size")),
         fill: p.b("filled") || undefined,
-        className: ICON_COLORS[p.s("color")],
+        ...paintAs(p.s("color"), ICON_COLORS, "color"),
       }),
   },
   {
@@ -278,15 +288,15 @@ export const content: PartDef[] = [
     h: 96,
     props: [
       { key: "name", label: "Shape", kind: "enum", default: "sunny", options: SHAPES },
-      { key: "color", label: "Color", kind: "enum", default: "primary", options: Object.keys(SHAPE_COLORS) },
+      { key: "color", label: "Color", kind: "color", default: "primary", roles: Object.keys(SHAPE_COLORS).filter(Boolean), none: "default" },
       { key: "width", label: "Width", kind: "number", default: 96, min: 8, max: 800, step: 4, unit: "px" },
       { key: "height", label: "Height", kind: "number", default: 96, min: 8, max: 800, step: 4, unit: "px" },
     ],
     tree: (p) =>
       h("Shape", {
         name: p.s("name"),
-        className: SHAPE_COLORS[p.s("color")],
-        style: { width: px(p.n("width")), height: px(p.n("height")) },
+        className: paintOf(p.s("color"), SHAPE_COLORS, "background").className,
+        style: { width: px(p.n("width")), height: px(p.n("height")), ...paintOf(p.s("color"), SHAPE_COLORS, "background").style },
       }),
   },
 ];

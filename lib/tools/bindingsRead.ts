@@ -43,6 +43,14 @@ const describeBindings = tool<{ screen: string; expr?: string; at?: string }>({
           const e = endpointOf(api, d.operationId);
           return { ...d, endpoint: e ? endpointLine(api, e) : "missing", reads: shape.sources.find((x) => x.name === d.name)?.item ? [`data.${d.name}.items`, `data.${d.name}.value`] : [`data.${d.name}.value`] };
         }),
+        ...(f.subscriptions?.length
+          ? {
+              subscriptions: f.subscriptions.map((sub) => {
+                const c = (api.channels ?? []).find((x) => x.id === sub.channel);
+                return { ...sub, channel: c ? `${c.id} ${c.address}` : `${sub.channel} (missing)`, reads: [`data.${sub.name}.value`, `data.${sub.name}.items`, `data.${sub.name}.latest`, `data.${sub.name}.count`], actionReads: "event.message, event.payload, event.at" };
+              }),
+            }
+          : {}),
         regions: groups
           .filter((g) => g.states)
           .map((g) => {

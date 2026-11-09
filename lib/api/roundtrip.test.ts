@@ -193,6 +193,6 @@ describe("the project file", () => {
 
   it("writes a document without one exactly as before (under the format's version, 5 since the props' names)", () => {
     const plain: Doc = { groups: [], frames: [], paletteKey: "purple", frame: "phone", title: "", brief: "" };
-    expect(serializeProject(plain).text).toBe('{\n  "format": "m3e-project",\n  "version": 5,\n  "document": {\n    "brief": "",\n    "frame": "phone",\n    "frames": [],\n    "groups": [],\n    "paletteKey": "purple",\n    "title": ""\n  }\n}\n');
+    expect(serializeProject(plain).text).toBe('{\n  "format": "m3e-project",\n  "version": 6,\n  "document": {\n    "brief": "",\n    "frame": "phone",\n    "frames": [],\n    "groups": [],\n    "paletteKey": "purple",\n    "title": ""\n  }\n}\n');
   });
 });

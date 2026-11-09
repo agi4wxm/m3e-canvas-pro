@@ -1,4 +1,7 @@
+import { colorChoicesOf } from "../../../parts/color";
+import { lookAsColours } from "../../materials";
 import { bindExpr, boundVar } from "../../bindings/bind";
+import { assetIdOf, assetSlotOf, isAssetName } from "../../assetRefs";
 import { COLOR_TOKENS, GAP, REGION_STATES, frameLengthOf, frameSizeOf, normalizeTheme, type Action, type ActionBody, type ApiSpec, type Condition, type Doc, type Effect, type Frame, type Group, type Item, type ScreenParam } from "../../tokens";
 import type { Answer } from "../../actions/model";
 import { partBySlug, reader } from "../../../parts/registry";
@@ -17,8 +20,9 @@ import { answerShape, fillCode, formRules, listCode, okStatus, pageSizeOf, paneS
 import { NATIVE, INPUT_PROPS, isNative, kitPropName } from "../../../miniapp-kit/src/kit/coverage";
 import { PARTS as KIT_PARTS } from "../../../miniapp-kit/src/kit/parts.generated";
 import { SET_ONLY, propValues, type AtomTaps, type PlainNode } from "../rn/data";
-import { Imports, NAME, andThen, draws, el, exprOf, handler, jsx, objOf, printHandler, same, svgMarkup, type Handler, type J } from "../ir/code";
+import { Imports, NAME, Raw, andThen, draws, el, exprOf, handler, jsx, objOf, printHandler, same, svgMarkup, type Handler, type J } from "../ir/code";
 import { answers, backMotion, setsProp, type DocFacts } from "../ir/facts";
+import { subscriptionPlans } from "../ir/channels";
 import { OPENS_BY_PROP, atomsOf, iconNamesOf, keepsTrigger, linesOf, partNode, planScreens, selectsByProp, slotGiven, type Loose, type PartNode, type RunNode, type ScreenPlan } from "../ir/screen";
 
 /* The Taro code of a document: one screen component per screen, built from the mini-program kit (miniapp-kit/src/kit),
@@ -36,7 +40,7 @@ import { OPENS_BY_PROP, atomsOf, iconNamesOf, keepsTrigger, linesOf, partNode, p
 
 /** something the printed app does not do as the design says, for the exporter to list */
 export type MiniWarning = {
-  kind: "placeholder" | "atoms" | "holder" | "trigger" | "hidden" | "slot" | "event" | "look" | "image" | "unknown" | "binding" | "scroll" | "link" | "input" | "style";
+  kind: "placeholder" | "atoms" | "holder" | "trigger" | "hidden" | "slot" | "event" | "look" | "image" | "unknown" | "binding" | "scroll" | "link" | "input" | "style" | "asset";
   screen?: string;
   /** what touches more than one (what of the style is not drawn), every screen it touches */
   screens?: string[];
@@ -89,6 +93,9 @@ export type MiniPrintOptions = {
   callsImport?: string;
   /** the path a picture the document holds as data is written to */
   image?: (data: string) => string;
+  /** where a screen imports `asset(id)` from: the lookup of the asset pipeline's assets the export writes from the
+   *  manifest (lib/export/assets.ts); left out, an asset the design names is left out, and reported */
+  assets?: { from: string };
   /** false: no tab bar, a shared navigation bar is drawn on each screen as it stands (the kit's own app) */
   tabBar?: boolean;
   /** the capability views drawn by the product's slots: where a screen imports them from, and each one's component by
@@ -115,6 +122,10 @@ const EFFECT_KEYS: Record<string, string[]> = {
   loadMore: ["source"],
   submit: ["form"],
   signOut: [],
+  /* an input action for a world view, which goes by its printed name as its channel does */
+  move: ["part", "action", "vector"],
+  press: ["part", "action"],
+  release: ["part", "action"],
 };
 
 /** What the printed code calls the document's things: a screen by its key (a tap names it by its frame's id; back, a
@@ -183,6 +194,8 @@ class ScreenPrinter {
   slots = new Set<string>();
   runtime = new Imports();
   react = new Set<string>();
+  /** whether the screen reads an asset of the pipeline's from the lookup */
+  assets = false;
   icons = new Set<string>();
   /** module-level constants: taps, conditions, form rules */
   consts: string[] = [];
@@ -300,9 +313,12 @@ class ScreenPrinter {
     if (it.fill && COLOR_TOKENS.some((t) => t.key === it.fill)) out.push(["fill", str(it.fill)]);
     if (it.textColor) out.push(["textColor", str(it.textColor)]);
     if (it.corners) out.push(["corners", expr({ tl: it.corners.tl, tr: it.corners.tr, br: it.corners.br, bl: it.corners.bl })]);
-    const look = cleanLook(it.look);
-    if (look) {
-      if (look.texture) this.warn("look", "a texture is not drawn in a mini-program", it.id);
+    const cleaned = cleanLook(it.look);
+    if (cleaned) {
+      if (cleaned.texture) this.warn("look", "a texture is not drawn in a mini-program", it.id);
+      /* a material's pictures are not laid as a fill here: each material layer stands as its colour (lib/materials.ts) */
+      const { look, replaced } = lookAsColours(cleaned, this.doc.materials);
+      if (replaced) this.warn("look", "a material is drawn as its colour in a mini-program, without its picture", it.id);
       out.push(["look", expr(look)]);
     }
     const tap = this.tap(it.action, it.id, at);
@@ -370,8 +386,8 @@ class ScreenPrinter {
         ? [design]
         : d.kind === "number"
           ? [design, `${d.min}`, `${d.max}`]
-          : d.kind === "enum"
-            ? [`${expr(d.options.map((x) => (typeof x === "string" ? x : x.value)))} as const`, design]
+          : d.kind === "enum" || d.kind === "color"
+            ? [`${expr(d.kind === "color" ? colorChoicesOf(d) : d.options.map((x) => (typeof x === "string" ? x : x.value)))} as const`, design]
             : d.kind === "list"
               ? [design, `${d.max ?? 50}`]
               : [];
@@ -381,6 +397,30 @@ class ScreenPrinter {
 
   /** a picture the document holds as data, as the page reads it: the file the export writes it as; one it does not
    *  write is left out, and reported */
+  /** An asset of the pipeline's (`asset:<id>`) as the page reads it: its address from the lookup. One named as an icon
+   *  is not drawn by the kit yet: it shows none, and that is reported. */
+  asset(name: string, part: string, icon = false): Raw | string {
+    if (icon) {
+      this.warn("asset", `${name} is named as an icon, which the mini-program's kit does not draw yet: it shows no icon`, part);
+      return "";
+    }
+    if (!this.o.assets) {
+      this.warn("asset", "an asset of the asset pipeline's is left out: this mini-program has no lookup of them", part);
+      return "";
+    }
+    this.assets = true;
+    return new Raw(`asset(${str(assetIdOf(name))})`);
+  }
+
+  /** a prop's value with the pipeline's assets it names read from the lookup */
+  assetProp(def: PartDef, d: PartDef["props"][number], v: unknown, part: string): unknown {
+    const slot = assetSlotOf(def, d);
+    if (isAssetName(v)) return slot ? this.asset(v, part, slot === "icon") : v;
+    if (d.kind === "list" && Array.isArray(v) && v.some((row) => isAssetName((row as Record<string, unknown>)?.image) || isAssetName((row as Record<string, unknown>)?.icon)))
+      return (v as Record<string, unknown>[]).map((row) => ({ ...row, ...(isAssetName(row.image) ? { image: this.asset(row.image, part) } : {}), ...(isAssetName(row.icon) ? { icon: this.asset(row.icon, part, true) } : {}) }));
+    return v;
+  }
+
   picture(data: string, part: string): string {
     const path = this.o.image?.(data) ?? "";
     if (!path) this.warn("image", "a picture held in the document is left out (PNG, JPEG, GIF, WebP and SVG are written as files)", part);
@@ -400,6 +440,7 @@ class ScreenPrinter {
       if (SET_ONLY.has(d.key) && !(it.props && typeof it.props[d.key] === "number")) continue;
       if (d.kind === "image" && typeof v === "string" && v.startsWith("data:")) v = this.picture(v, it.id);
       if (d.kind === "list" && Array.isArray(v)) v = (v as Record<string, unknown>[]).map((row) => (typeof row.image === "string" && row.image.startsWith("data:") ? { ...row, image: this.picture(row.image, it.id) } : row));
+      v = this.assetProp(def, d, v, it.id);
       if (def.slug === "svg" && d.key === "markup" && typeof v === "string" && v) v = svgMarkup(v, it.id) ?? "";
       /* a plain read of a variable is the screen's variable (lib/bindings/bind.ts), which an input bound so writes back to */
       const varId = boundVar(it, d.key, this.doc.vars);
@@ -490,7 +531,7 @@ class ScreenPrinter {
     }
     this.kit.add(name);
     for (const i of iconNamesOf(n.slug, n.props)) this.icons.add(i);
-    const props: [string, string][] = Object.entries(n.props).map(([k, v]) => [k, expr(v)]);
+    const props: [string, string][] = Object.entries(n.props).map(([k, v]) => [k, expr(isAssetName(v) ? this.asset(v, root?.item.id ?? "") : v)]);
     if (n.fill) props.push(["fill", str(n.fill)]);
     if (n.textColor) props.push(["textColor", str(n.textColor)]);
     if (n.corners) props.push(["corners", expr(n.corners)]);
@@ -519,14 +560,16 @@ class ScreenPrinter {
     }
     /* a capability view is its slot (src/custom/slots), handed what the design's stand-in is and drawing it until written */
     const slot = this.o.slots?.names[it.id];
-    if (slot && def.capability) {
+    /* a world view hears the design's input actions on its channel, which the screen's runtime keeps (kit/app/world.ts) */
+    const channel: [string, string][] = def.world ? [["channel", `s.world(${str(this.names.part(it.id))})`]] : [];
+    if (slot && (def.capability || def.world)) {
       this.slots.add(slot);
-      /* the stand-in is the kit's own drawing of the view where it has one (the camera's, the map's, the call's), its
-         props the part's as the kit takes them */
+      /* the stand-in is the kit's own drawing of the view where it has one (the camera's, the map's, the call's, the
+         world's), its props the part's as the kit takes them */
       const standIn = isNative(def.slug) ? NATIVE[def.slug] : "Placeholder";
       this.kit.add(standIn);
-      const drawn = isNative(def.slug) ? el(standIn, [...this.props(def, it, at), ...this.extras(p, at, true, close), ["testID", str(this.names.part(it.id))]]) : el("Placeholder", [["part", str(def.slug)], ["name", str(def.name)], ["width", expr(size.w)], ["height", expr(size.h)]]);
-      return el(slot, [...slotGiven(def, it).map(([k, v]) => [k, expr(v)] as [string, string]), ["width", expr(size.w)], ["height", expr(size.h)], ...this.slotEvents(p, at)], [drawn]);
+      const drawn = isNative(def.slug) ? el(standIn, [...this.props(def, it, at), ...this.extras(p, at, true, close), ...channel, ["testID", str(this.names.part(it.id))]]) : el("Placeholder", [["part", str(def.slug)], ["name", str(def.name)], ["width", expr(size.w)], ["height", expr(size.h)]]);
+      return el(slot, [...slotGiven(def, it).map(([k, v]) => [k, expr(v)] as [string, string]), ["width", expr(size.w)], ["height", expr(size.h)], ...this.slotEvents(p, at), ...channel], [drawn]);
     }
     /* a part the product draws itself (`Item.slot`): its slot, handed what the kit's component is (the generated slots
        module draws the kit's component inside it), or around the atoms or the placeholder it is drawn as */
@@ -553,7 +596,7 @@ class ScreenPrinter {
       const picks: [string, string][] = selectsByProp(def, it) ? [["onSelect", `(i: number) => s.setProp(${str(this.names.part(it.id))}, "selected", i)`]] : [];
       /* files are asked for through the capability registry (file.pick) */
       if (def.slug === "file-upload") picks.push(["pick", "s.pickFiles"]);
-      return el(slot ?? name, [...props, ...input.props, ...layout, ...this.extras(p, at, true, close), ...opens, ...picks, ["testID", str(this.names.part(it.id))]], kids);
+      return el(slot ?? name, [...props, ...input.props, ...layout, ...this.extras(p, at, true, close), ...opens, ...picks, ...channel, ["testID", str(this.names.part(it.id))]], kids);
     }
     const drawn = this.drawn(p, at, kids, layout);
     return slot ? el(slot, [["width", expr(size.w)], ["height", expr(size.h)]], [drawn]) : drawn;
@@ -855,7 +898,16 @@ function screensOf(source: Doc, widths: Record<string, number>, o: MiniPrintOpti
     const bg = frame.bg && COLOR_TOKENS.some((t) => t.key === frame.bg) ? frame.bg : undefined;
     /* the screen's data: each source's arguments read in the screen's scope, loaded through the generated calls */
     const sources = (frame.data ?? []).map((d) => sourceHook(p, doc.api ?? {}, d));
-    const names = sources.map((x) => x.name);
+    /* its subscriptions to realtime channels: each open while its page is on show, the design's actions run on its
+       messages where the screen's taps run, with the message as `event` */
+    const subs = subscriptionPlans(doc, frame).map((plan) => {
+      const name = identOf(plan.def.name);
+      const def = p.constant("C", plan.def, "ChannelDef");
+      p.runtime.type("ChannelDef");
+      const on = plan.actions.map(([k, a]) => `${str(k)}: (event) => ${p.run(a, "", { $: "$" }, ["event"])}`);
+      return { name, line: `const ${name} = useScreenSubscription(${def}, $0${sources.length ? `.with({ data: { ${sources.map((x) => x.name).join(", ")} } })` : ""}${on.length ? `, { ${on.join(", ")} }` : ""});` };
+    });
+    const names = [...sources.map((x) => x.name), ...subs.map((x) => x.name)];
     const usesBody = draws(body, "TabBar");
     const top: string[] = [];
     const init: string[] = [];
@@ -872,11 +924,18 @@ function screensOf(source: Doc, widths: Record<string, number>, o: MiniPrintOpti
     if (sources.length) {
       p.runtime.add("useBindings").add("useDataSource").add("sourceKey");
       p.usesCalls = true;
-      /* the sources' arguments are read in the screen's scope before the sources are there */
-      if (sources.some((src) => src.reads0)) top.push("const $0 = useBindings({ params: s.params, vars: s.vars });");
-      for (const src of sources) top.push(...src.lines);
     }
-    const needs$ = p.uses$ || p.hooks.length > 0 || sources.length > 0;
+    /* the sources' arguments (and the subscriptions' addresses) are read in the screen's scope before they are there */
+    if (sources.some((src) => src.reads0) || subs.length) {
+      p.runtime.add("useBindings");
+      top.push("const $0 = useBindings({ params: s.params, vars: s.vars });");
+    }
+    for (const src of sources) top.push(...src.lines);
+    if (subs.length) {
+      p.kit.add("useScreenSubscription");
+      for (const x of subs) top.push(x.line);
+    }
+    const needs$ = p.uses$ || p.hooks.length > 0 || sources.length > 0 || subs.length > 0;
     if (needs$) {
       p.runtime.add("useBindings");
       top.push(`const $ = useBindings({ ${names.length ? `data: { ${names.join(", ")} }, ` : ""}params: s.params, vars: s.vars });`);
@@ -896,6 +955,7 @@ function screensOf(source: Doc, widths: Record<string, number>, o: MiniPrintOpti
       p.kit.line(kitImport, "split"),
       ...(p.usesCalls ? [`import { CALLS } from ${str(o.callsImport ?? "../calls")};`] : []),
       ...(p.slots.size && o.slots ? [`import { ${[...p.slots].sort().join(", ")} } from ${str(o.slots.from)};`] : []),
+      ...(p.assets && o.assets ? [`import { asset } from ${str(o.assets.from)};`] : []),
       ...(usesBody ? ['import { TabBar } from "../tabBar";'] : []),
     ];
     const src = [

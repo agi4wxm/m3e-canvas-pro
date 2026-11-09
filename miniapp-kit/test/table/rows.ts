@@ -1600,5 +1600,366 @@ export const ROWS: KitRow[] = [
    "home": "home",
    "next": "next"
   }
+ },
+ {
+  "id": "world-move-fixed",
+  "title": "输入动作：一个固定方向发给世界视口，替身列出它听到的",
+  "ref": "输入动作；报告 1.8（World 接口）",
+  "steps": [
+   {
+    "tap": "Go right"
+   }
+  ],
+  "expect": {
+   "shown": {
+    "Arena": true,
+    "move 1,0": true
+   }
+  },
+  "vars": [],
+  "screens": {
+   "home": "home"
+  }
+ },
+ {
+  "id": "world-move-at-step",
+  "title": "输入动作：方向在它那一步读，前一个效果写的值算数；长于 1 的方向截成长度 1",
+  "ref": "输入动作；顺序",
+  "steps": [
+   {
+    "tap": "Aim"
+   }
+  ],
+  "expect": {
+   "vars": {
+    "dir": "0,-1"
+   },
+   "shown": {
+    "move 0.6,0.8": true,
+    "move 0,1": false,
+    "move 0,-1": false
+   }
+  },
+  "vars": [
+   "dir"
+  ],
+  "screens": {
+   "home": "home"
+  }
+ },
+ {
+  "id": "world-press-release",
+  "title": "输入动作：一次点击按下又松开一个命名输入，按顺序发出",
+  "ref": "输入动作；报告 1.8（World 接口）",
+  "steps": [
+   {
+    "tap": "Attack"
+   },
+   {
+    "tap": "Attack"
+   }
+  ],
+  "expect": {
+   "shown": {
+    "attack ↓": true,
+    "attack ↑": true
+   }
+  },
+  "vars": [],
+  "screens": {
+   "home": "home"
+  }
+ },
+ {
+  "id": "world-move-from-event",
+  "title": "输入动作：部件事件带来的方向（event）作为一个命名输入发出；读不出方向的不发",
+  "ref": "输入动作；事件与槽位族",
+  "steps": [
+   {
+    "emit": "Steer",
+    "event": "submit",
+    "payload": {
+     "value": "0.5,-1"
+    }
+   },
+   {
+    "emit": "Steer",
+    "event": "submit",
+    "payload": {
+     "value": "nowhere"
+    }
+   }
+  ],
+  "expect": {
+   "shown": {
+    "aim 0.45,-0.89": true,
+    "jump ↓": true
+   }
+  },
+  "vars": [],
+  "screens": {
+   "home": "home"
+  }
+ },
+ {
+  "id": "message-runs-action",
+  "title": "实时消息运行订阅的动作：读 event 和订阅收下的数据",
+  "ref": "订阅；报告 1.8、10",
+  "steps": [
+   {
+    "push": "/feed",
+    "message": "post",
+    "payload": {
+     "text": "hello"
+    }
+   },
+   {
+    "push": "/feed",
+    "message": "post",
+    "payload": {
+     "text": "again"
+    }
+   }
+  ],
+  "expect": {
+   "vars": {
+    "last": "again",
+    "count": 2
+   },
+   "open": {
+    "/feed": 1
+   }
+  },
+  "known": {
+   "webPrototype": "原型 Web 导出没有接口，也就没有实时通道：订阅不打开，消息不到达（要运行它们请导出完整产品；报告 1.8、10）"
+  },
+  "vars": [
+   "last",
+   "count"
+  ],
+  "screens": {
+   "home": "home"
+  }
+ },
+ {
+  "id": "message-own-action-first",
+  "title": "消息自己的动作优先：on:<消息名> 先于 on:message",
+  "ref": "订阅；报告 1.8",
+  "steps": [
+   {
+    "push": "/feed",
+    "message": "post",
+    "payload": {
+     "text": "mine"
+    }
+   },
+   {
+    "push": "/feed",
+    "message": "ping",
+    "payload": {
+     "n": 1
+    }
+   }
+  ],
+  "expect": {
+   "vars": {
+    "last": "mine",
+    "other": 1
+   }
+  },
+  "known": {
+   "webPrototype": "原型 Web 导出没有接口，也就没有实时通道：订阅不打开，消息不到达（要运行它们请导出完整产品；报告 1.8、10）"
+  },
+  "vars": [
+   "last",
+   "other"
+  ],
+  "screens": {
+   "home": "home"
+  }
+ },
+ {
+  "id": "message-address-params",
+  "title": "订阅的地址读屏幕参数：只收这个地址的消息",
+  "ref": "订阅；报告 1.8",
+  "steps": [
+   {
+    "tap": "Enter room"
+   },
+   {
+    "push": "/rooms/r1",
+    "message": "said",
+    "payload": {
+     "text": "wrong"
+    }
+   },
+   {
+    "push": "/rooms/r7",
+    "message": "said",
+    "payload": {
+     "text": "right"
+    }
+   }
+  ],
+  "expect": {
+   "screen": "room",
+   "vars": {
+    "heard": "right"
+   },
+   "open": {
+    "/rooms/r7": 1
+   }
+  },
+  "known": {
+   "webPrototype": "原型 Web 导出没有接口，也就没有实时通道：订阅不打开，消息不到达（要运行它们请导出完整产品；报告 1.8、10）"
+  },
+  "vars": [
+   "heard"
+  ],
+  "screens": {
+   "home": "home",
+   "room": "room"
+  }
+ },
+ {
+  "id": "message-after-leave",
+  "title": "离开屏幕时订阅关闭：之后到达的消息什么都不做",
+  "ref": "订阅、迟到的回答；报告 1.8",
+  "steps": [
+   {
+    "push": "/feed",
+    "message": "post",
+    "payload": {
+     "text": "a"
+    }
+   },
+   {
+    "tap": "Leave"
+   },
+   {
+    "push": "/feed",
+    "message": "post",
+    "payload": {
+     "text": "b"
+    }
+   }
+  ],
+  "expect": {
+   "screen": "next",
+   "vars": {
+    "n": 1
+   },
+   "open": {
+    "/feed": 0
+   }
+  },
+  "known": {
+   "webPrototype": "原型 Web 导出没有接口，也就没有实时通道：订阅不打开，消息不到达（要运行它们请导出完整产品；报告 1.8、10）"
+  },
+  "vars": [
+   "n"
+  ],
+  "screens": {
+   "home": "home",
+   "next": "next"
+  }
+ },
+ {
+  "id": "message-after-restart",
+  "title": "重新开始后：旧会话的订阅收到的消息什么都不做，屏幕在新会话上重新订阅",
+  "ref": "订阅、迟到的回答；报告 1.8",
+  "steps": [
+   {
+    "restart": true
+   },
+   {
+    "push": "/feed",
+    "message": "post",
+    "payload": {
+     "text": "a"
+    }
+   }
+  ],
+  "expect": {
+   "vars": {
+    "n": 1
+   },
+   "open": {
+    "/feed": 1
+   }
+  },
+  "known": {
+   "webPrototype": "原型 Web 导出没有接口，也就没有实时通道：订阅不打开，消息不到达（要运行它们请导出完整产品；报告 1.8、10）"
+  },
+  "vars": [
+   "n"
+  ],
+  "screens": {
+   "home": "home"
+  }
+ },
+ {
+  "id": "clock-paused",
+  "title": "时钟暂停：now 停在后端的时钟停下的那一刻，不读设备的时间",
+  "ref": "时钟；报告 10",
+  "steps": [
+   {
+    "clock": {
+     "paused": true
+    }
+   },
+   {
+    "wait": 30
+   },
+   {
+    "tap": "Stamp"
+   }
+  ],
+  "expect": {
+   "vars": {
+    "t": "2026-01-15T09:00:00.000Z"
+   }
+  },
+  "known": {
+   "webPrototype": "原型 Web 导出没有传输层，now 读设备的时钟，不读后端（模拟库）的时钟（要按后端的时钟请导出完整产品；报告 10）"
+  },
+  "vars": [
+   "t"
+  ],
+  "screens": {
+   "home": "home"
+  }
+ },
+ {
+  "id": "clock-rate",
+  "title": "时钟倍率：now 按后端时钟的倍率走",
+  "ref": "时钟；报告 10",
+  "steps": [
+   {
+    "clock": {
+     "rate": 3
+    }
+   },
+   {
+    "wait": 20
+   },
+   {
+    "tap": "Stamp"
+   }
+  ],
+  "expect": {
+   "vars": {
+    "t": "2026-01-15T09:00:00.060Z"
+   }
+  },
+  "known": {
+   "webPrototype": "原型 Web 导出没有传输层，now 读设备的时钟，不读后端（模拟库）的时钟（要按后端的时钟请导出完整产品；报告 10）"
+  },
+  "vars": [
+   "t"
+  ],
+  "screens": {
+   "home": "home"
+  }
  }
 ];

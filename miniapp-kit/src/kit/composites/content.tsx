@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 import type { PartBase } from "../atoms/basics";
 import { Button, Checkbox, RadioMark, Slider, Switch } from "../atoms/controls";
 import { Words } from "../atoms/words";
-import { c, ca } from "../color";
+import { c, ca, css, inkOver } from "../color";
 import { Glyph } from "../icons";
 import { useFill } from "../layout";
 import { withDefaults, type ListRow } from "../parts";
@@ -25,7 +25,7 @@ const DISCS: Record<string, [string, string]> = {
   "secondary-container": ["secondary-container", "on-secondary-container"],
   "tertiary-container": ["tertiary-container", "on-tertiary-container"],
   primary: ["primary", "on-primary"],
-  surface: ["surface-container-highest", "on-surface-variant"],
+  "surface-container-highest": ["surface-container-highest", "on-surface-variant"],
 };
 
 export type ListItemProps = PartBase & {
@@ -54,7 +54,9 @@ export function ListItem(props: ListItemProps) {
   const min = typeof extra(kit, "rowMin") === "number" ? (extra(kit, "rowMin") as number) : list === "inset" || rowRecipe === "chevron" ? 44 : rowRecipe === "dense" || list === "hairline" ? 40 : p.size === "xs" ? 40 : p.size === "sm" ? 48 : p.description ? 72 : 56;
   const pad = 16;
   const showsArrow = (rowRecipe === "chevron" || rowRecipe === "arrow") && (p.trailing === "none" || p.trailing === "text");
-  const disc = DISCS[p.iconFill ?? "none"];
+  /* a disc of a color it was not designed around is that color, the glyph in what reads over it */
+  const own = DISCS[p.iconFill ?? ""];
+  const disc: [string, string] | undefined = own ?? (p.iconFill && css(p.iconFill) ? [p.iconFill, inkOver(p.iconFill)] : undefined);
   const iconBox = (name: string) => {
     if (iconRecipe === "tile")
       return (
@@ -66,7 +68,7 @@ export function ListItem(props: ListItemProps) {
       const [bg, ink] = disc ?? ["secondary-container", "on-secondary-container"];
       const s = p.size === "xs" ? 24 : p.size === "sm" ? 32 : 40;
       return (
-        <View style={sx(ROW, { width: s, height: s, borderRadius: s / 2, backgroundColor: c(bg), justifyContent: "center", flexShrink: 0 })}>
+        <View style={sx(ROW, { width: s, height: s, borderRadius: s / 2, backgroundColor: css(bg) ?? c(bg), justifyContent: "center", flexShrink: 0 })}>
           <Glyph name={name} size={s >= 40 ? 24 : 18} color={ink} />
         </View>
       );

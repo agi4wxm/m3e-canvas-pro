@@ -1,8 +1,12 @@
 import { h, ic, raw } from "../node";
 import type { PNode } from "../node";
 import { around, type PartDef } from "../types";
+import { paintOf } from "../color";
 
 const BUTTON_VARIANTS = ["filled", "tonal", "elevated", "outlined", "text"];
+
+/* the spinner's ink, by the one color value (parts/color.ts); primary is the spinner's own */
+const SPINNER_INK: Record<string, string | undefined> = { primary: undefined, secondary: "text-secondary", tertiary: "text-tertiary", error: "text-error", "on-surface": "text-on-surface" };
 
 export const communication: PartDef[] = [
   {
@@ -126,14 +130,15 @@ export const communication: PartDef[] = [
           { value: "lg", label: "48" },
         ],
       },
-      { key: "color", label: "Color", kind: "enum", default: "primary", options: ["primary", "secondary", "tertiary", "error", "on-surface"] },
+      { key: "color", label: "Color", kind: "color", default: "primary", roles: Object.keys(SPINNER_INK), none: "default" },
     ],
     tree: (p) => {
       // literal class names: Tailwind only sees what is written out
       const size = { xs: "size-4", sm: undefined, md: "size-8", lg: "size-12" }[p.s("size")];
-      const color = { primary: undefined, secondary: "text-secondary", tertiary: "text-tertiary", error: "text-error", "on-surface": "text-on-surface" }[p.s("color")];
-      const className = [size, color].filter(Boolean).join(" ");
-      return h("Spinner", { className: className || undefined });
+      /* "" is the spinner's own primary, as primary is */
+      const paint = paintOf(p.s("color") || "primary", SPINNER_INK, "color");
+      const className = [size, paint.className].filter(Boolean).join(" ");
+      return h("Spinner", { className: className || undefined, ...(paint.style ? { style: paint.style } : {}) });
     },
   },
   {

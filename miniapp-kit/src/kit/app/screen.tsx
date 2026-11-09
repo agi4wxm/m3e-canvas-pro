@@ -1,4 +1,4 @@
-import Taro, { usePullDownRefresh, useReachBottom, useRouter } from "@tarojs/taro";
+import Taro, { useDidHide, useDidShow, usePullDownRefresh, useReachBottom, useRouter } from "@tarojs/taro";
 import { createContext, createElement, useCallback, useContext, useEffect, useMemo, useRef, useState, type ComponentType, type ReactNode } from "react";
 import {
   Bindings,
@@ -7,7 +7,11 @@ import {
   useForm,
   useRequireAuth,
   useRuntime,
+  useSubscription,
   type Action as DesignAction,
+  type ChannelDef,
+  type ChannelEvent,
+  type ChannelView,
   type ActionHost,
   type CallResult,
   type FormFields,
@@ -17,10 +21,13 @@ import {
   type SendInit,
   type SourceHandle,
   type Tap,
+  type WorldChannel,
 } from "@m3e/app-runtime";
 
 import { pickFiles, type PickedFile } from "../composites/forms";
+import { WORLDS } from "../world";
 import { Layer, OverlaidProvider } from "../screen";
+import { setClock } from "../clock";
 import { currentPlace, goBack, loginScreen, moved, movesSoFar, openPlace, readQuery, type Place } from "./nav";
 import type { Action, ActionBody, AppSpec, Condition, VarValue } from "./spec";
 import { asBool, asNumber, coerce, initVars, readVar, useVarValues, varSpec, varsScope, varValues, writeVar } from "./vars";
@@ -44,6 +51,9 @@ export function AppSpecProvider({ spec, components, children }: { spec: AppSpec;
     initVars(spec.vars);
     return { spec, components };
   });
+  /* the kit's parts read the time off the runtime's clock: the back end's (the mocks' in development), never the
+     device's (docs/边界与契约.md) */
+  useEffect(() => setClock(() => runtime.now()), [runtime]);
   useEffect(() => {
     const login = loginScreen(spec);
     return runtime.whenUnauthorized(() => {
@@ -126,6 +136,8 @@ export type ScreenHandle = {
   layer: ReactNode;
   /** asks for files through the capability registry (file.pick), else the platform's own pickers */
   pickFiles: (o: { multiple?: boolean; accept?: string }) => Promise<PickedFile[]>;
+  /** the channel the world view `part` (its printed name) hears the design's input actions on */
+  world: (part: string) => WorldChannel;
 };
 
 /** a value as the kind the design gave a prop: a yes or no, a number, words */
@@ -309,6 +321,8 @@ export function useScreen(key: string, init: ScreenInit = {}): ScreenHandle {
         return true;
       },
       moves: movesSoFar,
+      /* an input action goes straight to the world view's channel */
+      worldInput: (part, action, value) => WORLDS.send(part, action, value),
     };
   }, [spec, runtime, key, update, setOverlay, fieldOf]);
 
@@ -393,6 +407,7 @@ export function useScreen(key: string, init: ScreenInit = {}): ScreenHandle {
       if (out.dropped || out.error.type !== "not-implemented") return [];
       return pickFiles(o);
     },
+    world: (part) => WORLDS.channel(part),
   };
 }
 
@@ -403,6 +418,23 @@ export function useScreenForm(s: ScreenHandle, name: string, o: { id: string; fi
   const form = useForm({ id: o.id, fields: o.fields, send: o.send, ...(o.extra ? { extra: o.extra } : {}), ...(o.status !== undefined ? { status: o.status } : {}) });
   s.register({ forms: { [name]: { form, operationId: o.operationId, send: o.send, ...(o.extra ? { extra: o.extra } : {}), ...(o.status !== undefined ? { status: o.status } : {}), ...(o.then ? { ok: o.then } : {}), ...(o.catch ? { fail: o.catch } : {}) } } });
   return form;
+}
+
+/** Whether the page is on show: a mini-program keeps the pages under the top one alive, hidden (`useDidHide`), until
+ *  it comes back to them (`useDidShow`). */
+export function usePageShown(): boolean {
+  const [shown, setShown] = useState(true);
+  useDidShow(() => setShown(true));
+  useDidHide(() => setShown(false));
+  return shown;
+}
+
+/** A subscription of the screen to a realtime channel (packages/app-runtime `useSubscription`, docs/交互规则.md “订阅”):
+ *  open while its page is on show, its address read in the screen's scope, what runs on each message by key
+ *  (`on:<message>`, else `on:message`). */
+export function useScreenSubscription(def: ChannelDef, $: Bindings, on?: Readonly<Record<string, (event: ChannelEvent) => void>>): ChannelView {
+  const shown = usePageShown();
+  return useSubscription(def, $, on, { active: shown });
 }
 
 /** runs a tap of the design on its own, `ms` after its screen came on show (a delayed trigger) */

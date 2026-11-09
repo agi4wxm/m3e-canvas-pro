@@ -13,6 +13,8 @@ import { CORE_REGISTRY, createRegistry, executeTool, isDestructiveCall, toolDefs
 import { GENERATE_TOOLS, stripBackdrop, toCurrentColor } from "./generate";
 import { iconSource } from "../../scripts/gen-tool-icons";
 import { makeItem } from "../tokens";
+import { setAssetCatalog } from "../assetCatalog";
+import { parseAssetManifest } from "../assetManifest";
 
 beforeAll(() => setGlobalLang("en"));
 
@@ -200,6 +202,9 @@ function opCalls(): [string, Record<string, unknown>][] {
     ["add_custom_style", { style: { name: "Paper", extends: "ios", light: { primary: "#1F4E79" } }, wear: false }],
     ["set_icon", { id: "leaf", svg: '<svg viewBox="0 0 24 24"><path d="M4 20C4 9 11 4 20 4c0 9-5 16-16 16z"/></svg>' }],
     ["set_icon", { id: "gone", svg: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/></svg>' }],
+    /* the asset pipeline's: the manifest in reach is the test fixtures' example (set before the calls) */
+    ["set_asset_manifest", { path: "art/asset-manifest.json" }],
+    ["set_asset", { id: "go", asset: "ui/coin" }],
     ["remove_icon", { id: "gone" }],
     ["resize_screen", { id: "detail", preset: "tablet" }],
     ["set_phone_model", { w: 390, h: 844 }],
@@ -276,6 +281,9 @@ function opCalls(): [string, Record<string, unknown>][] {
     ["remove_endpoint", { operationId: "listItems" }],
     ["import_openapi", { text: "openapi: 3.1.0\ninfo: {title: X, version: '1'}\npaths:\n  /ping:\n    get:\n      operationId: ping\n      responses:\n        '204': {description: No Content}\n" }],
     ["import_asyncapi", { text: "asyncapi: 3.0.0\ninfo: {title: X, version: '1'}\nchannels:\n  pings:\n    address: /pings\n    messages:\n      ping: {payload: {type: string}}\n" }],
+    ["add_channel", { id: "live", address: "/live/{itemId}", messages: [{ name: "tick", payload: { type: "object" } }], operations: [{ id: "onTick", action: "send" }] }],
+    ["set_subscription", { screen: "detail", name: "live", channel: "live", actions: { "on:tick": { to: "none", effects: [{ do: "snackbar", message: "Tick {{event.payload.n}}" }] } } }],
+    ["remove_subscription", { screen: "detail", name: "live" }],
     ["remove_model", { name: "Item", force: true }],
     ["clear", {}],
   ];
@@ -284,6 +292,7 @@ function opCalls(): [string, Record<string, unknown>][] {
 describe("every tool, headless", () => {
   it("runs every operation as a tool, each one undoable", async () => {
     const store = fresh();
+    setAssetCatalog({ path: "art/asset-manifest.json", manifest: parseAssetManifest(readFileSync(new URL("../fixtures/assets/asset-manifest.json", import.meta.url), "utf8")).manifest, urls: {}, problems: [], stamp: "" });
     const called = new Set<string>();
     for (const [name, args] of opCalls()) {
       if (name === "old_part") {

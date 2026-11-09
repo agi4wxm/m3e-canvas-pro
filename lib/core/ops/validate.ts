@@ -5,6 +5,7 @@
 import { partBySlug } from "../../../parts/registry";
 import { choiceValueOf } from "../../../parts/labels";
 import type { PartDef, PropDef } from "../../../parts/types";
+import { colorValue } from "../../../parts/color";
 export type { PartDef };
 import { cleanLook } from "../../look";
 import { styleOwnsProp } from "../../styleRules";
@@ -15,6 +16,9 @@ import { EVENT_PREFIX, outletKeysOf } from "../../partContract";
 import { H_CONSTRAINTS, V_CONSTRAINTS } from "../../constraints";
 import { OpError } from "../op";
 import { pictureError } from "../images";
+import { ASSET_ID } from "../../assetManifest";
+import { assetCatalog } from "../../assetCatalog";
+import { SLOT_TYPES, assetGapOf, assetIdOf, assetName, assetSlotOf, isAssetName, type AssetSlot } from "../../assetRefs";
 import { docIconId, docIconName, isDocIconName } from "../../docIcons";
 import type { CoreState } from "../state";
 import { exprSyntaxError } from "../../bindings/check";
@@ -23,28 +27,37 @@ import { bindRule, conditionRule } from "../../rules";
 import { mapNestedBodies } from "../../refs";
 import { convergedAction } from "../../converge";
 import { bindOfVar, fieldBindOf } from "../../bindings/bind";
+import { MOVE_ACTION, WORLD_ACTION } from "../../actions/model";
+import { vectorOf } from "../../actions/run";
+import { worldInputsOf } from "../../world/design";
 
 const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
+
+/** an asset of the pipeline's manifest, by its id (lib/assetRefs.ts) */
+const isPipelineAsset = (v: string) => v.startsWith("asset:") && ASSET_ID.test(v.slice(6));
 
 /** what a prop takes, in words */
 export function propKindText(d: PropDef): string {
   switch (d.kind) {
     case "text":
-      return "text";
+      return d.of ? `the rows of ${d.of} picked, by their places from 0 with commas between ("0,2")` : "text";
     case "icon":
-      return 'a Material Symbols icon name, or svg:<id> for one of the document\'s own icons ("" for none)';
+      return 'a Material Symbols icon name, svg:<id> for one of the document\'s own icons, or asset:<id> for one of the asset manifest\'s ("" for none)';
     case "enum":
       return `one of ${d.options.map((o) => JSON.stringify(choiceValueOf(o))).join(", ")}`;
     case "bool":
       return "true or false";
     case "number":
-      return `a number from ${d.min} to ${d.max}${d.unit ? ` ${d.unit}` : ""}`;
+      return `a number from ${d.min} to ${d.max}${d.unit ? ` ${d.unit}` : ""}${d.of ? `: a row of ${d.of}, counted from 0${d.min < 0 ? " (-1: none)" : ""}` : ""}`;
     case "image":
-      return 'a picture drawn into the document (a data:image URL; generate_image paints one) or ""';
+      return 'a picture drawn into the document (a data:image URL; generate_image paints one), asset:<id> for one of the asset manifest\'s (list_assets), or ""';
     case "list":
-      return `a list of rows like {"label": "…"${d.icons ? ', "icon": "…"' : ""}${d.images ? ', "image": "…"' : ""}}${d.min !== undefined ? `, at least ${d.min}` : ""}${d.max !== undefined ? `, at most ${d.max}` : ""}`;
+      return `a list of rows like {"label": "…"${d.icons ? ', "icon": "…"' : ""}${d.images ? ', "image": "…"' : ""}${d.colors ? ', "color": "#6750A4"' : ""}}${d.min !== undefined ? `, at least ${d.min}` : ""}${d.max !== undefined ? `, at most ${d.max}` : ""}`;
     case "table":
-      return 'a table {"columns": ["…"], "rows": [["…"]]}';
+      /* the row model (parts/rows.ts): what set_rows takes a row as */
+      return `a table {"columns": ["…"], "rows": [["…"]]}${d.columns?.length ? `; its rows are read by key (${d.columns.map((c) => c.key).join(", ")}), set_rows takes them as records of those keys` : ""}`;
+    case "color":
+      return `a color: a role (${(d.roles ?? ["primary", "on-surface"]).slice(0, 4).join(", ")}…), a role at a share of itself ("primary/40") or a hex ("#7BAE7A"); "" for ${d.none === "none" ? "none" : "the part's own"}`;
   }
 }
 
@@ -69,7 +82,7 @@ export function propValueError(d: PropDef, v: unknown): string | null {
     case "text":
       return typeof v === "string" ? null : "should be text";
     case "icon":
-      return typeof v === "string" && (/^[a-z0-9_]*$/.test(v) || isDocIconName(v)) ? null : "should be a Material Symbols icon name in snake_case, or svg:<id>";
+      return typeof v === "string" && (/^[a-z0-9_]*$/.test(v) || isDocIconName(v) || isPipelineAsset(v)) ? null : "should be a Material Symbols icon name in snake_case, svg:<id>, or asset:<id>";
     case "enum": {
       if (typeof v === "string" && d.options.some((o) => choiceValueOf(o) === v)) return null;
       const near = typeof v === "string" ? nearestChoice(d, v) : undefined;
@@ -82,10 +95,14 @@ export function propValueError(d: PropDef, v: unknown): string | null {
       return v < d.min || v > d.max ? `should be from ${d.min} to ${d.max}` : null;
     case "image":
       return pictureError(v);
+    case "color":
+      return colorValue(v) !== undefined ? null : `should be ${propKindText(d)}`;
     case "list": {
       if (!Array.isArray(v)) return "should be a list of rows";
       const bad = v.findIndex((r) => !isRecord(r) || typeof r.label !== "string" || Object.entries(r).some(([k, x]) => k !== "label" && typeof x !== "string"));
       if (bad >= 0) return `row ${bad} should be {"label": "…"} with text fields only`;
+      const color = d.colors ? v.findIndex((r) => r.color === undefined || !colorValue(r.color)) : -1;
+      if (color >= 0) return `row ${color} should have a color: a role ("primary"), a role at a share of itself ("primary/40") or a hex ("#6750A4")`;
       const picture = d.images ? v.findIndex((r) => r.image !== undefined && pictureError(r.image)) : -1;
       if (picture >= 0) return `row ${picture}: image ${pictureError(v[picture].image)}`;
       if (d.min !== undefined && v.length < d.min) return `should have at least ${d.min} rows`;
@@ -129,8 +146,27 @@ export function checkProps(def: PartDef, props: Record<string, unknown>, s: Core
       const own = Object.keys(s.doc.icons ?? {}).map(docIconName);
       throw new OpError("invalid_value", `The document has no icon ${v}. ${own.length ? `Its own icons are: ${own.join(", ")}.` : "It has none of its own yet:"} set_icon (or generate_svg with icon) adds one.`, key);
     }
+    assetInReach(def, d, v, key);
     if (isStrict(s.doc.theme, styleContext(s.doc.styles)) && styleOwnsProp(def.slug, key)) throw new OpError("refused", `The document is held to its style, which decides ${def.slug}.${key}.`, key);
   }
+}
+
+/** An asset a prop is set to, where a manifest is in reach (lib/assetCatalog.ts): one it lists, of a type the prop
+ *  takes. With none in reach the reference is kept, and the export lists it as a gap. */
+function assetInReach(def: PartDef, d: PropDef, v: unknown, key: string) {
+  const manifest = assetCatalog()?.manifest;
+  if (!manifest) return;
+  const check = (x: unknown, slot: AssetSlot | null) => {
+    if (!isAssetName(x)) return;
+    const gap = assetGapOf({ id: assetIdOf(x), slot }, manifest);
+    if (!gap) return;
+    const fits = Object.entries(manifest.assets)
+      .filter(([, a]) => !slot || SLOT_TYPES[slot].includes(a.type))
+      .map(([id]) => assetName(id));
+    throw new OpError(gap.reason === "missing" ? "not_found" : "invalid_value", `${gap.detail}. ${fits.length ? `The manifest's ${slot ?? ""} assets are: ${fits.slice(0, 40).join(", ")}${fits.length > 40 ? ", …" : ""} (list_assets lists them all).` : "The manifest has none that fit."}`, key);
+  };
+  if (Array.isArray(v)) for (const row of v) for (const field of ["image", "icon"] as const) check((row as Record<string, unknown> | null)?.[field], assetSlotOf(def, d, field));
+  else check(v, assetSlotOf(def, d));
 }
 
 const FLOW_SIZING = ["fixed", "hug", "fill"];
@@ -148,7 +184,15 @@ const ITEM_FIELDS: Record<string, (v: unknown, s: CoreState, it: Item) => string
     if (isStrict(s.doc.theme, styleContext(s.doc.styles))) return "are decided by the style the document is held to";
     return isRecord(v) && ["tl", "tr", "bl", "br"].every((k) => typeof v[k] === "number" && Number.isFinite(v[k]) && (v[k] as number) >= 0) ? null : "should be {tl, tr, bl, br} in dp";
   },
-  look: (v) => (v === undefined || isRecord(v) ? null : "should be an object (see the look fields)"),
+  look: (v, s) => {
+    if (v === undefined) return null;
+    if (!isRecord(v)) return "should be an object (see the look fields)";
+    /* a material is named, never made: one the library does not have would draw nothing */
+    const have = new Set((s.doc.materials ?? []).map((m) => m.id));
+    const missing = Array.isArray(v.fills) ? v.fills.filter((f): f is Record<string, unknown> => isRecord(f) && f.type === "material" && !have.has(String(f.material))).map((f) => String(f.material)) : [];
+    if (missing.length) return `names the material ${missing.join(", ")}, which the document's library does not have (${have.size ? `it has: ${[...have].join(", ")}` : "it has none"}); a material cannot be made here, only named`;
+    return null;
+  },
   note: (v) => (v === undefined || typeof v === "string" ? null : "should be text"),
   noteHistory: (v) => (v === undefined || (Array.isArray(v) && v.every((x) => typeof x === "string")) ? null : "should be a list of text"),
   label: (v) => (typeof v === "string" ? null : "should be text"),
@@ -342,9 +386,36 @@ function effectError(e: unknown, s: CoreState, depth = 0): string | null {
       return typeof e.form === "string" && s.doc.groups.some((g) => g.form && (g.id === e.form || g.items.some((it) => it.id === e.form))) ? null : `there is no form ${JSON.stringify(e.form)} (make_form makes one)`;
     case "signOut":
       return null;
+    case "move":
+    case "press":
+    case "release": {
+      const bad = worldError(e, s);
+      if (bad) return bad;
+      if (e.do !== "move") return null;
+      if (typeof e.vector !== "string" || !e.vector.trim()) return 'vector should be an expression that comes to a direction: "event" (a joystick\'s on:move), "vars.dir", or a fixed one written "1,0"';
+      return vectorOf(e.vector) ? null : exprSyntaxError(e.vector);
+    }
     default:
-      return `"${String(e.do)}" is not an effect (show, hide, toggle, open, close, setVar, toggleVar, addVar, setProp, snackbar, call, invoke, refresh, loadMore, submit, signOut)`;
+      return `"${String(e.do)}" is not an effect (show, hide, toggle, open, close, setVar, toggleVar, addVar, setProp, snackbar, call, invoke, refresh, loadMore, submit, signOut, move, press, release)`;
   }
+}
+
+/** What an input effect (`move`, `press`, `release`) names: a world view on the design, and an input of it, among the ones
+ *  the world says it takes (its `inputs`) when it says (docs/交互规则.md “输入动作”). */
+function worldError(e: Record<string, unknown>, s: CoreState): string | null {
+  const it = typeof e.part === "string" ? s.doc.groups.flatMap((g) => g.items).find((x) => x.id === e.part) : undefined;
+  if (!it) return `there is no part ${JSON.stringify(e.part)}`;
+  if (!partBySlug(it.component)?.world) return `${JSON.stringify(e.part)} is a ${it.component}: input actions go to a world view (world-view)`;
+  const action = e.do === "move" && e.action === undefined ? MOVE_ACTION : e.action;
+  if (typeof action !== "string" || !WORLD_ACTION.test(action)) return 'action should name an input of the world: a small letter, then letters and digits ("attack", "jump")';
+  const takes = worldInputsOf(it);
+  if (!takes.length) return null;
+  const decl = takes.find((d) => d.name === action);
+  const list = takes.map((d) => (d.type ? `${d.name}: ${d.type}` : d.name)).join(", ");
+  if (!decl) return `the world ${JSON.stringify(e.part)} takes ${list} (its inputs prop), not ${JSON.stringify(action)}`;
+  /* a direction goes to a vec2 input, a press or a let-go to a bool one */
+  const wants = e.do === "move" ? "vec2" : "bool";
+  return decl.type && decl.type !== wants ? `${action} is a ${decl.type} input of ${JSON.stringify(e.part)}: ${wants === "vec2" ? "move sends a direction to a vec2 input" : "press and release go to a bool input"} (it takes ${list})` : null;
 }
 
 /** A call's or an invoke's then or catch: a body, which may branch on the answer (`when` reading `response`, `status`,
@@ -461,4 +532,5 @@ export function varError(v: unknown): string | null {
 }
 
 export type { Condition, DocVar, Effect };
+
 import { fitsType } from "../../variables";

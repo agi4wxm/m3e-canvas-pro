@@ -13,7 +13,7 @@ import { shapeFor, type ScopeShape } from "../../bindings/complete";
 import { endpointOf, formFields, listOf, paramsOf, resolved, responseSchema, titleOf, type FieldSpec } from "../../bindings/contract";
 import { appMessage } from "../../bindings/messages";
 import { INPUT_PROP } from "../../interact";
-import { contentWidth, frameOfPart, frameSizeOf, heldBy, REGION_STATES, STAY_TARGET, type Action, type ActionBody, type DataSource, type FormBinding, type Frame, type Group, type Item, type RegionState, type ScreenParam } from "../../tokens";
+import { contentWidth, frameOfPart, frameSizeOf, heldBy, REGION_STATES, STAY_TARGET, type Action, type ActionBody, type DataSource, type FormBinding, type Frame, type Group, type Item, type RegionState, type ScreenParam, type Subscription } from "../../tokens";
 import { op, OpError, S, type OpCtx } from "../op";
 import { withFrames, withGroups, withSession, type CoreState } from "../state";
 import { frameById, groupById, itemById, laidOut, unlocked } from "./common";
@@ -119,7 +119,7 @@ export const addDataSource = op<{ screen: string; operationId: string; name?: st
   label: () => "Add data source",
   run(s, a, ctx) {
     const f = frameById(s, a.screen);
-    const taken = (f.data ?? []).map((d) => d.name);
+    const taken = [...(f.data ?? []).map((d) => d.name), ...(f.subscriptions ?? []).map((x) => x.name)];
     const name = a.name ?? sourceNameFor(a.operationId, taken);
     if (taken.includes(name)) throw new OpError("invalid_value", `The screen loads data called ${JSON.stringify(name)} already: update_data_source changes it, or give another name.`, name);
     const given: DataSource = { name, operationId: a.operationId, ...sourceFields(a) };
@@ -184,7 +184,7 @@ export const updateDataSource = op<{ screen: string; name: string; rename?: stri
     const was = (f.data ?? []).find((d) => d.name === a.name);
     if (!was) throw new OpError("not_found", `The screen loads no data called ${JSON.stringify(a.name)}${f.data?.length ? ` (it loads ${f.data.map((d) => d.name).join(", ")})` : ""}.`, a.name);
     const name = a.rename ?? was.name;
-    if (a.rename !== undefined && a.rename !== was.name && (f.data ?? []).some((d) => d.name === a.rename)) throw new OpError("invalid_value", `The screen loads data called ${JSON.stringify(a.rename)} already.`, a.rename);
+    if (a.rename !== undefined && a.rename !== was.name && [...(f.data ?? []), ...(f.subscriptions ?? [])].some((d) => d.name === a.rename)) throw new OpError("invalid_value", `The screen loads data called ${JSON.stringify(a.rename)} already.`, a.rename);
     const merged: Record<string, unknown> = { ...was };
     for (const k of ["params", "body", "load", "pullToRefresh", "paging", "pageSize"] as const) {
       if (a[k] === null) delete merged[k];
@@ -207,6 +207,105 @@ export const removeDataSource = op<{ screen: string; name: string }>({
     const f = frameById(s, a.screen);
     if (!(f.data ?? []).some((d) => d.name === a.name)) throw new OpError("not_found", `The screen loads no data called ${JSON.stringify(a.name)}.`, a.name);
     return { state: withFrame(s, framePatch(f, "data", (f.data ?? []).filter((d) => d.name !== a.name))) };
+  },
+});
+
+/* ---------- subscriptions to realtime channels ---------- */
+
+/** a channel of the contract, or why there is none */
+function channelOf(s: CoreState, id: string) {
+  const all = s.doc.api?.channels ?? [];
+  const c = all.find((x) => x.id === id);
+  if (!c) throw new OpError("not_found", `There is no realtime channel ${JSON.stringify(id)}.${all.length ? ` The channels are: ${all.slice(0, 20).map((x) => x.id).join(", ")}.` : " add_channel adds one (or import_asyncapi)."}`, id);
+  return c;
+}
+
+/** the messages the server sends over a channel, by name */
+const sentOver = (c: NonNullable<ApiSpec["channels"]>[number]) => [...new Set(c.operations.filter((o) => o.action === "send").flatMap((o) => o.messages ?? c.messages.map((m) => m.name)))];
+
+export const setSubscription = op<{ screen: string; name: string; channel?: string; params?: Record<string, string> | null; messages?: string[] | null; keep?: number | null; newest?: boolean | null; actions?: Record<string, Action | null> | null }, { name: string; addedParams: string[] }>({
+  name: "set_subscription",
+  summary:
+    "Makes a screen listen to a realtime channel (AsyncAPI) while it is on show, or changes how it does: read as data.<name> (value: the latest message's payload; items: every payload kept; latest {message, payload, at}; messages; count; empty; status; open). params fill the channel's address (each an expression; one left out reads the screen's param of the same name, declared when missing); messages limits it to some of the server's messages; keep how many it keeps (default 50, at most 500); newest lists the newest first. actions {\"on:message\": action} runs an action on every message (\"on:<message name>\" for one message), reading the message as event.message, event.payload, event.at; null takes one away. null clears a field.",
+  args: S.obj(
+    {
+      screen: S.str(),
+      name: S.str("what expressions call it: data.<name>; none of the screen's data sources' names"),
+      channel: S.str("the channel's id (needed the first time)"),
+      params: { type: ["object", "null"], description: "the address's params by name, each an expression" },
+      messages: { type: ["array", "null"], items: { type: "string" } },
+      keep: { type: ["integer", "null"], minimum: 1, maximum: 500 },
+      newest: { type: ["boolean", "null"] },
+      actions: { type: ["object", "null"], description: "by key: on:message (any message) or on:<message name>; each an action, null to take it away" },
+    },
+    ["screen", "name"],
+  ),
+  label: () => "Subscription",
+  run(s, a, ctx) {
+    let f = frameById(s, a.screen);
+    if (!BINDING_NAME.test(a.name)) throw new OpError("invalid_value", `${JSON.stringify(a.name)} is no name for a subscription: a letter, then letters, digits or _ (it is read as data.${a.name}).`, a.name);
+    if ((f.data ?? []).some((d) => d.name === a.name)) throw new OpError("invalid_value", `The screen loads data called ${JSON.stringify(a.name)} already: give the subscription another name.`, a.name);
+    const was = (f.subscriptions ?? []).find((x) => x.name === a.name);
+    const channelId = a.channel ?? was?.channel;
+    if (!channelId) throw new OpError("invalid_value", `The screen has no subscription called ${JSON.stringify(a.name)}: give its channel to make one.`, "channel");
+    const c = channelOf(s, channelId);
+    const sent = sentOver(c);
+    const next: Subscription = { name: a.name, channel: c.id };
+    const params = a.params === null ? undefined : (a.params ?? was?.params);
+    const addressParams = [...c.address.matchAll(/\{([^{}]+)\}/g)].map((m) => m[1]);
+    const added: string[] = [];
+    const shape = shapeFor(s.doc, f, undefined);
+    for (const [k, x] of Object.entries(params ?? {})) {
+      if (!addressParams.includes(k)) throw new OpError("invalid_value", `The address of ${c.id} (${c.address}) has no param ${JSON.stringify(k)}${addressParams.length ? ` (it has ${addressParams.join(", ")})` : ""}.`, k);
+      if (ctx.strict) checkExpr(x, shape, `params.${k}`);
+    }
+    /* a param of the address it gives nothing for reads the screen's param of that name, declared where missing */
+    const missing = addressParams.filter((p) => !(params && p in params) && BINDING_NAME.test(p));
+    const have = new Set((f.params ?? []).map((p) => p.name));
+    for (const p of missing) if (!have.has(p)) added.push(p);
+    if (added.length) f = { ...f, params: [...(f.params ?? []), ...added.map((name) => ({ name }))] };
+    const filled = { ...Object.fromEntries(missing.map((p) => [p, `params.${p}`])), ...params };
+    if (Object.keys(filled).length) next.params = filled;
+    const messages = a.messages === null ? undefined : (a.messages ?? was?.messages);
+    if (messages?.length) {
+      const wrong = messages.filter((m) => !sent.includes(m));
+      if (wrong.length) throw new OpError("invalid_value", `The server sends no message ${wrong.map((m) => JSON.stringify(m)).join(", ")} over ${c.id}${sent.length ? ` (it sends ${sent.join(", ")})` : " (it sends none)"}.`, "messages");
+      next.messages = [...new Set(messages)];
+    }
+    const keep = a.keep === null ? undefined : (a.keep ?? was?.keep);
+    if (keep !== undefined) next.keep = keep;
+    const newest = a.newest === null ? undefined : (a.newest ?? was?.newest);
+    if (newest) next.newest = true;
+    const actions: Record<string, Action> = a.actions === null ? {} : { ...was?.actions };
+    for (const [k, x] of Object.entries(a.actions ?? {})) {
+      const m = /^on:(.+)$/.exec(k);
+      if (!m || (m[1] !== "message" && !sent.includes(m[1]))) throw new OpError("invalid_value", `${JSON.stringify(k)} is no key for an action on a subscription: on:message (any message) or on:<a message the server sends: ${sent.join(", ") || "none"}>.`, k);
+      if (x === null) {
+        delete actions[k];
+        continue;
+      }
+      const action = fullAction(convergedAction(x, undefined));
+      const e = actionError(action, s);
+      if (e) throw new OpError("invalid_value", `actions.${k}: ${e}.`, k);
+      if (action.trigger) throw new OpError("invalid_value", `actions.${k}: a message starts it, so it takes no trigger.`, k);
+      actions[k] = action;
+    }
+    if (Object.keys(actions).length) next.actions = actions;
+    const list = (f.subscriptions ?? []).some((x) => x.name === a.name) ? (f.subscriptions ?? []).map((x) => (x.name === a.name ? next : x)) : [...(f.subscriptions ?? []), next];
+    if (list.length > 20) throw new OpError("refused", "A screen listens to at most 20 subscriptions.", "name");
+    return { state: withFrame(s, { ...f, subscriptions: list }), result: { name: a.name, addedParams: added } };
+  },
+});
+
+export const removeSubscription = op<{ screen: string; name: string }>({
+  name: "remove_subscription",
+  summary: "Stops a screen listening to a realtime channel; what reads data.<name> reads nothing, and its actions on messages go with it.",
+  args: S.obj({ screen: S.str(), name: S.str() }, ["screen", "name"]),
+  label: () => "Remove subscription",
+  run(s, a) {
+    const f = frameById(s, a.screen);
+    if (!(f.subscriptions ?? []).some((d) => d.name === a.name)) throw new OpError("not_found", `The screen has no subscription called ${JSON.stringify(a.name)}${f.subscriptions?.length ? ` (it has ${f.subscriptions.map((d) => d.name).join(", ")})` : ""}.`, a.name);
+    return { state: withFrame(s, framePatch(f, "subscriptions", (f.subscriptions ?? []).filter((d) => d.name !== a.name))) };
   },
 });
 
@@ -621,7 +720,7 @@ const INPUT_TYPE: Partial<Record<FieldSpec["kind"], string>> = { email: "email",
 const helperNode = (f: FieldSpec, lang: string): TreeNode => ({
   part: "text",
   name: `${f.title} help`,
-  props: { text: helperOf(f, lang), style: "caption", color: "muted" },
+  props: { text: helperOf(f, lang), style: "caption", color: "on-surface-variant" },
   bind: { text: `=form.errors.${f.name} ?? ${JSON.stringify(helperOf(f, lang))}`, color: `=form.errors.${f.name} ? "error" : "muted"` },
 });
 
@@ -808,7 +907,7 @@ function rowTree(api: ApiSpec, item: JsonSchema | undefined, width: number, tap:
   if (f.image) kids.push({ part: "image", props: { width: 48, height: 48, radius: 8 }, bind: { src: `=item.${f.image}` } });
   const lines: TreeNode[] = [];
   if (f.title) lines.push({ part: "text", props: { text: f.label(f.title), style: "lead", maxLines: 1, fit: "fixed" }, bind: { text: `=item.${f.title}` } });
-  if (f.subtitle) lines.push({ part: "text", props: { text: f.label(f.subtitle), style: "caption", color: "muted", maxLines: 2, fit: "fixed" }, bind: { text: `=item.${f.subtitle}` } });
+  if (f.subtitle) lines.push({ part: "text", props: { text: f.label(f.subtitle), style: "caption", color: "on-surface-variant", maxLines: 2, fit: "fixed" }, bind: { text: `=item.${f.subtitle}` } });
   if (!lines.length) lines.push({ part: "text", props: { text: "Item", style: "lead" }, bind: { text: f.id ? `=item.${f.id}` : "=item" } });
   kids.push({ part: "box", props: { layout: "column", gap: 2, padX: 0, padY: 0, align: "stretch", hugWidth: true }, grow: true, children: lines });
   if (f.trailing) kids.push({ part: "text", props: { text: f.label(f.trailing.name), style: "label" }, bind: { text: `=${formatted(`item.${f.trailing.name}`, f.trailing.how)}` } });
@@ -823,13 +922,13 @@ function detailTree(api: ApiSpec, schema: JsonSchema | undefined, source: string
   if (f.image) out.push({ part: "image", props: { width, height: 200 }, bind: { src: `=${v(f.image)}` } });
   if (f.title) out.push({ part: "text", props: { text: f.label(f.title), style: "headline", fit: "fixed" }, bind: { text: `=${v(f.title)}` } });
   if (f.trailing) out.push({ part: "text", props: { text: f.label(f.trailing.name), style: "title", color: "primary" }, bind: { text: `=${formatted(v(f.trailing.name), f.trailing.how)}` } });
-  if (f.subtitle) out.push({ part: "text", props: { text: f.label(f.subtitle), style: "body", color: "muted", fit: "fixed" }, bind: { text: `=${v(f.subtitle)}` } });
+  if (f.subtitle) out.push({ part: "text", props: { text: f.label(f.subtitle), style: "body", color: "on-surface-variant", fit: "fixed" }, bind: { text: `=${v(f.subtitle)}` } });
   for (const r of f.rest.slice(0, 8))
     out.push({
       part: "box",
       props: { layout: "row", gap: 8, padX: 0, padY: 4, justify: "between", align: "center", hugWidth: false, width },
       children: [
-        { part: "text", props: { text: f.label(r.name), style: "body", color: "muted" } },
+        { part: "text", props: { text: f.label(r.name), style: "body", color: "on-surface-variant" } },
         { part: "text", props: { text: f.label(r.name), style: "body" }, bind: { text: r.how === "bool" ? `=${v(r.name)} ? "✓" : "—"` : `=${formatted(v(r.name), r.how)}` } },
       ],
     });

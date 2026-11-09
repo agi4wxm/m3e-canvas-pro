@@ -18,6 +18,8 @@ import { ROWS } from "./rows";
 import { tiny } from "./tiny";
 import type { Element } from "./tinyReact";
 import type { HostName, Observed } from "./types";
+import { inputLog } from "../../world/channel";
+import type { WorldChannel } from "../../world/types";
 
 /* The table on both web exports, as the printers write them: the screens printed by lib/codegen (lib/printBehaviour.ts,
  * and lib/printBindings.ts for the product), the app's runtime printed by lib/runtimeSource.ts, and for the product the
@@ -144,6 +146,9 @@ async function webOf(doc: Doc, backend: Backend, product: boolean): Promise<Driv
       const a = await backend.receive(r.operationId ?? "", givenOf(r.query, r.body));
       return { status: a.status, headers: { "content-type": "application/json" }, body: a.body };
     },
+    /* the back end's realtime channels and its clock */
+    connect: (address, onMessage) => backend.connect(address, onMessage),
+    now: () => backend.now(),
   };
   // eslint-disable-next-line no-new-func -- the printer's own auth configuration, read as the app reads it
   const auth = (doc.api ? new Function(`return ${authSource(doc.api)}`)() : undefined) as AuthConfig | undefined;
@@ -155,7 +160,7 @@ async function webOf(doc: Doc, backend: Backend, product: boolean): Promise<Driv
       return a.ok ? { ok: true, result: a.result } : { ok: false, error: { type: a.type as FailureKind, capability: name } };
     },
   };
-  const runtime = createRuntime({ transport: base, ...(auth ? { auth } : {}), lang: "en", now: () => 0, capabilities });
+  const runtime = createRuntime({ transport: base, ...(auth ? { auth } : {}), lang: "en", capabilities });
   const { rt, screens, spec } = await printed(doc, product, () => runtime);
   let app: App | undefined;
   let tree: unknown;
@@ -171,9 +176,24 @@ async function webOf(doc: Doc, backend: Backend, product: boolean): Promise<Driv
   }
   /* the runtime's Pressable is drawn too: what starts as the pointer comes over a part, or some time after its screen */
   const own = new Set<unknown>([Mount, rt.AppProvider, RuntimeProvider, rt.Pressable, ...Object.values(screens)]);
+  /* A world view's stand-in (parts/widgets/World.tsx) draws its name and lists what it hears on the channel the printed
+     code hands it: each channel is listened to from when it is first drawn, as the stand-in does. */
+  const heard = new Map<WorldChannel, string[]>();
   const draw = () => {
     tree = tiny.render(tiny.react.createElement(RuntimeProvider as never, { runtime }, tiny.react.createElement(rt.AppProvider as never, (product ? {} : { capabilities }) as never, tiny.react.createElement(Mount, null))), (t) => own.has(t));
+    for (const e of tiny.elements(tree)) {
+      const c = e.props.channel as WorldChannel | undefined;
+      if (!c || typeof c.listen !== "function" || heard.has(c)) continue;
+      heard.set(c, []);
+      c.listen((action, value) => heard.set(c, inputLog(heard.get(c) ?? [], action, value)));
+    }
   };
+  /** what the world views drawn on a page show: their names, and what each heard */
+  const worldWords = (page: unknown): string[] =>
+    tiny.elements(page).flatMap((e) => {
+      const c = e.props.channel as WorldChannel | undefined;
+      return c && heard.has(c) && e.type === "WorldView" ? [String(e.props.label ?? ""), ...(heard.get(c) ?? [])] : [];
+    });
   /** the pages drawn: the screen on show, then any overlay */
   const pages = (): unknown[] => {
     const all = tiny.elements(tree).filter((e) => e.type === rt.ScreenContext?.Provider);
@@ -231,7 +251,7 @@ async function webOf(doc: Doc, backend: Backend, product: boolean): Promise<Driv
       }
     },
     observe: (): Observed => {
-      const words = pages().flatMap((p) => wordsIn(p));
+      const words = pages().flatMap((p) => [...wordsIn(p), ...worldWords(p)]);
       const vars = Object.fromEntries(Object.entries(app?.vars ?? {}).map(([k, v]) => [varIds.get(k) ?? k, v]));
       const screen = doc.frames[spec.screens.indexOf(app?.screen ?? "")]?.id ?? "";
       const move = app?.move ? { back: app.move.backwards, motion: app.move.motion?.kind ?? "none" } : undefined;

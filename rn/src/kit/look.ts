@@ -94,6 +94,24 @@ export function colorOf(kit: Kit, ref: ColorRef | undefined): string | undefined
   return alpha === undefined ? c : withAlpha(c, Number(alpha) / 100);
 }
 
+/** The color words read in over a fill of a color (the editor's parts/color.ts `onColorOf`): a role's own on-color, a
+ *  surface's on-surface, black or white over a hex, whichever stands out more. */
+export function inkOver(kit: Kit, ref: ColorRef | undefined): string {
+  const fallback = kit.colors["on-surface"] ?? "#1D1B20";
+  if (!ref) return fallback;
+  if (ref.startsWith("#")) {
+    const m = /^#([0-9a-f]{3,8})$/i.exec(ref);
+    if (!m) return fallback;
+    const h = m[1].length <= 4 ? [...m[1]].map((x) => x + x).join("") : m[1];
+    const lin = (x: number) => (x <= 0.03928 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4);
+    const l = 0.2126 * lin(parseInt(h.slice(0, 2), 16) / 255) + 0.7152 * lin(parseInt(h.slice(2, 4), 16) / 255) + 0.0722 * lin(parseInt(h.slice(4, 6), 16) / 255);
+    return l > 0.179 ? "#000000" : "#FFFFFF";
+  }
+  const role = ref.split("/")[0];
+  if (role === "inverse-surface") return kit.colors["inverse-on-surface"] ?? fallback;
+  return kit.colors[`on-${role}`] ?? fallback;
+}
+
 /** what words read in over each fill role: the on-color of the role */
 const ON_FILL: Record<string, string> = {
   primaryContainer: "on-primary-container",

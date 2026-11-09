@@ -14,6 +14,7 @@ import { Surface, tagOf } from "../Surface";
 import { merge, sx, ROW, type CSS } from "../styles";
 import { controlRadius, corner, typeStyle, useKit } from "../theme";
 import { tapOf } from "./bars";
+import { clockNow } from "../clock";
 
 /* The game parts in a mini-program (parts/defs/game.ts, parts/defs/more.ts; drawn on the canvas by
  * parts/widgets/Draws.tsx, Joystick.tsx and GameParts.tsx): six prize machines, a movement pad, a skill with a cooldown,
@@ -420,6 +421,8 @@ export type JoystickProps = PartBase & {
   onValueChange?: (value: string) => void;
   /** the finger let go, where it was */
   onRelease?: (at: Vec) => void;
+  /** each direction handed out, as the part's `move` event: what a world view's input action reads (docs/交互规则.md) */
+  onMove?: (at: Vec) => void;
 };
 
 let pads = 0;
@@ -446,6 +449,8 @@ export function Joystick(props: JoystickProps) {
     if (!at) return;
     setHeld(at);
     p.onValueChange?.(wordsOfVec(at));
+    /* a finger moving within the same direction is no new push */
+    if (!held || held.x !== at.x || held.y !== at.y) p.onMove?.({ x: at.x, y: at.y });
   };
   const onStart = (e: CommonEvent) => {
     if (p.disabled) return;
@@ -474,6 +479,7 @@ export function Joystick(props: JoystickProps) {
     setHeld(null);
     setLeft({ at: rest, given: p.value ?? "" });
     p.onValueChange?.(wordsOfVec(rest));
+    p.onMove?.({ x: rest.x, y: rest.y });
   };
   return (
     <Surface base={{ width: size, height: size, borderRadius: "50%", backgroundColor: c("surface-container-high"), opacity: p.disabled ? 0.38 : 1, flexShrink: 0, alignSelf: "flex-start" }} appearance={p}>
@@ -502,8 +508,6 @@ export function Joystick(props: JoystickProps) {
 
 /* ---------- a skill with a cooldown ---------- */
 
-/** the time on the other side's clock: the device's, and how far that one is ahead of it */
-const clockNow = (skew = 0) => Date.now() + (Number.isFinite(skew) ? skew : 0);
 
 /** seconds left of a cooldown that ends at `endsAt` (ms on the other side's clock), none once it has passed or with none */
 export const cooldownLeft = (endsAt: number | undefined, now: number) => (endsAt && endsAt > 0 ? Math.max(0, (endsAt - now) / 1000) : 0);
@@ -564,7 +568,8 @@ export const starsOf = (stars: string | undefined) => (stars ?? "").split(/[\s,�
 
 export type LevelMapProps = PartBase & {
   levels?: number;
-  current?: number;
+  /** the level reached, counted from 0 as every place is; the map shows it counted from 1 */
+  level?: number;
   /** the level picked (-1: none): the visitor's, starting at the design's */
   selected?: number;
   stars?: string;
@@ -578,7 +583,7 @@ export function LevelMap(props: LevelMapProps) {
   const p = withDefaults<LevelMapProps>("level-map", props);
   const kit = useKit();
   const levels = Math.max(0, Math.round(p.levels ?? 12));
-  const current = Math.round(p.current ?? 5);
+  const current = Math.round(p.level ?? 4) + 1;
   const columns = Math.max(2, Math.round(p.perRow ?? 4));
   /* a mini-program draws the map at the design's width: the path is laid out in it */
   const width = Math.round(p.width ?? 380);

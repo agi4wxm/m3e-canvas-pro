@@ -6,7 +6,9 @@ import { designDoc } from "./consistency/design";
 import { ReferenceHost } from "./consistency/reference";
 import type { CallArgs, Change, Host, Outcome, Tap } from "./host";
 import { MAX_CALL_DEPTH, eventKey, eventOfKey, familyKey, familyOfKey, type Action, type Effect } from "./model";
-import { coerce, fillCurrent, run, startOf, tapScope } from "./run";
+import { coerce, fillCurrent, run, startOf, tapScope, vectorOf } from "./run";
+import type { WorldInput } from "./host";
+import { ops, DocStore, counterIds, guessMeasurer, stateOf } from "../core";
 
 /* The interpreter's edges the consistency table does not reach: what starts an action, the event's payload, an answer
  * after a restart, an optimistic change and its undo, a host that throws, the one nesting limit. */
@@ -161,5 +163,72 @@ describe("lib/actions", () => {
     const e = openProject(projectFile(built))?.groups.flatMap((g) => g.items).find((it) => it.id === "go")?.action?.effects?.[0] as Extract<Effect, { do: "call" }>;
     expect(e.then).toEqual(then);
     expect(e.catch && "when" in e.catch).toBe(false);
+  });
+
+  /* ---------- input actions (docs/交互规则.md “输入动作”) ---------- */
+
+  it("reads a direction as one: {x, y} or words, kept to -1…1 and two places, a longer one cut back to length 1", () => {
+    expect(vectorOf({ x: 0.5, y: -1 })).toEqual({ x: 0.45, y: -0.89 });
+    expect(vectorOf("1,0")).toEqual({ x: 1, y: 0 });
+    expect(vectorOf(" 0.25 , 0.5 ")).toEqual({ x: 0.25, y: 0.5 });
+    expect(vectorOf({ x: -0, y: 0 })).toEqual({ x: 0, y: 0 });
+    for (const none of ["", "1", "1,2,3", "a,b", ",1", null, undefined, 3, [1, 0], { x: "1", y: 0 }, { x: Number.NaN, y: 0 }]) expect(vectorOf(none), JSON.stringify(none)).toBeNull();
+  });
+
+  it("sends a world view a direction read at its step, presses and lets go in order, and nothing for no direction", async () => {
+    const doc = designDoc({ screens: [{ id: "home", name: "Home" }], parts: [{ id: "arena", kind: "world", label: "Arena" }] }).doc;
+    const host = new ReferenceHost(doc, new Backend({}));
+    const sent: [string, string, WorldInput][] = [];
+    host.worldInput = (part, action, value) => void sent.push([part, action, value]);
+    const at: Tap = { ...tap, event: { x: 0, y: -1 } };
+    await run({ to: "none", effects: [{ do: "move", part: "arena", vector: "event" }, { do: "move", part: "arena", action: "aim", vector: "'0.5,0.5'" }, { do: "move", part: "arena", vector: "nowhere" }, { do: "press", part: "arena", action: "attack" }, { do: "release", part: "arena", action: "attack" }] }, host, at);
+    expect(sent).toEqual([
+      ["arena", "move", { x: 0, y: -1 }],
+      ["arena", "aim", { x: 0.5, y: 0.5 }],
+      ["arena", "attack", true],
+      ["arena", "attack", false],
+    ]);
+    /* an input with no name of the world's kind, or no part, goes nowhere; a host with no world views drops it */
+    sent.length = 0;
+    await run({ to: "none", effects: [{ do: "press", part: "arena", action: "Bad name" }, { do: "move", part: "", vector: "1,0" }] as Effect[] }, host, at);
+    expect(sent).toEqual([]);
+    const plain = new ReferenceHost(doc, new Backend({}));
+    delete (plain as Partial<Host>).worldInput;
+    await expect(run({ to: "none", effects: [{ do: "press", part: "arena", action: "attack" }] }, plain, at)).resolves.toBeUndefined();
+  });
+
+  it("keeps the input actions through a file, and drops one that is malformed", () => {
+    const built = designDoc({
+      screens: [{ id: "home", name: "Home" }],
+      parts: [
+        { id: "arena", kind: "world", label: "Arena" },
+        { id: "go", label: "Go", unchecked: true, action: { to: "none", effects: [{ do: "move", part: "arena", vector: "event" }, { do: "move", part: "arena", action: "Bad", vector: "1,0" }, { do: "press", part: "arena", action: "jump" }, { do: "release", part: "arena" } as never, { do: "move", part: "arena", vector: "" }] } },
+      ],
+    }).doc;
+    const effects = openProject(projectFile(built))?.groups.flatMap((g) => g.items).find((it) => it.id === "go")?.action?.effects;
+    expect(effects).toEqual([
+      { do: "move", part: "arena", vector: "event" },
+      { do: "press", part: "arena", action: "jump" },
+    ]);
+  });
+
+  it("checks an input action against the world it goes to: a world view, and an input its world takes", () => {
+    const store = new DocStore(stateOf({ groups: [], frames: [] }), { ids: counterIds("n"), measurer: guessMeasurer, lang: () => "en" });
+    const set = (effects: Effect[]) => () => store.transact("set", "mcp", (tx) => tx.run(ops.setAction, { id: "go", action: { to: "none", effects } as never }));
+    store.transact("build", "mcp", (tx) => {
+      tx.run(ops.addScreen, { id: "home", name: "Home" });
+      tx.run(ops.addPart, { slug: "world-view", id: "arena", screen: "home", at: { x: 16, y: 16 }, props: { inputs: "move: vec2, attack: bool, jump" } });
+      tx.run(ops.addPart, { slug: "button", id: "go", screen: "home", at: { x: 16, y: 300 }, props: { label: "Go" } });
+    });
+    expect(set([{ do: "move", part: "arena", vector: "event" }, { do: "press", part: "arena", action: "attack" }])).not.toThrow();
+    expect(set([{ do: "press", part: "go", action: "attack" }])).toThrow(/world view/);
+    expect(set([{ do: "press", part: "arena", action: "kick" }])).toThrow(/takes move: vec2, attack: bool, jump/);
+    /* each declared once with its type: a direction to a vec2 input, a press to a bool one; an untyped one takes either */
+    expect(set([{ do: "press", part: "arena", action: "move" }])).toThrow(/vec2 input/);
+    expect(set([{ do: "move", part: "arena", action: "attack", vector: "1,0" }])).toThrow(/bool input/);
+    expect(set([{ do: "press", part: "arena", action: "jump" }, { do: "move", part: "arena", action: "jump", vector: "1,0" }])).not.toThrow();
+    expect(set([{ do: "move", part: "arena", vector: "" }])).toThrow(/vector/);
+    expect(set([{ do: "move", part: "arena", vector: "event." }])).toThrow();
+    expect(set([{ do: "move", part: "missing", vector: "1,0" }])).toThrow(/no part/);
   });
 });

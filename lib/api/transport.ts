@@ -40,8 +40,30 @@ export interface TransportResponse {
   body: unknown;
 }
 
+/** A message a realtime channel brought (AsyncAPI, docs/接口.md): which channel (its id), which of its messages, what
+ *  it carries, and when it was sent, in ms on the back end's clock. */
+export type ChannelMessage = { channel: string; message: string; payload: unknown; at: number };
+
+/** A connection to a realtime channel: the app's messages to it, by name, and its end. */
+export interface ChannelConnection {
+  send(message: string, payload?: unknown): void;
+  close(): void;
+}
+
+/** what a connection says of itself while it lasts: open, or closed by the other side (or never opened) */
+export type ChannelStatus = "open" | "closed";
+
 export interface Transport {
   request(request: TransportRequest): Promise<TransportResponse>;
+  /** Opens a realtime channel of the contract: by its id or its address with its parameters filled in
+   *  (`/rooms/r1`). The server's messages come to `onMessage`; `onStatus` hears when it opens and when it closes;
+   *  `token` is the session's, for a back end that asks who connects. A
+   *  transport with no realtime leaves this out, and a screen that subscribes reads nothing. */
+  connect?(address: string, onMessage: (message: ChannelMessage) => void, o?: { onStatus?: (status: ChannelStatus) => void; token?: string }): ChannelConnection;
+  /** The time now on the back end's clock, in ms: what the app reads as `now` and counts a countdown by
+   *  (docs/边界与契约.md: the UI never takes its own wall clock for the domain's). The mock library's can stand
+   *  still or run faster; a transport that leaves it out is read as the device's clock. */
+  now?(): number;
 }
 
 /** a transport that answers every call with one response: for tests, and for the moment before mocks are set up */

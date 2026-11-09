@@ -211,7 +211,7 @@ npx playwright install chromium
 
 <!-- tools:start (bun run mcp:docs) -->
 
-共 174 个工具：服务器环境里没有 OPENAI_API_KEY 时不含“生成”组，只读会话只列出“只读”一栏为“是”的，`undo`、`redo`、`export_product` 只在文件模式里有。说明取自工具给模型看的描述。
+共 179 个工具：服务器环境里没有 OPENAI_API_KEY 时不含“生成”组，只读会话只列出“只读”一栏为“是”的，`undo`、`redo`、`export_product` 只在文件模式里有。说明取自工具给模型看的描述。
 
 | 工具 | 组 | 只读 | 需作者确认 | 说明 |
 | --- | --- | --- | --- | --- |
@@ -226,7 +226,7 @@ npx playwright install chromium
 | `list_templates` | 读取 | 是 |  | Screen and flow templates (sign-in, shop, social, content, tools, games, desktop) that add_template puts on the canvas. |
 | `list_styles` | 读取 | 是 |  | The style the document wears (and whether it is held to that style's rules), the built-in style packs modeled on real products (key, name, products), and the document's own custom… |
 | `get_style` | 读取 | 是 |  | One style in full (the document's own when no key is given): colors (light and dark roles), faces, shape, icon family, control recipes, how its screens are spaced and composed, an… |
-| `look_reference` | 读取 | 是 |  | How to write a part's `look` (its effects: fills, strokes, shadows, glass, text effects, textures…), the look presets with the look each one writes, and the color roles fill, text… |
+| `look_reference` | 读取 | 是 |  | How to write a part's `look` (its effects: fills, strokes, shadows, glass, text effects, textures…), the look presets with the look each one writes, the color roles fill, textColo… |
 | `list_icons` | 读取 | 是 |  | Material Symbols names (snake_case) every icon family draws offline. |
 | `list_components` | 读取 | 是 |  | The document's reusable components: id, name, size, the parts in their definition (id:slug "words"), the keys an instance overrides them by (overrideKeys: `partId/prop = the defin… |
 | `list_data` | 读取 | 是 |  | The document's data collections (id, name, fields, rows) and prototype variables (id, name, type, starting value). |
@@ -239,6 +239,7 @@ npx playwright install chromium
 | `list_mock_records` | 读取 | 是 |  | The records the mocks have for a model, pinned ones first, as the app would get them (files shortened). |
 | `try_mock` | 读取 | 是 |  | Calls the API the way the app would, answered by the mocks on a fresh session (what one call makes, the next sees: create then list), with no waiting: each call by operationId wit… |
 | `list_capabilities` | 读取 | 是 |  | The platform capabilities (payment, sign-in with another service, location, scanning, push, share, clipboard, links, files, analytics, biometrics, calls; the views of a map, a cam… |
+| `list_assets` | 读取 | 是 |  | The asset pipeline's assets this project can use, from its asset manifest (read from the project's folder): each one's id, type (image, icon, video, audio, model, animation), size… |
 | `describe_bindings` | 读取 | 是 |  | How a screen is bound to the API: its params and sign-in, each data source (endpoint, params, paging, and the paths it offers: data.&lt;name>.items[], value fields), its regions w… |
 | `sample_colors` | 读取 | 是 |  | Measures the colors of a picture: an attached reference (ref1…) or a screen or part of the canvas. |
 | `compare_to_reference` | 读取 | 是 |  | Holds a screen of the canvas against the reference picture it copies: draws the screen, hands back both pictures (the reference first), and lays them over each other in a grid, gi… |
@@ -252,6 +253,8 @@ npx playwright install chromium
 | `add_custom_style` | 风格 |  |  | Adds a custom style to the document's own styles, or replaces the one with its key, validated like a style file: roles as #RRGGBB with contrast checked, faces, icon families, shap… |
 | `set_icon` | 搭建 |  |  | Keeps an SVG drawing as one of the document's own icons, named svg:&lt;id>: it then goes wherever a part takes an icon name (an icon atom's name, a button's or a list row's icon, … |
 | `remove_icon` | 搭建 |  | 是 | Takes one of the document's own icons away. |
+| `set_asset` | 搭建 |  |  | Puts one of the asset pipeline's assets on a part, by its id in the project's asset manifest (list_assets lists them): the part names it as asset:&lt;id> and draws it from the man… |
+| `set_asset_manifest` | 搭建 |  |  | Says where the project's asset manifest (the asset pipeline's file of asset ids, files, sizes, platform variants, sources and licences) is: a path inside the project's folder, fro… |
 | `set_style_rules` | 风格 |  |  | Holds the document to its style's rules (on), or lets its colors, shapes and looks be the author's (off). |
 | `set_style_layout` | 风格 |  |  | Changes one of the style's layout settings, and lays the screens out by it. |
 | `set_palette` | 风格 |  |  | Picks one of the editor's color schemes by key (purple, blue, green…), or "custom" for the document's own. |
@@ -279,7 +282,7 @@ npx playwright install chromium
 | `duplicate_nodes` | 搭建 |  |  | Duplicates parts (a container with what it holds) a step aside and selects the copies. |
 | `set_item` | 搭建 |  |  | Changes a part's own fields: props, fill, textColor, corners, look, note, action/actions, bind, slot (true or a component name such as "BuyButton": the exported apps draw the part… |
 | `set_props` | 搭建 |  |  | Sets prop values of a part (checked against its PropDefs); null resets one to its default. |
-| `set_rows` | 搭建 |  |  | Gives a list prop of a part its rows (a navigation bar's tabs, a menu's entries…), in order: each {label, icon?…}. |
+| `set_rows` | 搭建 |  |  | Gives a list or table prop of a part its rows (a navigation bar's tabs, a menu's entries, a chart's points, a leaderboard's players…), in order. |
 | `set_group` | 搭建 |  |  | Sets a group's fields (by the group's or one of its parts' id): name, hidden (at the start of the preview), locked, showWhen (a condition), pane. |
 | `toggle_lock` | 搭建 |  |  | Locks the groups of the given parts, or unlocks them when all already are. |
 | `nudge` | 搭建 |  |  | Moves parts (or a screen with everything on it) by dx, dy. |
@@ -372,6 +375,8 @@ npx playwright install chromium
 | `add_data_source` | 数据与交互 |  |  | Makes a screen load data from an endpoint: read as data.&lt;name> (value, items, status, loading, error, hasMore, empty). |
 | `update_data_source` | 数据与交互 |  |  | Changes a screen's data source: its endpoint, params, body, when it loads, pull to refresh, paging, page size (null clears one), or its name (rename: the screen's expressions, the… |
 | `remove_data_source` | 数据与交互 |  | 是 | Stops a screen loading a data source; what reads data.&lt;name> reads nothing. |
+| `set_subscription` | 数据与交互 |  |  | Makes a screen listen to a realtime channel (AsyncAPI) while it is on show, or changes how it does: read as data.&lt;name> (value: the latest message's payload; items: every paylo… |
+| `remove_subscription` | 数据与交互 |  | 是 | Stops a screen listening to a realtime channel; what reads data.&lt;name> reads nothing, and its actions on messages go with it. |
 | `set_screen_params` | 数据与交互 |  |  | Declares what a screen is opened with (navigation passes them: set_action {params: {productId: "item.id"}}): each {name, type?: string\|number\|boolean, example?}; the screen read… |
 | `rename_screen_param` | 数据与交互 |  |  | Renames a param a screen is opened with. |
 | `set_screen_auth` | 数据与交互 |  |  | Says a screen needs a session ("required": without one the app goes to the sign-in screen first) or is the sign-in screen ("login": where a 401 and a required screen send the app;… |

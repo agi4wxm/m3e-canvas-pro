@@ -221,7 +221,7 @@ describe("getting around", () => {
     expect(pagesShown(5, 3)).toEqual([1, 2, 3, 4, 5]);
     const fourth = jest.fn();
     const next = jest.fn();
-    await draw(<Pagination pages={10} current={2} taps={{ "tab:3": fourth, next }} />);
+    await draw(<Pagination pages={10} page={1} taps={{ "tab:3": fourth, next }} />);
     expect(screen.getByLabelText("More pages")).toBeTruthy();
     await fireEvent.press(screen.getByRole("button", { name: "Next" }));
     expect(next).toHaveBeenCalled();

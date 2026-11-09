@@ -31,8 +31,9 @@ export type PartSpec = {
   screen?: string;
   /** a button (the default), words, a text field, a dropdown menu (the words are its trigger's), a dialog, a number pad
    *  (the words are its confirm button's; it sends `submit` with the value), a button group (the words are its first
-   *  entry, `items` the rest; its entries are a family of places, `tab:*`) */
-  kind?: "button" | "text" | "field" | "menu" | "dialog" | "numpad" | "buttons";
+   *  entry, `items` the rest; its entries are a family of places, `tab:*`), a world view (the words are its name, `items`
+   *  the input actions its world takes; its stand-in lists each input it hears: `move 1,0`, `attack ↓`) */
+  kind?: "button" | "text" | "field" | "menu" | "dialog" | "numpad" | "buttons" | "world";
   label: string;
   /** a menu's entries, a dialog's confirm button */
   items?: string[];
@@ -61,8 +62,19 @@ export type OperationSpec = {
   returns?: Record<string, "string" | "number">;
 };
 
+/** A realtime channel of the contract: its address (`/rooms/{room}`), and the messages the server sends over it, each
+ *  with the fields of its payload. */
+export type ChannelRowSpec = { id: string; address: string; messages: Record<string, Record<string, "string" | "number">> };
+
+/** a screen's subscription to a channel (`Frame.subscriptions`), made the way the editor makes one (`set_subscription`) */
+export type SubscriptionRowSpec = { screen?: string; name: string; channel: string; params?: Record<string, string>; messages?: string[]; actions?: Record<string, Action> };
+
 export type Design = {
   screens: ScreenSpec[];
+  /** the contract's realtime channels */
+  channels?: ChannelRowSpec[];
+  /** the screens' subscriptions to them */
+  subscriptions?: SubscriptionRowSpec[];
   parts: PartSpec[];
   vars?: { id: string; name: string; type: VarType; value: VarValue }[];
   api?: OperationSpec[];
@@ -96,7 +108,13 @@ export type Step =
   | { emit: string; event: string; payload?: Record<string, unknown> }
   /** the platform goes back by itself, no tap of the design asking it to: the system's back button or a swipe back on a
    *  phone, the back of the preview's controls, a browser's or a mini-program's own back */
-  | { platformBack: true };
+  | { platformBack: true }
+  /** The back end sends a message over every connection made to this address (`/rooms/r1`, its query aside), those the
+   *  app has closed too: a message on the wire after a close must land nowhere. */
+  | { push: string; message: string; payload?: Record<string, unknown> }
+  /** The back end's clock stands still or runs on, at a rate: what the hosts read as `now`. It starts running at
+   *  `TABLE_CLOCK_START`, and moves only with the `wait` steps (each `rate` times as far), so what it tells is exact. */
+  | { clock: { paused?: boolean; rate?: number } };
 
 /** a call as the back end saw it: its operation and what it was given (query and JSON body fields together) */
 export type SeenCall = { op: string; in: Record<string, unknown> };
@@ -117,6 +135,8 @@ export type Expect = {
   invokes?: SeenCall[];
   /** the last screen move the host made, or asked its navigator for */
   move?: Move;
+  /** how many connections are open to each address (`/rooms/r1`) at the end, as the back end saw them */
+  open?: Record<string, number>;
 };
 
 /** A screen move: whether it went back, and the kind of motion it plays (`Motion.kind`), "none" when it has none (an
@@ -156,6 +176,8 @@ export type Observed = {
   invokes?: SeenCall[];
   /** the last screen move, where the host's runner can tell it */
   move?: Move;
+  /** the connections open at the end, by address (the table's runner fills it from the back end) */
+  open?: Record<string, number>;
 };
 
 /** a row as a kit's runner has it (lib/actions/consistency/kits.ts): no design, which the kit's printer has printed

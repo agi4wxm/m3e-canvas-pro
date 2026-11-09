@@ -10,6 +10,7 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import { ProjectFileStore } from "../mcp/src/fileStore";
+import { DiskAssets } from "../mcp/src/assets";
 import { exportToFolder, FolderRefused, reportLines } from "../lib/export/nodeWriter";
 import { differenceLines } from "../lib/export/differences";
 import { buildProduct } from "../lib/export/product";
@@ -26,13 +27,17 @@ if (!project || !out) {
 const lang = isLang(values.lang) ? values.lang : "en";
 setGlobalLang(lang);
 
-const doc = await new ProjectFileStore(project).read();
+const store = new ProjectFileStore(project);
+const doc = await store.read();
 if (!doc) {
   console.error(`${project} is not an M3E Canvas project`);
   process.exit(1);
 }
 try {
-  const product = await buildProduct(doc, {}, { lang, read: (path) => readFile(join(ROOT, path), "utf8") });
+  /* the asset pipeline's manifest, where the project's configuration says (beside the project file by default) */
+  const assets = await new DiskAssets().refresh(store.projectDir, doc);
+  for (const p of assets.manifest ? assets.problems : []) console.warn(`asset manifest: ${p}`);
+  const product = await buildProduct(doc, {}, { lang, read: (path) => readFile(join(ROOT, path), "utf8"), assets: assets.manifest });
   for (const w of product.warnings) console.warn(`warning: ${w}`);
   const done = await exportToFolder(out, product, { force: values.force });
   console.log(`${product.name} → ${done.dir}`);

@@ -1,4 +1,7 @@
+import { colorChoicesOf } from "../../../parts/color";
+import { lookAsColours } from "../../materials";
 import { bindExpr, boundVar } from "../../bindings/bind";
+import { assetIdOf, assetSlotOf, isAssetName } from "../../assetRefs";
 import { COLOR_TOKENS, BACK_TARGET, LINK_TARGET, GAP, linkUrlOf, normalizeTheme, type Action, type ActionBody, type Condition, type DataSource, type Doc, type Effect, type Frame, type Group, type Item, type ScreenParam } from "../../tokens";
 import type { Answer } from "../../actions/model";
 import { partBySlug } from "../../../parts/registry";
@@ -19,6 +22,7 @@ import { PARTS as KIT_PARTS } from "../../../rn/src/kit/parts.generated";
 import { SET_ONLY, propValues, type AtomTaps, type PlainNode } from "./data";
 import { Imports, NAME, Raw, el, exprOf, jsx, same, svgMarkup, when, type Fn, type J } from "../ir/code";
 import { answers, backMotion, type DocFacts } from "../ir/facts";
+import { subscriptionPlans, type SubscriptionPlan } from "../ir/channels";
 import { OPENS_BY_PROP, atomsOf, iconNamesOf, keepsTrigger, labelsOf, linesOf, planScreens, selectsByProp, slotGiven, type Loose, type PartNode, type RunNode, type ScreenPlan } from "../ir/screen";
 
 export { iconNamesOf };
@@ -42,7 +46,7 @@ export { iconNamesOf };
 
 /** something the printed app does not do as the design says, for the exporter to list */
 export type RnWarning = {
-  kind: "placeholder" | "atoms" | "holder" | "effects" | "condition" | "hidden" | "trigger" | "slot" | "event" | "look" | "image" | "unknown" | "binding" | "input" | "style";
+  kind: "placeholder" | "atoms" | "holder" | "effects" | "condition" | "hidden" | "trigger" | "slot" | "event" | "look" | "image" | "unknown" | "binding" | "input" | "style" | "asset";
   /** the screen, by its name */
   screen?: string;
   /** what touches more than one (what of the style is not drawn), every screen it touches */
@@ -98,6 +102,9 @@ export type RnPrintOptions = {
    *  is required by in the images module (lib/export/rn/app.ts `RnPictures`), `from` is where a screen imports that
    *  module from. Left out, such a picture is left out of the app, and reported. */
   images?: { from: string; name: (data: string) => string | undefined };
+  /** The asset pipeline's assets the design names (`asset:<id>`): where a screen imports `asset(id)` from, the lookup
+   *  the export writes from the manifest (lib/export/assets.ts). Left out, such an asset is left out, and reported. */
+  assets?: { from: string };
   /** The app's runtime, for a document bound to its API: where a screen imports the data layer the export generates
    *  beside the screens (its data sources, forms, scope; see lib/export/rn/mobile.ts). Left out (the kit's test bed),
    *  the bindings keep the design's values and are reported. */
@@ -127,12 +134,14 @@ type Ctx = { $: string; form?: { v: string; id: string }; item?: string; locals?
 
 /** a data source of the screen as printed: its variable and what it is */
 type SourceInfo = { v: string; def: DataSource };
+/** a subscription of the screen to a realtime channel, by the variable its view is held in */
+type SubInfo = { v: string; plan: SubscriptionPlan };
 
 /** the words a reserved name of the printed screen cannot be a data source's variable */
 /** the kit's parts with a copy button of their own, which take `onCopy` */
 const COPIES = new Set(["copy-row", "qr-code"]);
 
-const RESERVED = new Set(["app", "act", "nav", "params", "given", "item", "index", "keyOf", "regionOf", "rowsOf", "optionOf", "pickFile", "fileName", "copyText", "useSource", "useFormFor", "useParams", "useScreenScope", "View", "IMAGES"]);
+const RESERVED = new Set(["app", "act", "nav", "params", "given", "item", "index", "keyOf", "regionOf", "rowsOf", "optionOf", "pickFile", "fileName", "copyText", "useSource", "useFormFor", "useParams", "useScreenScope", "useSubscription", "event", "View", "IMAGES", "asset"]);
 
 class ScreenPrinter {
   /** the kit's components this screen names */
@@ -150,6 +159,8 @@ class ScreenPrinter {
   head = { sources: [] as string[], scope: [] as string[], forms: [] as string[], regions: [] as string[], after: [] as string[] };
   uses = { nav: false, app: false, act: false, $: false };
   sources = new Map<string, SourceInfo>();
+  /** the screen's subscriptions to realtime channels, by name */
+  subs = new Map<string, SubInfo>();
   forms = new Map<string, string>();
   formInfos: { id: string; operationId: string; fields: string[] }[] = [];
   /** the inputs a form keeps that a condition asks whether they are filled: each by its id, what reads it */
@@ -157,6 +168,8 @@ class ScreenPrinter {
   icons = new Set<string>();
   /** whether the screen reads a picture the app bundles (the images module) */
   pictures = false;
+  /** whether the screen reads an asset of the pipeline's from the lookup (the assets module) */
+  assets = false;
   ctx: Ctx;
   private n = { action: 0, event: 0, form: 0, region: 0, row: 0, source: 0 };
   readonly runtime: boolean;
@@ -193,6 +206,12 @@ class ScreenPrinter {
         while (taken.has(v)) v = `source${++this.n.source}`;
         taken.add(v);
         this.sources.set(d.name, { v, def: d });
+      }
+      for (const plan of subscriptionPlans(doc, frame)) {
+        let v = NAME.test(plan.def.name) && !taken.has(plan.def.name) ? plan.def.name : `source${++this.n.source}`;
+        while (taken.has(v)) v = `source${++this.n.source}`;
+        taken.add(v);
+        this.subs.set(plan.def.name, { v, plan });
       }
     }
   }
@@ -367,9 +386,12 @@ class ScreenPrinter {
     if (it.fill && COLOR_TOKENS.some((t) => t.key === it.fill)) out.push(["fill", str(it.fill)]);
     if (it.textColor) out.push(["textColor", str(it.textColor)]);
     if (it.corners) out.push(["corners", expr({ tl: it.corners.tl, tr: it.corners.tr, br: it.corners.br, bl: it.corners.bl })]);
-    const look = cleanLook(it.look);
-    if (look) {
-      if (look.texture) this.warn("look", "a texture is not drawn on a phone", it.id);
+    const cleaned = cleanLook(it.look);
+    if (cleaned) {
+      if (cleaned.texture) this.warn("look", "a texture is not drawn on a phone", it.id);
+      /* a material's pictures are not laid as a fill here: each material layer stands as its colour (lib/materials.ts) */
+      const { look, replaced } = lookAsColours(cleaned, this.doc.materials);
+      if (replaced) this.warn("look", "a material is drawn as its colour on a phone, without its picture", it.id);
       out.push(["look", expr(look)]);
     }
     const tap = this.action(it.action, it.id);
@@ -442,11 +464,47 @@ class ScreenPrinter {
     return new Raw(`IMAGES.${name}`);
   }
 
+  /** An asset of the pipeline's (`asset:<id>`) as the screen reads it: its address from the lookup the export writes
+   *  from the manifest. Without one (the kit's test bed), it is left out, and reported. */
+  asset(name: string, part: string): Raw | string {
+    if (!this.o.assets) {
+      this.warn("asset", "an asset of the asset pipeline's is left out: this app has no lookup of them", part);
+      return "";
+    }
+    this.assets = true;
+    return new Raw(`asset(${str(assetIdOf(name))})`);
+  }
+
   /** the pictures a tree of atoms holds as data, each the file the app bundles it as */
   pictured(v: unknown, part: string | undefined): unknown {
+    if (isAssetName(v)) return this.asset(v, part ?? "");
     if (typeof v === "string") return v.startsWith("data:image/") && this.o.images ? this.picture(v, part ?? "") : v;
     if (Array.isArray(v)) return v.map((x) => this.pictured(x, part));
     if (v && typeof v === "object") return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, this.pictured(x, part)]));
+    return v;
+  }
+
+  /** A prop's value with the pipeline's assets it names read from the lookup: a picture's or a clip's address, a list
+   *  row's picture. One named as an icon is not drawn by the kit yet: it draws none, and that is reported. */
+  assetProp(def: PartDef, d: PartDef["props"][number], v: unknown, part: string): unknown {
+    const slot = assetSlotOf(def, d);
+    if (isAssetName(v)) {
+      if (slot === "icon") {
+        this.warn("asset", `${d.key} names ${v} as an icon, which the phone's kit does not draw yet: it shows no icon`, part);
+        return "";
+      }
+      return slot ? this.asset(v, part) : v;
+    }
+    if (d.kind === "list" && Array.isArray(v) && v.some((row) => isAssetName((row as Record<string, unknown>)?.image) || isAssetName((row as Record<string, unknown>)?.icon)))
+      return (v as Record<string, unknown>[]).map((row) => {
+        let out = row;
+        if (isAssetName(row.image)) out = { ...out, image: this.asset(row.image, part) };
+        if (isAssetName(row.icon)) {
+          this.warn("asset", `a row of ${d.key} names ${row.icon} as its icon, which the phone's kit does not draw yet: it shows no icon`, part);
+          out = { ...out, icon: "" };
+        }
+        return out;
+      });
     return v;
   }
 
@@ -462,6 +520,7 @@ class ScreenPrinter {
       if (SET_ONLY.has(d.key) && !(it.props && typeof it.props[d.key] === "number")) continue;
       if (d.kind === "image" && typeof v === "string" && v.startsWith("data:")) v = this.picture(v, it.id);
       if (d.kind === "list" && Array.isArray(v)) v = (v as Record<string, unknown>[]).map((row) => (typeof row.image === "string" && row.image.startsWith("data:") ? { ...row, image: this.picture(row.image, it.id) } : row));
+      v = this.assetProp(def, d, v, it.id);
       if (def.slug === "svg" && d.key === "markup" && typeof v === "string" && v) v = svgMarkup(v, it.id) ?? "";
       let code: string | undefined;
       const ref = it.bind?.[d.key];
@@ -505,8 +564,8 @@ class ScreenPrinter {
         ? [expr(!!design)]
         : d.kind === "number"
           ? [expr(typeof design === "number" ? design : 0), expr(d.min), expr(d.max)]
-          : d.kind === "enum"
-            ? [expr(d.options.map((o) => (typeof o === "string" ? o : o.value))), expr(String(design ?? ""))]
+          : d.kind === "enum" || d.kind === "color"
+            ? [expr(d.kind === "color" ? colorChoicesOf(d) : d.options.map((o) => (typeof o === "string" ? o : o.value))), expr(String(design ?? ""))]
             : d.kind === "list"
               ? [expr(design), expr(d.max ?? 50)]
               : [];
@@ -657,14 +716,16 @@ class ScreenPrinter {
     }
     /* a capability view is its slot (src/custom/slots), handed what the design's stand-in is and drawing it until written */
     const slot = this.o.slots?.names[it.id];
-    if (slot && def.capability) {
+    /* a world view hears the design's input actions on its channel, which the app's memory keeps (src/kit/world.tsx) */
+    const channel: [string, string][] = def.world ? ((this.uses.app = true), [["channel", `app.world(${str(it.id)})`]]) : [];
+    if (slot && (def.capability || def.world)) {
       this.slots.add(slot);
-      /* the stand-in is the kit's own drawing of the view where it has one (the camera's, the map's, the call's), its
-         props the part's as the kit takes them */
+      /* the stand-in is the kit's own drawing of the view where it has one (the camera's, the map's, the call's, the
+         world's), its props the part's as the kit takes them */
       const standIn = isNative(def.slug) ? NATIVE[def.slug] : "Placeholder";
       this.kit.add(standIn);
-      const drawn = isNative(def.slug) ? el(standIn, [...this.props(def, it), ...this.extras(p)]) : el("Placeholder", [["part", str(def.slug)], ["name", str(def.name)], ["width", expr(size.w)], ["height", expr(size.h)]]);
-      return el(slot, [...slotGiven(def, it).map(([k, v]) => [k, expr(v)] as [string, string]), ["width", expr(size.w)], ["height", expr(size.h)], ...this.slotEvents(p)], [drawn]);
+      const drawn = isNative(def.slug) ? el(standIn, [...this.props(def, it), ...this.extras(p), ...channel]) : el("Placeholder", [["part", str(def.slug)], ["name", str(def.name)], ["width", expr(size.w)], ["height", expr(size.h)]]);
+      return el(slot, [...slotGiven(def, it).map(([k, v]) => [k, expr(v)] as [string, string]), ["width", expr(size.w)], ["height", expr(size.h)], ...this.slotEvents(p), ...channel], [drawn]);
     }
     /* a part the product draws itself (`Item.slot`): its slot, handed what the kit's component is (the generated slots
        module draws the kit's component inside it), or around the atoms or the placeholder it is drawn as */
@@ -677,7 +738,7 @@ class ScreenPrinter {
       const props = this.props(def, it).filter(([k]) => !own.has(k));
       const wired = this.input(def, it, props);
       const replaced = new Set(wired.map(([k]) => k));
-      const extras = this.extras(p).filter(([k]) => !replaced.has(k));
+      const extras = [...this.extras(p).filter(([k]) => !replaced.has(k)), ...channel];
       if (selectsByProp(def, it)) {
         this.uses.app = true;
         extras.push(["onSelect", `(i: number) => app.setProp(${str(it.id)}, "selected", i)`]);
@@ -928,12 +989,30 @@ class ScreenPrinter {
     });
   }
 
+  /** The screen's subscriptions as hooks, each reading its address in the scope of the sources before it and running
+   *  the design's actions on its messages where the screen's taps run (`act`, with the message as `event`). */
+  private subscriptionHooks(before: string): string[] {
+    return [...this.subs.values()].map((x, i) => {
+      this.bind.add("useSubscription").type("ChannelDef");
+      const on = x.plan.actions.flatMap(([key, a]) => {
+        const run = this.run(a, "", ["event"]);
+        return run ? [`${str(key)}: (event) => ${run}`] : [];
+      });
+      return `const ${x.v} = useSubscription(C${i + 1}, ${before}${on.length ? `, { ${on.join(", ")} }` : ""});`;
+    });
+  }
+
   /** the component's hooks, in the order they may read each other */
   hooks(): string[] {
     const out: string[] = [];
+    /* what runs on a message is a tap of the screen's: printed first, so the screen knows it acts */
+    const subHooks = this.subs.size ? (() => {
+      const sources = [...this.sources.values()];
+      return this.subscriptionHooks(`$0${sources.length ? `.with({ data: { ${sources.map((x) => x.v).join(", ")} } })` : ""}`);
+    })() : [];
     if (this.uses.nav) out.push("const nav = useNav();");
     if (this.uses.app) out.push("const app = useApp();");
-    if (this.runtime && (this.uses.$ || this.sources.size)) {
+    if (this.runtime && (this.uses.$ || this.sources.size || this.subs.size)) {
       const params = this.frame.params?.length ? "params" : "{}";
       if (this.frame.params?.length) {
         this.bind.add("useParams");
@@ -941,13 +1020,16 @@ class ScreenPrinter {
       }
       this.bind.add("useScreenScope");
       const sources = [...this.sources.values()];
-      out.push(`const ${sources.length ? "$0" : "$"} = useScreenScope(${params});`);
+      const subs = [...this.subs.values()];
+      out.push(`const ${sources.length || subs.length ? "$0" : "$"} = useScreenScope(${params});`);
       sources.forEach((s, i) => {
         this.bind.add("useSource").type("SourceDef");
         const before = sources.slice(0, i).map((x) => x.v);
         out.push(`const ${s.v} = useSource(S${i + 1}, $0${before.length ? `.with({ data: { ${before.join(", ")} } })` : ""});`);
       });
-      if (sources.length) out.push(`const $ = $0.with({ data: { ${sources.map((s) => (s.v === s.def.name ? s.v : `${NAME.test(s.def.name) ? s.def.name : str(s.def.name)}: ${s.v}`)).join(", ")} } });`);
+      out.push(...subHooks);
+      const named = [...sources.map((s) => [s.def.name, s.v] as const), ...subs.map((x) => [x.plan.def.name, x.v] as const)];
+      if (named.length) out.push(`const $ = $0.with({ data: { ${named.map(([n, v]) => (v === n ? v : `${NAME.test(n) ? n : str(n)}: ${v}`)).join(", ")} } });`);
     }
     out.push(...this.head.forms);
     /* the screen's taps, after its forms: what they act on is the screen's (its key and params, its data sources, its
@@ -966,6 +1048,11 @@ class ScreenPrinter {
     if (this.uses.app) this.kit.add("useApp");
     out.push(...this.head.after);
     return out;
+  }
+
+  /** the subscriptions' definitions, as module constants */
+  subConsts(): string[] {
+    return [...this.subs.values()].map((x, i) => `const C${i + 1}: ChannelDef = ${expr(x.plan.def)};`);
   }
 
   /** the data sources' definitions, as module constants */
@@ -1021,7 +1108,7 @@ function screensOf(source: Doc, widths: Record<string, number>, o: RnPrintOption
     if (p.uses.nav) p.kit.add("useNav");
     const component = screens.names.get(frame.id)!;
     const params = runtime && frame.params?.length ? frame.params : undefined;
-    const consts = [...(params ? [`const PARAMS: ParamSpec[] = ${expr(params.map((x) => ({ name: x.name, ...(x.type ? { type: x.type } : {}), ...(x.example !== undefined ? { example: x.example } : {}) })))};`] : []), ...p.sourceConsts(), ...p.consts];
+    const consts = [...(params ? [`const PARAMS: ParamSpec[] = ${expr(params.map((x) => ({ name: x.name, ...(x.type ? { type: x.type } : {}), ...(x.example !== undefined ? { example: x.example } : {}) })))};`] : []), ...p.sourceConsts(), ...p.subConsts(), ...p.consts];
     if (params) p.bind.type("ParamSpec");
     const imports = [
       ...(p.rn.size ? [`import { ${[...p.rn].sort().join(", ")} } from "react-native";`] : []),
@@ -1029,6 +1116,7 @@ function screensOf(source: Doc, widths: Record<string, number>, o: RnPrintOption
       ...(p.slots.size && o.slots ? [`import { ${[...p.slots].sort().join(", ")} } from ${str(o.slots.from)};`] : []),
       ...(p.bind.size && o.runtime ? [p.bind.line(o.runtime.bind, "mixed")] : []),
       ...(p.pictures && o.images ? [`import { IMAGES } from ${str(o.images.from)};`] : []),
+      ...(p.assets && o.assets ? [`import { asset } from ${str(o.assets.from)};`] : []),
     ];
     const source = [
       "// Generated by M3E Canvas from the design. Do not edit: change the design and export again.",

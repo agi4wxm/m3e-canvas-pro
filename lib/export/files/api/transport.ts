@@ -39,8 +39,26 @@ export interface TransportResponse {
   body: unknown
 }
 
+/** a message a realtime channel brought: the channel (its id), the message's name, what it carries, when it was sent
+ *  (ms on the back end's clock) */
+export type ChannelMessage = { channel: string; message: string; payload: unknown; at: number }
+
+/** a connection to a realtime channel: the app's messages to it, by name, and its end */
+export interface ChannelConnection {
+  send(message: string, payload?: unknown): void
+  close(): void
+}
+
+/** what a connection says of itself while it lasts */
+export type ChannelStatus = "open" | "closed"
+
 export interface Transport {
   request(request: TransportRequest): Promise<TransportResponse>
+  /** opens a realtime channel by its address, its parameters filled in (/rooms/r1); left out by a transport with no
+   *  realtime (./realtime.ts makes one over WebSocket and server-sent events) */
+  connect?(address: string, onMessage: (message: ChannelMessage) => void, o?: { onStatus?: (status: ChannelStatus) => void; token?: string }): ChannelConnection
+  /** the time now on the back end's clock, in ms; the device's when left out */
+  now?(): number
 }
 
 /** the query as a URL's search string, without the "?": keys in the order given, arrays as repeated keys */

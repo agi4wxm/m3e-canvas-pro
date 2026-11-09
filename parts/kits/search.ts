@@ -21,7 +21,7 @@ const search: KitDef = {
       labels: { zh: "Material 圆角", ja: "Material・丸型", ko: "Material·둥근형" },
       suits: (l) => l.group !== "desktop" && (l.field === "m3" || l.field === "ring" || l.field === "hard" || l.field === "glow"),
       build: () =>
-        hbox({ surface: "field", width: 380, hugWidth: false, padX: 16, padY: 4, gap: 12 }, [icon("search", { color: "default" }), entry(PLACEHOLDER), iconButton("mic", say("Voice search", "语音搜索", "音声検索", "음성 검색"), { variant: "ghost" }), atom("avatar", { initials: "A", size: "sm" })], {
+        hbox({ surface: "field", width: 380, hugWidth: false, padX: 16, padY: 4, gap: 12 }, [icon("search", { color: "" }), entry(PLACEHOLDER), iconButton("mic", say("Voice search", "语音搜索", "音声検索", "음성 검색"), { variant: "ghost" }), atom("avatar", { initials: "A", size: "sm" })], {
           name: say("Search bar", "搜索栏", "検索バー", "검색 바"),
           corners: round(28),
         }),
@@ -32,7 +32,7 @@ const search: KitDef = {
       labels: { zh: "小号圆角（iOS 式）", ja: "小さめ角丸（iOS 風）", ko: "작은 둥근형 (iOS 식)" },
       suits: (l) => l.group !== "desktop" && (l.field === "soft" || l.field === "pill" || l.field === "line"),
       build: () =>
-        hbox({ surface: "field", width: 380, hugWidth: false, padX: 8, padY: 6, gap: 6 }, [icon("search", { size: 20, color: "muted" }), entry(PLACEHOLDER), icon("mic", { size: 20, color: "muted" })], {
+        hbox({ surface: "field", width: 380, hugWidth: false, padX: 8, padY: 6, gap: 6 }, [icon("search", { size: 20, color: "on-surface-variant" }), entry(PLACEHOLDER), icon("mic", { size: 20, color: "on-surface-variant" })], {
           name: say("Search bar", "搜索栏", "検索バー", "검색 바"),
           corners: round(10),
         }),
@@ -43,7 +43,7 @@ const search: KitDef = {
       labels: { zh: "桌面带快捷键", ja: "デスクトップ・ショートカット付き", ko: "데스크톱·단축키" },
       suits: (l) => l.group === "desktop" || l.compact,
       build: () =>
-        hbox({ surface: "field", width: 320, hugWidth: false, padX: 10, padY: 4, gap: 8 }, [icon("search", { size: 20, color: "muted" }), entry(PLACEHOLDER, { size: "sm" }), atom("kbd", { keys: [{ label: "Ctrl" }, { label: "K" }] })], {
+        hbox({ surface: "field", width: 320, hugWidth: false, padX: 10, padY: 4, gap: 8 }, [icon("search", { size: 20, color: "on-surface-variant" }), entry(PLACEHOLDER, { size: "sm" }), atom("kbd", { keys: [{ label: "Ctrl" }, { label: "K" }] })], {
           name: say("Search bar", "搜索栏", "検索バー", "검색 바"),
           corners: round(8),
         }),

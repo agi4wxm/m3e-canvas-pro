@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import type { Doc, Palette } from "@/lib/tokens";
 import type { Transport } from "@/lib/api/transport";
-import type { MockLogEntry, MockTransport, Route } from "@/lib/mocks";
+import type { ControlledClock, MockLogEntry, MockTransport, Route } from "@/lib/mocks";
 import { createMockCapabilities, type CapabilityLogEntry, type MockCapabilities } from "@/lib/capabilities/mock";
 import { FAILURE_WORDS } from "@/lib/i18n/capabilities";
 import { t, useLang } from "@/lib/i18n";
@@ -33,6 +33,9 @@ export type PreviewMocks = {
   routes: Route[];
   /** what an answer said, in short, for the log: by entry id */
   answers: Map<number, string>;
+  /** the mocks' clock: the time the app reads (`now`, a countdown), the realtime scripts' messages, the answers' waits;
+   *  it can stand still and run at another rate */
+  clock: { paused: boolean; rate: number; pause: () => void; resume: () => void; setRate: (rate: number) => void };
 };
 
 export const PreviewMocksContext = createContext<PreviewMocks | null>(null);
@@ -45,7 +48,9 @@ export function usePreviewMocks(doc: Pick<Doc, "api" | "mocks" | "collections" |
   const lang = useLang();
   /* a document with no API may still have scenarios that say how its capabilities answer */
   const has = !!doc.api?.endpoints?.length || !!doc.api?.channels?.length || !!doc.mocks?.scenarios?.length || !!doc.mocks?.capabilities;
-  const [made, setMade] = useState<{ transport: MockTransport; capabilities: MockCapabilities; routes: Route[] } | null>(null);
+  const [made, setMade] = useState<{ transport: MockTransport; capabilities: MockCapabilities; routes: Route[]; clock: ControlledClock } | null>(null);
+  /* the clock's state, drawn again on each pause, resume and change of rate */
+  const [clockState, setClockState] = useState({ paused: false, rate: 1 });
   const [scenario, setScenarioNow] = useState<string | undefined>(undefined);
   const [session, setSession] = useState(0);
   const [log, setLog] = useState<MockLogEntry[]>([]);
@@ -55,10 +60,15 @@ export function usePreviewMocks(doc: Pick<Doc, "api" | "mocks" | "collections" |
     if (!has) return;
     let live = true;
     let transport: MockTransport | undefined;
+    let unlisten = () => {};
     void import("@/lib/mocks").then((m) => {
       if (!live) return;
       const source = { api: doc.api, mocks: doc.mocks, collections: doc.collections };
-      const made = m.createMockTransport(source, { locale: doc.mocks?.locale ?? lang, onLog: (e) => setLog((l) => [...l.slice(-199), e]) });
+      /* a clock the bar can stop and speed up; the data is still made around the day, as with the platform's clock */
+      const clock = m.controlledClock();
+      unlisten = clock.listen(() => setClockState({ paused: clock.paused, rate: clock.rate }));
+      setClockState({ paused: false, rate: 1 });
+      const made = m.createMockTransport(source, { locale: doc.mocks?.locale ?? lang, clock, now: Math.floor(Date.now() / 86_400_000) * 86_400_000, onLog: (e) => setLog((l) => [...l.slice(-199), e]) });
       /* the log keeps a few words of each answer */
       const ask = made.request.bind(made);
       made.request = async (req) => {
@@ -69,11 +79,12 @@ export function usePreviewMocks(doc: Pick<Doc, "api" | "mocks" | "collections" |
       };
       transport = made;
       const capabilities = createMockCapabilities({ ...doc.mocks, locale: doc.mocks?.locale ?? lang }, doc.capabilities, { scenario: made.scenario, onLog: (e) => setInvocations((l) => [...l.slice(-199), e]) });
-      setMade({ transport: made, capabilities, routes: m.compileRoutes(doc.api ?? {}, doc.mocks) });
+      setMade({ transport: made, capabilities, routes: m.compileRoutes(doc.api ?? {}, doc.mocks), clock });
       setScenarioNow(made.scenario);
     });
     return () => {
       live = false;
+      unlisten();
       transport?.close();
     };
   }, [has, doc.api, doc.mocks, doc.collections, doc.capabilities, lang]);
@@ -103,8 +114,14 @@ export function usePreviewMocks(doc: Pick<Doc, "api" | "mocks" | "collections" |
           setInvocations([]);
         },
         answers: answers.current,
+        clock: {
+          ...clockState,
+          pause: () => made.clock.pause(),
+          resume: () => made.clock.resume(),
+          setRate: (rate: number) => made.clock.setRate(rate),
+        },
       },
-    [made, scenario, log, invocations, session],
+    [made, scenario, log, invocations, session, clockState],
   );
 }
 
@@ -178,6 +195,44 @@ export function MockScenarioSwitch({ mocks, scenarios, p, wide, barBtn }: { mock
           })}
         </div>
       )}
+    </div>
+  );
+}
+
+/** the rates the bar offers the mocks' clock */
+const CLOCK_STEPS = [0.5, 1, 2, 5, 10];
+
+/** The preview bar's control of the mocks' clock, beside the scenarios: stop and go on, and how fast it runs. What the
+ *  app reads as `now`, its countdowns and the realtime scripts' messages follow it. */
+export function MockClockSwitch({ mocks, p, wide, barBtn }: { mocks: PreviewMocks; p: Palette; wide: boolean; barBtn: React.CSSProperties }) {
+  const lang = useLang();
+  const { paused, rate } = mocks.clock;
+  const next = CLOCK_STEPS[(CLOCK_STEPS.indexOf(rate) + 1) % CLOCK_STEPS.length] ?? 1;
+  const off = paused || rate !== 1;
+  return (
+    <div role="group" aria-label={t("mocksClock", lang)} style={{ display: "flex", gap: 2, minWidth: 0 }}>
+      <button
+        data-preview-clock-pause={paused ? "paused" : "running"}
+        onClick={() => (paused ? mocks.clock.resume() : mocks.clock.pause())}
+        title={t(paused ? "mocksClockResume" : "mocksClockPause", lang)}
+        aria-label={t(paused ? "mocksClockResume" : "mocksClockPause", lang)}
+        aria-pressed={paused}
+        className="m3-press"
+        style={{ ...barBtn, flex: 1, color: off ? p.onTertiaryContainer : p.onSurfaceVariant, background: off ? p.tertiaryContainer : "transparent" }}
+      >
+        <Icon name={paused ? "play_arrow" : "pause"} size={20} />
+        {wide && <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0, flex: 1, textAlign: "left" }}>{paused ? t("mocksClockPaused", lang) : t("mocksClock", lang)}</span>}
+      </button>
+      <button
+        data-preview-clock-rate={rate}
+        onClick={() => mocks.clock.setRate(next)}
+        title={`${t("mocksClockRate", lang)}: ${rate}×`}
+        aria-label={`${t("mocksClockRate", lang)}: ${rate}×`}
+        className="m3-press"
+        style={{ ...barBtn, width: "auto", padding: "0 8px", fontVariantNumeric: "tabular-nums", color: rate !== 1 ? p.onTertiaryContainer : p.onSurfaceVariant, background: rate !== 1 ? p.tertiaryContainer : "transparent" }}
+      >
+        {`${rate}×`}
+      </button>
     </div>
   );
 }

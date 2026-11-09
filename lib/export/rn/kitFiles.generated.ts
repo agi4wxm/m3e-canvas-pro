@@ -8,6 +8,7 @@ export const KIT_FILES: string[] = [
  "atoms/basics.tsx",
  "atoms/controls.tsx",
  "atoms/indicators.tsx",
+ "clock.ts",
  "composites/actions.tsx",
  "composites/bars.tsx",
  "composites/content.tsx",
@@ -44,5 +45,6 @@ export const KIT_FILES: string[] = [
  "theme/ThemeProvider.tsx",
  "theme/default.generated.ts",
  "theme/types.ts",
- "tree.tsx"
+ "tree.tsx",
+ "world.tsx"
 ];

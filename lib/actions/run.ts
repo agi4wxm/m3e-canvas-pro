@@ -14,8 +14,8 @@
  */
 
 import { display, evaluate, fillTemplate, holds, type Scope } from "../bindings/expr";
-import { BACK_TARGET, LINK_TARGET, MAX_CALL_DEPTH, STAY_TARGET, linkUrlOf, type Action, type ActionBody, type Answer, type Condition, type Effect, type Trigger, type VarType, type VarValue } from "./model";
-import type { Change, FormRef, Host, InvokeOutcome, Outcome, Tap } from "./host";
+import { BACK_TARGET, LINK_TARGET, MAX_CALL_DEPTH, MOVE_ACTION, STAY_TARGET, WORLD_ACTION, linkUrlOf, type Action, type ActionBody, type Answer, type Condition, type Effect, type Trigger, type VarType, type VarValue } from "./model";
+import type { Change, FormRef, Host, InvokeOutcome, Outcome, Tap, Vec2 } from "./host";
 
 /* ---------- values ---------- */
 
@@ -70,6 +70,28 @@ export const fillCurrent = <T>(value: T, current: Record<string, string> | undef
       : text,
   );
 
+/* ---------- directions ---------- */
+
+/** A direction an expression came to: `{x, y}` or words `"x,y"`, each kept to -1…1 and to two places, a longer one cut
+ *  back to length 1; null when it is no direction (docs/交互规则.md “输入动作”). */
+export function vectorOf(raw: unknown): Vec2 | null {
+  let x: unknown;
+  let y: unknown;
+  if (typeof raw === "string") {
+    const parts = raw.split(",");
+    if (parts.length !== 2 || !parts[0].trim() || !parts[1].trim()) return null;
+    [x, y] = parts.map(Number);
+  } else if (raw && typeof raw === "object" && !Array.isArray(raw)) {
+    ({ x, y } = raw as { x?: unknown; y?: unknown });
+  } else return null;
+  if (typeof x !== "number" || typeof y !== "number" || !Number.isFinite(x) || !Number.isFinite(y)) return null;
+  const far = Math.hypot(x, y);
+  const k = far > 1 ? 1 / far : 1;
+  /* -0 reads as 0: a direction at rest is the middle */
+  const round = (n: number) => Math.round(Math.min(1, Math.max(-1, n * k)) * 100) / 100 || 0;
+  return { x: round(x), y: round(y) };
+}
+
 /* ---------- what starts an action ---------- */
 
 /** How an action starts on a host: on a tap, as the pointer comes over the part, or `ms` after its screen comes into use.
@@ -107,11 +129,19 @@ function answerBranch(a: Answer, host: Host, tap: Tap, extra: Scope): ActionBody
 
 /* ---------- running ---------- */
 
+/** `now` as an expression reads it, at this step: the host's time, as an ISO string; nothing when it tells none */
+function nowAt(host: Host): Scope {
+  const n = host.ctx().now;
+  return typeof n === "number" && Number.isFinite(n) ? { now: new Date(n).toISOString() } : {};
+}
+
 /** What expressions read at this step of a tap: the host's scope for it, what an answer adds (`response`, `status`,
  *  `error`), the row of a collection the part was drawn for as `row`, the payload of the event that started it as
  *  `event`, and the place a family's action was run for as `slot`. */
 export const tapScope = (host: Host, tap: Tap, extra?: Scope): Scope => ({
   ...host.scope(tap),
+  /* the time is read at the step, off the host's clock (the back end's, as its transport tells it) */
+  ...nowAt(host),
   /* a part drawn for a collection's row reads that row's fields as `row.field` */
   ...(tap.row ? { row: tap.row } : {}),
   ...extra,
@@ -241,6 +271,19 @@ function effect(e: Effect, r: Run, tap: Tap, extra: Scope | undefined, depth: nu
     }
     case "signOut":
       host.signOut();
+      return;
+    case "move": {
+      /* the direction is read now, as any expression of a step is; one that is none sends nothing */
+      const action = e.action === undefined ? MOVE_ACTION : e.action;
+      if (typeof e.part !== "string" || !e.part || typeof action !== "string" || !WORLD_ACTION.test(action) || typeof e.vector !== "string") return;
+      /* a fixed direction may be written as it is ("1,0"), which as an expression reads as nothing */
+      const v = vectorOf(evaluate(e.vector, scopeOf(host, tap, extra), host.ctx())) ?? vectorOf(e.vector);
+      if (v) host.worldInput?.(e.part, action, v, tap);
+      return;
+    }
+    case "press":
+    case "release":
+      if (typeof e.part === "string" && e.part && typeof e.action === "string" && WORLD_ACTION.test(e.action)) host.worldInput?.(e.part, e.action, e.do === "press", tap);
       return;
     default:
       /* a kind this version does not know, from a file saved by a later one */

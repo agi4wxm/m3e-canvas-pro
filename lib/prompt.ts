@@ -2,6 +2,7 @@ import { appearanceOf } from "../parts/appearance";
 import { partBySlug, reader, treeOf, withoutPickedImages } from "../parts/registry";
 import { flowClasses } from "../parts/flow";
 import { describeRepeats } from "./collections";
+import { materialLayersIn, materialWords, usedMaterials } from "./materials";
 import { childLayoutOf, flowOf, flowOfItem, sizingOf, type Flow } from "./flow";
 import { expandInstances } from "./instances";
 import { INPUT_PROP } from "./interact";
@@ -288,6 +289,9 @@ function effectText(e: Effect, s: Scope, lang: Lang): string | null {
         case "loadMore": return `データ ${e.source} の続きを読み込む`;
         case "submit": return "フォームを送信する";
         case "signOut": return "ログアウトする";
+        case "move": return `${part}に入力 ${e.action ?? "move"} の方向（${e.vector}）を送る`;
+        case "press": return `${part}の入力 ${e.action} を押す`;
+        case "release": return `${part}の入力 ${e.action} を離す`;
       }
     },
     en: () => {
@@ -308,6 +312,9 @@ function effectText(e: Effect, s: Scope, lang: Lang): string | null {
         case "loadMore": return `loads more of data ${e.source}`;
         case "submit": return "submits the form";
         case "signOut": return "signs out";
+        case "move": return `sends ${part} the direction ${e.vector} as its ${e.action ?? "move"} input`;
+        case "press": return `presses the ${e.action} input of ${part}`;
+        case "release": return `lets go of the ${e.action} input of ${part}`;
       }
     },
     zh: () => {
@@ -328,6 +335,9 @@ function effectText(e: Effect, s: Scope, lang: Lang): string | null {
         case "loadMore": return `加载数据 ${e.source} 的下一页`;
         case "submit": return "提交表单";
         case "signOut": return "退出登录";
+        case "move": return `把方向 ${e.vector} 作为输入 ${e.action ?? "move"} 发给${part}`;
+        case "press": return `按下${part}的输入 ${e.action}`;
+        case "release": return `松开${part}的输入 ${e.action}`;
       }
     },
     ko: () => {
@@ -348,6 +358,9 @@ function effectText(e: Effect, s: Scope, lang: Lang): string | null {
         case "loadMore": return `데이터 ${e.source}의 다음 페이지 불러오기`;
         case "submit": return "양식 제출";
         case "signOut": return "로그아웃";
+        case "move": return `${part}에 방향 ${e.vector}을(를) 입력 ${e.action ?? "move"}(으)로 보내기`;
+        case "press": return `${part}의 입력 ${e.action} 누르기`;
+        case "release": return `${part}의 입력 ${e.action} 떼기`;
       }
     },
   };
@@ -1044,6 +1057,15 @@ const LOOK_NOTE: Record<Lang, string> = {
   ko: "부품의 인라인 스타일(채우기 겹침, 그라데이션, 선, 그림자, 흐림, 필터, 변형, 글자 효과, 질감)은 그 부품의 모습이므로 그대로 재현한다. `var(--look-elev-N, …)`은 스타일 고유의 높이 N 그림자이고, 쉼표 뒤는 스타일이 정하지 않을 때의 값이다.",
 };
 
+/** what a coding agent is told of the materials the parts wear (lib/materials.ts): a material layer names its pictures
+ *  by CSS variable, so the agent hears what each material is by name and colours */
+const MATERIAL_NOTE: Record<Lang, (list: string) => string> = {
+  ja: (l) => `\`--m3e-mat-<id>-*\` はドキュメントのマテリアル（タイル状に敷く画像。\`surface\` はそのまま、\`shading\` は陰影だけで色の上に overlay で重ねる）で、画像は書き出しに含まれる。マテリアル: ${l}。`,
+  en: (l) => `\`--m3e-mat-<id>-*\` are the document's materials: a picture tiled over the part (\`surface\` as it is, \`shading\` only its relief, laid over a colour with overlay); the pictures come with the export. Materials: ${l}.`,
+  zh: (l) => `\`--m3e-mat-<id>-*\` 是文档的材质：平铺在组件上的图片（\`surface\` 原样平铺，\`shading\` 只有明暗，用 overlay 叠在颜色上），图片随导出提供。材质：${l}。`,
+  ko: (l) => `\`--m3e-mat-<id>-*\`는 문서의 머티리얼이다. 부품 위에 타일로 까는 그림(\`surface\`는 그대로, \`shading\`은 명암만 있어 색 위에 overlay로 겹친다)이며, 그림은 내보내기에 들어 있다. 머티리얼: ${l}.`,
+};
+
 const STYLE_NOTE: Record<Lang, (name: string, hint: string) => string> = {
   ja: (n, h) => `全体のスタイルは「${n}」（${h}）。M3 の既定の見た目のままにせず、コントロールの形までこのスタイルに合わせる。`,
   en: (n, h) => `The whole design wears the ${n} style (${h}). Do not leave the Material defaults: build the controls themselves to match it.`,
@@ -1479,6 +1501,10 @@ function promptOf(source: Doc, widths: Record<string, number>, onlyFrameId: stri
   lines.push(ph.hTheme);
   lines.push(...themeLines(th, lang, styles));
   if (groups.some((g) => g.items.some((it) => it.look))) lines.push(LOOK_NOTE[lang]);
+  /* the materials the parts written here wear, each by its name and main colours */
+  const wornMaterials = new Set(materialLayersIn(groups).map((l) => l.material));
+  const worn = usedMaterials(doc).filter((m) => wornMaterials.has(m.id));
+  if (worn.length) lines.push(MATERIAL_NOTE[lang](worn.map((m) => `\`${m.id}\` ${materialWords(m)}`).join("; ")));
 
   lines.push("");
   lines.push(ph.hLayout);

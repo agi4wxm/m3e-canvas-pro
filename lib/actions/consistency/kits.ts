@@ -89,16 +89,20 @@ import { capabilities, transport } from "../backend";
 /** what the session needs of the contract, as the exported app writes it */
 const AUTH: AuthConfig = ${authSource(doc.api ?? {})};
 
-export const runtime = createRuntime({ transport, auth: AUTH, lang: "en", now: () => 0, capabilities });
+export const runtime = createRuntime({ transport, auth: AUTH, lang: "en", capabilities });
 `;
 
 const backendModule = (head: string) => `${head}
-import type { CapabilityHost, FailureKind, Transport, TransportRequest, TransportResponse } from "@m3e/app-runtime";
+import type { CapabilityHost, ChannelConnection, ChannelMessage, FailureKind, Transport, TransportRequest, TransportResponse } from "@m3e/app-runtime";
 
 let send: (r: TransportRequest) => Promise<TransportResponse> = async () => ({ status: 404, headers: {}, body: undefined });
 
-/** where the rows' runtimes send their calls: the back end of the row being run */
-export const transport: Transport = { request: (r) => send(r) };
+/** the row's back end's realtime channels and its clock */
+type Realtime = { connect(address: string, onMessage: (m: ChannelMessage) => void): ChannelConnection; now(): number };
+let realtime: Realtime = { connect: () => ({ send: () => {}, close: () => {} }), now: () => 0 };
+
+/** where the rows' runtimes send their calls, connect to channels and read the time: the back end of the row being run */
+export const transport: Transport = { request: (r) => send(r), connect: (address, onMessage) => realtime.connect(address, onMessage), now: () => realtime.now() };
 
 /** The platform's adapters, as the rows' runtimes invoke them: each invoke goes to the row's back end the way a call
  *  does, under ${JSON.stringify(CAPABILITY_OP)} and its name (check.ts), and its answer is read back as the outcome. */
@@ -110,8 +114,9 @@ export const capabilities: CapabilityHost = {
   },
 };
 
-export function answerWith(fn: typeof send) {
+export function answerWith(fn: typeof send, rt?: Realtime) {
   send = fn;
+  if (rt) realtime = rt;
 }
 `;
 
@@ -158,6 +163,9 @@ export async function rnTable(): Promise<Record<string, string>> {
     for (const [path, file] of Object.entries(app.files)) {
       const m = /^src\/generated\/(screens\/[^/]+\.tsx?|bind\.ts|effects\.ts|contract\.ts|api\.ts)$/.exec(path);
       if (m && typeof file.body === "string") files[`${dir}/${m[1]}`] = placed(file.body);
+      /* a world view's slot (written once, drawing the stand-in), beside the screens as the app has it */
+      const slot = /^src\/(generated\/slots\.tsx?|generated\/exampleWorld\.tsx|custom\/slots\/[^/]+\.tsx)$/.exec(path);
+      if (slot && typeof file.body === "string") files[`${dir}/${slot[1].replace(/^generated\//, "")}`] = placed(file.body).replaceAll('"../custom/slots/', '"./custom/slots/');
     }
     files[`${dir}/client.ts`] = clientModule(api.operations, head);
     files[`${dir}/runtime.ts`] = `${head}
@@ -165,7 +173,7 @@ import { createRuntime } from "@m3e/app-runtime";
 import { capabilities, transport } from "../backend";
 import { AUTH } from "./contract";
 
-export const runtime = createRuntime({ transport, auth: AUTH, lang: "en", now: () => 0, capabilities });
+export const runtime = createRuntime({ transport, auth: AUTH, lang: "en", capabilities });
 `;
     files[`${dir}/files.ts`] = `${head}
 /* the device's file pickers: no row picks a file */

@@ -6,6 +6,8 @@
 export const NATIVE = {
   /* atoms */
   box: "Box",
+  /* the world view's stand-in (world.tsx): the engine's picture is the product's slot */
+  "world-view": "WorldStandIn",
   text: "Text",
   icon: "Icon",
   svg: "Svg",
@@ -211,7 +213,7 @@ export const INPUT_PROPS: Record<string, string> = {
   /* D3: the pickers' and the entry parts' values, as their inputs declare them */
   "color-field": "value",
   "item-picker": "selected",
-  "multi-select": "selected",
+  "multi-select": "picked",
   "color-palette": "selected",
   "number-picker": "value",
   "transfer-list": "chosen",

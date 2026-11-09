@@ -22,6 +22,8 @@ const goTo = (to: string, ...effects: Effect[]): Action => ({ to, ...atOnce(to),
 const body = (to: string, ...effects: Effect[]): ActionBody => ({ to, ...atOnce(to), effects });
 const btn = (id: string, label: string, action: Action, more: Partial<PartSpec> = {}): PartSpec => ({ id, label, action, ...more });
 const text = (id: string, label: string, more: Partial<PartSpec> = {}): PartSpec => ({ id, kind: "text", label, ...more });
+/** a world view whose stand-in is called by these words; `items` the inputs its world takes (any when left out) */
+const world = (id: string, label: string, more: Partial<PartSpec> = {}): PartSpec => ({ id, kind: "world", label, ...more });
 /** a call; `ok` is its `then`, `fail` its `catch` */
 function call(operationId: string, more: { args?: Record<string, string>; ok?: Answer; fail?: Answer } = {}): Effect {
   const { ok, fail, ...rest } = more;
@@ -41,10 +43,15 @@ const setVar = (v: string, value: string | number | boolean, expr?: string): Eff
 const num = (id: string, value: number) => ({ id, name: id, type: "number" as const, value });
 const words = (id: string, value: string) => ({ id, name: id, type: "text" as const, value });
 const bool = (id: string, value: boolean) => ({ id, name: id, type: "bool" as const, value });
+/* the realtime channels the rows subscribe to: a feed, and rooms by their id */
+const FEED = { id: "feed", address: "/feed", messages: { post: { text: "string" as const }, ping: { n: "number" as const } } };
+const ROOM = { id: "room", address: "/rooms/{roomId}", messages: { said: { text: "string" as const } } };
 const op = (operationId: string, more: Partial<Design["api"] extends (infer O)[] | undefined ? O : never> = {}) => ({ operationId, path: `/${operationId}`, ...more });
 
 /* reasons the hosts share, with the report's sections */
 const WEB_PROTO_NO_API = "原型 Web 导出没有接口：调用、刷新、提交、退出登录不发出，运行时在控制台说一次、导出的 README 里列出（要运行它们请导出完整产品；报告 6.2、9.4）";
+const WEB_PROTO_NO_REALTIME = "原型 Web 导出没有接口，也就没有实时通道：订阅不打开，消息不到达（要运行它们请导出完整产品；报告 1.8、10）";
+const WEB_PROTO_NO_CLOCK = "原型 Web 导出没有传输层，now 读设备的时钟，不读后端（模拟库）的时钟（要按后端的时钟请导出完整产品；报告 10）";
 const WEB_PROTO_NO_RESTART = "原型 Web 导出不会重新开始：它没有模拟库的场景，也不换后端，表的“重新开始”在它上面不发生（能力由模拟库按预览的方式回答）";
 
 export const ROWS: Row[] = [
@@ -651,5 +658,143 @@ export const ROWS: Row[] = [
     },
     steps: [{ tap: "Push in" }, { tap: "Fade back" }],
     expect: { screen: "home", move: { back: true, motion: "dissolve" } },
+  },
+
+  /* ---------- input actions: what a tap sends a world view (its stand-in lists what it heard) ---------- */
+  {
+    id: "world-move-fixed",
+    title: "输入动作：一个固定方向发给世界视口，替身列出它听到的",
+    ref: "输入动作；报告 1.8（World 接口）",
+    design: { screens: [HOME], parts: [world("arena", "Arena"), btn("right", "Go right", stay({ do: "move", part: "arena", vector: "1,0" }))] },
+    steps: [{ tap: "Go right" }],
+    expect: { shown: { Arena: true, "move 1,0": true } },
+  },
+  {
+    id: "world-move-at-step",
+    title: "输入动作：方向在它那一步读，前一个效果写的值算数；长于 1 的方向截成长度 1",
+    ref: "输入动作；顺序",
+    design: { screens: [HOME], vars: [words("dir", "0,1")], parts: [world("arena", "Arena"), btn("aim", "Aim", stay(setVar("dir", "3,4"), { do: "move", part: "arena", vector: "vars.dir" }, setVar("dir", "0,-1")))] },
+    steps: [{ tap: "Aim" }],
+    expect: { vars: { dir: "0,-1" }, shown: { "move 0.6,0.8": true, "move 0,1": false, "move 0,-1": false } },
+  },
+  {
+    id: "world-press-release",
+    title: "输入动作：一次点击按下又松开一个命名输入，按顺序发出",
+    ref: "输入动作；报告 1.8（World 接口）",
+    design: { screens: [HOME], parts: [world("arena", "Arena"), btn("attack", "Attack", stay({ do: "press", part: "arena", action: "attack" }, { do: "release", part: "arena", action: "attack" }))] },
+    steps: [{ tap: "Attack" }, { tap: "Attack" }],
+    expect: { shown: { "attack ↓": true, "attack ↑": true } },
+  },
+  {
+    id: "world-move-from-event",
+    title: "输入动作：部件事件带来的方向（event）作为一个命名输入发出；读不出方向的不发",
+    ref: "输入动作；事件与槽位族",
+    design: {
+      screens: [HOME],
+      parts: [world("arena", "Arena"), { id: "pad", kind: "numpad", label: "Steer", actions: { "on:submit": stay({ do: "move", part: "arena", action: "aim", vector: "event.value" }, { do: "press", part: "arena", action: "jump" }) } }],
+    },
+    steps: [{ emit: "Steer", event: "submit", payload: { value: "0.5,-1" } }, { emit: "Steer", event: "submit", payload: { value: "nowhere" } }],
+    expect: { shown: { "aim 0.45,-0.89": true, "jump ↓": true } },
+  },
+
+  /* ---------- subscriptions and the clock ---------- */
+  {
+    id: "message-runs-action",
+    title: "实时消息运行订阅的动作：读 event 和订阅收下的数据",
+    ref: "订阅；报告 1.8、10",
+    design: {
+      screens: [HOME],
+      channels: [FEED],
+      vars: [words("last", ""), num("count", 0)],
+      subscriptions: [{ name: "feed", channel: "feed", actions: { "on:message": stay(setVar("last", "", "event.payload.text"), setVar("count", 0, "data.feed.count")) } }],
+      parts: [text("t", "Feed")],
+    },
+    steps: [
+      { push: "/feed", message: "post", payload: { text: "hello" } },
+      { push: "/feed", message: "post", payload: { text: "again" } },
+    ],
+    expect: { vars: { last: "again", count: 2 }, open: { "/feed": 1 } },
+    known: { webPrototype: WEB_PROTO_NO_REALTIME },
+  },
+  {
+    id: "message-own-action-first",
+    title: "消息自己的动作优先：on:<消息名> 先于 on:message",
+    ref: "订阅；报告 1.8",
+    design: {
+      screens: [HOME],
+      channels: [FEED],
+      vars: [words("last", ""), num("other", 0)],
+      subscriptions: [{ name: "feed", channel: "feed", actions: { "on:post": stay(setVar("last", "", "event.payload.text")), "on:message": stay({ do: "addVar", var: "other", by: 1 }) } }],
+      parts: [text("t", "Feed")],
+    },
+    steps: [
+      { push: "/feed", message: "post", payload: { text: "mine" } },
+      { push: "/feed", message: "ping", payload: { n: 1 } },
+    ],
+    expect: { vars: { last: "mine", other: 1 } },
+    known: { webPrototype: WEB_PROTO_NO_REALTIME },
+  },
+  {
+    id: "message-address-params",
+    title: "订阅的地址读屏幕参数：只收这个地址的消息",
+    ref: "订阅；报告 1.8",
+    design: {
+      screens: [HOME, { id: "room", name: "Room", params: ["roomId"] }],
+      channels: [ROOM],
+      vars: [words("heard", "")],
+      subscriptions: [{ screen: "room", name: "room", channel: "room", actions: { "on:said": stay(setVar("heard", "", "event.payload.text")) } }],
+      parts: [btn("go", "Enter room", { ...goTo("room"), params: { roomId: "'r7'" } }), text("t", "In room", { screen: "room" })],
+    },
+    steps: [{ tap: "Enter room" }, { push: "/rooms/r1", message: "said", payload: { text: "wrong" } }, { push: "/rooms/r7", message: "said", payload: { text: "right" } }],
+    expect: { screen: "room", vars: { heard: "right" }, open: { "/rooms/r7": 1 } },
+    known: { webPrototype: WEB_PROTO_NO_REALTIME },
+  },
+  {
+    id: "message-after-leave",
+    title: "离开屏幕时订阅关闭：之后到达的消息什么都不做",
+    ref: "订阅、迟到的回答；报告 1.8",
+    design: {
+      screens: [HOME, NEXT],
+      channels: [FEED],
+      vars: [num("n", 0)],
+      subscriptions: [{ name: "feed", channel: "feed", actions: { "on:message": stay({ do: "addVar", var: "n", by: 1 }) } }],
+      parts: [btn("go", "Leave", goTo("next")), text("t", "Away", { screen: "next" })],
+    },
+    steps: [{ push: "/feed", message: "post", payload: { text: "a" } }, { tap: "Leave" }, { push: "/feed", message: "post", payload: { text: "b" } }],
+    expect: { screen: "next", vars: { n: 1 }, open: { "/feed": 0 } },
+    known: { webPrototype: WEB_PROTO_NO_REALTIME },
+  },
+  {
+    id: "message-after-restart",
+    title: "重新开始后：旧会话的订阅收到的消息什么都不做，屏幕在新会话上重新订阅",
+    ref: "订阅、迟到的回答；报告 1.8",
+    design: {
+      screens: [HOME],
+      channels: [FEED],
+      vars: [num("n", 0)],
+      subscriptions: [{ name: "feed", channel: "feed", actions: { "on:message": stay({ do: "addVar", var: "n", by: 1 }) } }],
+      parts: [text("t", "Feed")],
+    },
+    steps: [{ restart: true }, { push: "/feed", message: "post", payload: { text: "a" } }],
+    expect: { vars: { n: 1 }, open: { "/feed": 1 } },
+    known: { webPrototype: WEB_PROTO_NO_REALTIME },
+  },
+  {
+    id: "clock-paused",
+    title: "时钟暂停：now 停在后端的时钟停下的那一刻，不读设备的时间",
+    ref: "时钟；报告 10",
+    design: { screens: [HOME], vars: [words("t", "")], parts: [btn("s", "Stamp", stay(setVar("t", "", "now")))] },
+    steps: [{ clock: { paused: true } }, { wait: 30 }, { tap: "Stamp" }],
+    expect: { vars: { t: "2026-01-15T09:00:00.000Z" } },
+    known: { webPrototype: WEB_PROTO_NO_CLOCK },
+  },
+  {
+    id: "clock-rate",
+    title: "时钟倍率：now 按后端时钟的倍率走",
+    ref: "时钟；报告 10",
+    design: { screens: [HOME], vars: [words("t", "")], parts: [btn("s", "Stamp", stay(setVar("t", "", "now")))] },
+    steps: [{ clock: { rate: 3 } }, { wait: 20 }, { tap: "Stamp" }],
+    expect: { vars: { t: "2026-01-15T09:00:00.060Z" } },
+    known: { webPrototype: WEB_PROTO_NO_CLOCK },
   },
 ];

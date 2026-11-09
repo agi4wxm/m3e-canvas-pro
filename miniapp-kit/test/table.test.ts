@@ -20,7 +20,18 @@ type Page = { route: string; options: Record<string, string>; n: number };
 const stack: Page[] = [];
 let opened = 0;
 let toast: string | null = null;
-const PageContext = tiny.react.createContext<{ params: Record<string, string> }>({ params: {} });
+const PageContext = tiny.react.createContext<{ params: Record<string, string>; top?: boolean }>({ params: {} });
+
+/** the platform's word to a page that it is shown again (`shown`) or hidden under another: when its place on the stack
+ *  changes from under to on top, or back */
+const onShown = (shown: boolean) => (fn: () => void) => {
+  const top = tiny.react.useContext(PageContext).top ?? true;
+  const was = tiny.react.useRef(top);
+  tiny.react.useEffect(() => {
+    if (top !== was.current && top === shown) fn();
+    was.current = top;
+  }, [top]);
+};
 
 /** a page's address as the platform keeps it: its route, and its query still encoded */
 const pageOf = (url: string): Page => {
@@ -50,12 +61,15 @@ mock.module("@tarojs/taro", () => {
     useRouter: () => tiny.react.useContext(PageContext),
     usePullDownRefresh: () => {},
     useReachBottom: () => {},
+    useDidShow: onShown(true),
+    useDidHide: onShown(false),
   };
   return fakeTaro(taro);
 });
 mock.module("@tarojs/components", () => fakeComponents());
 
-const { RuntimeProvider } = await import("@m3e/app-runtime");
+const { RuntimeProvider, inputLog } = await import("@m3e/app-runtime");
+type WorldChannel = import("@m3e/app-runtime").WorldChannel;
 const { AppSpecProvider } = await import("../src/kit/app/screen");
 const { goBack, lastMove, movesSoFar, openPlace, screenOfPath } = await import("../src/kit/app/nav");
 const { readVar } = await import("../src/kit/app/vars");
@@ -106,21 +120,32 @@ describe("the consistency table on the mini-program kit", () => {
     function Pages() {
       return stack.map((p, i) => {
         const key = screenOfPath(SPEC, p.route) ?? "";
-        return tiny.react.createElement(PageContext.Provider, { value: { params: p.options }, key: `${i}:${p.n}` }, tiny.react.createElement(SCREENS[key] as never, null));
+        return tiny.react.createElement(PageContext.Provider, { value: { params: p.options, top: i === stack.length - 1 }, key: `${i}:${p.n}` }, tiny.react.createElement(SCREENS[key] as never, null));
       });
     }
     const own = new Set<unknown>([RuntimeProvider, AppSpecProvider, Pages, ...Object.values(SCREENS)]);
     let tree: unknown;
+    /* A world view's stand-in (src/kit/world.tsx) lists what it hears on the channel the printed screen hands it: each
+       channel is listened to from when it is first drawn, as the stand-in does. */
+    const heard = new Map<WorldChannel, string[]>();
     const draw = () => {
       tree = tiny.render(tiny.react.createElement(RuntimeProvider as never, { runtime }, tiny.react.createElement(AppSpecProvider as never, { spec: SPEC, components: SCREENS }, tiny.react.createElement(Pages, null))), (t) => own.has(t));
+      for (const e of tiny.elements(tree)) {
+        const c = e.props.channel as WorldChannel | undefined;
+        if (!c || typeof c.listen !== "function" || heard.has(c)) continue;
+        heard.set(c, []);
+        c.listen((action, value) => heard.set(c, inputLog(heard.get(c) ?? [], action, value)));
+      }
     };
+    /** what the world views drawn on a page list of what they heard */
+    const worldWords = (page: unknown): string[] => tiny.elements(page).flatMap((e) => (heard.has(e.props.channel as WorldChannel) ? (heard.get(e.props.channel as WorldChannel) ?? []) : []));
     /** the page on top of the stack, as drawn */
     const top = () => tiny.elements(tree).filter((e) => e.type === PageContext.Provider).at(-1);
     const { problems, seen } = await drive(row, (backend: import("./table/check").Backend) => {
       answerWith(async (r) => {
         const a = await backend.receive(r.operationId ?? "", { ...r.query, ...(r.body && typeof r.body === "object" && !Array.isArray(r.body) ? (r.body as Record<string, unknown>) : {}) });
         return { status: a.status, headers: { "content-type": "application/json" }, body: a.body };
-      });
+      }, { connect: (address, onMessage) => backend.connect(address, onMessage), now: () => backend.now() });
       runtime.restart();
       draw();
       return {
@@ -169,7 +194,7 @@ describe("the consistency table on the mini-program kit", () => {
           /* the motion a back is handed is what the kit's navigator keeps (the page stack plays the platform's own) */
           const last = lastMove();
           const move = last ? { back: last.back, motion: last.motion?.kind ?? "none" } : undefined;
-          return { vars: Object.fromEntries(row.vars.map((id) => [id, readVar(id)])) as Record<string, string | number | boolean>, words: wordsIn(top()), toast, screen: row.screens[key] ?? key, calls: backend.calls, ...(move ? { move } : {}) };
+          return { vars: Object.fromEntries(row.vars.map((id) => [id, readVar(id)])) as Record<string, string | number | boolean>, words: [...wordsIn(top()), ...worldWords(top())], toast, screen: row.screens[key] ?? key, calls: backend.calls, ...(move ? { move } : {}) };
         },
       };
     });
@@ -197,5 +222,71 @@ describe("the visitor's moves on the mini-program kit", () => {
     await openPlace(spec, { screen: "item" });
     await goBack(spec);
     expect(movesSoFar()).toBe(at + 4);
+  });
+});
+
+describe("a world view hosting the example engine, in the mini-program kit", () => {
+  /* The printed test bed (src/printed/world, lib/export/rn/fixture.ts `worldDoc`): the world view drawn by its slot,
+     which plugs M3E's example engine in (exampleWorld.tsx, what every export writes beside the slots); the pad's pushes
+     go to the world as its `move` input, the skill presses `attack`, and the design's actions run on its events. */
+  it("moves the player with the pad, runs the design's actions on what the world says, and ends the round", async () => {
+    const { SPEC } = (await import("../src/printed/world/spec")) as { SPEC: AppSpec };
+    const { SCREENS } = (await import("../src/printed/world/screens")) as { SCREENS: Record<string, () => unknown> };
+    const { Arena } = (await import("../src/printed/world/slots")) as { Arena: unknown };
+    const { ExampleWorld } = (await import("../src/printed/world/exampleWorld")) as { ExampleWorld: unknown };
+    const { createRuntime } = await import("@m3e/app-runtime");
+    const runtime = createRuntime({ transport: { request: async () => ({ status: 404, headers: {}, body: undefined }) }, lang: "en" });
+    tiny.reset();
+    toast = null;
+    stack.splice(0, stack.length, pageOf(SPEC.screens[SPEC.start].path));
+    function Pages() {
+      return stack.map((p, i) => tiny.react.createElement(PageContext.Provider, { value: { params: p.options }, key: `${i}:${p.n}` }, tiny.react.createElement(SCREENS[screenOfPath(SPEC, p.route) ?? ""] as never, null)));
+    }
+    /* the slot and the example engine are drawn; the kit's components stay as data, their props to read */
+    const own = new Set<unknown>([RuntimeProvider, AppSpecProvider, Pages, Arena, ExampleWorld, ...Object.values(SCREENS)]);
+    let tree: unknown;
+    const draw = () => {
+      tree = tiny.render(tiny.react.createElement(RuntimeProvider as never, { runtime }, tiny.react.createElement(AppSpecProvider as never, { spec: SPEC, components: SCREENS }, tiny.react.createElement(Pages, null))), (t) => own.has(t));
+    };
+    const top = () => tiny.elements(tree).filter((e) => e.type === PageContext.Provider).at(-1);
+    const named = (name: string) => tiny.elements(top()).find((e) => typeof e.type === "function" && e.type.name === name);
+    draw();
+    expect(named("WorldStandIn")?.props.label).toBe("Arena");
+    /* the skill presses attack: the slime is near the hero, and the world says it was hit */
+    (named("SkillButton")!.props.taps as { action: () => void }).action();
+    draw();
+    expect(toast).toBe("Hit the slime");
+    /* the pad pushes right: the world moves the hero onto the coin, picks it up, and the round is over */
+    (named("Joystick")!.props.onMove as (at: { x: number; y: number }) => void)({ x: 1, y: 0 });
+    for (let i = 0; i < 10 && stack.length < 2; i++) {
+      await new Promise((r) => setTimeout(r, 50));
+      draw();
+    }
+    expect(toast).toBe("Got a coin");
+    expect(screenOfPath(SPEC, stack.at(-1)!.route)).toBe("won");
+  });
+});
+
+describe("a world view's stand-in", () => {
+  it("draws the world's state as the props say, and lists the inputs it hears on its channel", async () => {
+    tiny.reset();
+    /* the stand-in imports the app runtime (its channels): it is drawn here, where the runtime's React is the stand-in's */
+    const W = await import("../src/kit/world");
+    const { createWorlds } = await import("@m3e/app-runtime");
+    const worlds = createWorlds();
+    const entities = { columns: ["Id", "Kind", "X", "Y", "Label"], rows: [["hero", "player", "20", "50", "Hero"], ["bad", "enemy", "x", "1", ""]] };
+    let tree: unknown;
+    const draw = () => void (tree = tiny.render(tiny.react.createElement(W.WorldStandIn as never, { label: "Arena", entities, score: 3, status: "paused", channel: worlds.channel("arena") }), (t) => t === W.WorldStandIn));
+    draw();
+    const w = { draw, words: () => tiny.elements(tree).filter((e) => typeof e.type === "function" && e.type.name === "Words").map((e) => e.props.text) };
+    expect(w.words()).toEqual(expect.arrayContaining(["Arena", "Hero", "★ 3", "paused"]));
+    expect(W.entitiesOf(entities).map((e) => e.id)).toEqual(["hero"]);
+    worlds.send("arena", "move", { x: 0.5, y: -1 });
+    worlds.send("arena", "move", { x: 1, y: 0 });
+    worlds.send("arena", "attack", true);
+    worlds.send("other", "attack", true);
+    w.draw();
+    /* a new direction of the same input takes the place of the one before; another world's inputs are not its own */
+    expect(w.words().filter((t) => /^(move|attack) /.test(String(t)))).toEqual(["move 1,0", "attack ↓"]);
   });
 });

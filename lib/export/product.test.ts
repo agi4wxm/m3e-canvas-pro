@@ -48,7 +48,19 @@ beforeAll(async () => {
 
 describe("the prototype export", () => {
   /* The single-app export stays as it was, to the byte, beside the product. These digests were taken from the export
-     before the product existed; one that changes on purpose is written again here (last: version 4 of the format,
+     before the product existed; one that changes on purpose is written again here (last: format version 6, lib/converge.ts: parts/types.ts, which
+     ships, has the color prop kind, a palette's rows of colors, the row model's `P.rows` and places among rows (`of`), the widgets paint a color only when it is one
+     (parts/widgets/look.ts `PAINTABLE`, the item cell's rarity and the palette's swatches), and a multiple choice's
+     picks are its rows' places from 0 (`picked`); with it the icon component draws an asset of the asset pipeline's,
+     `asset:<id>`, from the collection its lookup registers, components/m3e/icon.tsx and asset-icon-name.ts, copied
+     beside it, and parts/icons.ts draws again what names one whose picture changed; with it the world view and its input
+     actions, batch 5 K2: the interpreter copied into src/lib/actions runs move, press and release (model.ts, host.ts,
+     run.ts), the widgets' host contract hands a world view its channel (parts/widgets/host.ts), parts/types.ts says
+     what `world` is, the joystick sends `move` with each push, and the every-parts document draws a world view
+     (parts/widgets/World.tsx with lib/world copied beside it, the world's clock the app's), on top of K1's clock; before that the time the parts' countdowns read comes from the app's
+     clock, parts/widgets/host.ts `setDomainClock` and seed.ts `clockNow` (the device's in a prototype, which hands in
+     none), and the interpreter copied beside the app reads `now` off its host at each step, lib/actions/run.ts
+     `tapScope`; before that version 4 of the format,
      lib/converge.ts: a tap's printed data says its move by its motion alone, with no `transition`, the older fade,
      expand and at-once moves are motions the app plays with the preview's own poses, a condition is an expression,
      and the interpreter and the moves copied beside the app read only those; before that the map stand-in's chosen marker kept as its input by
@@ -79,11 +91,11 @@ describe("the prototype export", () => {
      icons asking again and the ripple under reduced motion; in parts, form fields keyed by their item and resizable
      sizes as percentages). */
   const DIGESTS: Record<string, [number, string]> = {
-    proof: [90, "e64ece55601a05c15ce3b7072da1119c005ed3f593c5949f66ed69cddc3c98a4"],
-    systems: [47, "9bddf7c4ea07f110d7781b262e2ed7911e396ca2963b9d0d07c4adef90e29d99"],
-    reuse: [38, "757b91e58f62fc8bb56ebdd902583a89e40f3ea3d90873d2edfb55757d33d1a5"],
-    sweep: [100, "8ace3e9cf0fce88d550e6c1710f40dfb640adc89986cc4482bbc1605875b9d13"],
-    parts: [140, "c5ccc447b9193a1993076c525f3b328b84cf09c199eb192138258cf78583d103"],
+    proof: [91, "b15913f5d7359806be3b99497b6d7f71a460b302e88127037fb49be2f597e949"],
+    systems: [48, "18f4e60fd98fee038588bbd2eb2922adb6d03f8a3839d9fa5415acc69ed00c89"],
+    reuse: [38, "45f2eeffec96e6987a68be50863bd53e5a0096fa8506f0c6f95c79955b524d04"],
+    sweep: [101, "64d6ac1dd4da87277fe4cd59cc29afbc9965a96454de2411a913ec9ea83e0418"],
+    parts: [151, "e996951030ad5850cb52840b98d529343affd8cb0fe2c5d28df05939282c831c"],
   };
   const DOCS: Record<string, () => { doc: Doc; widths: Record<string, number> }> = { proof: proofDoc, systems: systemsDoc, reuse: reuseDoc, sweep: sweepDoc, parts: () => ({ doc: allPartsDoc(), widths: {} }) };
   it.each(Object.keys(DIGESTS))("is byte for byte what it was: %s", async (name) => {

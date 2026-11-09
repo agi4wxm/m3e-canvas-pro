@@ -36,7 +36,8 @@ export function optionsOf(it: Pick<Item, "component" | "props">): string[] {
   const d = def?.props.find((p) => p.key === key);
   if (!def || !d) return [];
   const p = reader(def, it.props);
-  return d.kind === "list" ? p.list(key).map((r) => r.label) : d.kind === "text" ? p.s(key).split(",").map((w) => w.trim()) : [];
+  /* a palette's swatches are picked as their colors, which a variable or a form field holds */
+  return d.kind === "list" ? p.list(key).map((r) => (d.colors ? (r.color ?? "") : r.label)) : d.kind === "text" ? p.s(key).split(",").map((w) => w.trim()) : [];
 }
 
 /** Every key the part's `actions` may hold: its slots, then its families, then its events. */
@@ -111,6 +112,9 @@ export function demoTakenOver(it: Item): boolean {
   const demo = defOf(it)?.demo;
   if (!demo) return false;
   if (demo.takenOverBy.some((k) => it.bind?.[k] !== undefined)) return true;
+  /* a world view's actions run on what its world says (a round over sending the score to the API): they take nothing
+     of the world over, only its state from data does */
+  if (defOf(it)?.world) return false;
   const actions = [it.action, ...Object.values(it.actions ?? {})].filter((a): a is Action => !!a);
   return actions.some((a) => reachesApi(a) || reachesApi(a.else));
 }

@@ -20,6 +20,9 @@ import { outsideInDoc } from "@/lib/outside";
 import { setOutsideBlocked } from "@/lib/outsidePolicy";
 import { setDocStyles, styleContext } from "@/lib/styles";
 import { setDocIcons } from "./docIcons";
+import { syncAssetIcons } from "./assetIcons";
+import { setAssetCatalog, type AssetCatalog } from "@/lib/assetCatalog";
+import { setDocMaterials } from "./materials";
 import { fontFamilyOf, frameOfGroup, frameSizeOf, normalizeTheme, paletteOf, seedOf, shapeScaleOf, type Doc, type Item } from "@/lib/tokens";
 import { PartView } from "@/components/PartView";
 import { FIT_OVERLAY } from "@/parts/contained";
@@ -29,8 +32,10 @@ import { capture, layerDrawn, shotTarget, ShotLayer, themeFacesLoaded } from "./
 
 type Widths = Record<string, number>;
 /** `outside`: whether pictures and pages at outside addresses may load (absent: as they always did) */
-export type MeasureJob = { doc: CoreState["doc"]; lang: Lang; outside?: boolean };
-export type RenderJob = { doc: CoreState["doc"]; widths: Widths; id: string; scale?: number; lang: Lang; outside?: boolean };
+/** `assets`: the project's asset manifest with each asset's file as a data URL (lib/assetCatalog.ts), what a part
+ *  naming `asset:<id>` draws (absent: none, and such a part draws its placeholder) */
+export type MeasureJob = { doc: CoreState["doc"]; lang: Lang; outside?: boolean; assets?: AssetCatalog | null };
+export type RenderJob = { doc: CoreState["doc"]; widths: Widths; id: string; scale?: number; lang: Lang; outside?: boolean; assets?: AssetCatalog | null };
 export type RenderOut = { png: string; skipped: string[]; blocked: string[] };
 
 declare global {
@@ -63,9 +68,12 @@ export function RenderPage() {
   const measured = useRef(new Map<string, HTMLElement>());
 
   useEffect(() => {
+    syncAssetIcons();
     const take = (w: Work) => {
       /* one server's policy for every job it sends; set before the parts are drawn for it */
       if (typeof w.job.outside === "boolean") setOutsideBlocked(!w.job.outside);
+      /* and the assets the job's document names, drawn as the editor draws them */
+      setAssetCatalog(w.job.assets ?? null);
       queue.current.push(w);
       setWork((cur) => cur ?? queue.current.shift() ?? null);
     };
@@ -89,6 +97,7 @@ export function RenderPage() {
     /* and in reach, for the canvas code that reads a style without being handed one */
     setDocStyles(styles);
     setDocIcons(doc.icons);
+    setDocMaterials(doc);
   }
   const p = useMemo(() => paletteOf(doc?.paletteKey ?? "purple", doc?.customPalette ?? null, theme, styles), [doc, theme, styles]);
   const partTheme = useMemo<PartTheme>(() => ({ seed: seedOf(doc?.paletteKey ?? "purple", doc?.customPalette ?? null, theme, styles), dark: theme.dark, contrast: theme.contrast, shape: shapeScaleOf(theme.shape) }), [doc, theme, styles]);

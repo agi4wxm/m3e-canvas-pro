@@ -4,6 +4,7 @@ import { SafeAreaInsetsContext } from "react-native-safe-area-context";
 
 import { Snackbar } from "./composites/content";
 import { movesSoFar, useNav, type BackOptions, type Nav } from "./runtime";
+import { createWorldChannels, vectorOf, type WorldChannel, type WorldInput } from "./world";
 
 /* What a running app remembers beside the screen on show, and what a tap does with it: the variables, the parts a tap
  * has shown or hidden, the overlays it has opened, the props a tap has set, what an input holds when a condition asks
@@ -45,7 +46,10 @@ export type Effect =
   | { do: "refresh"; source: string }
   | { do: "loadMore"; source: string }
   | { do: "submit"; form?: string }
-  | { do: "signOut" };
+  | { do: "signOut" }
+  /* an input action for a world view (docs/交互规则.md “输入动作”): a direction, a button pressed or let go */
+  | { do: "move"; part: string; action?: string; vector: string }
+  | { do: "press" | "release"; part: string; action: string };
 
 /** where a tap goes after its effects: a screen by its key, "back", "link" (to `url`) or "none" */
 export type ActionBody = { to: string; params?: Record<string, string>; overlay?: boolean; url?: string; effects?: Effect[]; motion?: BackOptions["motion"] };
@@ -80,6 +84,8 @@ export type KitHost = {
   toast: (text: string) => void;
   /** the visitor's moves so far (a screen opened, gone back from, laid over or closed) */
   moves: () => number;
+  /** an input action for the world view `part` (its item id): its channel delivers it at once */
+  worldInput?: (part: string, action: string, value: WorldInput) => void;
 };
 
 /** Runs a tap of the design: the exported app's, through the interpreter every host runs (lib/actions). */
@@ -128,6 +134,8 @@ export type AppState = {
   /** the exported app's interpreter, when it has one */
   interpret?: Interpreter;
   reader?: Reader;
+  /** the channel the world view `part` (its item id) hears its input actions on */
+  world: (part: string) => WorldChannel;
 };
 
 const isNumber = (v: VarValue): number | null => {
@@ -173,6 +181,8 @@ export function AppProvider({ vars = NO_VARS, hidden = NO_KEYS, triggers = NO_KE
     setState(latest.current);
   }, []);
   const varScope = useMemo(() => varsOf(state.vars, vars), [state.vars, vars]);
+  /* the world views' channels: an input goes straight there, through no state */
+  const [worlds] = useState(() => createWorldChannels());
 
   /* the memory as a host reads and writes it: always what the last step left, never what the last render drew */
   const kit = useMemo<KitHost>(() => {
@@ -198,8 +208,9 @@ export function AppProvider({ vars = NO_VARS, hidden = NO_KEYS, triggers = NO_KE
       setProp: (part, prop, value) => update((s) => ({ ...s, props: { ...s.props, [part]: { ...s.props[part], [prop]: value } } })),
       toast: (message) => update((s) => ({ ...s, snack: { id: (s.snack?.id ?? 0) + 1, message } })),
       moves: movesSoFar,
+      worldInput: (part, action, value) => worlds.send(part, action, value),
     };
-  }, [types, vars, startHidden, triggered, update]);
+  }, [types, vars, startHidden, triggered, update, worlds]);
 
   const app = useMemo<AppState>(() => {
     const scopeOf = (here?: Here): Scope => ({ ...here?.scope, vars: { ...varsOf(latest.current.vars, vars) } });
@@ -252,6 +263,18 @@ export function AppProvider({ vars = NO_VARS, hidden = NO_KEYS, triggers = NO_KE
           return kit.setProp(e.part, e.prop, e.value);
         case "snackbar":
           return kit.toast(fill(e.message, here));
+        case "move": {
+          /* a fixed direction as it is ("1,0"); one an expression gives where the app reads expressions, and the event's
+             own direction (a pad's push, `event`) where it does not */
+          const action = e.action ?? "move";
+          const read = reader ? reader.ev(e.vector, scopeOf(here)) : e.vector.trim() === "event" ? here.event : undefined;
+          const v = vectorOf(read) ?? vectorOf(e.vector);
+          if (v && /^[a-z][a-zA-Z0-9]{0,31}$/.test(action)) kit.worldInput?.(e.part, action, v);
+          return;
+        }
+        case "press":
+        case "release":
+          return kit.worldInput?.(e.part, e.action, e.do === "press");
         default:
           return;
       }
@@ -308,8 +331,9 @@ export function AppProvider({ vars = NO_VARS, hidden = NO_KEYS, triggers = NO_KE
       kit,
       ...(interpret ? { interpret } : {}),
       reader,
+      world: (part) => worlds.channel(part),
     };
-  }, [state, varScope, vars, types, startHidden, reader, interpret, kit, update]);
+  }, [state, varScope, vars, types, startHidden, reader, interpret, kit, update, worlds]);
 
   return <AppContext.Provider value={app}>{children}</AppContext.Provider>;
 }
@@ -339,6 +363,9 @@ function comparisonOf(expr: string): { name: string; op: "==" | "!="; value: Var
 
 /** null, false, 0, "", NaN and an empty list do not hold */
 const truthy = (v: unknown) => !(v === undefined || v === null || v === false || v === 0 || v === "" || (typeof v === "number" && Number.isNaN(v)) || (Array.isArray(v) && !v.length));
+
+/** the channel of a world view no design reaches */
+const QUIET: WorldChannel = { listen: () => () => {}, held: () => ({}) };
 
 /** an app with nothing remembered: what a screen drawn on its own reads */
 const NOTHING_KIT: KitHost = {
@@ -370,6 +397,8 @@ const NOTHING: AppState = {
   dismiss: () => {},
   run: () => {},
   kit: NOTHING_KIT,
+  /* a world view drawn outside an app hears nothing */
+  world: () => QUIET,
 };
 
 /** the app's memory (see `AppProvider`); a screen drawn outside one reads the design as it is */

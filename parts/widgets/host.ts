@@ -25,6 +25,16 @@ export type PartHost = {
    *  exported product hands its registry of capabilities (lib/capabilities, docs/平台能力.md), so the app decides what
    *  it does on each platform. Left out, the browser's own does it (`useCapability`). Never rejects. */
   invoke?: (capability: string, args: Record<string, unknown>) => Promise<CapabilityOutcome>;
+  /** The channel a world view's input actions come in on (lib/world, docs/交互规则.md “输入动作”): the preview hands its
+   *  own for the part, as printed code hands the prop `channel`. Left out, no input reaches it. */
+  world?: InputChannel;
+};
+
+/** what a world view hears its inputs on, as lib/world's `WorldChannel` says it (written out here: an exported app
+ *  carries this file without lib/world) */
+export type InputChannel = {
+  listen(fn: (action: string, value: { x: number; y: number } | boolean, at: number) => void): () => void;
+  held(): Record<string, { x: number; y: number } | boolean>;
 };
 
 /** What an invoke of a capability came to, as lib/capabilities' `InvokeOutcome` says it (written out here: an exported
@@ -108,4 +118,25 @@ export async function browserCapability(capability: string, args: Record<string,
     return { ok: true, result: {} };
   }
   return failed("not-implemented");
+}
+
+/* Where the time a countdown is read off comes from: the back end's clock as the app's transport tells it (the preview
+   hands in its runtime's, which follows the mock library's clock, paused or faster; the product's web app its
+   runtime's), the device's until one is handed in (the canvas). docs/边界与契约.md: a part never takes its own wall
+   clock for the domain's. */
+let domainClock: (() => number) | null = null;
+
+/** Hands in the clock countdowns are read off (the app's runtime's `now`); what it gives back hands back the one before. */
+export function setDomainClock(now: () => number): () => void {
+  const was = domainClock;
+  domainClock = now;
+  return () => {
+    if (domainClock === now) domainClock = was;
+  };
+}
+
+/** the time now on the app's clock (`setDomainClock`), the device's until one is handed in */
+export function domainNow(): number {
+  const n = domainClock?.();
+  return typeof n === "number" && Number.isFinite(n) ? n : Date.now();
 }

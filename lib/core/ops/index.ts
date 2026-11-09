@@ -10,15 +10,17 @@ import * as data from "./data";
 import * as tree from "./tree";
 import * as styles from "./styles";
 import * as icons from "./icons";
+import * as assets from "./assets";
 import * as api from "./api";
 import * as mocks from "./mocks";
 import * as bindings from "./bindings";
 import * as capabilities from "./capabilities";
+import * as materials from "./materials";
 import * as splits from "./split";
 import * as rows from "./rows";
 import { editComponentOp } from "./definition";
 
-export { document, screens, nodes, layout, components, data, tree, styles, icons, api, mocks, bindings, capabilities, splits, rows };
+export { document, screens, nodes, layout, components, data, tree, styles, icons, assets, api, mocks, bindings, capabilities, splits, rows, materials };
 export * from "./document";
 export * from "./screens";
 export * from "./nodes";
@@ -28,10 +30,12 @@ export * from "./data";
 export * from "./tree";
 export * from "./styles";
 export * from "./icons";
+export * from "./assets";
 export * from "./api";
 export * from "./mocks";
 export * from "./bindings";
 export * from "./capabilities";
+export * from "./materials";
 export * from "./split";
 export * from "./rows";
 export { DEFINITION_OPS, definitionOpened } from "./definition";
@@ -50,6 +54,8 @@ export const OPS: Op<never, unknown>[] = [
   styles.addCustomStyle,
   icons.setIcon,
   icons.removeIcon,
+  assets.setAsset,
+  assets.setAssetManifest,
   document.setRules,
   document.patchUx,
   document.setPalette,
@@ -171,6 +177,8 @@ export const OPS: Op<never, unknown>[] = [
   bindings.addDataSource,
   bindings.updateDataSource,
   bindings.removeDataSource,
+  bindings.setSubscription,
+  bindings.removeSubscription,
   bindings.setScreenParams,
   bindings.renameScreenParam,
   bindings.setScreenAuth,

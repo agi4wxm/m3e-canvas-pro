@@ -1,5 +1,6 @@
 import {
   COLOR_TOKENS,
+  type ColorPaint,
   isTextToken,
   type BlendMode,
   type ColorRef,
@@ -18,6 +19,8 @@ import {
   type TextureKind,
 } from "./tokens";
 import { fields, withUnknown } from "./keep";
+import { cleanMaterialLayer } from "./material";
+import { materialPaintCss } from "./materialCss";
 
 /* A part's effects, as data and as CSS. The data is what a document saves, a model writes and the panel edits; the CSS is
  * what parts/appearance.ts paints onto the part's tree, so the canvas, the preview, the printed code and the prompt all
@@ -27,101 +30,10 @@ import { fields, withUnknown } from "./keep";
 
 /* ---------- colors ---------- */
 
-/** The roles a color may name. Every theme defines them as `--md-sys-color-<role>` (lib/m3e/color.ts), and a style
- *  repaints the ones it has its own colors for, so a role follows the style and the mode. */
-export const COLOR_ROLES = [
-  "primary",
-  "on-primary",
-  "primary-container",
-  "on-primary-container",
-  "inverse-primary",
-  "primary-fixed",
-  "primary-fixed-dim",
-  "on-primary-fixed",
-  "on-primary-fixed-variant",
-  "secondary",
-  "on-secondary",
-  "secondary-container",
-  "on-secondary-container",
-  "secondary-fixed",
-  "secondary-fixed-dim",
-  "on-secondary-fixed",
-  "on-secondary-fixed-variant",
-  "tertiary",
-  "on-tertiary",
-  "tertiary-container",
-  "on-tertiary-container",
-  "tertiary-fixed",
-  "tertiary-fixed-dim",
-  "on-tertiary-fixed",
-  "on-tertiary-fixed-variant",
-  "error",
-  "on-error",
-  "error-container",
-  "on-error-container",
-  "background",
-  "on-background",
-  "surface",
-  "on-surface",
-  "surface-variant",
-  "on-surface-variant",
-  "surface-dim",
-  "surface-bright",
-  "surface-container-lowest",
-  "surface-container-low",
-  "surface-container",
-  "surface-container-high",
-  "surface-container-highest",
-  "inverse-surface",
-  "inverse-on-surface",
-  "surface-tint",
-  "outline",
-  "outline-variant",
-  "shadow",
-  "scrim",
-] as const;
-export type ColorRole = (typeof COLOR_ROLES)[number];
-const ROLES = new Set<string>(COLOR_ROLES);
-
-const HEX = /^#([0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/i;
-const ROLE_REF = /^([a-z]+(?:-[a-z]+)*)(?:\/(\d{1,3}))?$/;
-
-/** a color reference taken apart: a role, or six hex digits, with how much of it shows (0 to 100) */
-export type ParsedColor = { role: ColorRole; alpha: number } | { hex: string; alpha: number };
-
-/** reads a color reference, or nothing when it is not one */
-export function parseColor(v: unknown): ParsedColor | undefined {
-  if (typeof v !== "string" || v.length > 40) return undefined;
-  const hex = HEX.exec(v);
-  if (hex) {
-    const d = hex[1].toLowerCase();
-    const full = d.length <= 4 ? [...d].map((c) => c + c).join("") : d;
-    /* kept exact, so a hex reads back to the same digits */
-    const alpha = full.length === 8 ? (parseInt(full.slice(6), 16) / 255) * 100 : 100;
-    return { hex: `#${full.slice(0, 6)}`, alpha };
-  }
-  const role = ROLE_REF.exec(v);
-  if (!role || !ROLES.has(role[1])) return undefined;
-  const alpha = role[2] === undefined ? 100 : Number(role[2]);
-  return alpha <= 100 ? { role: role[1] as ColorRole, alpha } : undefined;
-}
-
-export const isColorRef = (v: unknown): v is ColorRef => parseColor(v) !== undefined;
-
-const alphaHex = (alpha: number) =>
-  Math.round((Math.max(0, Math.min(100, alpha)) / 100) * 255)
-    .toString(16)
-    .padStart(2, "0");
-
-/** a parsed color written back as a reference, the shortest way it can be said */
-export function formatColor(c: ParsedColor): ColorRef {
-  if ("role" in c) {
-    const alpha = Math.max(0, Math.min(100, Math.round(c.alpha)));
-    return alpha === 100 ? c.role : `${c.role}/${alpha}`;
-  }
-  const byte = alphaHex(c.alpha);
-  return byte === "ff" ? c.hex : `${c.hex}${byte}`;
-}
+/* The roles, the reader and the writer of a color are parts/color.ts's: the one color value type every color a document
+ * holds (a look's, a part's color prop) is read by, so a color is validated in one place. */
+export { COLOR_ROLES, formatColor, isColorRef, parseColor, type ColorRole, type ParsedColor } from "../parts/color";
+import { formatColor, isColorRef, parseColor, type ColorRole } from "../parts/color";
 
 /** the same color with another share of it showing */
 export function withAlpha(ref: ColorRef, alpha: number): ColorRef {
@@ -165,7 +77,9 @@ const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === "obj
 
 export const BLEND_MODES: readonly BlendMode[] = ["normal", "multiply", "screen", "overlay", "darken", "lighten", "color-dodge", "color-burn", "hard-light", "soft-light", "difference", "exclusion", "hue", "saturation", "color", "luminosity", "plus-lighter"];
 export const TEXTURE_KINDS: readonly TextureKind[] = ["noise", "paper", "dots", "grid", "stripes", "diagonal", "checker", "carbon", "scanlines", "crosshatch", "halftone"];
-export const PAINT_TYPES: readonly PaintLayer["type"][] = ["solid", "linear", "radial", "conic"];
+export const PAINT_TYPES: readonly PaintLayer["type"][] = ["solid", "linear", "radial", "conic", "material"];
+/** the layers of colour alone: what words, which have no tile to lay a material in, may be painted with */
+export const COLOR_PAINT_TYPES: readonly ColorPaint["type"][] = ["solid", "linear", "radial", "conic"];
 
 /** How far each number may go. A document holding more is brought back inside; the panel's controls stop at the same places. */
 export const LIMITS = {
@@ -211,6 +125,7 @@ export const MAX_SHADOWS = 10;
    look is only what is known of it, so nothing unknown reaches a style or an exported app. */
 const STOP = fields("color", "at");
 const PAINT = fields("type", "color", "cssVar", "stops", "angle", "x", "y", "circle", "hidden");
+const MATERIAL_PAINT = fields("type", "material", "mode", "tint", "scale", "x", "y", "opacity", "blend", "hidden");
 const SHADOW = fields("x", "y", "blur", "spread", "color", "inset", "hidden");
 const STROKE = fields("width", "color", "style", "position", "sides", "cssVar");
 const SIDES = fields("t", "r", "b", "l");
@@ -239,12 +154,23 @@ function cleanStops(v: unknown, keep = false): GradientStop[] | undefined {
   return stops.length ? stops : undefined;
 }
 
-/** one layer of paint as it may be kept, or nothing */
+/** one layer of paint as it may be kept, or nothing. A material layer is the format's own (lib/material.ts): it names a
+ *  material of the document by id, and its tint is a colour reference like any other. */
 export function cleanPaint(v: unknown, keep = false): PaintLayer | undefined {
   if (!isRecord(v)) return undefined;
-  const type = oneOf(v.type, PAINT_TYPES);
+  if (v.type === "material") {
+    const m = cleanMaterialLayer(v, isColorRef);
+    return m && kept(keep, v, m, MATERIAL_PAINT);
+  }
+  return cleanColorPaint(v, keep);
+}
+
+/** a layer of colour as it may be kept, or nothing */
+export function cleanColorPaint(v: unknown, keep = false): ColorPaint | undefined {
+  if (!isRecord(v)) return undefined;
+  const type = oneOf(v.type, COLOR_PAINT_TYPES);
   if (!type) return undefined;
-  const out: PaintLayer = { type };
+  const out: ColorPaint = { type };
   if (type === "solid") {
     if (!isColorRef(v.color)) return undefined;
     out.color = v.color;
@@ -276,9 +202,9 @@ const stopsCss = (stops: GradientStop[]) =>
     .filter(Boolean)
     .join(", ");
 
-/** a layer as a CSS image: a gradient, a solid one included, so layers stack the same way whatever they are */
+/** a layer of colour as a CSS image: a gradient, a solid one included, so layers stack the same way whatever they are */
 export function paintCss(layer: PaintLayer | undefined): string | undefined {
-  const l = cleanPaint(layer);
+  const l = cleanColorPaint(layer);
   if (!l || l.hidden) return undefined;
   if (l.type === "solid") {
     const own = colorCss(l.color)!;
@@ -572,7 +498,7 @@ export function cleanText(v: unknown, keep = false): LookText | undefined {
     const width = lim(v.stroke.width, "textStroke");
     if (width) out.stroke = kept(keep, v.stroke, { width, color: v.stroke.color }, TEXT_STROKE);
   }
-  const gradient = cleanPaint(v.gradient, keep);
+  const gradient = cleanColorPaint(v.gradient, keep);
   if (gradient && gradient.type !== "solid") out.gradient = gradient;
   if (out.color && isVarName(v.cssVar)) out.cssVar = v.cssVar;
   const all = kept(keep, v, out, TEXT);
@@ -750,17 +676,27 @@ export function tidyLook(l: ItemLook | undefined): ItemLook | undefined {
  *  a level of the style's own elevation. The rest is the style's to decide. */
 export const STRICT_LOOK_KEYS = ["opacity", "rotate", "transform", "blur", "blend", "elevation"] as const satisfies readonly (keyof ItemLook)[];
 
+/** A material a part held to a style may still wear: tinted, by a role. It then takes its colour from the style's scheme
+ *  and keeps only its relief, as a texture would (docs/m3e-material.md §4). */
+export const strictMaterial = (p: PaintLayer): boolean => p.type === "material" && p.mode === "tint" && typeof p.tint === "string" && parseColor(p.tint) !== undefined && "role" in parseColor(p.tint)!;
+
 /** the look as a style's rules allow it, or nothing when none of it may stay */
 export function strictLook(l: ItemLook | undefined): ItemLook | undefined {
   if (!l) return undefined;
   const out: ItemLook = {};
   for (const k of STRICT_LOOK_KEYS) if (l[k] !== undefined) (out as Record<string, unknown>)[k] = l[k];
+  const tinted = l.fills?.filter(strictMaterial);
+  if (tinted?.length) out.fills = tinted;
   /* what a style decides goes; a field this version does not know is not one of those, and stays */
   const all = withUnknown(l, out, LOOK_FIELDS);
   return Object.keys(all).length ? all : undefined;
 }
 
 const LEGACY_FILL_ROLE = (t: ColorToken) => tokenRole(t);
+
+type CssLayer = ReturnType<typeof textureLayers>[number] & { whole?: true };
+/** a gradient layer, over the whole box: what a look of gradients alone needs say nothing more of */
+const wholeBox = (image: string): CssLayer => ({ image, size: "100% 100%", position: "0 0", repeat: "no-repeat", blend: "normal", whole: true });
 const LEGACY_TEXT_ROLE = (t: TextToken) => tokenRole(t);
 
 /** The old fade into a role, as a paint layer the panel can edit: from nothing to that role. */
@@ -795,14 +731,21 @@ export function lookStyle(look: ItemLook | undefined): Record<string, string | n
   /* paint: a texture over the paint layers, over the part's own fill unless that is taken away */
   if (l.clearFill) out.backgroundColor = "transparent";
   const textures = textureLayers(l.texture);
-  const paints = l.fills ? l.fills.map(paintCss).filter((p): p is string => !!p) : l.gradientTo ? [`linear-gradient(${l.gradientAngle ?? 180}deg, transparent, ${roleVar(LEGACY_FILL_ROLE(l.gradientTo))})`] : [];
+  /* each paint layer is one background layer, a material one or two (lib/materialCss.ts), in the order of the fills */
+  const paints: CssLayer[] = l.fills
+    ? l.fills.flatMap((f) => (f.type === "material" ? materialPaintCss(f, colorCss) : [paintCss(f)].filter((p): p is string => !!p).map(wholeBox)))
+    : l.gradientTo
+      ? [wholeBox(`linear-gradient(${l.gradientAngle ?? 180}deg, transparent, ${roleVar(LEGACY_FILL_ROLE(l.gradientTo))})`)]
+      : [];
   if (textures.length || paints.length) {
-    out.backgroundImage = [...textures.map((t) => t.image), ...paints].join(", ");
-    if (textures.length) {
-      out.backgroundSize = [...textures.map((t) => t.size), ...paints.map(() => "100% 100%")].join(", ");
-      out.backgroundPosition = [...textures.map((t) => t.position), ...paints.map(() => "0 0")].join(", ");
-      out.backgroundRepeat = [...textures.map((t) => t.repeat), ...paints.map(() => "no-repeat")].join(", ");
-      if (textures.some((t) => t.blend !== "normal")) out.backgroundBlendMode = [...textures.map((t) => t.blend), ...paints.map(() => "normal")].join(", ");
+    const layers = [...textures, ...paints];
+    out.backgroundImage = layers.map((t) => t.image).join(", ");
+    /* gradients alone cover the box as a background image does by itself; a tiled layer says how each is laid */
+    if (textures.length || paints.some((p) => !p.whole)) {
+      out.backgroundSize = layers.map((t) => t.size).join(", ");
+      out.backgroundPosition = layers.map((t) => t.position).join(", ");
+      out.backgroundRepeat = layers.map((t) => t.repeat).join(", ");
+      if (layers.some((t) => t.blend !== "normal")) out.backgroundBlendMode = layers.map((t) => t.blend).join(", ");
     }
   }
 
@@ -865,6 +808,10 @@ export function colorsOfLook(l: ItemLook | undefined): ColorRef[] {
   if (!l) return [];
   const out: ColorRef[] = [];
   const paint = (p: PaintLayer | undefined) => {
+    if (p?.type === "material") {
+      if (p.tint) out.push(p.tint);
+      return;
+    }
     if (p?.color) out.push(p.color);
     for (const s of p?.stops ?? []) out.push(s.color);
   };
@@ -905,7 +852,7 @@ export type LookPresetKey =
   | "paper";
 
 const sh = (x: number, y: number, blur: number, spread: number, color: ColorRef, inset?: boolean): LookShadow => (inset ? { x, y, blur, spread, color, inset } : { x, y, blur, spread, color });
-const linear = (angle: number, ...stops: [ColorRef, number][]): PaintLayer => ({ type: "linear", angle, stops: stops.map(([color, at]) => ({ color, at })) });
+const linear = (angle: number, ...stops: [ColorRef, number][]): ColorPaint => ({ type: "linear", angle, stops: stops.map(([color, at]) => ({ color, at })) });
 
 /** One-click looks. Each is written as ordinary look fields, so whatever a preset sets can be changed afterwards, and
  *  most are in roles, so they take the style's and the mode's colors. */
@@ -1022,6 +969,7 @@ export function lookForModel(): string {
     "`opacity` 0–100, `blur` px, `glass` px (frosted backdrop) with `glassSaturate` %, `blend` (a CSS mix-blend-mode), `filter`: `{ \"brightness\", \"contrast\", \"saturate\", \"grayscale\", \"sepia\", \"invert\" (percent), \"hueRotate\" (deg) }`.",
     "`rotate` deg, `transform`: `{ \"scaleX\", \"scaleY\" (percent), \"skewX\", \"skewY\" (deg), \"flipX\", \"flipY\" }`. `clip: true` cuts off what reaches past the edge.",
     "`text`: `{ \"color\", \"size\" px, \"weight\" 100–900, \"letterSpacing\" px, \"lineHeight\" %, \"case\": \"upper\" | \"lower\" | \"title\", \"italic\", \"decoration\", \"shadows\", \"stroke\": { \"width\", \"color\" }, \"gradient\": a linear, radial or conic paint }`.",
+    "A fill may also be a material of the document's library (its `materials`, each with an id, a name and its colours): `{ \"type\": \"material\", \"material\": <id>, \"mode\": \"surface\" | \"tint\", \"tint\": a color, \"scale\": 5–400 (percent of its tile), \"x\", \"y\" (percent of a tile), \"opacity\": 0–100, \"blend\" }`. `surface` lays the material as it is; `tint` lays its relief over the color (a role follows the theme and light or dark). Name only a material id the document has; a material cannot be made or drawn here.",
     `\`texture\`: \`{ "kind": ${TEXTURE_KINDS.map((k) => `"${k}"`).join(" | ")}, "color", "opacity", "size" }\`. Example: \`"look": { "fills": [{ "type": "linear", "angle": 180, "stops": [{ "color": "#ffffff66", "at": 0 }, { "color": "#ffffff00", "at": 50 }] }], "shadows": [{ "x": 0, "y": 6, "blur": 0, "spread": 0, "color": "#00000040" }] }\`.`,
   ].join("\n");
 }

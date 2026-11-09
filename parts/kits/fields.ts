@@ -58,13 +58,13 @@ const password = kit(
   "a field box: a key glyph, a bare password entry taking the rest and an eye button to show it; with a strength line and a hint under it; or an iPhone form row with the label in its own column",
   [
     variant("field", "Field with an eye", ["带显示按钮", "表示ボタン付き", "표시 버튼"], () =>
-      field([icon("key", { size: 20, color: "muted" }), entry(PASSWORD, { type: "password", value: "hunter2hunter" }), iconButton("visibility", SHOW, { size: "xs" })]),
+      field([icon("key", { size: 20, color: "on-surface-variant" }), entry(PASSWORD, { type: "password", value: "hunter2hunter" }), iconButton("visibility", SHOW, { size: "xs" })]),
     ),
     variant("strength", "With its strength", ["带强度提示", "強度付き", "강도 표시"], () =>
       vbox({ width: W, hugWidth: false, gap: 8 }, [
-        field([icon("key", { size: 20, color: "muted" }), entry(PASSWORD, { type: "password", value: "hunter2hunter" }), iconButton("visibility_off", SHOW, { size: "xs" })]),
+        field([icon("key", { size: 20, color: "on-surface-variant" }), entry(PASSWORD, { type: "password", value: "hunter2hunter" }), iconButton("visibility_off", SHOW, { size: "xs" })]),
         hbox({ gap: 10 }, [atom("progress", { value: 66, thickness: 4 }, { grow: true }), text(say("Strong", "强", "強い", "강함"), "caption", { bold: true, color: "primary" })]),
-        para(say("Use 8 or more characters with letters, numbers and symbols.", "至少 8 位，包含字母、数字和符号。", "8 文字以上で、英字・数字・記号を含めてください。", "문자, 숫자, 기호를 섞어 8자 이상 입력하세요."), "caption", { color: "muted" }),
+        para(say("Use 8 or more characters with letters, numbers and symbols.", "至少 8 位，包含字母、数字和符号。", "8 文字以上で、英字・数字・記号を含めてください。", "문자, 숫자, 기호를 섞어 8자 이상 입력하세요."), "caption", { color: "on-surface-variant" }),
       ]),
     ),
     variant(
@@ -94,7 +94,7 @@ const otp = kit(
   [
     variant("boxes", "Six boxes", ["六个格子", "六つの枠", "여섯 칸"], () => hbox({ gap: 8, justify: "center", width: W, hugWidth: false }, CODE.map((d, i) => digitBox(d, i === 3)))),
     variant("split", "Three and three", ["三加三", "3 桁ずつ", "3자리씩"], () =>
-      hbox({ gap: 8, justify: "center", width: W, hugWidth: false }, [...CODE.slice(0, 3).map((d) => digitBox(d)), text("–", "headline", { color: "muted" }), ...CODE.slice(3).map((d, i) => digitBox(d, i === 0))]),
+      hbox({ gap: 8, justify: "center", width: W, hugWidth: false }, [...CODE.slice(0, 3).map((d) => digitBox(d)), text("–", "headline", { color: "on-surface-variant" }), ...CODE.slice(3).map((d, i) => digitBox(d, i === 0))]),
     ),
     variant(
       "lines",
@@ -153,7 +153,7 @@ const section = kit(
   [
     variant("material", "Title and outlined inputs", ["标题和描边输入框", "タイトルと枠線入力", "제목과 윤곽선 입력"], () =>
       vbox({ width: W, hugWidth: false, gap: 12 }, [
-        vbox({ gap: 2 }, [text(SHIPPING, "title"), para(say("Where should we send your order?", "订单要寄到哪里？", "ご注文の配送先を入力してください。", "주문을 어디로 보낼까요?"), "body", { color: "muted" })]),
+        vbox({ gap: 2 }, [text(SHIPPING, "title"), para(say("Where should we send your order?", "订单要寄到哪里？", "ご注文の配送先を入力してください。", "주문을 어디로 보낼까요?"), "body", { color: "on-surface-variant" })]),
         atom("input", { placeholder: ADDRESS[0][0], variant: "outlined" }),
         atom("input", { placeholder: ADDRESS[1][0], variant: "outlined" }),
         hbox({ gap: 12 }, [atom("input", { placeholder: ADDRESS[2][0], variant: "outlined" }, { grow: true }), atom("input", { placeholder: say("Postcode", "邮编", "郵便番号", "우편번호"), variant: "outlined", width: 140 })]),
@@ -167,7 +167,7 @@ const section = kit(
         vbox({ width: W, hugWidth: false, gap: 6 }, [
           hbox({ padX: 16 }, [muted(SHIPPING, "caption", {}, { look: { text: { case: "upper", letterSpacing: 0.4 } } })]),
           vbox({ surface: "card", padX: 0, padY: 0, gap: 0 }, ADDRESS.flatMap(([label, hint], i) => [...(i ? [rule()] : []), hbox({ padX: 16, padY: 12, gap: 12 }, [labelCell(label, 80), entry(hint)])]), { corners: round(12) }),
-          hbox({ padX: 16 }, [para(say("We only use this to deliver your order.", "仅用于配送你的订单。", "配送のためだけに使用します。", "배송에만 사용합니다."), "caption", { color: "muted" }, { grow: true })]),
+          hbox({ padX: 16 }, [para(say("We only use this to deliver your order.", "仅用于配送你的订单。", "配送のためだけに使用します。", "배송에만 사용합니다."), "caption", { color: "on-surface-variant" }, { grow: true })]),
         ]),
       { suits: (l) => isIosLike(l) || l.list === "inset" },
     ),

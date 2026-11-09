@@ -12,6 +12,7 @@ export { DatePicker, FileUpload, Menu, RadioGroup, SegmentedButton, Select, Text
 export { ActionSheet, AlertDialog, Dialog, Sheet } from "./composites/overlays";
 export { Placeholder } from "./Placeholder";
 export { SplitView, type SplitViewProps } from "./split";
+export { WORLDS, WorldStandIn, entitiesOf, type WorldStandInProps } from "./world";
 export { At, Layer, Pin, Screen, ThemeRoot, chrome, useChrome, type Chrome } from "./screen";
 export { Glyph, base64, glyphFor, hasGlyph, registerIcons, svgUrl, type IconData } from "./icons";
 export { Surface, tagOf } from "./Surface";
@@ -24,15 +25,15 @@ export { COMPONENTS } from "./registry";
 export { PARTS, type PartInfo } from "./parts.generated";
 export { sx, merge, type CSS } from "./styles";
 export { useValue } from "./value";
-export { AppSpecProvider, eventOf, slotTaps, useAfter, useAppSpec, usePageData, useScreen, useScreenForm, type Env, type EventFields, type ScreenForm, type ScreenHandle, type ScreenInit } from "./app/screen";
+export { AppSpecProvider, eventOf, slotTaps, useAfter, useAppSpec, usePageData, usePageShown, useScreen, useScreenForm, useScreenSubscription, type Env, type EventFields, type ScreenForm, type ScreenHandle, type ScreenInit } from "./app/screen";
 export { currentPlace, goBack, lastMove, loginScreen, moved, movesSoFar, openPlace, readQuery, urlOf, type BackOptions as PageBackOptions, type PageMove, type Place } from "./app/nav";
 export { initVars, readVar, writeVar } from "./app/vars";
 export { optionIndex, rowsOf } from "./app/values";
 export { KIT_ICONS } from "./iconNames";
-export { createTaroTransport, queryString, readAsDataUrl, taroStorage, withFileData, type PlatformFile, type TaroTransportOptions } from "./app/transport";
+export { createTaroTransport, queryString, readAsDataUrl, taroSocket, taroStorage, withFileData, type PlatformFile, type TaroTransportOptions } from "./app/transport";
 export type { Action, ActionBody, AppSpec, CallFn, Condition, Effect, ScreenSpec, VarSpec } from "./app/spec";
 /* D3: pickers and entry parts */
-export { Calendar, ColorField, ColorPalette, Combobox, ItemPicker, MultiSelect, NativeSelect, NumberPicker, RegionPicker, SeatMap, TransferList, WheelPicker, daysOf, hexOf, keysOf, levelsOf, pickDay, placesOf, seatsOf, toggleSeat, useEntry, weeksOf, wordsOfPlaces, type TableData } from "./composites/pickers";
+export { Calendar, ColorField, ColorPalette, Combobox, ItemPicker, MultiSelect, NativeSelect, NumberPicker, RegionPicker, SeatMap, TransferList, WheelPicker, daysOf, hexOf, keysOf, levelsOf, pickDay, picksOf, placesOf, seatsOf, toggleSeat, useEntry, weeksOf, wordsOfPicks, wordsOfPlaces, type TableData } from "./composites/pickers";
 export { CopyRow, Field, Form, InputGroup, InputOtp, MARKS, NumberPad, PhoneInput, QuantityStepper, RichTextEditor, SignaturePad, TagInput, markNext, padNext, padReady, tagsOf } from "./composites/entry";
 /* D4: the game parts, and a group of buttons, actions, menus and search */
 export { BrandButton, ButtonGroup, CascadingMenu, Command, ContextMenu, FabMenu, FilterBar, SHEET_ROWS, SplitButton, brandCapability, brandLook, brandWords, cascadeSheet, commandMatches, toggled, type BrandButtonProps, type ButtonGroupProps, type CascadingMenuProps, type CommandProps, type ContextMenuProps, type FabMenuProps, type FilterBarProps, type SplitButtonProps } from "./composites/actions";
@@ -47,3 +48,4 @@ export { CodeBlock, FileDiff, FileList, Menubar, SortableList, SwipeRow, Tracker
 /* D1: media, capability views' stand-ins, what talks and keeps time */
 export { Animation, AudioPlayer, CameraStandIn, Carousel, ExpressiveCarousel, ImageCropper, ImageViewer, MapStandIn, Marquee, PhotoGrid, Playlist, QrCode, Scene, Video, WebPage, qrMatrix, type MapStandInProps } from "./composites/media";
 export { CallStandIn, Marker, MessageScroller, NumberTicker, Questionnaire, ShimmerText, StoryRow, Timer, VoiceMessage, timerSeconds } from "./composites/live";
+export { clockNow, kitNow, setClock } from "./clock";

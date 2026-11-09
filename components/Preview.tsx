@@ -47,6 +47,7 @@ import { useLang } from "@/lib/i18n";
 import { applyEffects, closeOpened, liveGroups, screenVars, writeField, type FieldValue } from "@/lib/interact";
 import type { Transport, TransportFile } from "@/lib/api/transport";
 import { DesignRuntime, liveAuth, steadyTransport, type ScreenAt } from "@/lib/bindings/design";
+import { setDomainClock } from "@/parts/widgets/host";
 import { boundScreen, type BoundScreen } from "@/lib/bindings/view";
 import { fallbackTransport, signedInAtStart } from "@/lib/bindings/transport";
 import { MockLogPanel, PreviewMocksContext, usePreviewMocks } from "./MockPreview";
@@ -61,6 +62,8 @@ import { createPreviewHost, tapOf, type TapExtra } from "./preview/host";
 import { Screen } from "./preview/Screen";
 import { PreviewStore, usePreviewState } from "./preview/store";
 import { useSwipe, type Peek } from "./preview/swipe";
+import { PreviewWorlds } from "./preview/worlds";
+import { createWorlds } from "@/lib/world/channel";
 
 /** room reserved for the wide preview controls: panel, right margin and breathing space */
 const WIDE_CONTROL_SPACE = 220;
@@ -321,8 +324,11 @@ export function Preview({
   const capabilitySession = useRef(0);
   const nav = useRef({ go, back, returnAfterSignIn, afterSignOut, onShow, dark });
   nav.current = { go, back, returnAfterSignIn, afterSignOut, onShow, dark };
+  /* the world views' channels: the input actions go there, the views listen (docs/交互规则.md “输入动作”) */
+  const [worlds] = useState(() => createWorlds());
   const [host] = useState(() =>
     createPreviewHost({
+      worldInput: (part, action, value) => worlds.send(part, action, value),
       doc: () => docRef.current,
       store,
       dark: () => nav.current.dark,
@@ -362,6 +368,8 @@ export function Preview({
     if (was && was.t === answering && was.session === mockSession) return;
     startedWith.current = { t: answering, session: mockSession };
     runtime.restart(presumed);
+    /* what the world views' inputs held belongs to the session before */
+    worlds.clear();
     // the scenario `presumed` reads comes with a session of its own
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [answering, mockSession, runtime]);
@@ -417,6 +425,32 @@ export function Preview({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => reload(overlayShown, overlayParams), [overlayArgs]);
 
+  /* ---------- listening to what the screens on show subscribe to ---------- */
+  /* Each subscription of a screen on show (the top of the stack, and the overlay over it) is open while it is (an
+     overlay over a screen leaves it on show), afresh when what it is asked with changes or the preview starts over, and
+     closed as the screen goes. A message runs the action on it on that screen, with the message as the event, as a
+     part's event does (docs/交互规则.md “订阅”). */
+  const epoch = useSyncExternalStore(runtime.epoch.subscribe, runtime.epoch.get, runtime.epoch.get);
+  const fireRef = useRef<typeof fire | null>(null);
+  const channelsKey = (f: Frame | undefined, params: Record<string, unknown> | undefined): string => {
+    if (!f?.subscriptions?.length) return "";
+    void dataVersion;
+    return data.channelKeysOf({ frame: f, params, vars: screenVars(state, doc, f, dark).vars, varNames });
+  };
+  const listenOn = (f: Frame | undefined, params: Record<string, unknown> | undefined) => {
+    if (!answering || !f?.subscriptions?.length) return undefined;
+    return data.listen(atNow(f, params), (action, event) => fireRef.current?.(action, undefined, { frame: f, params }, { event }));
+  };
+  const currentChannels = channelsKey(current, topParams);
+  // the screen's params and what its subscriptions are asked with are read through their keys
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => listenOn(current, topParams), [current?.id, paramsKey, currentChannels, epoch, !!answering]);
+  const overlayChannels = channelsKey(overlayShown, overlayParams);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => listenOn(overlayShown, overlayParams), [overlayShown?.id, overlayKey, overlayChannels, epoch, !!answering]);
+  /* the parts' countdowns read the time off the runtime's clock: the mock library's, which the bar can stop */
+  useEffect(() => setDomainClock(() => runtime.now()), [runtime]);
+
   const snack = state.snack;
   useEffect(() => {
     if (!snack) return;
@@ -452,6 +486,7 @@ export function Preview({
     if (it?.row && it.row !== was) store.update((s) => ({ ...s, current: it.row }));
     void run(a, host, tap);
   };
+  fireRef.current = fire;
 
   const { w: frameW, h: frameH } = current ? frameSizeOf(current) : { w: PHONE_W, h: PHONE_H };
   /* every screen sits in the same bezel; only the corners tell a phone from a window */
@@ -624,6 +659,7 @@ export function Preview({
 
   return (
     <PreviewMocksContext.Provider value={mocks}>
+    <PreviewWorlds.Provider value={worlds}>
     <PreviewTheme dark={dark}>
     <motion.div
       initial={{ opacity: 0 }}
@@ -784,6 +820,7 @@ export function Preview({
       />
     </motion.div>
     </PreviewTheme>
+    </PreviewWorlds.Provider>
     </PreviewMocksContext.Provider>
   );
 }

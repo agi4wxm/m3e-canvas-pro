@@ -9,7 +9,10 @@ import { partBySlug } from "../../parts/registry";
 import { WIDGET_SOURCES } from "../../parts/widgets/sources";
 import { capabilitiesUsed, usedDefinitions } from "../capabilities/doc";
 import { groupsInFrame, type Doc } from "../tokens";
-import { GENERATED, str } from "./code";
+import { GENERATED, jsonCode, str } from "./code";
+import { schemaTypeTs } from "../api/typescript";
+import type { JsonSchema } from "../api/types";
+import { EXAMPLE_WORLD_CONTRACT, type WorldContract } from "../world/contract";
 import { typeBase } from "./targets/capabilities";
 import { generated, seeded, type ProductContext, type ProductFiles } from "./types";
 import { NATIVE as RN_NATIVE } from "../../rn/src/kit/coverage";
@@ -19,10 +22,13 @@ export type AppPlatform = "web" | "mobile" | "miniapp";
 
 /* ---------- slots ---------- */
 
-/** A slot the product draws a part with: a capability view's (`view`: the capability, `map`), drawn by its stand-in
- *  until written, or a part the design marks as the product's own (`Item.slot`; `view` is ""), drawn as the design has
- *  it until written. `slug` is the part's. */
+/** A slot the product draws a part with: a capability view's (`view`: the capability, `map`) or a world view's (`view`
+ *  is `WORLD_VIEW`: the engine goes there), drawn by its stand-in until written, or a part the design marks as the
+ *  product's own (`Item.slot`; `view` is ""), drawn as the design has it until written. `slug` is the part's. */
 export type SlotSpec = { item: string; name: string; view: string; screen: string; slug: string };
+
+/** what a world view's slot says it is a view of (docs/边界与契约.md “实时玩法”): an engine's world, no capability */
+export const WORLD_VIEW = "world";
 
 /** words as a component's name: letters and digits, each word capitalized; "" when nothing of it is ASCII */
 const pascal = (words: string) =>
@@ -43,7 +49,7 @@ const KIT_NAMES = ["At", "Pin", "Cell", "Repeat", "DockPane", "Layer", "Box", "T
  *  part a slot draws is one) and the stand-ins a slot draws until it is written among them, and the web's own widgets
  *  a web screen draws its stand-in with (a map's default slot, `MapView`, is the web's map widget: it takes
  *  `MapView2`). A name that clashes with none of them stays as it was. */
-const TAKEN = new Set(["Screen", "View", "Text", "Image", "Placeholder", "Slot", "Fragment", "React", "MapStandIn", "CameraStandIn", "CallStandIn", ...Object.keys(WIDGET_SOURCES), ...KIT_NAMES, ...Object.values(RN_NATIVE), ...Object.values(MINI_NATIVE)]);
+const TAKEN = new Set(["Screen", "View", "Text", "Image", "Placeholder", "Slot", "Fragment", "React", "MapStandIn", "CameraStandIn", "CallStandIn", "WorldStandIn", "ExampleWorld", ...Object.keys(WIDGET_SOURCES), ...KIT_NAMES, ...Object.values(RN_NATIVE), ...Object.values(MINI_NATIVE)]);
 
 /** Every slot of the document, screen by screen, each with a name of its own: a capability view's is the part's name
  *  (its group's, else its label), else the view's (MapView, CameraView); a part's the one the design gives it
@@ -57,10 +63,11 @@ export function slotsOf(doc: Doc, widths: Record<string, number> = {}): SlotSpec
     for (const g of groupsInFrame(doc.groups, f, doc.frames, widths))
       for (const it of g.items) {
         const def = partBySlug(it.component);
-        const view = def?.capability;
+        /* a world view is a view too: its slot is where the engine goes */
+        const view = def?.capability ?? (def?.world ? WORLD_VIEW : undefined);
         if (!def || (!view && !it.slot) || seen.has(it.id)) continue;
         seen.add(it.id);
-        const base = view ? pascal(g.name ?? "") || pascal(it.label ?? "") || `${typeBase(view)}View` : (typeof it.slot === "string" && pascal(it.slot)) || (g.items.length === 1 && pascal(g.name ?? "")) || `${pascal(def.slug)}Slot`;
+        const base = view ? pascal(g.name ?? "") || pascal(it.label ?? "") || (view === WORLD_VIEW ? "GameWorld" : `${typeBase(view)}View`) : (typeof it.slot === "string" && pascal(it.slot)) || (g.items.length === 1 && pascal(g.name ?? "")) || `${pascal(def.slug)}Slot`;
         let name = base;
         for (let n = 2; names.has(name); n++) name = `${base}${n}`;
         names.add(name);
@@ -105,9 +112,163 @@ export default function ${s.name}({ children }: Props) {
 `;
 };
 
-/** where a slot's files reach the kit and each other: from the generated module, and from a slot written once */
-export type SlotPaths = { kit: string; custom: string; kitFromCustom: string };
-const PRODUCT_PATHS: SlotPaths = { kit: "../kit", custom: "../custom/slots", kitFromCustom: "../../kit" };
+/** where a slot's files reach the kit and each other: from the generated module, and from a slot written once (the
+ *  kit, and the generated modules beside the slots' module) */
+export type SlotPaths = { kit: string; custom: string; kitFromCustom: string; generatedFromCustom: string };
+const PRODUCT_PATHS: SlotPaths = { kit: "../kit", custom: "../custom/slots", kitFromCustom: "../../kit", generatedFromCustom: "../../generated" };
+
+/** A world view's slot written once (docs/边界与契约.md “实时玩法”): what it is handed (the world's state from the
+ *  design, its size, the channel its input actions come in on, `onEvent` for the world's events) and where the engine
+ *  goes. Until one is plugged in it draws the design's stand-in, which lists the inputs it hears; `plugged` writes it
+ *  with M3E's example engine plugged in instead (a test bed's, showing the view hosting one). */
+const UNTIL = "Until then it draws the design's\n   stand-in (children), which lists the inputs it hears.";
+const WORLD_SLOT = (scope: string, s: SlotSpec, platform: AppPlatform, paths: SlotPaths, plugged: boolean) => {
+  const where = platform === "web" ? "a canvas or WebGL loop, a Godot web export, Phaser, PixiJS" : platform === "mobile" ? "a native engine view, react-native-skia, a GL view" : "a Cocos mini-game, a <Canvas> loop";
+  const head = plugged ? `import type { ReactNode } from "react";
+${importLine(["WorldSlotProps"], `${scope}/app-runtime`, true)}
+${importLine(["ExampleWorld"], `${paths.generatedFromCustom}/exampleWorld`)}` : `import type { ReactNode } from "react";
+${importLine(["WorldSlotProps"], `${scope}/app-runtime`, true)}`;
+  const body = plugged ? `export default function ${s.name}(props: Props) {\n  return <ExampleWorld {...props} />;\n}` : `export default function ${s.name}({ children }: Props) {\n  return <>{children}</>;\n}`;
+  return `${head}
+
+/* The world view the design places on the screen "${screenWords(s)}" (written once by the export, never overwritten:
+   it is the product's own). The picture, the physics, the camera and the rules are the engine's: plug it in here
+   (${where}).
+
+   An engine implements World (${scope}/app-runtime) and is connected to what this view is handed with
+   connectWorld(world, channel, onEvent): the design's input actions (move, press, release) come in on the
+   channel, and the events it sends (hit, collected, ended) run the design's actions. The props are the world's
+   state the design shows (its entities, score, status), for the HUD around it. M3E's example engine is
+   src/generated/exampleWorld.tsx: return <ExampleWorld {...props} /> plays it. ${plugged ? "Here it is plugged in." : UNTIL} */
+type Props = WorldSlotProps<ReactNode>;
+
+${body}
+`;
+};
+
+/** The world's contract as the app has it (lib/world/contract.ts, docs/世界宿主契约.md): the contract itself, as data an
+ *  engine-side host can read too, and the TypeScript types generated from its JSON Schemas (the snapshot, each event's
+ *  payload) and its input actions. The world today is M3E's example engine's; a game loop authored elsewhere hands in
+ *  its own contract of the same shape later, and the same types come out of it. */
+export function worldContractModule(scope: string, contract: WorldContract = EXAMPLE_WORLD_CONTRACT): string {
+  const ts = (x: unknown) => schemaTypeTs(x as JsonSchema, { comments: false });
+  const inputs = Object.entries(contract.inputs).map(([name, d]) => `  ${name}: ${d.type === "vec2" ? "Vec2" : "boolean"}`);
+  const events = Object.entries(contract.events).map(([name, e]) => `  ${name}: ${ts(e.payload)}`);
+  return `${GENERATED}
+import type { Vec2, WorldContract } from ${str(`${scope}/app-runtime`)}
+
+/** the contract of the world the design's world views are drawn to: its input actions, its snapshot and its events as
+ *  JSON Schema, its clock (docs/世界宿主契约.md in the design editor) */
+export const WORLD_CONTRACT: WorldContract = ${jsonCode(contract)}
+
+/** what the world's view() gives, from its schema */
+export type WorldSnapshot = ${ts(contract.snapshot)}
+
+/** the input actions the world takes, by name, with what each carries */
+export type WorldInputs = {
+${inputs.join("\n")}
+}
+
+/** the events the world sends, by name, with what each carries, from their schemas */
+export type WorldEventPayloads = {
+${events.join("\n")}
+}
+`;
+}
+
+/** M3E's example engine (lib/world/example.ts) as a world view's slot draws it, on each platform: the web on a canvas
+ *  in a requestAnimationFrame loop, a phone and a mini-program stepped by a timer and drawn by the kit's stand-in. Any
+ *  engine plugs in the same way: create it, `connectWorld` it to the channel and `onEvent`, step it, draw it. */
+export function exampleWorldModule(scope: string, platform: AppPlatform, paths: SlotPaths = PRODUCT_PATHS): string {
+  const runtime = `${scope}/app-runtime`;
+  const about = `/* M3E's example engine (src/engine/world/example.ts in ${runtime}): the player moves the way the move input points,
+   picks up coins and items (collected; the last one ends the round, ended) and hits enemies near it with attack (hit).
+   It decides nothing for the product: replace it with your engine in the world view's slot (src/custom/slots). It is
+   spoken to only through the World interface (mount, connectWorld, view, subscribe, unmount: docs/世界宿主契约.md in
+   the design editor), its world time runs off the app's clock, and it has no picture of its own: this host draws its
+   view`;
+  if (platform === "web")
+    return `${GENERATED}
+import { useEffect, useRef } from "react"
+import { connectWorld, createExampleWorld, type WorldSlotProps, type WorldState } from ${str(runtime)}
+import { domainNow } from "@/components/widgets/host"
+
+${about} on a canvas. */
+
+/** what each kind of entity is drawn in */
+const TONE: Record<string, string> = { player: "--md-sys-color-primary", enemy: "--md-sys-color-error", coin: "--md-sys-color-tertiary", item: "--md-sys-color-tertiary" }
+
+export function ExampleWorld({ label, entities, score, status, follow, width, height, channel, onEvent }: WorldSlotProps) {
+  const canvas = useRef<HTMLCanvasElement>(null)
+  const emit = useRef(onEvent)
+  useEffect(() => {
+    emit.current = onEvent
+  })
+  /* the engine starts over from what the design says whenever that changes */
+  const start = JSON.stringify({ entities, score, status, follow })
+  useEffect(() => {
+    const world = createExampleWorld(JSON.parse(start) as WorldState, { now: domainNow })
+    const off = connectWorld(world, channel, (name, payload) => emit.current?.(name, payload))
+    const css = getComputedStyle(document.documentElement)
+    let frame = 0
+    const draw = () => {
+      frame = 0
+      const c = canvas.current?.getContext("2d")
+      if (!c) return
+      c.clearRect(0, 0, width, height)
+      for (const e of world.view().entities ?? []) {
+        c.fillStyle = css.getPropertyValue(TONE[e.kind] ?? "--md-sys-color-outline").trim() || "#888"
+        c.beginPath()
+        c.arc((e.x / 100) * width, (e.y / 100) * height, 8, 0, Math.PI * 2)
+        c.fill()
+      }
+    }
+    /* drawn again on the next frame after the world changed */
+    const unsub = world.subscribe(() => {
+      if (!frame) frame = requestAnimationFrame(draw)
+    })
+    world.mount(canvas.current, { w: width, h: height })
+    draw()
+    return () => {
+      if (frame) cancelAnimationFrame(frame)
+      world.unmount()
+      unsub()
+      off()
+    }
+  }, [start, channel, width, height])
+  return <canvas ref={canvas} width={width} height={height} aria-label={label || "World"} data-score={score} />
+}
+`;
+  return `${GENERATED}
+import { useEffect, useRef, useState } from "react"
+import { connectWorld, createExampleWorld, type WorldSlotProps, type WorldState } from ${str(runtime)}
+import { kitNow, WorldStandIn } from ${str(paths.kit)}
+
+${about} with the kit's stand-in, the world's own state in place of the design's. */
+export function ExampleWorld({ label, scene, entities, score, status, follow, width, height, channel, onEvent }: WorldSlotProps) {
+  const emit = useRef(onEvent)
+  useEffect(() => {
+    emit.current = onEvent
+  })
+  const start = JSON.stringify({ entities, score, status, follow })
+  /* what the world shows, once it has moved since it started from what the design says */
+  const [seen, setSeen] = useState<{ start: string; view: WorldState } | null>(null)
+  const shown = seen && seen.start === start ? seen.view : (JSON.parse(start) as WorldState)
+  useEffect(() => {
+    const world = createExampleWorld(JSON.parse(start) as WorldState, { now: kitNow })
+    const off = connectWorld(world, channel, (name, payload) => emit.current?.(name, payload))
+    const unsub = world.subscribe(() => setSeen({ start, view: world.view() }))
+    world.mount(null, { w: width, h: height })
+    return () => {
+      world.unmount()
+      unsub()
+      off()
+    }
+  }, [start, channel, width, height])
+  return <WorldStandIn label={label} scene={scene} entities={shown.entities} follow={follow} score={shown.score} status={shown.status} width={width} height={height} channel={channel} />
+}
+`;
+}
 
 /** the kit's component that draws a part on an app, when the kit has one of its own (the web draws parts as trees) */
 const kitComponent = (s: SlotSpec, platform: AppPlatform): string | undefined => (platform === "mobile" ? (RN_NATIVE as Record<string, string>)[s.slug] : platform === "miniapp" ? (MINI_NATIVE as Record<string, string>)[s.slug] : undefined);
@@ -143,10 +304,15 @@ export default function ${s.name}({ children }: Props) {
 /** The slots' files: each written once, and the module the screens import them from. A part drawn by its kit's
  *  component is drawn by its slot with the kit's drawing as children, both handed the same props (the screen prints
  *  them once): the module is a `.tsx` then. */
-export function slotFiles(scope: string, slots: SlotSpec[], platform: AppPlatform, paths: SlotPaths = PRODUCT_PATHS): ProductFiles {
+export function slotFiles(scope: string, slots: SlotSpec[], platform: AppPlatform, paths: SlotPaths = PRODUCT_PATHS, o: { plugExample?: boolean } = {}): ProductFiles {
   if (!slots.length) return {};
   const files: ProductFiles = {};
-  for (const s of slots) files[`src/custom/slots/${s.name}.tsx`] = seeded(s.view ? VIEW_SLOT(scope, s, platform) : PART_SLOT(s, platform, paths));
+  for (const s of slots) files[`src/custom/slots/${s.name}.tsx`] = seeded(s.view === WORLD_VIEW ? WORLD_SLOT(scope, s, platform, paths, !!o.plugExample) : s.view ? VIEW_SLOT(scope, s, platform) : PART_SLOT(s, platform, paths));
+  /* M3E's example engine, for a world view's slot to plug in (rewritten on every export) */
+  if (slots.some((s) => s.view === WORLD_VIEW)) {
+    files["src/generated/exampleWorld.tsx"] = generated(exampleWorldModule(scope, platform, paths));
+    files["src/generated/worldContract.ts"] = generated(worldContractModule(scope));
+  }
   const wrapped = slots.filter((s) => !s.view && kitComponent(s, platform));
   const passed = slots.filter((s) => !wrapped.includes(s));
   if (!wrapped.length) {

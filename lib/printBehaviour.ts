@@ -1,7 +1,9 @@
+import { colorChoicesOf } from "../parts/color";
 import { appearanceOf } from "../parts/appearance";
 import { isNode, isRaw, isWrap, mapNodes, raw, type PNode, type PValue } from "../parts/node";
 import { EXPR_NODE, namesIn, printValue, str } from "../parts/print";
 import { OVERLAY_ROOTS, partBySlug, reader, treeOf, withoutPickedImages } from "../parts/registry";
+import { markAssets, unmarkAssets } from "./export/assets";
 import type { PartDef, PropDef } from "../parts/types";
 import { WIDGET_SOURCES } from "../parts/widgets/sources";
 import { type Row, fillCurrent, firstRows, markCurrent } from "./collections";
@@ -11,7 +13,7 @@ import { collectionIdOf, collectionsOf, cssNameOf, isBindField, modeFor, valueIn
 import { cleanMotion, cleanTrigger, flowStarts } from "./prototype";
 import type { BoundPrint } from "./printBindings";
 import { BACK_TARGET, LINK_TARGET, STAY_TARGET, actionSlotsOf, presetOf, actionsOf, darkVarOf, heldBy, holdsParts, linkUrlOf, type Action, type ActionBody, type Condition, type Doc, type Effect, type Frame, type Group, type Item, type VarType, type VarValue } from "./tokens";
-import { eventKey, familyKey, type Answer } from "./actions/model";
+import { WORLD_EFFECTS, eventKey, familyKey, type Answer } from "./actions/model";
 import { evaluate, parseExpr, rootsOf, truthy } from "./bindings/expr";
 import { boundVar, comparisonOf, fieldVarOf, type Comparison } from "./bindings/bind";
 import { inlineReads } from "./refs";
@@ -61,6 +63,8 @@ export type RuntimeSpec = {
   /** a part hands its Pressable a family's action as a function of the entry (`families`), for the entries the design's
    *  props do not hold */
   families?: true;
+  /** the screens draw world views, which the taps' input actions reach on a channel each (lib/world) */
+  worlds?: true;
 };
 
 /** What the runtime runs the taps over (lib/actions' `Host`, src/runtime.tsx): where each part an effect reaches stands,
@@ -288,6 +292,7 @@ function samplesOf(d: PropDef, def: PartDef, it: Item): VarValue[] {
   const p = reader(def, it.props);
   if (d.kind === "bool") return [true, false];
   if (d.kind === "enum") return d.options.map((o) => (typeof o === "string" ? o : o.value));
+  if (d.kind === "color") return colorChoicesOf(d);
   if (d.kind !== "number") return [];
   const now = p.n(d.key);
   if (d.key === def.selectKey) {
@@ -354,6 +359,8 @@ export class Behaviour {
   private readonly printed = { motion: false, overlay: false, scroll: false, hover: false, delay: false };
   /** a part's family of places has been printed with its action as a function of the entry (`families`) */
   private printedFamilies = false;
+  /** a world view has been printed with its channel */
+  private printedWorlds = false;
   /** the bindings, printed against the product's runtime */
   readonly bound?: BoundPrint;
   private readonly groupById: Map<string, Group>;
@@ -451,6 +458,8 @@ export class Behaviour {
     if (typeof b.scrollTo === "string" && this.owner.has(b.scrollTo)) this.scrollTargets.add(b.scrollTo);
     for (const e of Array.isArray(b.effects) ? b.effects : []) {
       if (!("part" in e)) continue;
+      /* an input action goes to a world view's channel: it shows, hides and sets nothing */
+      if (WORLD_EFFECTS.has(e.do)) continue;
       const g = this.owner.get(e.part);
       const it = g?.items.find((x) => x.id === e.part);
       if (!g || !it) continue;
@@ -566,6 +575,7 @@ export class Behaviour {
       ...(this.bound ? { bound: this.boundSpec() } : {}),
       ...(this.acts ? { acts: this.actsSpec() } : {}),
       ...(this.printedFamilies ? { families: true as const } : {}),
+      ...(this.printedWorlds ? { worlds: true as const } : {}),
     };
   }
 
@@ -816,6 +826,15 @@ export class Behaviour {
       case "signOut":
         if (!this.bound) this.unreached.add("signOut");
         return { do: "signOut" };
+      case "move":
+      case "press":
+      case "release": {
+        /* the world view by its key, whose channel the runtime keeps */
+        const it = this.owner.get(e.part)?.items.find((x) => x.id === e.part);
+        if (!it || !partBySlug(it.component)?.world) return null;
+        this.part(it.id);
+        return { ...e, part: this.partKeys.get(it.id)! };
+      }
       default:
         /* a kind this version does not know, from a file saved by a later one */
         return null;
@@ -930,6 +949,17 @@ export class Behaviour {
     return [`pickRow(${json(this.rowNow)})`, run];
   }
 
+  /** What runs on a message of a subscription of the screen being printed, as a statement: the action put in the
+   *  screen's table and run by the interpreter with the message as `event` (no part made it). */
+  messageRun(a: Action, uses: Uses, name: string): string | undefined {
+    const data = this.actionData(a, uses);
+    if (!data) return undefined;
+    const key = this.actKey(name);
+    this.screenActs.set(key, data);
+    this.screenTapped = true;
+    return `act(${this.actsName}.${key}, { event })`;
+  }
+
   /** a key of the screen's table of actions */
   private actKey(name: string): string {
     return camel(name, "tap", this.actKeys);
@@ -997,7 +1027,7 @@ export class Behaviour {
     const p = reader(def, it.props);
     const fromForm = this.bound ? this.bound.formProps(it, def) : [];
     for (const d of def.props) {
-      const design = d.kind === "text" || d.kind === "image" || d.kind === "icon" ? (it.props?.[d.key] ?? undefined) : d.kind === "number" ? p.n(d.key) : d.kind === "bool" ? p.b(d.key) : d.kind === "enum" ? p.s(d.key) : undefined;
+      const design = d.kind === "text" || d.kind === "image" || d.kind === "icon" ? (it.props?.[d.key] ?? undefined) : d.kind === "number" ? p.n(d.key) : d.kind === "bool" ? p.b(d.key) : d.kind === "enum" || d.kind === "color" ? p.s(d.key) : undefined;
       const byExpr = this.bound ? this.bound.prop(it, d, d.kind === "text" ? p.s(d.key) : design) : null;
       if (byExpr !== null && !(d.key === inputKey && this.bound?.form && it.field)) {
         out.push({ d, expr: byExpr.code, ...(byExpr.samples ? { samples: byExpr.samples } : {}) });
@@ -1008,11 +1038,11 @@ export class Behaviour {
         out.push({ d, expr: given.expr });
         continue;
       }
-      if (d.kind !== "text" && d.kind !== "number" && d.kind !== "bool" && d.kind !== "enum") continue;
+      if (d.kind !== "text" && d.kind !== "number" && d.kind !== "bool" && d.kind !== "enum" && d.kind !== "color") continue;
       if (d.key === inputKey && inputVar) continue;
       const boundId = boundVar(it, d.key, this.doc.vars);
       const bound = boundId ? this.vars.get(boundId) : undefined;
-      if (bound && d.kind !== "enum") out.push({ d, expr: this.readVar(bound, d.kind, uses) });
+      if (bound && d.kind !== "enum" && d.kind !== "color") out.push({ d, expr: this.readVar(bound, d.kind, uses) });
       else if (d.key === def.selectKey && this.selecting(it, def)) {
         const bar = this.barKey(it, def);
         this.usedParts.add(bar);
@@ -1021,7 +1051,7 @@ export class Behaviour {
         const own = it.props?.[d.key];
         out.push({ d, expr: isNavBar(def) && own === undefined ? `tab(${json(bar)}, undefined, ${p.n(d.key)})` : `tab(${json(bar)}, ${p.n(d.key)})` });
       } else if ((d.key === "expanded" && this.railToggles(it, def)) || this.propTargets.get(it.id)?.has(d.key)) {
-        const start = d.kind === "text" ? p.s(d.key) : d.kind === "enum" ? p.s(d.key) : d.kind === "number" ? p.n(d.key) : p.b(d.key);
+        const start = d.kind === "text" ? p.s(d.key) : d.kind === "enum" || d.kind === "color" ? p.s(d.key) : d.kind === "number" ? p.n(d.key) : p.b(d.key);
         uses.app.add("prop");
         out.push({ d, expr: `prop(${this.part(it.id)}, ${json(d.key)}, ${json(start)})` });
       }
@@ -1036,7 +1066,8 @@ export class Behaviour {
     const fields = new Map<string, string>();
     /* what a form fixes on it (required, as its contract says) is drawn as the design's own */
     const fixed = this.bound ? this.bound.formFixed(it, def) : {};
-    const base = markCurrent(withoutPickedImages(def, { ...it.props, ...fixed }, this.image), (field) => {
+    /* an asset of the pipeline's is read from the app's lookup at run time (lib/export/assets.ts) */
+    const base = markCurrent(withoutPickedImages(def, { ...markAssets(def, it.props), ...fixed }, this.image), (field) => {
       fields.set(`current.${field}`, currentField(field));
       uses.app.add("current");
       return markOf(`current.${field}`);
@@ -1055,7 +1086,7 @@ export class Behaviour {
       room = Math.floor(room / samples.length);
       return foldNodes(samples.map((s) => draw({ ...vals, [head.d.key]: s }, tail)), { expr: head.expr, samples, keepTap });
     };
-    const tree = draw(values, drawn);
+    const tree = unmarkAssets(draw(values, drawn));
     return words.length || fields.size ? unmarkNode(tree, new Map([...fields, ...words.map((x) => [x.d.key, x.expr] as const)])) : tree;
   }
 
@@ -1235,6 +1266,12 @@ export class Behaviour {
         const wired = { ...widget, props: { ...widget.props, onEvent: raw(`(name, payload) => { ${events.join(" else ")} }`) } };
         tree = widget === tree ? wired : { ...tree, children: tree.children?.map((c) => (c === widget ? wired : c)) };
       }
+    }
+    /* a world view listens on its channel, which the taps' input actions are sent on (lib/world) */
+    if (def.world && tree.type in WIDGET_SOURCES) {
+      uses.app.add("worldChannel");
+      this.printedWorlds = true;
+      tree = { ...tree, props: { ...tree.props, channel: raw(`worldChannel(${this.part(it.id)})`) } };
     }
     const inputVar = this.inputVar(it);
     if (inputVar) tree = this.wireInput(tree, it, def, inputVar, uses);

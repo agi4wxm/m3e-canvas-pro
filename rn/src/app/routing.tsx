@@ -35,11 +35,35 @@ export function hrefOf(key: string, params: Record<string, unknown> = {}, overla
 /** the screen on show, to come back to after a sign-in */
 let current: { key: string; params?: Record<string, unknown> } | undefined
 
-/** a screen came on show (./ScreenRoute): one the app did not go to (the system's back button, a swipe back) is a move
- *  of the visitor's all the same, which an answer that comes later is told (the kit's screenShown) */
-export function seen(screen: { key: string; params?: Record<string, unknown> }) {
+/** a screen and its params as one word */
+export const placeOf = (screen: { key: string; params?: Record<string, unknown> }) => `${screen.key}:${JSON.stringify(screen.params ?? {})}`
+
+/* What is on show: the screen last come on show, and the one under it when that is an overlay of the app's (the stack
+   keeps it drawn, and it stays on show under the overlay, as in the preview) */
+let onShow: string[] = []
+const listeners = new Set<() => void>()
+
+/** hears of each screen coming on show */
+export function listenOnShow(fn: () => void): () => void {
+  listeners.add(fn)
+  return () => {
+    listeners.delete(fn)
+  }
+}
+
+/** the places on show now (see `onShow`) */
+export const placesOnShow = () => onShow
+
+/** a screen came on show (./ScreenRoute), over the one before when it is an overlay: one the app did not go to (the
+ *  system's back button, a swipe back) is a move of the visitor's all the same, which an answer that comes later is
+ *  told (the kit's screenShown) */
+export function seen(screen: { key: string; params?: Record<string, unknown> }, overlay = false) {
+  const place = placeOf(screen)
+  const under = overlay ? onShow.filter((p) => p !== place).slice(-1) : []
+  onShow = [...under, place]
   current = screen
-  screenShown(`${screen.key}:${JSON.stringify(screen.params ?? {})}`)
+  screenShown(place)
+  for (const fn of listeners) fn()
 }
 
 /** where a tap goes, on Expo Router: a tab is switched to, a screen pushed (or put in place of this one), an overlay

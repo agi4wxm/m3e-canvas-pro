@@ -1,6 +1,7 @@
 import { FLOW_PROPS, GRID_PROPS } from "../flow";
 import { h, ic, listSlots } from "../node";
 import type { Choice, P, PartDef, PropDef } from "../types";
+import { cssColor } from "../color";
 
 /* Containers: the ground other parts are put on. Dropped wholly inside one, a part moves with it,
  * and the prompt reads it as nested; see `heldBy` in lib/tokens.ts. What they hold is placed by hand,
@@ -104,7 +105,8 @@ const splitView: PartDef = {
     }),
 };
 
-const FILLS = ["none", "surface", "surface-container-low", "surface-container", "surface-container-high", "surface-container-highest", "primary-container", "secondary-container", "tertiary-container"];
+/* the fills it was designed around, by the one color value (parts/color.ts); "" is none */
+const FILLS = ["surface", "surface-container-low", "surface-container", "surface-container-high", "surface-container-highest", "primary-container", "secondary-container", "tertiary-container"];
 const BORDER: Record<string, string> = { none: "", solid: "border border-outline-variant", dashed: "border border-dashed border-outline-variant" };
 
 export const containers: PartDef[] = [
@@ -119,7 +121,7 @@ export const containers: PartDef[] = [
       LABEL("Container", "容器"),
       NOTE("", ""),
       { key: "place", label: "Label place", labels: { ja: "ラベルの位置", zh: "标题位置", ko: "라벨 위치" }, kind: "enum", default: "center", options: ["center", "start"], when: (p) => p.s("layout") === "free" },
-      { key: "fill", label: "Fill", labels: { ja: "塗り", zh: "填充", ko: "채우기" }, kind: "enum", default: "surface-container-low", options: FILLS },
+      { key: "fill", label: "Fill", labels: { ja: "塗り", zh: "填充", ko: "채우기" }, kind: "color", default: "surface-container-low", roles: FILLS, none: "none" },
       { key: "border", label: "Border", labels: { ja: "枠線", zh: "边框", ko: "테두리" }, kind: "enum", default: "dashed", options: Object.keys(BORDER) },
       { key: "radius", label: "Corner", labels: { ja: "角丸", zh: "圆角", ko: "모서리" }, kind: "number", default: 12, min: 0, max: 48, step: 2, unit: "px" },
         { key: "blur", label: "Background blur", labels: { ja: "背景のぼかし", zh: "背景模糊", ko: "배경 흐림" }, kind: "number", default: 0, min: 0, max: 40, step: 1, unit: "px" },
@@ -132,7 +134,7 @@ export const containers: PartDef[] = [
         {
           "data-slot": "layout-container",
           className: `${bare ? "" : `flex flex-col gap-1 p-4 ${p.s("place") === "start" ? "items-start justify-start" : "items-center justify-center"}`} overflow-hidden ${BORDER[p.s("border")] ?? ""}`.trim(),
-          style: { ...box(p), borderRadius: p.s("fill") === "none" && p.s("border") === "none" ? 0 : p.n("radius") === 12 ? "var(--md-sys-shape-corner-medium)" : Math.round(p.n("radius")), background: p.s("fill") === "none" ? undefined : `var(--md-sys-color-${p.s("fill")})`, backdropFilter: p.n("blur") > 0 ? `blur(${Math.round(p.n("blur"))}px)` : undefined },
+          style: { ...box(p), borderRadius: p.s("fill") === "" && p.s("border") === "none" ? 0 : p.n("radius") === 12 ? "var(--md-sys-shape-corner-medium)" : Math.round(p.n("radius")), background: cssColor(p.s("fill")), backdropFilter: p.n("blur") > 0 ? `blur(${Math.round(p.n("blur"))}px)` : undefined },
         },
         !bare && p.s("label") && h("div", { className: `truncate ${p.s("place") === "start" ? "text-title-small text-on-surface" : "text-label-large text-on-surface-variant"}` }, p.s("label")),
         !bare && p.s("note") && h("div", { className: "text-body-small text-on-surface-variant truncate" }, p.s("note")),

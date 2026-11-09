@@ -24,13 +24,13 @@ const toast = kit(
   "a short message on the inverse surface: Material's snackbar (one line, an action, a close); a centered dark square with a glyph over a word (iPhone and WeChat toasts); or a raised card with a glyph, a title over a muted line and an undo button (web toasts)",
   [
     variant("snackbar", "Snackbar", ["提示条", "スナックバー", "스낵바"], () =>
-      hbox({ surface: "overlay", width: 344, hugWidth: false, padX: 16, padY: 6, gap: 8 }, [para(say("Photo archived", "照片已归档", "写真をアーカイブしました", "사진을 보관했습니다"), "body", { color: "inverse", maxLines: 1 }, { grow: true }), button(say("Undo", "撤销", "元に戻す", "실행 취소"), { variant: "text", size: "xs" }, { textColor: "inverseOnSurface" }), iconButton("close", T.close, { size: "xs" }, { textColor: "inverseOnSurface" })], { fill: "inverseSurface", corners: round(4) }),
+      hbox({ surface: "overlay", width: 344, hugWidth: false, padX: 16, padY: 6, gap: 8 }, [para(say("Photo archived", "照片已归档", "写真をアーカイブしました", "사진을 보관했습니다"), "body", { color: "inverse-on-surface", maxLines: 1 }, { grow: true }), button(say("Undo", "撤销", "元に戻す", "실행 취소"), { variant: "text", size: "xs" }, { textColor: "inverseOnSurface" }), iconButton("close", T.close, { size: "xs" }, { textColor: "inverseOnSurface" })], { fill: "inverseSurface", corners: round(4) }),
     ),
     variant(
       "toast",
       "Centered toast",
       ["居中轻提示", "中央のトースト", "가운데 토스트"],
-      () => vbox({ surface: "overlay", width: 136, hugWidth: false, padX: 16, padY: 20, gap: 10, align: "center" }, [icon("check_circle", { size: 40, color: "inverse" }), text(say("Saved", "已保存", "保存しました", "저장됨"), "body", { color: "inverse", align: "center" })], { fill: "inverseSurface", corners: round(12) }),
+      () => vbox({ surface: "overlay", width: 136, hugWidth: false, padX: 16, padY: 20, gap: 10, align: "center" }, [icon("check_circle", { size: 40, color: "inverse-on-surface" }), text(say("Saved", "已保存", "保存しました", "저장됨"), "body", { color: "inverse-on-surface", align: "center" })], { fill: "inverseSurface", corners: round(12) }),
       { suits: (l) => isWeui(l) || isIosLike(l) },
     ),
     variant(
@@ -40,7 +40,7 @@ const toast = kit(
       () =>
         hbox({ surface: "overlay", width: 356, hugWidth: false, padX: 16, padY: 14, gap: 12, align: "start" }, [
           icon("check_circle", { size: 20, filled: true, color: "primary" }),
-          vbox({ gap: 2, hugWidth: false, width: 200 }, [text(say("Event created", "已创建日程", "予定を作成しました", "일정이 생성됨"), "label", { bold: true }), para(say("Sunday, December 3 at 9:00 AM", "12 月 3 日（周日）上午 9:00", "12 月 3 日（日）午前 9:00", "12월 3일 일요일 오전 9:00"), "caption", { color: "muted" })], { grow: true }),
+          vbox({ gap: 2, hugWidth: false, width: 200 }, [text(say("Event created", "已创建日程", "予定を作成しました", "일정이 생성됨"), "label", { bold: true }), para(say("Sunday, December 3 at 9:00 AM", "12 月 3 日（周日）上午 9:00", "12 月 3 日（日）午前 9:00", "12월 3일 일요일 오전 9:00"), "caption", { color: "on-surface-variant" })], { grow: true }),
           button(say("Undo", "撤销", "元に戻す", "실행 취소"), { variant: "tonal", size: "xs" }),
         ], { corners: round(12) }),
       { suits: isDense },
@@ -57,12 +57,12 @@ const alertBanner = kit(
   "a tinted panel row: a glyph, a bold title over a line; an outlined one with a warning glyph, a review button under the words and a close at the end; or a thin strip across the screen with one line and a fix button",
   [
     variant("tonal", "Tinted", ["浅色底", "淡い背景", "옅은 배경"], () =>
-      hbox({ surface: "panel", width: W, hugWidth: false, padX: 16, padY: 14, gap: 12, align: "start" }, [icon("info", { size: 22, color: "default" }), vbox({ gap: 2, hugWidth: false, width: 200 }, [text(say("Update available", "有可用更新", "アップデートがあります", "업데이트 가능"), "label", { bold: true }), para(say("Restart the app to get the latest fixes.", "重启应用即可获得最新修复。", "アプリを再起動して最新の修正を適用してください。", "앱을 다시 시작해 최신 수정 사항을 받으세요."), "body")], { grow: true })], { fill: "secondaryContainer", corners: round(12) }),
+      hbox({ surface: "panel", width: W, hugWidth: false, padX: 16, padY: 14, gap: 12, align: "start" }, [icon("info", { size: 22, color: "" }), vbox({ gap: 2, hugWidth: false, width: 200 }, [text(say("Update available", "有可用更新", "アップデートがあります", "업데이트 가능"), "label", { bold: true }), para(say("Restart the app to get the latest fixes.", "重启应用即可获得最新修复。", "アプリを再起動して最新の修正を適用してください。", "앱을 다시 시작해 최신 수정 사항을 받으세요."), "body")], { grow: true })], { fill: "secondaryContainer", corners: round(12) }),
     ),
     variant("outlined", "Outlined, with actions", ["描边带操作", "枠線・アクション付き", "윤곽선·동작"], () =>
       hbox({ surface: "chip", width: W, hugWidth: false, padX: 16, padY: 14, gap: 12, align: "start" }, [
         icon("warning", { size: 22, color: "tertiary" }),
-        vbox({ gap: 4, hugWidth: false, width: 200 }, [text(say("Storage almost full", "存储空间即将用完", "ストレージがほぼいっぱいです", "저장 공간이 거의 찼습니다"), "label", { bold: true }), para(say("You have 1.2 GB left. Free up space to keep syncing.", "仅剩 1.2 GB，请清理空间以继续同步。", "残り 1.2 GB です。同期を続けるには空き容量を増やしてください。", "1.2GB 남았습니다. 동기화를 계속하려면 공간을 확보하세요."), "body", { color: "muted" }), hbox({ gap: 0 }, [button(say("Review", "查看", "確認する", "확인"), { variant: "text", size: "xs" })])], { grow: true }),
+        vbox({ gap: 4, hugWidth: false, width: 200 }, [text(say("Storage almost full", "存储空间即将用完", "ストレージがほぼいっぱいです", "저장 공간이 거의 찼습니다"), "label", { bold: true }), para(say("You have 1.2 GB left. Free up space to keep syncing.", "仅剩 1.2 GB，请清理空间以继续同步。", "残り 1.2 GB です。同期を続けるには空き容量を増やしてください。", "1.2GB 남았습니다. 동기화를 계속하려면 공간을 확보하세요."), "body", { color: "on-surface-variant" }), hbox({ gap: 0 }, [button(say("Review", "查看", "確認する", "확인"), { variant: "text", size: "xs" })])], { grow: true }),
         iconButton("close", T.close, { size: "xs" }),
       ], { corners: round(12) }),
     ),
@@ -70,7 +70,7 @@ const alertBanner = kit(
       "strip",
       "Strip across",
       ["通栏条", "横長の帯", "가로 띠"],
-      () => hbox({ width: SCREEN, hugWidth: false, padX: 16, padY: 6, gap: 8 }, [icon("error", { size: 18, color: "default" }), para(say("You're offline. Changes will sync later.", "当前离线，更改稍后同步。", "オフラインです。変更は後で同期されます。", "오프라인입니다. 변경 사항은 나중에 동기화됩니다."), "caption", { maxLines: 1 }, { grow: true }), button(say("Retry", "重试", "再試行", "재시도"), { variant: "text", size: "xs" })], { fill: "tertiaryContainer" }),
+      () => hbox({ width: SCREEN, hugWidth: false, padX: 16, padY: 6, gap: 8 }, [icon("error", { size: 18, color: "" }), para(say("You're offline. Changes will sync later.", "当前离线，更改稍后同步。", "オフラインです。変更は後で同期されます。", "오프라인입니다. 변경 사항은 나중에 동기화됩니다."), "caption", { maxLines: 1 }, { grow: true }), button(say("Retry", "重试", "再試行", "재시도"), { variant: "text", size: "xs" })], { fill: "tertiaryContainer" }),
       { span: "screen" },
     ),
   ],
@@ -89,7 +89,7 @@ const dialog = kit(
   "an overlay box: Material's left-aligned headline and text over text buttons at the end; an iPhone alert's centered bold title and small message over a hairline and two buttons split by an upright hairline; WeChat's with more room and the confirm in the primary color; or a game's with the title on a colored band and two lipped buttons",
   [
     variant("material", "Material", ["Material", "Material", "Material"], () =>
-      vbox({ surface: "overlay", width: 312, hugWidth: false, padX: 24, padY: 24, gap: 16 }, [text(DISCARD_TITLE, "headline"), para(DISCARD_TEXT, "body", { color: "muted" }), hbox({ justify: "end", gap: 8 }, [button(T.cancel, { variant: "text" }), button(DISCARD, { variant: "text" })])], { corners: round(28) }),
+      vbox({ surface: "overlay", width: 312, hugWidth: false, padX: 24, padY: 24, gap: 16 }, [text(DISCARD_TITLE, "headline"), para(DISCARD_TEXT, "body", { color: "on-surface-variant" }), hbox({ justify: "end", gap: 8 }, [button(T.cancel, { variant: "text" }), button(DISCARD, { variant: "text" })])], { corners: round(28) }),
     ),
     variant(
       "alert",
@@ -109,9 +109,9 @@ const dialog = kit(
       ["宽松分栏按钮", "ゆったり分割ボタン", "넉넉한 분할 버튼"],
       () =>
         vbox({ surface: "overlay", width: 320, hugWidth: false, padX: 0, padY: 0, gap: 0 }, [
-          vbox({ padX: 24, padY: 32, gap: 16, align: "center" }, [text(DISCARD_TITLE, "heading", { bold: true, align: "center" }), para(DISCARD_TEXT, "body", { color: "muted", align: "center", width: 272 })]),
+          vbox({ padX: 24, padY: 32, gap: 16, align: "center" }, [text(DISCARD_TITLE, "heading", { bold: true, align: "center" }), para(DISCARD_TEXT, "body", { color: "on-surface-variant", align: "center", width: 272 })]),
           rule(320),
-          hbox({ gap: 0, padX: 0, padY: 0 }, [cell(T.cancel, "default", true, 16), rule(56, true), cell(DISCARD, "primary", true, 16)]),
+          hbox({ gap: 0, padX: 0, padY: 0 }, [cell(T.cancel, "", true, 16), rule(56, true), cell(DISCARD, "primary", true, 16)]),
         ], { corners: round(12) }),
       { suits: (l) => l.dialog === "weui" },
     ),
@@ -148,7 +148,7 @@ const actionSheet = kit(
       "material",
       "Bottom sheet list",
       ["底部面板列表", "ボトムシートのリスト", "하단 시트 목록"],
-      () => vbox({ surface: "sheet", pin: "bottom", width: SCREEN, hugWidth: false, padX: 0, padY: 8, gap: 0 }, [hbox({ justify: "center", padY: 8, hugWidth: false, width: SCREEN }, [grabber(32, 4)]), ...OPTIONS.map(([name, label]) => hbox({ padX: 24, padY: 14, gap: 16 }, [icon(name, { color: "muted" }), text(label, "lead")]))]),
+      () => vbox({ surface: "sheet", pin: "bottom", width: SCREEN, hugWidth: false, padX: 0, padY: 8, gap: 0 }, [hbox({ justify: "center", padY: 8, hugWidth: false, width: SCREEN }, [grabber(32, 4)]), ...OPTIONS.map(([name, label]) => hbox({ padX: 24, padY: 14, gap: 16 }, [icon(name, { color: "on-surface-variant" }), text(label, "lead")]))]),
       { span: "screen" },
     ),
     variant(
@@ -168,11 +168,11 @@ const actionSheet = kit(
       ["通栏，取消前留空", "端まで・キャンセル前に余白", "가장자리·취소 앞 간격"],
       () =>
         vbox({ surface: "sheet", pin: "bottom", width: SCREEN, hugWidth: false, padX: 0, padY: 0, gap: 0 }, [
-          ...OPTIONS.slice(0, 2).flatMap(([, label], i) => [...(i ? [rule(SCREEN)] : []), line(label, "default")]),
+          ...OPTIONS.slice(0, 2).flatMap(([, label], i) => [...(i ? [rule(SCREEN)] : []), line(label, "")]),
           rule(SCREEN),
           line(DELETE, "error"),
           hbox({ padX: 0, padY: 0, hugWidth: false, width: SCREEN, hugHeight: false, height: 8 }, [], { fill: "surfaceContainer" }),
-          line(T.cancel, "default"),
+          line(T.cancel, ""),
         ]),
       { span: "screen", suits: isWeui },
     ),
@@ -205,7 +205,7 @@ const sheetHead = kit(
       { span: "screen", suits: isIosLike },
     ),
     variant("material", "Handle, title and line", ["拖动条·标题·说明", "ハンドル・タイトル・説明", "핸들·제목·설명"], () =>
-      vbox({ surface: "sheet", width: SCREEN, hugWidth: false, padX: 24, padY: 12, gap: 6 }, [grabber(32, 4), text(NEW_EVENT, "title"), para(say("Add the details and invite people.", "填写详情并邀请他人。", "詳細を入力して招待しましょう。", "세부 정보를 입력하고 초대하세요."), "body", { color: "muted" })]),
+      vbox({ surface: "sheet", width: SCREEN, hugWidth: false, padX: 24, padY: 12, gap: 6 }, [grabber(32, 4), text(NEW_EVENT, "title"), para(say("Add the details and invite people.", "填写详情并邀请他人。", "詳細を入力して招待しましょう。", "세부 정보를 입력하고 초대하세요."), "body", { color: "on-surface-variant" })]),
     ),
   ],
 );
