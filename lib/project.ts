@@ -4,6 +4,7 @@ import { cleanLook } from "./look";
 import { cleanStyles } from "./styles";
 import { cleanDocIcons } from "./docIcons";
 import { ASSET_PATH } from "./assetManifest";
+import { cleanGameLoopLink } from "./gameLoop/link";
 import { cleanDocMaterials } from "./materials";
 import { cleanGameLink } from "./game/link";
 import { cleanApi } from "./api/clean";
@@ -472,10 +473,13 @@ function cleanExternal(v: unknown): ExternalFiles | undefined {
   const built: ExternalFiles = {};
   if (typeof v.assetManifest === "string" && ASSET_PATH.test(v.assetManifest)) built.assetManifest = v.assetManifest;
   if (typeof v.gameContract === "string" && ASSET_PATH.test(v.gameContract)) built.gameContract = v.gameContract;
+  /* the local game loop's address: one with a credential, a query or a fragment in it is no address the document keeps */
+  const loop = cleanGameLoopLink(v.gameLoop);
+  if (loop) built.gameLoop = loop;
   const out = withUnknown(v, built, EXTERNAL_KEYS);
   return Object.keys(out).length ? out : undefined;
 }
-const EXTERNAL_KEYS = new Set(["assetManifest", "gameContract"]);
+const EXTERNAL_KEYS = new Set(["assetManifest", "gameContract", "gameLoop"]);
 
 export function cleanBehavior(doc: Doc): Doc {
   const out: Doc = { ...doc, frames: doc.frames.map(cleanFrame), groups: cappedNesting(doc.groups.map(cleanGroup)) };

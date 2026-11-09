@@ -5,6 +5,7 @@
 import { linkGame, readGameContract, unlinkGame, type GameImportReport } from "../../game";
 import { DEFAULT_GAME_CONTRACT_PATH, cleanGamePath, gameContractPathOf } from "../../game/link";
 import type { Doc, ExternalFiles } from "../../tokens";
+import { readGameLoopUrl, type GameLoopLink } from "../../gameLoop/link";
 import { op, OpError, S } from "../op";
 import { withDoc, type CoreState } from "../state";
 
@@ -47,5 +48,29 @@ export const removeGameContract = op<Record<string, never>, { removed: string; o
     const before = doc.api?.endpoints?.length ?? 0;
     const next = unlinkGame(doc);
     return { state: withDoc(withGame(s, next), { external: withPath(s.doc.external, DEFAULT_GAME_CONTRACT_PATH) }), result: { removed: doc.game?.contract.namespace ?? "", operations: before - (next.api?.endpoints?.length ?? 0) } };
+  },
+});
+
+/** The local game loop the preview answers from (lib/gameLoop, docs/玩法契约.md “本地 game-loop”): its address, and
+ *  whether the preview's calls, channels and world go to it or to the mock library. The preview bar's own gesture, kept
+ *  in the project's configuration beside the paths of the outside modules' files (`external.gameLoop`); not one of the
+ *  tools. Only the address is kept: one with a user, a password, a query or a fragment is refused, since a credential
+ *  never goes into the document. `url: ""` forgets the game loop. */
+export const setGameLoop = op<{ url: string; preview?: boolean }, { gameLoop: GameLoopLink | null }>({
+  name: "set_game_loop",
+  summary: "Says where the local game loop the preview may answer from is (an http or https address, no credentials, query or fragment), and whether the preview answers from it instead of the mock library. \"\" forgets it.",
+  args: S.obj({ url: S.str("the game loop's address: http://localhost:8787, or \"\""), preview: S.bool("whether the preview answers from it") }, ["url"]),
+  label: () => "Preview backend",
+  run(s, a) {
+    const { gameLoop: was, ...rest } = s.doc.external ?? {};
+    let link: GameLoopLink | undefined;
+    if (a.url.trim()) {
+      const read = readGameLoopUrl(a.url);
+      if ("problem" in read) throw new OpError("invalid_value", `${JSON.stringify(a.url)} is no address the project keeps for a game loop (${read.problem}): http or https, with no user, password, query or fragment.`, "url");
+      link = { url: read.url, ...(a.preview ? { preview: true } : {}) };
+    }
+    if (JSON.stringify(was ?? null) === JSON.stringify(link ?? null)) throw new OpError("nothing_to_do", "The project's game loop is that already.");
+    const next: ExternalFiles = link ? { ...rest, gameLoop: link } : rest;
+    return { state: withDoc(s, { external: Object.keys(next).length ? next : undefined }), result: { gameLoop: link ?? null } };
   },
 });

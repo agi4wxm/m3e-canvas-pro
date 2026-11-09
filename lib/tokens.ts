@@ -13,6 +13,7 @@ import type { MockSpec } from "./mocks/types";
 import type { CapabilitySpec } from "./capabilities/types";
 import type { MaterialDef, MaterialLayer } from "./material";
 import type { GameLink } from "./game/link";
+import type { GameLoopLink } from "./gameLoop/link";
 import { fields, withUnknown } from "./keep";
 import { mapAction, mapBody, mapCondition, type RefMap } from "./refs";
 
@@ -1583,6 +1584,10 @@ export type ExternalFiles = {
   /** the game loop's gameplay contract (lib/game, docs/玩法契约.md), `game-contract.m3e-game.json` beside the project
    *  file when left out; read when the document links one */
   gameContract?: string;
+  /** A local game loop the preview may answer from (lib/gameLoop, docs/玩法契约.md “本地 game-loop”): its address
+   *  (http or https, never with a credential, a query or a fragment in it) and whether the preview's calls, channels and
+   *  world go to it in place of the mock library. Not a file: an address, kept here with the other outside modules. */
+  gameLoop?: GameLoopLink;
 };
 
 export const defaultTabs = (): NavTab[] => NAV_TABS[getLang()].map((t) => ({ ...t }));

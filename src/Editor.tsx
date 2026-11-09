@@ -2415,6 +2415,8 @@ export default function Editor({ initialLang, onReady, persist = editorProjects(
             palette={p}
             startId={previewId}
             onClose={closePreview}
+            /* the preview bar's choice of the mocks or a local game loop, kept by the project; one already so is nothing to do */
+            onGameLoop={(link) => void runOp(ops.setGameLoop, { url: link?.url ?? "", preview: !!link?.preview }, { refused: () => {} })}
           />
         )}
       </AnimatePresence>

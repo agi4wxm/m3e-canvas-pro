@@ -1,5 +1,5 @@
 /* The preview's own controls, beside the screen and never on it: back, the screen picker (and the flows' starts), the
- * mock library's scenario and request log, the dark mode, the width, close. On a wide window they stand in a column
+ * mock library or a local game loop answering it, the mock library's scenario and request log, the dark mode, the width, close. On a wide window they stand in a column
  * at the right edge; on a phone they run along the bottom, marks only. */
 
 import { useEffect, useRef } from "react";
@@ -11,6 +11,8 @@ import { flowStarts } from "@/lib/prototype";
 import { EASE } from "@/lib/screenMotion";
 import { Icon } from "../Icon";
 import { MockClockSwitch, MockScenarioSwitch, type PreviewMocks } from "../MockPreview";
+import { GameLoopSwitch } from "./GameLoopSwitch";
+import type { PreviewGameLoop } from "./gameLoop";
 
 export function PreviewControls({
   doc,
@@ -23,6 +25,7 @@ export function PreviewControls({
   setPicker,
   onPick,
   mocks,
+  gameLoop,
   logOpen,
   onToggleLog,
   dark,
@@ -42,6 +45,9 @@ export function PreviewControls({
   /** a screen picked by hand, or the start of a flow: the preview starts over there */
   onPick: (frameId: string) => void;
   mocks: PreviewMocks | null;
+  /** the choice of the mock library or a local game loop, where the preview's calls are its to choose (no page or
+   *  caller hands it a transport of its own) */
+  gameLoop?: PreviewGameLoop | null;
   logOpen: boolean;
   onToggleLog: () => void;
   dark: boolean;
@@ -236,6 +242,7 @@ export function PreviewControls({
               )}
             </AnimatePresence>
           </div>
+          {gameLoop && <GameLoopSwitch loop={gameLoop} p={p} wide={wide} barBtn={{ ...barBtn, ...markOnly }} />}
           {mocks && <MockScenarioSwitch mocks={mocks} scenarios={doc.mocks?.scenarios ?? []} p={p} wide={wide} barBtn={{ ...barBtn, ...markOnly }} />}
           {mocks && <MockClockSwitch mocks={mocks} p={p} wide={wide} barBtn={{ ...barBtn, ...markOnly }} />}
           {mocks && (

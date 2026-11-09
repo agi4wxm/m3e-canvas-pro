@@ -62,7 +62,9 @@ import { createPreviewHost, tapOf, type TapExtra } from "./preview/host";
 import { Screen } from "./preview/Screen";
 import { PreviewStore, usePreviewState } from "./preview/store";
 import { useSwipe, type Peek } from "./preview/swipe";
-import { PreviewWorlds } from "./preview/worlds";
+import { PreviewGameLoopWorld, PreviewWorlds } from "./preview/worlds";
+import { usePreviewGameLoop } from "./preview/gameLoop";
+import type { GameLoopLink } from "@/lib/gameLoop";
 import { createWorlds } from "@/lib/world/channel";
 
 /** room reserved for the wide preview controls: panel, right margin and breathing space */
@@ -109,6 +111,7 @@ export function Preview({
   onClose,
   transport,
   capabilities,
+  onGameLoop,
 }: {
   doc: Doc;
   widths: Record<string, number>;
@@ -120,6 +123,8 @@ export function Preview({
   /** what the preview's invokes of platform capabilities go through (the mock library's); the catalog's examples when
    *  none is given */
   capabilities?: CapabilityHost;
+  /** the preview bar chose the mock library or a local game loop: the project keeps it (`external.gameLoop`) */
+  onGameLoop?: (link: GameLoopLink | undefined) => void;
 }) {
   const lang = useLang();
   const frames = doc.frames;
@@ -182,7 +187,14 @@ export function Preview({
   const api = doc.api;
   const standIn = useMemo(() => fallbackTransport({ api }), [api]);
   const hasApi = !!api?.endpoints?.length || !!api?.channels?.length;
-  const answering: Transport | null = pageTransport ?? transport ?? (hasApi ? mocks?.transport : undefined) ?? (api?.endpoints?.length ? null : standIn);
+  /* The bar's choice, where the preview's calls are its own to choose: the mock library, or a local game loop at an
+     address the project keeps (lib/gameLoop, docs/玩法契约.md “本地 game-loop”), whose transport then answers the calls
+     and the channels, and whose worlds the world views show. */
+  const outside = pageTransport ?? transport;
+  const gameLoop = usePreviewGameLoop(doc, onGameLoop);
+  const loopTransport = !outside && gameLoop.on ? gameLoop.transport : null;
+  const shownMocks = loopTransport ? null : mocks;
+  const answering: Transport | null = outside ?? loopTransport ?? (hasApi ? mocks?.transport : undefined) ?? (api?.endpoints?.length ? null : standIn);
   const transportRef = useRef<Transport | null>(answering);
   transportRef.current = answering;
   /* The capabilities: what the preview is handed, else the mocks' (in the scenario on show), else the catalog's examples.
@@ -358,9 +370,10 @@ export function Preview({
   /* Another transport, or another session of the mocks (a scenario chosen in the bar, the log's start over): the
      runtime (its data, forms and session) starts over with it, signed in as the mocks' session starts (`auth.signedIn`, true unless
      the scenario says not), and the screens on show load again just below. */
-  const mockSession = mocks?.session ?? 0;
+  /* a session of what answers: the mocks' (a scenario, a start over), or the game loop's (it came to answer again) */
+  const mockSession = loopTransport ? `loop:${gameLoop.session}` : `mocks:${mocks?.session ?? 0}`;
   const presumed = !!mocks && answering === mocks.transport && signedInAtStart(doc.mocks, mocks.scenario);
-  const startedWith = useRef<{ t: Transport; session: number } | null>(null);
+  const startedWith = useRef<{ t: Transport; session: string } | null>(null);
   useEffect(() => {
     if (!answering) return;
     /* the same again (React running effects twice in development) starts nothing over */
@@ -658,8 +671,9 @@ export function Preview({
   };
 
   return (
-    <PreviewMocksContext.Provider value={mocks}>
+    <PreviewMocksContext.Provider value={shownMocks}>
     <PreviewWorlds.Provider value={worlds}>
+    <PreviewGameLoopWorld.Provider value={loopTransport ? gameLoop.world : null}>
     <PreviewTheme dark={dark}>
     <motion.div
       initial={{ opacity: 0 }}
@@ -795,7 +809,7 @@ export function Preview({
         </motion.div>
       </div>
 
-      {mocks && logOpen && <MockLogPanel mocks={mocks} p={p} onClose={() => setLogOpen(false)} />}
+      {shownMocks && logOpen && <MockLogPanel mocks={shownMocks} p={p} onClose={() => setLogOpen(false)} />}
 
       <PreviewControls
         doc={doc}
@@ -807,7 +821,8 @@ export function Preview({
         picker={picker}
         setPicker={setPicker}
         onPick={pick}
-        mocks={mocks}
+        mocks={shownMocks}
+        gameLoop={outside ? null : gameLoop}
         logOpen={logOpen}
         onToggleLog={() => setLogOpen((v) => !v)}
         dark={dark}
@@ -820,6 +835,7 @@ export function Preview({
       />
     </motion.div>
     </PreviewTheme>
+    </PreviewGameLoopWorld.Provider>
     </PreviewWorlds.Provider>
     </PreviewMocksContext.Provider>
   );

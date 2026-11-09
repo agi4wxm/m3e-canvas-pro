@@ -8,8 +8,8 @@
  * schemaToTs, once there is one); with an empty contract the client has only `request`. */
 
 import type { ApiModel, ApiOperation } from "../api";
-import type { ApiSpec, JsonSchema } from "../../api/types";
-import { resolved } from "../../bindings/contract";
+import type { ApiSpec } from "../../api/types";
+import { realtimeChannelsOf } from "../../bindings/realtimeChannels";
 import { GENERATED, jsonCode, jsonFile, str } from "../code";
 import { copiedFile } from "../copy";
 import { toYaml } from "../yaml";
@@ -25,23 +25,7 @@ const COPIED = { "src/transport.ts": "api/transport.ts", "src/client.ts": "api/c
  *  messages the server sends over each, with the fields each payload must have and those fixed to one value; and
  *  where they are by default (the contract's dev server's realtime address, else none: the app says). */
 export function channelsSource(api: ApiSpec | undefined): string {
-  const channels = (api?.channels ?? []).map((c) => {
-    const sent = new Set(c.operations.filter((o) => o.action === "send").flatMap((o) => o.messages ?? c.messages.map((m) => m.name)));
-    const messages = c.messages
-      .filter((m) => sent.has(m.name))
-      .map((m) => {
-        const schema = api ? resolved(api, m.payload) : undefined;
-        const required = Array.isArray(schema?.required) ? schema.required.filter((k): k is string => typeof k === "string") : [];
-        const fixed: Record<string, unknown> = {};
-        for (const [k, p] of Object.entries(schema?.properties ?? {})) {
-          const one = api ? resolved(api, p as JsonSchema) : undefined;
-          if (one && "const" in one) fixed[k] = one.const;
-          else if (Array.isArray(one?.enum) && one.enum.length === 1) fixed[k] = one.enum[0];
-        }
-        return { name: m.name, ...(required.length ? { required } : {}), ...(Object.keys(fixed).length ? { fixed } : {}) };
-      });
-    return { id: c.id, address: c.address, ...(c.transport === "sse" ? { transport: "sse" } : {}), messages };
-  });
+  const channels = realtimeChannelsOf(api);
   const servers = api?.servers ?? [];
   const url = (servers.find((x) => x.env === "dev") ?? servers.find((x) => x.realtime))?.realtime ?? "";
   return `${GENERATED}
