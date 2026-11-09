@@ -226,7 +226,7 @@ npx playwright install chromium
 | `list_templates` | 读取 | 是 |  | Screen and flow templates (sign-in, shop, social, content, tools, games, desktop) that add_template puts on the canvas. |
 | `list_styles` | 读取 | 是 |  | The style the document wears (and whether it is held to that style's rules), the built-in style packs modeled on real products (key, name, products), and the document's own custom… |
 | `get_style` | 读取 | 是 |  | One style in full (the document's own when no key is given): colors (light and dark roles), faces, shape, icon family, control recipes, how its screens are spaced and composed, an… |
-| `look_reference` | 读取 | 是 |  | How to write a part's `look` (its effects: fills, strokes, shadows, glass, text effects, textures…), the look presets with the look each one writes, and the color roles fill, text… |
+| `look_reference` | 读取 | 是 |  | How to write a part's `look` (its effects: fills, strokes, shadows, glass, text effects, textures…), the look presets with the look each one writes, the color roles fill, textColo… |
 | `list_icons` | 读取 | 是 |  | Material Symbols names (snake_case) every icon family draws offline. |
 | `list_components` | 读取 | 是 |  | The document's reusable components: id, name, size, the parts in their definition (id:slug "words"), the keys an instance overrides them by (overrideKeys: `partId/prop = the defin… |
 | `list_data` | 读取 | 是 |  | The document's data collections (id, name, fields, rows) and prototype variables (id, name, type, starting value). |

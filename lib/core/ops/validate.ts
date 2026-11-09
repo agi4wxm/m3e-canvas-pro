@@ -148,7 +148,15 @@ const ITEM_FIELDS: Record<string, (v: unknown, s: CoreState, it: Item) => string
     if (isStrict(s.doc.theme, styleContext(s.doc.styles))) return "are decided by the style the document is held to";
     return isRecord(v) && ["tl", "tr", "bl", "br"].every((k) => typeof v[k] === "number" && Number.isFinite(v[k]) && (v[k] as number) >= 0) ? null : "should be {tl, tr, bl, br} in dp";
   },
-  look: (v) => (v === undefined || isRecord(v) ? null : "should be an object (see the look fields)"),
+  look: (v, s) => {
+    if (v === undefined) return null;
+    if (!isRecord(v)) return "should be an object (see the look fields)";
+    /* a material is named, never made: one the library does not have would draw nothing */
+    const have = new Set((s.doc.materials ?? []).map((m) => m.id));
+    const missing = Array.isArray(v.fills) ? v.fills.filter((f): f is Record<string, unknown> => isRecord(f) && f.type === "material" && !have.has(String(f.material))).map((f) => String(f.material)) : [];
+    if (missing.length) return `names the material ${missing.join(", ")}, which the document's library does not have (${have.size ? `it has: ${[...have].join(", ")}` : "it has none"}); a material cannot be made here, only named`;
+    return null;
+  },
   note: (v) => (v === undefined || typeof v === "string" ? null : "should be text"),
   noteHistory: (v) => (v === undefined || (Array.isArray(v) && v.every((x) => typeof x === "string")) ? null : "should be a list of text"),
   label: (v) => (typeof v === "string" ? null : "should be text"),

@@ -10,6 +10,7 @@ import { cleanStyles, withDocStyles } from "../styles";
 import { DEFAULT_THEME, normalizeTheme, PHONE_W, type Collection, type ComponentDef, type ComponentSet, type Doc, type DocVar, type Frame, type FrameMode, type Group, type Palette, type Theme } from "../tokens";
 import { translateDefaultFrameName, type Lang } from "../i18n";
 import { cleanDocIcons } from "../docIcons";
+import { cleanDocMaterials } from "../materials";
 import { cleanApi } from "../api/clean";
 import { cleanMocks } from "../mocks/clean";
 import { translateComponentProps } from "../../parts/registry";
@@ -17,7 +18,7 @@ import { fields, withUnknown } from "../keep";
 
 /** The fields of a document this version knows. Any other a document brings (a newer version's, a tool's own) goes
  *  into the state as it came and is saved with it, after these: the store never drops what it does not understand. */
-export const DOC_FIELDS = fields("groups", "frames", "paletteKey", "customPalette", "dynamicColor", "frame", "title", "brief", "promptEdit", "promptOptions", "theme", "vars", "varCollections", "varModes", "components", "componentSets", "collections", "styles", "icons", "api", "mocks");
+export const DOC_FIELDS = fields("groups", "frames", "paletteKey", "customPalette", "dynamicColor", "frame", "title", "brief", "promptEdit", "promptOptions", "theme", "vars", "varCollections", "varModes", "components", "componentSets", "collections", "styles", "icons", "api", "mocks", "materials");
 
 export type Widths = Record<string, number>;
 
@@ -67,6 +68,7 @@ export const emptySession = (): Session => ({ selection: [], frameId: null, widt
 /** the state of a document with nothing selected and nothing measured */
 export function stateOf(doc: Partial<Doc> & Pick<Doc, "groups" | "frames">, session: Partial<Session> = {}): CoreState {
   const icons = cleanDocIcons(doc.icons);
+  const materials = cleanDocMaterials(doc.materials);
   return {
     doc: withUnknown(doc, {
       groups: doc.groups,
@@ -87,6 +89,7 @@ export function stateOf(doc: Partial<Doc> & Pick<Doc, "groups" | "frames">, sess
       ...(doc.varCollections ? { varCollections: doc.varCollections } : {}),
       ...(doc.varModes ? { varModes: doc.varModes } : {}),
       ...(icons ? { icons } : {}),
+      ...(materials ? { materials } : {}),
       ...(doc.api ? { api: doc.api } : {}),
       ...(doc.mocks ? { mocks: doc.mocks } : {}),
     } as DocState, DOC_FIELDS),
@@ -123,6 +126,7 @@ export function savedDoc(s: CoreState): Doc {
     icons: doc.icons && Object.keys(doc.icons).length ? doc.icons : undefined,
     api: doc.api,
     mocks: doc.mocks,
+    materials: doc.materials?.length ? doc.materials : undefined,
   };
   return withUnknown(doc, saved, DOC_FIELDS);
 }
@@ -233,6 +237,8 @@ function readInto(s: CoreState, doc: Partial<Doc>, reset: boolean): Record<strin
   if (doc.api !== undefined || reset) set("api", cleanApi(doc.api));
   /* the mock settings likewise (lib/mocks/clean.ts) */
   if (doc.mocks !== undefined || reset) set("mocks", cleanMocks(doc.mocks));
+  /* and the materials as the material format allows them (lib/materials.ts) */
+  if (doc.materials !== undefined || reset) set("materials", cleanDocMaterials(doc.materials));
   return out;
 }
 
