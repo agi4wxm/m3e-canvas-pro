@@ -116,6 +116,11 @@ export class ProjectFileStore {
     }
   }
 
+  /** the folder the project file is in: where its configuration's paths (the asset manifest) start from */
+  get projectDir(): string {
+    return dirname(this.main);
+  }
+
   private dir(): Folder {
     const dir = dirname(this.main);
     if (this.folder?.dir !== dir) this.folder = new Folder(dir);
