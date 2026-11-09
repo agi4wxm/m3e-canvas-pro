@@ -166,6 +166,7 @@ const L: Record<string, Four> = {
   use_capabilities: ["Set the capabilities used", "设置用到的能力", "使う機能を設定", "사용하는 기능 설정"],
   get_game_contract: ["Read the game contract", "读取玩法契约", "ゲーム契約を読む", "게임 계약 읽기"],
   import_game_contract: ["Link the game contract", "导入玩法契约", "ゲーム契約をつなぐ", "게임 계약 연결"],
+  set_contract_index: ["Point to the contract index", "设置契约索引位置", "契約インデックスの場所を設定", "계약 색인 위치 설정"],
   remove_game_contract: ["Unlink the game contract", "移除玩法契约", "ゲーム契約を外す", "게임 계약 해제"],
   fill_mocks: ["Fill the mocks", "填充模拟库", "モックを一括作成", "목업 채우기"],
   clear_mocks: ["Clear the mocks", "清空模拟库", "モックを消去", "목업 비우기"],

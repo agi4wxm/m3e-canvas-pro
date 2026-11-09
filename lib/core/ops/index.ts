@@ -17,11 +17,12 @@ import * as bindings from "./bindings";
 import * as capabilities from "./capabilities";
 import * as materials from "./materials";
 import * as game from "./game";
+import * as hub from "./hub";
 import * as splits from "./split";
 import * as rows from "./rows";
 import { editComponentOp } from "./definition";
 
-export { document, screens, nodes, layout, components, data, tree, styles, icons, assets, api, mocks, bindings, capabilities, splits, rows, materials, game };
+export { document, screens, nodes, layout, components, data, tree, styles, icons, assets, api, mocks, bindings, capabilities, splits, rows, materials, game, hub };
 export * from "./document";
 export * from "./screens";
 export * from "./nodes";
@@ -38,6 +39,7 @@ export * from "./bindings";
 export * from "./capabilities";
 export * from "./materials";
 export * from "./game";
+export * from "./hub";
 export * from "./split";
 export * from "./rows";
 export { DEFINITION_OPS, definitionOpened } from "./definition";
@@ -178,6 +180,7 @@ export const OPS: Op<never, unknown>[] = [
   capabilities.useCapabilities,
   game.importGameContract,
   game.removeGameContract,
+  hub.setContractIndex,
   bindings.addDataSource,
   bindings.updateDataSource,
   bindings.removeDataSource,

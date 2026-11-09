@@ -1,0 +1,10 @@
+{
+  "format": "m3e-contract-index",
+  "version": 1,
+  "summary": "The smallest hub index M3E's tests are written to: the game loop's gameplay contract, the data module's tables and the asset pipeline's manifest.",
+  "modules": {
+    "game-loop": { "namespace": "game", "contractVersion": "1.0.0", "contract": "game-loop/contract.m3e-game.json", "format": "m3e-game" },
+    "data": { "namespace": "data", "contractVersion": "1.0.0", "contract": "data/tables.schema.json" },
+    "asset-pipeline": { "namespace": "asset", "contractVersion": "1", "contract": "assets/asset-manifest.json", "format": "asset-manifest" }
+  }
+}

@@ -472,10 +472,11 @@ function cleanExternal(v: unknown): ExternalFiles | undefined {
   const built: ExternalFiles = {};
   if (typeof v.assetManifest === "string" && ASSET_PATH.test(v.assetManifest)) built.assetManifest = v.assetManifest;
   if (typeof v.gameContract === "string" && ASSET_PATH.test(v.gameContract)) built.gameContract = v.gameContract;
+  if (typeof v.contractIndex === "string" && ASSET_PATH.test(v.contractIndex)) built.contractIndex = v.contractIndex;
   const out = withUnknown(v, built, EXTERNAL_KEYS);
   return Object.keys(out).length ? out : undefined;
 }
-const EXTERNAL_KEYS = new Set(["assetManifest", "gameContract"]);
+const EXTERNAL_KEYS = new Set(["assetManifest", "gameContract", "contractIndex"]);
 
 export function cleanBehavior(doc: Doc): Doc {
   const out: Doc = { ...doc, frames: doc.frames.map(cleanFrame), groups: cappedNesting(doc.groups.map(cleanGroup)) };

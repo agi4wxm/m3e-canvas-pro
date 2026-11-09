@@ -255,6 +255,8 @@ function opCalls(): [string, Record<string, unknown>][] {
     /* the gameplay contract (lib/core/ops/game.ts): the game loop's file linked, then unlinked */
     ["import_game_contract", { text: readFileSync(new URL("../game/fixtures/example.m3e-game.json", import.meta.url), "utf8"), path: "game-loop/contract.m3e-game.json" }],
     ["remove_game_contract", {}],
+    /* where the hub's contract index is (lib/core/ops/hub.ts) */
+    ["set_contract_index", { path: "hub/contract-index.json" }],
     ["clear_mocks", {}],
     ["remove_channel", { id: "chat" }],
     /* screens bound to the contract (lib/core/ops/bindings.ts) */

@@ -1583,6 +1583,9 @@ export type ExternalFiles = {
   /** the game loop's gameplay contract (lib/game, docs/玩法契约.md), `game-contract.m3e-game.json` beside the project
    *  file when left out; read when the document links one */
   gameContract?: string;
+  /** the hub's contract index (lib/hub/contractIndex.ts, docs/导出.md “中枢”), `contract-index.json` beside the project
+   *  file when left out; an export compares the contracts the design is written to with it */
+  contractIndex?: string;
 };
 
 export const defaultTabs = (): NavTab[] => NAV_TABS[getLang()].map((t) => ({ ...t }));

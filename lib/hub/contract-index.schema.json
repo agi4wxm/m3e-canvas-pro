@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:m3e:schema:m3e-contract-index:1",
+  "title": "Hub contract index (m3e-contract-index, version 1)",
+  "description": "The hub's index of the modules' contracts: for each module (game-loop, data, asset-pipeline…) the namespace it owns in the ID registry, the version of the contract it publishes now, and where that contract file is. The hub writes it; M3E reads it, depends only on this format and never on where the file lives (docs/导出.md “中枢”), and compares the contracts a design was written to with it.",
+  "type": "object",
+  "properties": {
+    "format": { "const": "m3e-contract-index" },
+    "version": { "const": 1 },
+    "summary": { "type": "string", "maxLength": 2000 },
+    "modules": {
+      "type": "object",
+      "description": "By the module's id: game-loop, data, asset-pipeline, material-pro…",
+      "propertyNames": { "pattern": "^[a-z][a-z0-9-]{0,47}$" },
+      "maxProperties": 200,
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "namespace": { "type": "string", "pattern": "^[a-z][a-zA-Z0-9]{0,31}$", "description": "The namespace the module owns (the prefix of its ids and operations: game → game.pull). One module per namespace." },
+          "contractVersion": { "type": "string", "minLength": 1, "maxLength": 64, "description": "The version of the contract the module publishes now, as the module numbers it (1.4.0)." },
+          "contract": { "type": "string", "minLength": 1, "maxLength": 1000, "description": "Where the contract file is: a path relative to this index's folder (names joined by /, no ..), or an https:// address." },
+          "format": { "type": "string", "maxLength": 64, "description": "The contract file's format, when M3E reads one: m3e-game, asset-manifest, m3e-material…" },
+          "summary": { "type": "string", "maxLength": 2000 }
+        },
+        "required": ["namespace", "contractVersion", "contract"],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": ["format", "version", "modules"],
+  "additionalProperties": false
+}
