@@ -86,12 +86,12 @@ function DialogCard({ p, base }: { p: PartBase & Dialogish; base?: CSS }) {
   );
 }
 
-export type DialogProps = PartBase & Dialogish & { styleVariant?: "basic" | "fullscreen"; dialogWidth?: number; width?: number; height?: number };
+export type DialogProps = PartBase & Dialogish & { variant?: "basic" | "fullscreen"; dialogWidth?: number; width?: number; height?: number };
 
 export function Dialog(props: DialogProps) {
   const p = withDefaults<DialogProps>("dialog", props);
   const kit = useKit();
-  if (p.styleVariant === "fullscreen")
+  if (p.variant === "fullscreen")
     return (
       <Surface base={{ width: Math.round(p.width ?? 412), height: Math.round(p.height ?? 640), backgroundColor: c("surface") }} appearance={p} testID={p.testID} role="dialog">
         <View style={sx(ROW, { height: 56, paddingLeft: 4, paddingRight: 4, columnGap: 4 })}>
@@ -108,13 +108,13 @@ export function Dialog(props: DialogProps) {
   return <DialogCard p={p} base={recipe === "alert" || recipe === "weui" ? undefined : { width: Math.max(280, Math.min(560, Math.round(p.dialogWidth ?? 412) - 48)) }} />;
 }
 
-export type AlertDialogProps = PartBase & FlowProps & { icon?: string; title?: string; description?: string; cancel?: string; action?: string; size?: "default" | "sm"; children?: ReactNode };
+export type AlertDialogProps = PartBase & FlowProps & { icon?: string; title?: string; description?: string; dismiss?: string; confirm?: string; size?: "default" | "sm"; children?: ReactNode };
 
 export function AlertDialog(props: AlertDialogProps) {
   const p = withDefaults<AlertDialogProps>("alert-dialog", props);
   const kit = useKit();
   const recipe = recipeOf(kit, "dialog");
-  return <DialogCard p={{ ...p, dismiss: p.cancel, confirm: p.action, filled: true, taps: { dismiss: tapOf(p, "cancel") ?? tapOf(p, "dismiss"), confirm: tapOf(p, "action") ?? tapOf(p, "confirm") } }} base={recipe !== "alert" && recipe !== "weui" ? { width: p.size === "sm" ? 280 : 364 } : undefined} />;
+  return <DialogCard p={{ ...p, filled: true, taps: { dismiss: tapOf(p, "cancel") ?? tapOf(p, "dismiss"), confirm: tapOf(p, "action") ?? tapOf(p, "confirm") } }} base={recipe !== "alert" && recipe !== "weui" ? { width: p.size === "sm" ? 280 : 364 } : undefined} />;
 }
 
 export type SheetProps = PartBase & FlowProps & { side?: "right" | "left" | "bottom" | "top"; title?: string; description?: string; footer?: boolean; children?: ReactNode; /** the words of its two buttons, the part's own */ confirm?: string; dismiss?: string };

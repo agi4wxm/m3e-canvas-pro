@@ -9,7 +9,8 @@
 import { createHash } from "node:crypto";
 import { applyEffects, chooseBranch, goneIds, inRow, INPUT_PROP, leftRow, liveItem, startState, writeField, type PreviewState } from "../../interact";
 import { expandDoc } from "../../expand";
-import { partBySlug, reader } from "../../../parts/registry";
+import { partBySlug, reader, treeOf, viewOf } from "../../../parts/registry";
+import { appearanceOf } from "../../../parts/appearance";
 import { boundItem } from "../../variables";
 import { actionsOf, type Doc, type Item } from "../../tokens";
 
@@ -26,15 +27,18 @@ const digest = (v: unknown) => createHash("sha256").update(JSON.stringify(v)).di
 /** what a visitor may enter into an input, whatever kind of value it holds */
 const ENTERED: unknown[] = ["Kiwi", "", "2", 2, 0, true, false, [{ label: "a" }, { label: "b" }]];
 
-export function drawnStates(source: Doc): Record<string, string> {
+/** What a reading of a part's props is, under the names and in the units of the version that wrote a file: how a later
+ *  version that renamed or rescaled a prop says what its part read (lib/converge.ts `asWrittenAt4`). The reading as it
+ *  is where nothing was renamed. */
+export type AsBefore = (slug: string | undefined, read: Record<string, unknown>) => Record<string, unknown>;
+
+/** the drawing of every part, at the start, after each tap and after each input is used, each state as a digest of `of` */
+function statesOf(source: Doc, of: (it: Item, s: PreviewState) => unknown): Record<string, string> {
   const doc = expandDoc(source, {});
   const s0 = startState(doc.vars, doc.collections);
   const all = doc.groups.flatMap((g) => g.items);
   const drawn = (s: PreviewState) => ({
-    parts: all.map((it) => {
-      const live = boundItem(liveItem(it, s), s.vars);
-      return [it.id, readAll(live), live.look ?? null, live.corners ?? null];
-    }),
+    parts: all.map((it) => of(it, s)),
     gone: [...goneIds(doc.groups, s, doc, {})].sort(),
     vars: s.vars,
   });
@@ -52,3 +56,24 @@ export function drawnStates(source: Doc): Record<string, string> {
   }
   return out;
 }
+
+/** every prop each part reads and its design fields as bound, in every state (`drawn.json`); `asBefore` says a reading
+ *  under the names of the version that wrote the file */
+export const drawnStates = (source: Doc, asBefore?: AsBefore): Record<string, string> =>
+  statesOf(source, (it, s) => {
+    const live = boundItem(liveItem(it, s), s.vars);
+    const read = readAll(live);
+    return [it.id, asBefore && read && typeof read === "object" ? asBefore(live.component, read as Record<string, unknown>) : read, live.look ?? null, live.corners ?? null];
+  });
+
+/** The tree each part draws in every state (`trees.json`): on the canvas, in the preview and as the code printed for
+ *  the web (`viewOf`, `viewOf` live, `treeOf`), painted with its appearance. The trees are what the canvas, the preview
+ *  and the web exports draw, so a step that renames a part's props keeps them as they were. */
+export const drawnTrees = (source: Doc): Record<string, string> =>
+  statesOf(source, (it, s) => {
+    const live = boundItem(liveItem(it, s), s.vars);
+    const def = partBySlug(live.component);
+    if (!def) return [it.id, null];
+    const look = appearanceOf(live);
+    return [it.id, viewOf(def, live.props, look, undefined, false, it.id), viewOf(def, live.props, look, undefined, true, it.id), treeOf(def, live.props, look, it.id)];
+  });

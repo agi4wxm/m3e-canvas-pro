@@ -157,12 +157,11 @@ export function CodeBlock(props: CodeBlockProps) {
 
 export type FileUploadProps = PartBase & {
   title?: string;
-  hint?: string;
   action?: string;
   multiple?: boolean;
   accept?: string;
   width?: number;
-  /** the names of the files chosen, shown in place of the hint */
+  /** the names of the files chosen, shown in place of its line of help */
   chosen?: string;
   error?: boolean;
   disabled?: boolean;
@@ -173,10 +172,11 @@ export function FileUpload(props: FileUploadProps) {
   const p = withDefaults<FileUploadProps>("file-upload", props);
   const kit = useKit();
   const fill = useFill();
-  const hint = p.chosen || p.hint;
+  /* its line of help stands in the panel, under the title: the field's note is only its error and its spinner */
+  const hint = p.chosen || p.helperText;
   const held = !!p.disabled || !!p.readOnly;
   return withField(
-    p,
+    { ...p, helperText: undefined },
     <Surface base={{ width: Math.round(p.width ?? 360), padding: 24, rowGap: 8, alignItems: "center", borderRadius: corner(kit, "lg"), borderWidth: 2, borderStyle: "dashed", borderColor: c(kit, p.error ? "error" : "outline-variant"), backgroundColor: c(kit, "surface-container-low"), opacity: p.disabled ? 0.38 : 1 }} style={fill} appearance={p} testID={p.testID}>
       <Glyph name={p.chosen ? "task" : "upload_file"} size={32} color={c(kit, "primary")} />
       <RNText style={{ ...typeStyle(kit, "title-medium"), color: c(kit, "on-surface") }}>{starred(p.title, p.required)}</RNText>

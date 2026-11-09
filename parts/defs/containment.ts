@@ -227,7 +227,7 @@ export const containment: PartDef[] = [
     flow: {
       inset: (p) => {
         if (!laidOut(p)) return {};
-        if (p.s("style") === "fullscreen") return { t: 56 + 16, r: 24, b: 16, l: 24 };
+        if (p.s("variant") === "fullscreen") return { t: 56 + 16, r: 24, b: 16, l: 24 };
         return { t: dialogTop(!!p.s("icon"), !!p.s("title")), r: DIALOG.pad, b: dialogFoot(!!(p.s("dismiss") || p.s("confirm"))), l: DIALOG.pad };
       },
     },
@@ -239,31 +239,31 @@ export const containment: PartDef[] = [
     w: 360,
     h: 232,
     props: [
-      { key: "style", label: "Style", kind: "enum", default: "basic", options: [{ value: "basic", label: "Basic" }, { value: "fullscreen", label: "Full-screen" }] },
-      { key: "icon", label: "Icon", kind: "icon", default: "", when: (p) => p.s("style") === "basic" },
+      { key: "variant", label: "Variant", kind: "enum", default: "basic", options: [{ value: "basic", label: "Basic" }, { value: "fullscreen", label: "Full-screen" }] },
+      { key: "icon", label: "Icon", kind: "icon", default: "", when: (p) => p.s("variant") === "basic" },
       { key: "title", label: "Title", kind: "text", default: "Reset settings?" },
       /* laid out, its parts say what it says */
       { key: "description", label: "Description", kind: "text", default: "This will reset your app preferences back to their default settings.", multiline: true, when: (p) => !laidOut(p) },
-      { key: "dismiss", label: "Dismiss action", kind: "text", default: "Cancel", when: (p) => p.s("style") === "basic" },
+      { key: "dismiss", label: "Dismiss action", kind: "text", default: "Cancel", when: (p) => p.s("variant") === "basic" },
       { key: "confirm", label: "Confirm action", kind: "text", default: "Accept" },
-      { key: "stacked", label: "Stacked actions", kind: "bool", default: false, when: (p) => p.s("style") === "basic" },
-      { key: "closeButton", label: "Close button", kind: "bool", default: false, when: (p) => p.s("style") === "basic" },
+      { key: "stacked", label: "Stacked actions", kind: "bool", default: false, when: (p) => p.s("variant") === "basic" },
+      { key: "closeButton", label: "Close button", kind: "bool", default: false, when: (p) => p.s("variant") === "basic" },
       /* the basic style sizes its card too, under its own key — the `axis` mark still
        *  makes it the prop the width handle pulls */
-      { key: "dialogWidth", label: "Width", kind: "number", default: 412, min: 280, max: 560, step: 4, unit: "px", axis: "width", when: (p) => p.s("style") === "basic" },
-      { key: "width", label: "Width", kind: "number", default: 412, min: 280, max: 1280, step: 4, unit: "px", when: (p) => p.s("style") === "fullscreen" },
-      { key: "height", label: "Height", kind: "number", default: 640, min: 320, max: 900, step: 4, unit: "px", when: (p) => p.s("style") === "fullscreen" },
-      { ...cardHeight("dialogHeight", 320), when: (p) => p.s("style") === "basic" && laidOut(p) },
+      { key: "dialogWidth", label: "Width", kind: "number", default: 412, min: 280, max: 560, step: 4, unit: "px", axis: "width", when: (p) => p.s("variant") === "basic" },
+      { key: "width", label: "Width", kind: "number", default: 412, min: 280, max: 1280, step: 4, unit: "px", when: (p) => p.s("variant") === "fullscreen" },
+      { key: "height", label: "Height", kind: "number", default: 640, min: 320, max: 900, step: 4, unit: "px", when: (p) => p.s("variant") === "fullscreen" },
+      { ...cardHeight("dialogHeight", 320), when: (p) => p.s("variant") === "basic" && laidOut(p) },
       ...FLOW_PROPS,
     ],
     // a basic dialog is only its card: the box is a screen the card floats in, and the part
     // stands where the card lands (fit). A full-screen one fills a screen of its own size.
-    open: { box: (p) => (p.s("style") === "fullscreen" ? { w: p.n("width"), h: p.n("height") } : { w: 560, h: 400 }), trigger: "hide", fit: true },
+    open: { box: (p) => (p.s("variant") === "fullscreen" ? { w: p.n("width"), h: p.n("height") } : { w: 560, h: 400 }), trigger: "hide", fit: true },
     /* a dialog's point is what its two buttons each do: "Delete?" has one answer that deletes */
-    slots: (p) => [...(p.s("style") === "basic" && p.s("dismiss") ? [{ key: "dismiss", label: p.s("dismiss") }] : []), ...(p.s("confirm") ? [{ key: "confirm", label: p.s("confirm") }] : [])],
+    slots: (p) => [...(p.s("variant") === "basic" && p.s("dismiss") ? [{ key: "dismiss", label: p.s("dismiss") }] : []), ...(p.s("confirm") ? [{ key: "confirm", label: p.s("confirm") }] : [])],
     tree: (p) => {
       const trigger = h("DialogTrigger", { render: h("Button", { variant: "tonal" }) }, p.say("Open dialog"));
-      if (p.s("style") === "fullscreen") {
+      if (p.s("variant") === "fullscreen") {
         return h(
           "Dialog",
           null,
@@ -312,7 +312,7 @@ export const containment: PartDef[] = [
     overlay: true,
     holds: "laidOut",
     /* its media and title stand together in its header, its buttons in its foot */
-    flow: { inset: (p) => (laidOut(p) ? { t: dialogTop(!!p.s("icon"), true), r: DIALOG.pad, b: alertFoot(!!(p.s("cancel") || p.s("action"))), l: DIALOG.pad } : {}) },
+    flow: { inset: (p) => (laidOut(p) ? { t: dialogTop(!!p.s("icon"), true), r: DIALOG.pad, b: alertFoot(!!(p.s("dismiss") || p.s("confirm"))), l: DIALOG.pad } : {}) },
     appearance: { target: "AlertDialogContent", radius: 28 },
     name: "Alert dialog",
     category: "Overlays",
@@ -324,14 +324,14 @@ export const containment: PartDef[] = [
       { key: "icon", label: "Icon", kind: "icon", default: "" },
       { key: "title", label: "Title", kind: "text", default: "Delete your account?" },
       { key: "description", label: "Description", kind: "text", default: "This action cannot be undone.", multiline: true, when: (p) => !laidOut(p) },
-      { key: "cancel", label: "Cancel action", kind: "text", default: "Cancel" },
-      { key: "action", label: "Confirm action", kind: "text", default: "Delete" },
+      { key: "dismiss", label: "Dismiss action", kind: "text", default: "Cancel" },
+      { key: "confirm", label: "Confirm action", kind: "text", default: "Delete" },
       { key: "size", label: "Size", kind: "enum", default: "default", options: ["default", "sm"] },
       cardHeight("dialogHeight", 280),
       ...FLOW_PROPS,
     ],
     open: { box: () => ({ w: 560, h: 360 }), trigger: "hide", fit: true },
-    slots: (p) => [...(p.s("cancel") ? [{ key: "dismiss", label: p.s("cancel") }] : []), ...(p.s("action") ? [{ key: "confirm", label: p.s("action") }] : [])],
+    slots: (p) => [...(p.s("dismiss") ? [{ key: "dismiss", label: p.s("dismiss") }] : []), ...(p.s("confirm") ? [{ key: "confirm", label: p.s("confirm") }] : [])],
     tree: (p) =>
       h(
         "AlertDialog",
@@ -347,8 +347,8 @@ export const containment: PartDef[] = [
             h("AlertDialogTitle", laidOut(p) ? { className: "truncate" } : null, p.s("title")),
             !laidOut(p) && p.s("description") && h("AlertDialogDescription", null, p.s("description")),
           ),
-          laidOut(p) && body(p.n("dialogHeight") - dialogTop(!!p.s("icon"), true) - alertFoot(!!(p.s("cancel") || p.s("action")))),
-          h("AlertDialogFooter", null, p.s("cancel") && h("AlertDialogCancel", { "data-tap": "dismiss" }, p.s("cancel")), p.s("action") && h("AlertDialogAction", { "data-tap": "confirm" }, p.s("action"))),
+          laidOut(p) && body(p.n("dialogHeight") - dialogTop(!!p.s("icon"), true) - alertFoot(!!(p.s("dismiss") || p.s("confirm")))),
+          h("AlertDialogFooter", null, p.s("dismiss") && h("AlertDialogCancel", { "data-tap": "dismiss" }, p.s("dismiss")), p.s("confirm") && h("AlertDialogAction", { "data-tap": "confirm" }, p.s("confirm"))),
         ),
       ),
   },

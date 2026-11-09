@@ -649,7 +649,7 @@ function addField(s: CoreState, form: Group, f: FieldSpec, ctx: OpCtx): { state:
       name: f.title,
       props: { layout: "column", gap: 8, hugWidth: false, width },
       children: [
-        { part: "file-upload", props: { title: f.title, hint: f.description ?? (typeof f.schema.contentMediaType === "string" ? f.schema.contentMediaType : ""), multiple: false, width } },
+        { part: "file-upload", props: { title: f.title, helperText: f.description ?? (typeof f.schema.contentMediaType === "string" ? f.schema.contentMediaType : ""), multiple: false, width } },
         { part: "progress", props: { value: 0, width }, bind: { value: "=form.progress ?? 0" }, showWhen: { expr: "form.progress != null" } },
         helperNode(f, lang),
       ],

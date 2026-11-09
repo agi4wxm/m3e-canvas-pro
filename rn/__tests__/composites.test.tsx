@@ -142,7 +142,7 @@ describe("content", () => {
 
 describe("forms and pickers", () => {
   it("a text field lifts its label once something is typed, and shows its supporting words", async () => {
-    await draw(<TextField label="Email" supporting="We never share it" />);
+    await draw(<TextField label="Email" helperText="We never share it" />);
     expect(styleOf(screen.getByText("Email")).fontSize).toBe(16);
     await fireEvent.changeText(screen.getByLabelText("Email"), "a@b.c");
     expect(styleOf(screen.getByText("Email")).fontSize).toBe(12);
@@ -251,13 +251,13 @@ describe("overlays", () => {
   });
 
   it("a full-screen dialog closes and confirms from its bar", async () => {
-    await draw(<Dialog styleVariant="fullscreen" title="New event" confirm="Save" />);
+    await draw(<Dialog variant="fullscreen" title="New event" confirm="Save" />);
     expect(screen.getByLabelText("Close")).toBeTruthy();
     expect(screen.getByText("Save")).toBeTruthy();
   });
 
   it("an alert dialog's action is filled", async () => {
-    await draw(<AlertDialog title="Delete?" action="Delete" />);
+    await draw(<AlertDialog title="Delete?" confirm="Delete" />);
     expect(screen.getByText("Delete")).toBeTruthy();
   });
 

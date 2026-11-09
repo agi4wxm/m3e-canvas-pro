@@ -23,6 +23,19 @@ const PROP_ALIASES: Record<string, Record<string, string>> = {
   checkbox: { value: "checked" },
   "app-bar": { leadingIcon: "leading", navigationIcon: "leading", trailingIcon: "trailing", actionIcon: "trailing", headline: "title" },
   fab: { text: "label" },
+  /* the names these parts had before version 5 gave each idea one name (lib/converge.ts `PROP_RENAMES_5`); a rename that
+     changed the unit too (a scene's frameMs) is no alias: its value would be read in the wrong unit */
+  "text-field": { supporting: "helperText", supportingText: "helperText" },
+  select: { supporting: "helperText" },
+  field: { description: "helperText", error: "errorText" },
+  "file-upload": { hint: "helperText" },
+  dialog: { style: "variant" },
+  search: { style: "variant" },
+  "alert-dialog": { cancel: "dismiss", action: "confirm" },
+  banner: { closable: "closeButton" },
+  "notice-bar": { closable: "closeButton" },
+  "item-cell": { selected: "pressed" },
+  "number-ticker": { size: "style" },
 };
 
 /** a part's props with the names it does not have read as the ones meant, where the meant one is not given too */

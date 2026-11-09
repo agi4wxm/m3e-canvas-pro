@@ -236,11 +236,11 @@ describe("the mock library's files", () => {
   it("leave a project without the new formats as it was, to the byte", () => {
     /* pictures, and the files earlier versions already kept beside the project (PDF, WAV, MP4, bytes, a picture):
        these digests were taken before the library's other formats went into files of their own (and moved once since,
-       when the format's version went to 3, and again to 4: the bytes are the same but for that number) */
+       when the format's version went to 3, and again to 4 and 5: the bytes are the same but for that number) */
     const library = [placeholderFile("pdf", { seed: "s", title: "Receipt" }), placeholderFile("audio", { seed: "s" }), placeholderFile("video", { seed: "s" }), placeholderFile("file", { seed: "s" }), placeholderFile("image", { seed: "s" })];
     const doc = withMockFiles(withPictures(builtDoc(), [picture(1), picture(2)]), library);
     const folder = serializeProject(doc, { assets: "files" });
-    const asAt3 = (text: string) => text.replace('"version": 4,', '"version": 3,');
+    const asAt3 = (text: string) => text.replace('"version": 5,', '"version": 3,');
     expect([sha(asAt3(folder.text)), folder.files.map((f) => f.path).join(" ")]).toEqual(["a18862cb0c5d40c569bfe054f6628dd31c84ed00570fc874ccddc20bd20bd268", "m3e-assets/1e41tg2xf7q.mp4 m3e-assets/1y1bf5v6vc7.png m3e-assets/25db4hja7vr.pdf m3e-assets/f4ylufh7t8.png m3e-assets/rxttrpxzqt.wav"]);
     expect(sha(asAt3(serializeProject(doc).text))).toBe("34cfc3b683c175747ee07254fd7fb859d5668e4020a7fa476bdf0c320f420c7d");
   });

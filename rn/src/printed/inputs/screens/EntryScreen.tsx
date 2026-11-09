@@ -12,7 +12,7 @@ export function EntryScreen() {
         <InputOtp value="12" />
       </At>
       <At x={16} y={184}>
-        <Field control="switch" error="Turn it on" />
+        <Field control="switch" errorText="Turn it on" />
       </At>
       <At x={16} y={304}>
         <Form />

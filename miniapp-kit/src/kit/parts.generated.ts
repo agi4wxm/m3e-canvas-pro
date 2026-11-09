@@ -335,7 +335,7 @@ export const PARTS: Record<string, PartInfo> = {
    "variant": "outlined",
    "label": "",
    "placeholder": "Select a fruit",
-   "supporting": "",
+   "helperText": "",
    "size": "default",
    "disabled": false,
    "width": 224,
@@ -418,7 +418,7 @@ export const PARTS: Record<string, PartInfo> = {
    "value": "",
    "placeholder": "",
    "type": "text",
-   "supporting": "",
+   "helperText": "",
    "variant": "outlined",
    "prefix": "",
    "suffix": "",
@@ -519,8 +519,8 @@ export const PARTS: Record<string, PartInfo> = {
    "label": "Email",
    "control": "input",
    "placeholder": "you@example.com",
-   "description": "We will never share it.",
-   "error": "",
+   "helperText": "We will never share it.",
+   "errorText": "",
    "disabled": false,
    "width": 320,
    "readOnly": false,
@@ -677,7 +677,7 @@ export const PARTS: Record<string, PartInfo> = {
   "name": "Dialog",
   "tier": "composite",
   "defaults": {
-   "styleVariant": "basic",
+   "variant": "basic",
    "icon": "",
    "title": "Reset settings?",
    "description": "This will reset your app preferences back to their default settings.",
@@ -708,8 +708,8 @@ export const PARTS: Record<string, PartInfo> = {
    "icon": "",
    "title": "Delete your account?",
    "description": "This action cannot be undone.",
-   "cancel": "Cancel",
-   "action": "Delete",
+   "dismiss": "Cancel",
+   "confirm": "Delete",
    "size": "default",
    "dialogHeight": 280,
    "layout": "free",
@@ -1014,7 +1014,7 @@ export const PARTS: Record<string, PartInfo> = {
   "tier": "composite",
   "defaults": {
    "kind": "view",
-   "styleVariant": "elevated",
+   "variant": "elevated",
    "placeholder": "Search songs",
    "leading": "search",
    "trailing": "mic",
@@ -2351,7 +2351,7 @@ export const PARTS: Record<string, PartInfo> = {
   "tier": "composite",
   "defaults": {
    "title": "Drop files here",
-   "hint": "Up to 10 MB each",
+   "helperText": "Up to 10 MB each",
    "action": "Choose files",
    "multiple": true,
    "accept": "",
@@ -2584,7 +2584,7 @@ export const PARTS: Record<string, PartInfo> = {
    "value": 1280,
    "prefix": "",
    "suffix": "",
-   "size": "headline"
+   "styleVariant": "headline"
   }
  },
  "timer": {
@@ -3200,7 +3200,7 @@ export const PARTS: Record<string, PartInfo> = {
    "styleVariant": "",
    "motion": "still",
    "frames": 9,
-   "frameMs": 200,
+   "frameSeconds": 0.2,
    "image": "",
    "scrim": "none",
    "hotspots": {

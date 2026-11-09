@@ -30,7 +30,7 @@ export type AiInputs = {
 };
 
 /** what a scene's picture is painted from, and the picture: an answer lands only while these are as they were */
-const SCENE_FIELDS = ["image", "prompt", "style", "width", "height", "motion", "frames", "frameMs"];
+const SCENE_FIELDS = ["image", "prompt", "style", "width", "height", "motion", "frames", "frameSeconds"];
 
 export function useAi({ store, lang, theme, doc, groupsRef, widthsRef, didOp, showToast, showAiNote }: AiInputs) {
   const [aiSettings, setAiSettings] = useState<AiSettings>(DEFAULT_AI);
@@ -89,7 +89,7 @@ export function useAi({ store, lang, theme, doc, groupsRef, widthsRef, didOp, sh
         const p = reader(def, item.props);
         const moving = p.s("motion") === "animated";
         /* a scene that names no style of its own is painted in the document's */
-        const image = await generateImage(aiSettings, scenePrompt(p.s("prompt"), p.s("style").trim() || artOf(look), moving), { w: p.n("width"), h: p.n("height") }, ac.signal, moving ? { frames: Math.round(p.n("frames")), ms: Math.round(p.n("frameMs")) } : undefined);
+        const image = await generateImage(aiSettings, scenePrompt(p.s("prompt"), p.s("style").trim() || artOf(look), moving), { w: p.n("width"), h: p.n("height") }, ac.signal, moving ? { frames: Math.round(p.n("frames")), ms: Math.round(p.n("frameSeconds") * 1000) } : undefined);
         if (ac.signal.aborted) return;
         /* the picture belongs to the step that asked for it (a draft, the panel's button): no step of its own */
         const put = () => didOp(ops.setProps, { id, props: { image } }, { history: "none" });

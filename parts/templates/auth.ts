@@ -75,7 +75,7 @@ export const forgotScreen = (links: { send?: Link; back?: Link } = {}): ScreenSe
     top: [backBar(say("Forgot password", "忘记密码", "パスワードを忘れた", "비밀번호 찾기"), links.back)],
     body: [
       txt(say("Enter your email and we will send you a code.", "输入注册时的邮箱，我们会发送验证码。", "登録したメールアドレスに確認コードを送ります。", "가입한 이메일로 인증번호를 보내 드립니다."), "body", { color: "muted" }),
-      part("text-field", { label: say("Email", "邮箱", "メールアドレス", "이메일"), value: "", supporting: "" }),
+      part("text-field", { label: say("Email", "邮箱", "メールアドレス", "이메일"), value: "", helperText: "" }),
       part("button", { label: say("Send code", "发送验证码", "コードを送信", "인증번호 보내기"), size: "md" }, { action: links.send }),
     ],
   });
@@ -99,8 +99,8 @@ export const resetScreen = (links: { done?: Link; back?: Link } = {}): ScreenSee
     name: say("New password", "设置新密码", "新しいパスワード", "새 비밀번호"),
     top: [backBar(say("New password", "设置新密码", "新しいパスワード", "새 비밀번호"), links.back)],
     body: [
-      part("text-field", { label: say("New password", "新密码", "新しいパスワード", "새 비밀번호"), value: "", supporting: say("At least 8 characters", "至少 8 位", "8 文字以上", "8자 이상"), trailingIcon: "visibility" }),
-      part("text-field", { label: say("Confirm password", "确认新密码", "パスワード（確認）", "비밀번호 확인"), value: "", supporting: "", trailingIcon: "visibility" }),
+      part("text-field", { label: say("New password", "新密码", "新しいパスワード", "새 비밀번호"), value: "", helperText: say("At least 8 characters", "至少 8 位", "8 文字以上", "8자 이상"), trailingIcon: "visibility" }),
+      part("text-field", { label: say("Confirm password", "确认新密码", "パスワード（確認）", "비밀번호 확인"), value: "", helperText: "", trailingIcon: "visibility" }),
       part("button", { label: say("Save and sign in", "保存并登录", "保存してログイン", "저장하고 로그인"), size: "md" }, { action: links.done }),
     ],
   });

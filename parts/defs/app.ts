@@ -137,7 +137,7 @@ const own = (key: string, label: string): PartSlot => ({ key, label, own: true }
 type Seed = Labels["zh"];
 const say = (label: string) => (WORDS[label] ? { labels: WORDS[label] } : {});
 const text = (key: string, label: string, value: string, zh?: Seed, multiline?: boolean): PropDef => ({ key, label, ...say(label), kind: "text", default: value, ...(zh ? { defaults: { zh } } : {}), ...(multiline ? { multiline } : {}) });
-const num = (key: string, label: string, value: number, min: number, max: number, step = 1): PropDef => ({ key, label, ...say(label), kind: "number", default: value, min, max, step });
+const num = (key: string, label: string, value: number, min: number, max: number, step = 1, unit?: string): PropDef => ({ key, label, ...say(label), kind: "number", default: value, min, max, step, ...(unit ? { unit } : {}) });
 const flag = (key: string, label: string, value: boolean): PropDef => ({ key, label, ...say(label), kind: "bool", default: value });
 const pick = (key: string, label: string, value: string, options: string[]): PropDef => ({ key, label, ...say(label), kind: "enum", default: value, options });
 const icon = (key: string, label: string, value: string): PropDef => ({ key, label, ...say(label), kind: "icon", default: value });
@@ -196,10 +196,10 @@ export const app: PartDef[] = [
     appearance: { radius: 8 },
     w: 180,
     h: 40,
-    props: [text("currency", "Currency", "$", "¥"), text("amount", "Amount", "128.50"), text("original", "Original", "$168.00", "¥168.00"), text("discount", "Discount", "-20%"), pick("size", "Size", "medium", ["small", "medium", "large"])],
+    props: [text("currency", "Currency", "$", "¥"), text("amount", "Amount", "128.50"), text("original", "Original", "$168.00", "¥168.00"), text("discount", "Discount", "-20%"), pick("size", "Size", "default", ["sm", "default", "lg"])],
     tree: (p) => {
       const [whole, cents] = p.s("amount").split(".");
-      const big = { small: "text-title-medium", medium: "text-headline-small", large: "text-display-small" }[p.s("size")];
+      const big = { sm: "text-title-medium", default: "text-headline-small", lg: "text-display-small" }[p.s("size")];
       return h(
         "div",
         { "data-slot": "price-tag", className: "text-primary inline-flex flex-wrap items-baseline gap-1 rounded-sm" },
@@ -1113,9 +1113,9 @@ export const app: PartDef[] = [
     appearance: { radius: 16 },
     w: 412,
     h: 112,
-    props: [icon("icon", "Icon", "wifi_off"), text("text", "Text", "You are offline. Changes will sync when you reconnect.", "当前离线，联网后会自动同步。", true), text("action", "Action", "Retry", "重试"), text("secondary", "Second action", "Dismiss", "忽略"), flag("closable", "Close button", false), WIDTH(412, 200, 1280)],
-    slots: (p) => [...slot("action", p.s("action") || "Action", !!p.s("action")), ...slot("secondary", p.s("secondary") || "Second action", !!p.s("secondary")), ...(p.b("closable") ? [own("close", p.say("Close"))] : [])],
-    tree: (p) => h("Banner", { icon: p.s("icon"), text: p.s("text"), action: p.s("action"), secondary: p.s("secondary"), closable: p.b("closable"), width: px(p) }),
+    props: [icon("icon", "Icon", "wifi_off"), text("text", "Text", "You are offline. Changes will sync when you reconnect.", "当前离线，联网后会自动同步。", true), text("action", "Action", "Retry", "重试"), text("secondary", "Second action", "Dismiss", "忽略"), flag("closeButton", "Close button", false), WIDTH(412, 200, 1280)],
+    slots: (p) => [...slot("action", p.s("action") || "Action", !!p.s("action")), ...slot("secondary", p.s("secondary") || "Second action", !!p.s("secondary")), ...(p.b("closeButton") ? [own("close", p.say("Close"))] : [])],
+    tree: (p) => h("Banner", { icon: p.s("icon"), text: p.s("text"), action: p.s("action"), secondary: p.s("secondary"), closable: p.b("closeButton"), width: px(p) }),
   },
   {
     slug: "notice-bar",
@@ -1127,9 +1127,9 @@ export const app: PartDef[] = [
     appearance: { radius: 16 },
     w: 380,
     h: 40,
-    props: [icon("icon", "Icon", "campaign"), list("items", "Notices", [{ label: "Free delivery on orders over $50 this week." }, { label: "Maintenance on Sunday from 02:00 to 04:00." }, { label: "New: pay with your phone at checkout." }], 12), num("seconds", "Seconds each", 3, 1, 30), flag("closable", "Close button", true), WIDTH(380, 160, 1280)],
-    slots: (p) => [...listSlots(p.list("items")), ...(p.b("closable") ? [own("close", p.say("Close"))] : [])],
-    tree: (p) => h("NoticeBar", { icon: p.s("icon"), items: words(p.list("items")), seconds: px(p, "seconds"), closable: p.b("closable"), width: px(p) }),
+    props: [icon("icon", "Icon", "campaign"), list("items", "Notices", [{ label: "Free delivery on orders over $50 this week." }, { label: "Maintenance on Sunday from 02:00 to 04:00." }, { label: "New: pay with your phone at checkout." }], 12), num("seconds", "Seconds each", 3, 1, 30, 1, "s"), flag("closeButton", "Close button", true), WIDTH(380, 160, 1280)],
+    slots: (p) => [...listSlots(p.list("items")), ...(p.b("closeButton") ? [own("close", p.say("Close"))] : [])],
+    tree: (p) => h("NoticeBar", { icon: p.s("icon"), items: words(p.list("items")), seconds: px(p, "seconds"), closable: p.b("closeButton"), width: px(p) }),
   },
 
   /* ---------- the smallest things ---------- */

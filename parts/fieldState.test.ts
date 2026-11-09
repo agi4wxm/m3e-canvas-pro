@@ -76,10 +76,10 @@ describe("the field state package", () => {
     const wrong = draw("rating", { helperText: "Rate your stay", error: true, errorText: "Pick at least one star" });
     expect(wrong).toContain("Pick at least one star");
     expect(wrong).not.toContain("Rate your stay");
-    /* where the part has always had a line of help, the package names it */
-    expect(stateKey(partBySlug("text-field"), "helperText")).toBe("supporting");
-    expect(stateKey(partBySlug("field"), "helperText")).toBe("description");
-    expect(partBySlug("text-field")!.props.some((x) => x.key === "helperText")).toBe(false);
+    /* every part holds its line of help and its message under the package's names (version 5 renamed the older ones) */
+    for (const slug of ["text-field", "select", "field", "file-upload"]) expect(stateKey(partBySlug(slug), "helperText")).toBe("helperText");
+    expect(stateKey(partBySlug("field"), "errorText")).toBe("errorText");
+    expect(PARTS.filter((d) => d.field).flatMap((d) => Object.entries(d.field!).filter(([state, key]) => state !== key).map(([state]) => `${d.slug}.${state}`))).toEqual([]);
   });
 
   it("holds a FAB, a chip and a toggle group, and loads a FAB, as a button", () => {
@@ -132,8 +132,8 @@ describe("the field state package", () => {
       ["errorText", "msg"],
       ["required", true],
     ]);
-    /* an older part keeps its message under a name of its own */
-    expect(formStateProps(partBySlug("field"), { invalid: "bad", message: "msg" })).toEqual([["error", "msg"]]);
+    /* a field has no error of its own: its message puts it in error */
+    expect(formStateProps(partBySlug("field"), { invalid: "bad", message: "msg" })).toEqual([["errorText", "msg"]]);
     expect(formStateProps(partBySlug("button"), { submitting: "busy" })).toEqual([
       ["disabled", "busy"],
       ["loading", "busy"],

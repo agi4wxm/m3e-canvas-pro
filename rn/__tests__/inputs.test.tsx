@@ -240,10 +240,10 @@ describe("the entry parts", () => {
   });
 
   it("a field: its label starred while required, its words, its error in their place", async () => {
-    await draw(<Field label="Email" description="Never shared" required />);
+    await draw(<Field label="Email" helperText="Never shared" required />);
     expect(screen.getByText("Email *")).toBeTruthy();
     expect(screen.getByText("Never shared")).toBeTruthy();
-    await draw(<Field label="Terms" control="switch" error="Accept them" />);
+    await draw(<Field label="Terms" control="switch" errorText="Accept them" />);
     expect(screen.getByRole("switch", { name: "Terms" })).toBeTruthy();
     expect(screen.getByRole("alert").props.children).toBe("Accept them");
   });

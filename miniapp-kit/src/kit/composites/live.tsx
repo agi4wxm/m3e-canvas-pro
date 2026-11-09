@@ -435,7 +435,8 @@ export function ShimmerText(props: ShimmerTextProps) {
 
 /* ---------- a number that counts up to its value ---------- */
 
-export type NumberTickerProps = PartBase & { value?: number; prefix?: string; suffix?: string; size?: "title" | "headline" | "display" };
+/** `styleVariant` is the part's type style (`style`, a name React Native keeps for its own styles) */
+export type NumberTickerProps = PartBase & { value?: number; prefix?: string; suffix?: string; styleVariant?: "title" | "headline" | "display" };
 
 const TICKER: Record<string, TypeRole> = { display: "display-small", title: "title-large", headline: "headline-medium" };
 
@@ -461,7 +462,7 @@ export function NumberTicker(props: NumberTickerProps) {
   const words = `${p.prefix ?? ""}${grouped(still ? value : shown)}${p.suffix ?? ""}`;
   return (
     <Surface base={{ alignSelf: "flex-start", flexShrink: 0 }} appearance={p} onPress={p.onPress} testID={p.testID} label={`${p.prefix ?? ""}${grouped(value)}${p.suffix ?? ""}`}>
-      <Words text={words} style={{ ...typeStyle(kit, TICKER[p.size ?? "headline"] ?? "headline-medium"), color: c("on-surface"), fontVariantNumeric: "tabular-nums" }} />
+      <Words text={words} style={{ ...typeStyle(kit, TICKER[p.styleVariant ?? "headline"] ?? "headline-medium"), color: c("on-surface"), fontVariantNumeric: "tabular-nums" }} />
     </Surface>
   );
 }

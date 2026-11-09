@@ -19,7 +19,7 @@ import { fileURLToPath } from "node:url";
 import { beforeAll, describe, expect, it } from "vitest";
 import { applyEffects, chooseBranch, goneIds, inRow, leftRow, startState } from "./interact";
 import { expandDoc } from "./expand";
-import { CONVERGE_PARTS } from "./converge";
+import { asWrittenAt4, CONVERGE_PARTS } from "./converge";
 import { BARE_VERSION, MIGRATIONS, PROJECT_VERSION, migrate, migrationProblems, versionOf, type Migration, type MigrationDoc } from "./migrations";
 import { isProject, loadDocument, loadStored, newerVersionOf, PROJECT_FORMAT } from "./project";
 import { serializeProject } from "./core/projectFile";
@@ -33,7 +33,7 @@ beforeAll(() => setGlobalLang("en"));
 const HISTORY = join(dirname(fileURLToPath(import.meta.url)), "fixtures", "history");
 /** the project files earlier versions wrote, by name; the one of the old kinds (before a8b123f) is refused on purpose */
 const FIXTURES = readdirSync(HISTORY)
-  .filter((f) => f.endsWith(".json") && f !== "behaviour.json" && f !== "drawn.json")
+  .filter((f) => f.endsWith(".json") && f !== "behaviour.json" && f !== "drawn.json" && f !== "trees.json")
   .sort()
   .map((f) => [f.replace(/\.json$/, ""), JSON.parse(readFileSync(join(HISTORY, f), "utf8")) as Record<string, unknown>] as const);
 const OLD_KINDS = "2026-11-04-72e234c-scrolling";
@@ -263,6 +263,7 @@ function behaviour(source: Doc) {
   const doc = expandDoc(source, {});
   const s0 = startState(doc.vars, doc.collections);
   const gone = (s: typeof s0) => [...goneIds(doc.groups, s, doc, {})].sort();
+  const slugs = new Map([...doc.groups, ...(doc.components ?? []).flatMap((c) => c.groups)].flatMap((g) => g.items.map((it) => [it.id, it.component] as const)));
   const taps: Record<string, unknown> = {};
   for (const g of [...doc.groups, ...(doc.components ?? []).flatMap((c) => c.groups)])
     for (const it of g.items) {
@@ -282,7 +283,8 @@ function behaviour(source: Doc) {
           params: body?.params ?? null,
           vars: s1.vars,
           hidden: s1.hidden,
-          props: s1.props,
+          /* what taps set on parts, under the names of version 4 (version 5 renamed some, lib/converge.ts) */
+          props: Object.fromEntries(Object.entries(s1.props).map(([id, set]) => [id, asWrittenAt4(slugs.get(id), set)])),
           opened: s1.opened,
           snack: s1.snack?.message ?? null,
           gone: gone(s1),
