@@ -1,4 +1,5 @@
 import { colorChoicesOf } from "../../../parts/color";
+import { lookAsColours } from "../../materials";
 import { bindExpr, boundVar } from "../../bindings/bind";
 import { COLOR_TOKENS, BACK_TARGET, LINK_TARGET, GAP, linkUrlOf, normalizeTheme, type Action, type ActionBody, type Condition, type DataSource, type Doc, type Effect, type Frame, type Group, type Item, type ScreenParam } from "../../tokens";
 import type { Answer } from "../../actions/model";
@@ -379,9 +380,12 @@ class ScreenPrinter {
     if (it.fill && COLOR_TOKENS.some((t) => t.key === it.fill)) out.push(["fill", str(it.fill)]);
     if (it.textColor) out.push(["textColor", str(it.textColor)]);
     if (it.corners) out.push(["corners", expr({ tl: it.corners.tl, tr: it.corners.tr, br: it.corners.br, bl: it.corners.bl })]);
-    const look = cleanLook(it.look);
-    if (look) {
-      if (look.texture) this.warn("look", "a texture is not drawn on a phone", it.id);
+    const cleaned = cleanLook(it.look);
+    if (cleaned) {
+      if (cleaned.texture) this.warn("look", "a texture is not drawn on a phone", it.id);
+      /* a material's pictures are not laid as a fill here: each material layer stands as its colour (lib/materials.ts) */
+      const { look, replaced } = lookAsColours(cleaned, this.doc.materials);
+      if (replaced) this.warn("look", "a material is drawn as its colour on a phone, without its picture", it.id);
       out.push(["look", expr(look)]);
     }
     const tap = this.action(it.action, it.id);

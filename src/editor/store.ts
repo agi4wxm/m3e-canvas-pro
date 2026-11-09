@@ -5,6 +5,7 @@ import { DocStore, sessionMeasurer, stateOf } from "@/lib/core";
 import { getLang } from "@/lib/i18n";
 import { setDocStyles } from "@/lib/styles";
 import { setDocIcons } from "./docIcons";
+import { setDocMaterials } from "./materials";
 import type { Frame, Group } from "@/lib/tokens";
 
 export function editorStore(groups: Group[], frames: Frame[]) {
@@ -15,6 +16,8 @@ export function editorStore(groups: Group[], frames: Frame[]) {
     setDocStyles(e.state.doc.styles);
     /* and its own icons registered, so a part naming one (svg:<id>) draws it on the canvas and in the preview */
     setDocIcons(e.state.doc.icons);
+    /* and its materials' pictures on the page, which the material layers of looks read (lib/materialCss.ts) */
+    setDocMaterials(e.state.doc);
   });
   return store;
 }

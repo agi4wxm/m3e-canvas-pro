@@ -11,6 +11,7 @@ import { describeNode, find, nodeTree, outline, type CoreState, type FindQuery, 
 import { propKindText } from "../core/ops/validate";
 import { kitLookOf } from "../kits";
 import { COLOR_ROLES, LOOK_PRESETS, STRICT_LOOK_KEYS, lookForModel } from "../look";
+import { materialsForModel } from "../materials";
 import { rulesForModel } from "../styleRules";
 import { STYLE_PACKS, isStrict, recipesOf, styleContext, styleOf, uxOf } from "../styles";
 import { COLOR_TOKENS, ICON_FAMILIES, REGION_STATES, TEXT_TOKENS, frameLengthOf, frameSizeOf, type ComponentDef, type Doc, type RegionState } from "../tokens";
@@ -295,7 +296,7 @@ const getStyle = tool<{ key?: string }>({
 const lookReference = tool<Record<string, never>>({
   name: "look_reference",
   group: "read",
-  description: "How to write a part's `look` (its effects: fills, strokes, shadows, glass, text effects, textures…), the look presets with the look each one writes, and the color roles fill, textColor and looks take. Says which fields survive when the document is held to its style.",
+  description: "How to write a part's `look` (its effects: fills, strokes, shadows, glass, text effects, textures…), the look presets with the look each one writes, the color roles fill, textColor and looks take, and the materials of the document's library a material fill may name (id, name, main colours). Says which fields survive when the document is held to its style.",
   input: obj({}),
   readOnly: true,
   destructive: false,
@@ -311,6 +312,9 @@ const lookReference = tool<Record<string, never>>({
         fillRoles: COLOR_TOKENS.map((t) => t.key),
         textRoles: TEXT_TOKENS.map((t) => t.key),
         lookColors: `${COLOR_ROLES.join(", ")} (kebab case, optionally /alpha like primary/40), or #rrggbb / #rrggbbaa`,
+        /* the library by name and colour, never its pictures: a model names a material, it does not make one */
+        materials: materialsForModel(doc.materials),
+        ...(strict && doc.materials?.length ? { materialsWhenStrict: "Held to its style, a material fill stays only tinted by a role (mode tint, tint a role)." } : {}),
       },
     };
   },
