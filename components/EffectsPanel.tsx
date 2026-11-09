@@ -44,6 +44,9 @@ export type Behavior = {
    *  since a column hugging its only child can hardly be pressed on the canvas. */
   repeatHost?: Group | null;
   patchRepeat?: (repeat: Group["repeat"]) => void;
+  /** makes the selected part's group a template spawned on events, changes what it says of its instances, or (null)
+   *  makes it a plain group again (docs/交互规则.md “按事件生成”) */
+  patchSpawn?: (spawn: Partial<NonNullable<Group["spawn"]>> | null) => void;
   /** the collections of variables with their modes, and how a screen (or the document) picks one */
   varCollections?: VarCollection[];
   setVarMode?: (collection: string, mode: string | null, screen?: string) => void;
@@ -171,7 +174,11 @@ const KINDS: { key: Effect["do"]; text: UIKey; icon: string }[] = [
   { key: "move", text: "worldEffMove", icon: "gamepad" },
   { key: "press", text: "worldEffPress", icon: "radio_button_checked" },
   { key: "release", text: "worldEffRelease", icon: "radio_button_unchecked" },
+  { key: "spawn", text: "spawnEff", icon: "auto_awesome" },
 ];
+
+/** the templates on the screen (docs/交互规则.md “按事件生成”): what a spawn makes an instance of */
+const templatesOn = (groups: Group[]) => groups.filter((g) => g.spawn);
 
 /** a world view (docs/交互规则.md “输入动作”): what a move, a press or a release goes to */
 const isWorldView = (it: Item) => !!partBySlug(it.component)?.world;
@@ -226,6 +233,8 @@ function changedKind(kind: Effect["do"], was: Effect | null, b: Behavior, bindin
       const takes = worldInputsOf(parts.find((it) => it.id === id) ?? { component: "" }).filter((d) => d.type !== "vec2");
       return { do: kind, part: id, action: was && "action" in was && was.action ? was.action : (takes[0]?.name ?? "attack") };
     }
+    case "spawn":
+      return { do: kind, group: templatesOn(b.groups)[0]?.id ?? "" };
   }
 }
 
@@ -430,6 +439,15 @@ function EffectRow({ effect, index, onChange, onRemove, onUp, p, depth = 0 }: { 
           )}
           {effect.do === "move" && <ExprField name="vector" value={effect.vector} onCommit={(vector) => onChange({ ...effect, vector })} shape={shape} api={bindings?.doc.api} p={p} label={t("worldVector", lang)} />}
         </div>
+      );
+      break;
+    }
+    case "spawn": {
+      const templates = templatesOn(b.groups);
+      body = templates.length ? (
+        <Select options={templates.map((g) => ({ key: g.id, label: partName(g, g.items[0], lang), icon: "auto_awesome" }))} value={effect.group} onChange={(group) => onChange({ ...effect, group })} p={p} label={t("spawnTemplate", lang)} />
+      ) : (
+        <div style={{ fontSize: 12, color: p.onSurfaceVariant, padding: "0 4px" }}>{t("spawnNoTemplates", lang)}</div>
       );
       break;
     }

@@ -12,7 +12,7 @@ import { outcomeOf } from "@/lib/app/actions";
 import type { DesignRuntime, FormAt, ScreenAt } from "@/lib/bindings/design";
 import type { TransportFile } from "@/lib/api/transport";
 import { endpointOf, paramsOf } from "@/lib/bindings/contract";
-import { evaluate } from "@/lib/bindings/expr";
+import { evaluate, type Scope } from "@/lib/bindings/expr";
 import { NO_BINDINGS, scopeFor, type BindingContext } from "@/lib/bindings/scope";
 import { formsOf, type BoundScreen } from "@/lib/bindings/view";
 import { applyEffects, conditionHolds, isHidden, screenVars, type PreviewState } from "@/lib/interact";
@@ -52,6 +52,9 @@ export type PreviewHostDeps = {
   signedOut?: () => void;
   /** an input action for a world view (docs/交互规则.md “输入动作”): its channel, which the view listens on */
   worldInput?: (part: string, action: string, value: WorldInput) => void;
+  /** an instance of a template spawned with what its step read (docs/交互规则.md “按事件生成”): the preview's pool of
+   *  them, which its screens draw by no state of their own */
+  spawn?: (group: string, scope: Scope) => void;
 };
 
 /** where in the document a part is: its group */
@@ -190,6 +193,7 @@ export function createPreviewHost(d: PreviewHostDeps): Host {
     afterSignIn: (operationId) => d.doc().api?.auth?.login === operationId && d.returnAfterSignIn(),
     moves: () => d.moves(),
     worldInput: (part, action, value) => d.worldInput?.(part, action, value),
+    spawn: (group, scope) => d.spawn?.(group, scope),
   };
   return host;
 }

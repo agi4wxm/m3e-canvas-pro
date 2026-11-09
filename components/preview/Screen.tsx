@@ -20,6 +20,12 @@ import { BoundValues } from "../boundValues";
 import { boundTextIds, wordsHeight } from "../previewText";
 import { LivePart } from "./LivePart";
 import type { TapExtra } from "./host";
+import { SPAWN_OF, SPAWN_SLOT, driveSpawns } from "@/lib/spawnDom";
+import { spawnSpecOf, type Spawns } from "@/lib/spawn";
+import { domainNow } from "@/parts/widgets/host";
+
+/** a copy of a template no instance is drawn in yet: there, but not seen and not touched (lib/spawnDom.ts shows it) */
+const SPAWN_HIDDEN = { visibility: "hidden", pointerEvents: "none" } as const;
 
 export function Screen({
   active = true,
@@ -41,7 +47,10 @@ export function Screen({
   onNearEnd,
   refreshing,
   onWordHeights,
+  spawns = null,
 }: {
+  /** the instances spawned on events, which the screen draws in its templates' copies (lib/spawnDom.ts) */
+  spawns?: Spawns | null;
   /** how tall bound words in an auto layout are drawn here, where that is not what the canvas measured (`${id}:h`) */
   onWordHeights?: (heights: Record<string, number>) => void;
   /** a file input of the screen took files */
@@ -216,6 +225,15 @@ export function Screen({
     );
     return () => timers.forEach((id) => window.clearTimeout(id));
   }, [interactive]);
+  /* the instances spawned on events, drawn in the copies of the screen's templates frame by frame on the app's clock:
+     written to the page itself, so a spawn commits nothing (lib/spawnDom.ts) */
+  const motions = useRef(new Map<string, string | undefined>());
+  motions.current = new Map(groups.flatMap((g) => (g.spawn ? [[g.id, spawnSpecOf(g.spawn)?.motion] as const] : [])));
+  const hasTemplates = groups.some((g) => g.spawnSlot);
+  useEffect(() => {
+    if (!spawns || !hasTemplates) return;
+    return driveSpawns(() => screenRef.current, spawns, { now: domainNow, motion: (id) => motions.current.get(id) as never });
+  }, [spawns, hasTemplates]);
   /* The editor behind the preview is inert while it is up, so focus has nowhere else to
    * go: a screen that becomes the one on show takes it when nothing inside the preview
    * holds it. */
@@ -274,11 +292,12 @@ export function Screen({
           key={g.id}
           className={entering(g) ? "m3-preview-group m3-preview-enter" : "m3-preview-group"}
           data-preview-group={g.id}
+          {...(g.spawnSlot ? { [SPAWN_OF]: g.spawnSlot.of, [SPAWN_SLOT]: g.spawnSlot.slot } : {})}
           /* a part making room for one that appeared eases over; the rest of the time nothing moves */
           data-in-flow={g.inFlow ? "" : undefined}
           style={
             g.free
-              ? { position: "absolute", left: g.x - frame.x, top: g.y - frame.y - lift(g), zIndex: isOpen(g) ? 2 : undefined, clipPath: clips.get(g.id) }
+              ? { position: "absolute", left: g.x - frame.x, top: g.y - frame.y - lift(g), zIndex: isOpen(g) ? 2 : undefined, clipPath: clips.get(g.id), ...(g.spawnSlot ? SPAWN_HIDDEN : {}) }
               : {
                   position: "absolute",
                   left: g.x - frame.x,
@@ -292,6 +311,7 @@ export function Screen({
                   flexDirection: g.axis === "x" ? "row" : "column",
                   alignItems: g.axis === "x" ? "center" : "stretch",
                   gap: GAP,
+                  ...(g.spawnSlot ? SPAWN_HIDDEN : {}),
                 }
           }
         >

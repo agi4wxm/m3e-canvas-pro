@@ -858,6 +858,9 @@ export default function Editor({ initialLang, onReady, persist = editorProjects(
         if (!repeatHost) return;
         runOp(ops.setRepeat, { id: repeatHost.id, repeat: repeat ?? null }, { history: { coalesce: `${repeatHost.id}:repeat` } });
       },
+      patchSpawn: (spawn) => {
+        if (group) runOp(ops.setSpawn, { id: group.id, spawn }, { history: { coalesce: `${group.id}:spawn` } });
+      },
       varCollections: collectionsOf(core.doc),
       setVarMode: variablesApi.setMode,
       alignToParent: group && selectedIds.length === 1 ? (how) => runOp(ops.alignToParent, { id: primaryId!, how }, { history: "step", refused: () => {} }) : undefined,

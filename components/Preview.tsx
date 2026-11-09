@@ -63,6 +63,9 @@ import { Screen } from "./preview/Screen";
 import { PreviewStore, usePreviewState } from "./preview/store";
 import { useSwipe, type Peek } from "./preview/swipe";
 import { PreviewWorlds } from "./preview/worlds";
+import { PreviewSpawns } from "./preview/spawns";
+import { createSpawns } from "@/lib/spawn";
+import { markTemplates, poolCopies } from "@/lib/spawnPool";
 import { createWorlds } from "@/lib/world/channel";
 
 /** room reserved for the wide preview controls: panel, right margin and breathing space */
@@ -326,9 +329,16 @@ export function Preview({
   nav.current = { go, back, returnAfterSignIn, afterSignOut, onShow, dark };
   /* the world views' channels: the input actions go there, the views listen (docs/交互规则.md “输入动作”) */
   const [worlds] = useState(() => createWorlds());
+  /* the instances spawned on events: kept here, drawn by the screens without React (docs/交互规则.md “按事件生成”) */
+  const [spawns] = useState(() => createSpawns());
   const [host] = useState(() =>
     createPreviewHost({
       worldInput: (part, action, value) => worlds.send(part, action, value),
+      spawn: (group, scope) => {
+        const template = docRef.current.groups.find((g) => g.id === group);
+        /* the time is the runtime's: the mocks' clock, which the bar can stop */
+        if (template?.spawn) spawns.spawn(group, template.spawn, scope, runtime.now(), runtime.ctx());
+      },
       doc: () => docRef.current,
       store,
       dark: () => nav.current.dark,
@@ -368,8 +378,9 @@ export function Preview({
     if (was && was.t === answering && was.session === mockSession) return;
     startedWith.current = { t: answering, session: mockSession };
     runtime.restart(presumed);
-    /* what the world views' inputs held belongs to the session before */
+    /* what the world views' inputs held belongs to the session before, and so do the instances spawned */
     worlds.clear();
+    spawns.clear();
     // the scenario `presumed` reads comes with a session of its own
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [answering, mockSession, runtime]);
@@ -581,11 +592,13 @@ export function Preview({
    * the state their data is in, the forms' errors (lib/bindings/view.ts), the bound words as tall as they are. */
   const groupsFor = useCallback(
     (f: Frame, params?: Record<string, unknown>): { groups: DocGroup[]; widths: Record<string, number> } => {
-      const tabbed = groupsInFrame(doc.groups, f, frames, widths).map((g) => {
+      const shown = groupsInFrame(doc.groups, f, frames, widths).map((g) => {
         const it = g.items[0];
         const def = g.items.length === 1 ? partBySlug(it.component) : undefined;
         return def?.panes && def.selectKey && values[it.id] >= 0 ? { ...g, items: [{ ...it, props: { ...it.props, [def.selectKey]: values[it.id] } }] } : g;
       });
+      /* a template's words are read by each instance as it is spawned, not by the screen (lib/spawnPool.ts) */
+      const tabbed = markTemplates(shown, widths);
       const vars = screenVars(state, doc, f, dark);
       try {
         const scope = data.scope({ frame: f, params, vars: vars.vars, varNames });
@@ -593,10 +606,11 @@ export function Preview({
         const bound = boundScreen({ groups: tabbed, frame: f, doc, scope, form, vars: vars.vars, widths, ctx: { lang } });
         boundRef.current[f.id] = bound;
         const laid = { ...bound.widths, ...wordHeights };
-        return { groups: liveGroups(bound.groups, { ...vars, ctx: bound.ctx }, doc, laid), widths: laid };
+        /* each template laid out as its pool, every copy hidden until an instance is spawned into it */
+        return poolCopies(liveGroups(bound.groups, { ...vars, ctx: bound.ctx }, doc, laid), laid);
       } catch {
         /* a binding that cannot be drawn leaves the screen as designed: the preview never stops for it */
-        return { groups: liveGroups(tabbed, vars, doc, widths), widths };
+        return poolCopies(liveGroups(tabbed, vars, doc, widths), widths);
       }
     },
     // what the runtime holds is read through its version
@@ -617,6 +631,7 @@ export function Preview({
 
   const screenProps = {
     widths,
+    spawns,
     onWordHeights,
     p,
     styled: { ...theme, dark },
@@ -660,6 +675,7 @@ export function Preview({
   return (
     <PreviewMocksContext.Provider value={mocks}>
     <PreviewWorlds.Provider value={worlds}>
+    <PreviewSpawns.Provider value={spawns}>
     <PreviewTheme dark={dark}>
     <motion.div
       initial={{ opacity: 0 }}
@@ -820,6 +836,7 @@ export function Preview({
       />
     </motion.div>
     </PreviewTheme>
+    </PreviewSpawns.Provider>
     </PreviewWorlds.Provider>
     </PreviewMocksContext.Provider>
   );

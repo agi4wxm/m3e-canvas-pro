@@ -17,6 +17,7 @@ import { BINDINGS_KO, BINDINGS_UI } from "./i18n/bindings";
 import { MOCKS_KO, MOCKS_UI } from "./i18n/mocks";
 import { CAPABILITIES_KO, CAPABILITIES_UI } from "./i18n/capabilities";
 import { WORLD_KO, WORLD_UI } from "./i18n/world";
+import { SPAWN_KO, SPAWN_UI } from "./i18n/spawn";
 
 export type Lang = "ja" | "en" | "zh" | "ko";
 export const LANGS: { key: Lang; label: string }[] = [
@@ -585,6 +586,7 @@ export const UI = {
   ...MOCKS_UI,
   ...CAPABILITIES_UI,
   ...WORLD_UI,
+  ...SPAWN_UI,
 } as const satisfies Record<string, Str>;
 
 export type UIKey = keyof typeof UI;
@@ -692,6 +694,7 @@ export const KO: Record<UIKey, string> = {
   ...MOCKS_KO,
   ...CAPABILITIES_KO,
   ...WORLD_KO,
+  ...SPAWN_KO,
 };
 
 export const t = (key: UIKey, lang: Lang = current): string => (lang === "ko" ? KO[key] : UI[key][lang]);
