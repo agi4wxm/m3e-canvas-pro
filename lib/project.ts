@@ -4,6 +4,7 @@ import { cleanLook } from "./look";
 import { cleanStyles } from "./styles";
 import { cleanDocIcons } from "./docIcons";
 import { cleanDocMaterials } from "./materials";
+import { cleanGameLink } from "./game/link";
 import { cleanApi } from "./api/clean";
 import { cleanMocks } from "./mocks/clean";
 import { cleanCapabilities } from "./capabilities/clean";
@@ -512,6 +513,13 @@ export function cleanBehavior(doc: Doc): Doc {
     const materials = cleanDocMaterials(out.materials);
     if (materials) out.materials = materials;
     else delete out.materials;
+  }
+  /* the link to the gameplay contract (lib/game): its contract is the game loop's, read again as its format allows and
+     never mended; one that is not a contract any more is no link, and the path is one inside the project's folder */
+  if (out.game !== undefined) {
+    const game = cleanGameLink(out.game);
+    if (game) out.game = game;
+    else delete out.game;
   }
   /* the API section is held to its shape and its bounds (lib/api/clean.ts); what is merely wrong in it stays, for the
      author to see and fix */

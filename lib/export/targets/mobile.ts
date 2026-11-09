@@ -6,7 +6,7 @@
  * app.json; in development the mocks (packages/mocks) answer it, a scenario chosen in a dev menu. Everything here is
  * generated but src/custom/, written once. docs/手机端.md says how it fits together. */
 
-import { capabilityFiles, slotFiles, slotNames, slotsOf } from "../appCapabilities";
+import { capabilityFiles, docWorldContract, slotFiles, slotNames, slotsOf } from "../appCapabilities";
 import rnPackage from "../../../rn/package.json";
 import { KIT_FILES } from "../rn/kitFiles.generated";
 import { RnPictures, iconsModule, rnDependencies, themeModule } from "../rn/app";
@@ -413,7 +413,7 @@ export const mobileTarget: ProductTarget = {
       }),
     );
     files["src/generated/runtime.ts"] = generated(await filledFile(ctx, app("runtime.ts"), { capabilities: !!capabilities, realtime: !!ctx.doc.api?.channels?.length }, { storageKey: str(`${ctx.name.replace(/[^A-Za-z0-9]/g, "_")}.session`), lang: str(ctx.lang) }));
-    Object.assign(files, capabilities?.files ?? {}, slotFiles(scope, slots, "mobile"));
+    Object.assign(files, capabilities?.files ?? {}, slotFiles(scope, slots, "mobile", undefined, { world: docWorldContract(ctx.doc) }));
     files["src/generated/api.ts"] = generated(await copiedFile(ctx, app("api.ts")));
     files["src/generated/contract.ts"] = generated(await filledFile(ctx, app("contract.ts"), {}, { operations: jsonCode(operationsOf(doc.api)), auth: authSource(doc.api ?? {}), forms: jsonCode(formRulesOf(doc)) }));
     files["src/generated/bind.ts"] = generated(await filledFile(ctx, app("bind.ts"), { copies: !!screens.copies }));

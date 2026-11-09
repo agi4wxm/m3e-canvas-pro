@@ -8,7 +8,7 @@
  * The prototype's own files are not changed to get here: they are moved, and the few imports that name a moved file
  * are rewritten line by line in the import blocks (never in the code a document's words reach). */
 
-import { capabilityFiles, slotFiles, slotNames, slotsOf } from "../appCapabilities";
+import { capabilityFiles, docWorldContract, slotFiles, slotNames, slotsOf } from "../appCapabilities";
 import { buildProject, type ProjectFiles } from "../../exportProject";
 import { PRODUCT_WEB_DEV } from "../../exportPackages";
 import { GENERATED, jsonFile, sortedObject } from "../code";
@@ -197,7 +197,7 @@ export const webTarget: ProductTarget = {
     files["src/generated/router.ts"] = generated(ROUTER);
     const capabilities = capabilityFiles(ctx, "web");
     files["src/generated/api.ts"] = generated(API_CLIENT(ctx.scope, ctx.name, ctx.lang, api, !!capabilities));
-    Object.assign(files, capabilities?.files ?? {}, slotFiles(ctx.scope, slots, "web"));
+    Object.assign(files, capabilities?.files ?? {}, slotFiles(ctx.scope, slots, "web", undefined, { world: docWorldContract(ctx.doc) }));
     files["src/generated/mocks.ts"] = generated(MOCKS(ctx.scope));
     files["src/generated/ScenarioPicker.tsx"] = generated(SCENARIO_PICKER(ctx.scope));
     /* what only a browser has: real files of this repo, copied as they are (lib/export/copy.ts) */

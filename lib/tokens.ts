@@ -11,6 +11,7 @@ import type { ApiSpec } from "./api/types";
 import type { MockSpec } from "./mocks/types";
 import type { CapabilitySpec } from "./capabilities/types";
 import type { MaterialDef, MaterialLayer } from "./material";
+import type { GameLink } from "./game/link";
 import { fields, withUnknown } from "./keep";
 import { mapAction, mapBody, mapCondition, type RefMap } from "./refs";
 
@@ -1552,6 +1553,9 @@ export type Doc = {
   /** the document's materials (lib/material.ts, docs/m3e-material.md), imported from material packs; a `material` layer
    *  of a look (`ItemLook.fills`) names one by id */
   materials?: MaterialDef[];
+  /** The gameplay contract the design is written to (lib/game, docs/玩法契约.md): the game loop's, read from the file
+   *  `path` names (beside a folder project), read-only; its commands are the API's `<namespace>.*` operations */
+  game?: GameLink;
 };
 
 export const defaultTabs = (): NavTab[] => NAV_TABS[getLang()].map((t) => ({ ...t }));
