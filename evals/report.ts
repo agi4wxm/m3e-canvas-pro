@@ -3,6 +3,7 @@
  * verdict below. Written as Markdown (summary.md) and JSON (results.json). */
 
 import type { Usage } from "../lib/llm";
+import type { MockReport } from "./mock";
 import type { Observed, TaskScore } from "./types";
 
 /** US dollars per million tokens */
@@ -33,6 +34,8 @@ export type RunRow = TaskScore & {
   cost?: number;
   error?: string;
   text: string;
+  /** a mock run (evals/mock.ts): how the recorded turns played on the current code */
+  mock?: MockReport;
 };
 
 export const rowOf = (name: string, s: TaskScore, o: Observed, price?: Price): RunRow => ({
@@ -98,6 +101,7 @@ export function summaryMarkdown(rows: RunRow[], meta: { title: string; model: st
     lines.push(`| ${r.name} | ${r.ability} | ${r.lang} | ${r.pass ? "PASS" : "FAIL"} | ${r.score.toFixed(2)} | ${r.judge ? (r.judge.score || "–") : ""} | ${r.steps} | ${k(r.usage.input)} (${k(r.usage.cachedInput)}) / ${k(r.usage.output)} | ${s(r.ms)} | ${r.stop} | ${failed.join(", ")} |`);
   }
   lines.push("", "Failed checks in **bold** are critical: the task fails with them whatever its score.", "");
+  if (rows.some((r) => r.mock)) lines.push(...mockSection(rows));
   lines.push("## Checks", "");
   for (const r of rows) {
     lines.push(`### ${r.name}: ${r.title}`, "");
@@ -108,4 +112,31 @@ export function summaryMarkdown(rows: RunRow[], meta: { title: string; model: st
     lines.push("");
   }
   return lines.join("\n");
+}
+
+/** A mock run's playback: per task, the turns played, the ids paired, and every place the current code answered a
+ *  recorded call differently (a call that failed or succeeded where it did not, an id that would not pair). */
+function mockSection(rows: RunRow[]): string[] {
+  const lines = ["## Playback", "", "Recorded model turns played on the current code (evals/mock.ts). A divergence is a recorded call the tools now answer differently (it fails where it succeeded, or the other way round), an id the code made that would not pair, or turns left over or missing: the code changed what the tools accept, or the model would have to adapt. Changed words and sizes are only counted.", ""];
+  lines.push("| Task | Turns played | Ids mapped | Results changed | Divergences | First divergence |", "| --- | --- | --- | --- | --- | --- |");
+  for (const r of rows) {
+    const m = r.mock;
+    if (!m) continue;
+    const d = m.divergences[0];
+    lines.push(`| ${r.name} | ${m.played}/${m.turns} | ${m.mapped} | ${m.changed} | ${m.divergences.length} | ${d ? cell(`step ${d.step}${d.call ? ` ${d.call.name}` : ""}: ${d.detail}`) : ""} |`);
+  }
+  lines.push("");
+  for (const r of rows) {
+    if (!r.mock?.divergences.length && !r.mock?.changes.length) continue;
+    lines.push(`### ${r.name}: playback`, "");
+    for (const d of r.mock.divergences) {
+      lines.push(`- step ${d.step}, ${d.kind}: ${cell(d.detail)}`);
+      if (d.call) lines.push(`  - call: \`${d.call.name}\` ${cell(JSON.stringify(d.call.args ?? null).slice(0, 400))}`);
+      if (d.recorded !== undefined) lines.push(`  - then: ${cell(d.recorded)}`);
+      if (d.now !== undefined) lines.push(`  - now: ${cell(d.now)}`);
+    }
+    for (const c of r.mock.changes) lines.push(`- step ${c.step}, \`${c.call}\` answers differently (not a divergence): then ${cell(JSON.stringify(c.recorded))}, now ${cell(JSON.stringify(c.now))}`);
+    lines.push("");
+  }
+  return lines;
 }
