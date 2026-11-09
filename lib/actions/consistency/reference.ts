@@ -13,7 +13,10 @@ import { run, startOf } from "../run";
 import { Backend, givenOf } from "./check";
 import { channelSpecOf } from "../../bindings/design";
 import { channelView, idleChannel, isoOf, messageAction, received, type ChannelState } from "../../bindings/channels";
-import type { Move, Observed } from "./types";
+import type { Move, Observed, TableWorld } from "./types";
+import { tableWorld } from "./check";
+import { createFrameLoop } from "../../app/frame";
+import { framesOfItem } from "../../world/frameTargets";
 
 /** a screen on the stack, with the motion it came in with (going back undoes it) */
 type Entry = { id: string; params?: Record<string, unknown>; motion?: string };
@@ -41,6 +44,10 @@ export class ReferenceHost implements Host {
   move: Move | undefined;
   /** what each world view's stand-in lists of the inputs it heard, by its item id */
   heard: Record<string, string[]> = {};
+  /** the world the HUD reads, as the row last handed it, and the frame loop its props bound per frame run on */
+  private world: ReturnType<typeof tableWorld> | undefined;
+  private readonly frames = createFrameLoop({ world: () => this.world });
+  private framed: (() => void) | undefined;
   private epoch = 0;
   private count = 0;
   private sending = new Set<string>();
@@ -80,8 +87,21 @@ export class ReferenceHost implements Host {
         if (it.component === "dropdown-menu" && this.opened[it.id]) for (const row of ((it.props?.items as { label?: string }[] | undefined) ?? [])) words.push(row.label ?? "");
         /* a world view's stand-in lists the inputs it heard */
         words.push(...(this.heard[it.id] ?? []));
+        /* a prop bound per frame shows what the last frame wrote */
+        for (const f of framesOfItem(it)) if (f.kind === "text" && this.frames.value(it.id, f.prop) !== undefined) words.push(String(this.frames.value(it.id, f.prop)));
       }
     return { vars: { ...this.vars }, words, toast: this.snack, screen: this.top().id, calls: this.backend.calls, ...(this.move ? { move: this.move } : {}) };
+  }
+
+  /** The world the HUD reads is now this one, and a frame passes over the parts on show: each prop bound per frame is
+   *  evaluated over it (lib/app/frame.ts, the loop every host runs). */
+  showWorld(w: TableWorld) {
+    this.world = tableWorld(w);
+    const parts = [this.top().id, ...(this.overlay ? [this.overlay.id] : [])].flatMap((on) => this.partsOn(on));
+    /* the parts on show now: the bindings of those before them go */
+    this.framed?.();
+    this.framed = this.frames.add(parts.flatMap(framesOfItem));
+    this.frames.tick();
   }
 
   /** the tap on the part with these words, on the overlay if one is up, else the screen on show; what it starts is

@@ -12,7 +12,8 @@ import { contractOf } from "../../export/product";
 import { authSource } from "../../export/targets/webSources";
 import { RUNTIME_TEMPLATE, runtimeSource } from "../../runtimeSource";
 import type { Doc } from "../../tokens";
-import { drive, givenOf, turns, verdict, type Backend, type Driver } from "./check";
+import { drive, givenOf, tableWorld, turns, verdict, type Backend, type Driver } from "./check";
+import type { FrameLoop } from "../../app/frame";
 import { designDoc } from "./design";
 import { ROWS } from "./rows";
 import { tiny } from "./tiny";
@@ -45,6 +46,9 @@ type App = {
   params?: Record<string, unknown>;
   vars: Record<string, string | number | boolean>;
   snack: { message: string } | null;
+  /** the loop the screens' props bound per frame run on, and the views' channels (src/runtime.tsx) */
+  frames?: FrameLoop;
+  worldChannel?: (part: string) => WorldChannel;
 };
 type RuntimeModule = { AppProvider: (p: { children?: unknown }) => unknown; useApp: () => App; ScreenContext?: { Provider: unknown }; Pressable?: unknown };
 
@@ -201,6 +205,7 @@ async function webOf(doc: Doc, backend: Backend, product: boolean): Promise<Driv
   };
   const top = () => pages()[pages().length - 1];
   draw();
+  let letGo: (() => void) | undefined;
   /* the design's variables come first, in its order; an input's own state comes after them */
   const varIds = new Map((doc.vars ?? []).map((v, i) => [spec.vars[i].key, v.id]));
   return {
@@ -244,6 +249,13 @@ async function webOf(doc: Doc, backend: Backend, product: boolean): Promise<Driv
       (app as unknown as { back: () => void }).back();
       draw();
     },
+    /* the world an engine connects to a view's channel, and the frame the browser would run next */
+    world: (w) => {
+      letGo?.();
+      letGo = app?.worldChannel?.("table-world").attach?.(tableWorld(w));
+      app?.frames?.tick();
+      draw();
+    },
     settle: async () => {
       for (let i = 0; i < 6; i++) {
         await turns(2);
@@ -251,7 +263,8 @@ async function webOf(doc: Doc, backend: Backend, product: boolean): Promise<Driv
       }
     },
     observe: (): Observed => {
-      const words = pages().flatMap((p) => [...wordsIn(p), ...worldWords(p)]);
+      /* what the last frame wrote into the parts bound per frame, beside what the screens draw */
+      const words = [...pages().flatMap((p) => [...wordsIn(p), ...worldWords(p)]), ...(app?.frames?.words() ?? [])];
       const vars = Object.fromEntries(Object.entries(app?.vars ?? {}).map(([k, v]) => [varIds.get(k) ?? k, v]));
       const screen = doc.frames[spec.screens.indexOf(app?.screen ?? "")]?.id ?? "";
       const move = app?.move ? { back: app.move.backwards, motion: app.move.motion?.kind ?? "none" } : undefined;

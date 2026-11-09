@@ -697,6 +697,38 @@ export const ROWS: Row[] = [
     expect: { shown: { "aim 0.45,-0.89": true, "jump ↓": true } },
   },
 
+  /* ---------- bindings per frame: what a HUD shows of the world, written on every frame (docs/数据绑定.md “每帧绑定”) ---------- */
+  {
+    id: "frame-world-words",
+    title: "每帧绑定：文字读世界快照里按 id 的实体，每帧写出；快照变了，下一帧跟着变",
+    ref: "每帧绑定；游戏阶段 K3（HUD 的绑定模型）",
+    design: { screens: [HOME], parts: [{ id: "hp", kind: "text", label: "HP ?", frame: { text: "'HP ' + world.byId.hero.hp" } }] },
+    steps: [{ world: { view: { entities: [{ id: "hero", kind: "player", x: 10, y: 10, hp: 72 }] } } }, { world: { view: { entities: [{ id: "hero", kind: "player", x: 10, y: 10, hp: 40 }] } } }],
+    expect: { shown: { "HP 40": true, "HP 72": false } },
+  },
+  {
+    id: "frame-world-clock",
+    title: "每帧绑定：冷却按世界的时钟（world.clock.now）推算，不读设备的时钟",
+    ref: "每帧绑定；世界宿主契约“时钟”",
+    design: { screens: [HOME], parts: [{ id: "cd", kind: "text", label: "CD ?", frame: { text: "'CD ' + (world.byId.hero.readyAt - world.clock.now) / 1000" } }] },
+    steps: [{ world: { view: { entities: [{ id: "hero", kind: "player", x: 10, y: 10, readyAt: 4000 }] }, clock: { now: 2500 } } }],
+    expect: { shown: { "CD 1.5": true } },
+  },
+  {
+    id: "frame-world-missing",
+    title: "每帧绑定：快照里没有的值读成空（?? 补上），分数参与算术；同一屏几个部件各写各的",
+    ref: "每帧绑定；表达式“读不到就是空”",
+    design: {
+      screens: [HOME],
+      parts: [
+        { id: "gold", kind: "text", label: "Gold ?", frame: { text: "'Gold ' + (world.byId.hero.gold ?? 0)" } },
+        { id: "pts", kind: "text", label: "Points ?", frame: { text: "world.score * 2 + ' pts'" } },
+      ],
+    },
+    steps: [{ world: { view: { entities: [{ id: "hero", kind: "player", x: 10, y: 10, hp: 1 }], score: 21 } } }],
+    expect: { shown: { "Gold 0": true, "42 pts": true } },
+  },
+
   /* ---------- subscriptions and the clock ---------- */
   {
     id: "message-runs-action",

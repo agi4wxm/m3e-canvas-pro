@@ -1,11 +1,11 @@
 import { act as flush, fireEvent, render, screen } from "@testing-library/react-native";
 import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType } from "react";
 import { SafeAreaProvider } from "react-native-safe-area-context";
-import { RuntimeProvider, useRequireAuth, type Runtime } from "@m3e/app-runtime";
+import { RuntimeProvider, useRequireAuth, type FrameLoop, type Runtime } from "@m3e/app-runtime";
 
 import { AppProvider, MATERIAL, NavProvider, SnackHost, ThemeProvider, movesSoFar, screenShown, useApp, useNav, type AppState, type Interpreter, type Nav, type Reader } from "../src/kit";
 import { answerWith } from "./table/backend";
-import { Backend, drive, turns, verdict, type Driver } from "./table/check";
+import { Backend, drive, tableWorld, turns, verdict, type Driver } from "./table/check";
 import { ROWS } from "./table/rows";
 
 /* The consistency table (lib/actions/consistency, docs/交互规则.md) on the React Native kit: each row's design as the
@@ -18,7 +18,7 @@ import { ROWS } from "./table/rows";
 
 type Row = (typeof ROWS)[number];
 type Place = { key: string; params?: Record<string, unknown> };
-type Modules = { SCREENS: Record<string, ComponentType<{ params?: Record<string, unknown> }>>; interpret: Interpreter; reader: Reader; runtime: Runtime };
+type Modules = { SCREENS: Record<string, ComponentType<{ params?: Record<string, unknown> }>>; interpret: Interpreter; reader: Reader; runtime: Runtime; liveFrames: () => FrameLoop[] };
 
 const load = (id: string): Modules => ({
   // eslint-disable-next-line @typescript-eslint/no-require-imports -- each row's printed app, loaded when its row runs
@@ -27,6 +27,9 @@ const load = (id: string): Modules => ({
   ...(require(`./table/${id}/effects`) as Pick<Modules, "interpret" | "reader">),
   // eslint-disable-next-line @typescript-eslint/no-require-imports -- as above
   ...(require(`./table/${id}/runtime`) as Pick<Modules, "runtime">),
+  /* the frame loops of the screens drawn (src/app/bind.ts `useFrames`) */
+  // eslint-disable-next-line @typescript-eslint/no-require-imports -- as above
+  ...(require(`./table/${id}/bind`) as Pick<Modules, "liveFrames">),
 });
 
 /** what the app's memory is, read by a part inside it */
@@ -132,6 +135,7 @@ describe("the consistency table on the React Native kit", () => {
       }, { connect: (address, onMessage) => backend.connect(address, onMessage), now: () => backend.now() });
       m.runtime.restart();
       probe.move = undefined;
+      let letGo: (() => void) | undefined;
       await render(
         <SafeAreaProvider initialMetrics={{ frame: { x: 0, y: 0, width: 412, height: 892 }, insets: { top: 24, left: 0, right: 0, bottom: 24 } }}>
           <RuntimeProvider runtime={m.runtime}>
@@ -173,12 +177,19 @@ describe("the consistency table on the React Native kit", () => {
         platformBack: async () => {
           await flush(async () => probe.platformBack?.());
         },
+        /* the world an engine connects to a view's channel, and the frame the app's loops would run next */
+        world: async (w) => {
+          letGo?.();
+          letGo = probe.app?.world("table-world").attach?.(tableWorld(w));
+          await flush(async () => m.liveFrames().forEach((loop) => loop.tick()));
+        },
         settle: async () => {
           await flush(async () => turns(4));
         },
         observe: () => ({
           vars: Object.fromEntries(row.vars.map((id) => [id, probe.app?.vars[id] as string | number | boolean])),
-          words: wordsIn(screen.toJSON()),
+          /* what the last frame wrote into the parts bound per frame (onto their native views), beside what React drew */
+          words: [...wordsIn(screen.toJSON()), ...m.liveFrames().flatMap((loop) => loop.words())],
           toast: probe.app?.snack?.message ?? null,
           screen: row.screens[probe.place?.key ?? ""] ?? "",
           calls: backend.calls,

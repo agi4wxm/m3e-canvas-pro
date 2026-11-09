@@ -74,7 +74,11 @@ const { AppSpecProvider } = await import("../src/kit/app/screen");
 const { goBack, lastMove, movesSoFar, openPlace, screenOfPath } = await import("../src/kit/app/nav");
 const { readVar } = await import("../src/kit/app/vars");
 const { answerWith } = await import("./table/backend");
-const { drive, turns, verdict } = await import("./table/check");
+const { drive, tableWorld, turns, verdict } = await import("./table/check");
+const { liveFrames } = await import("../src/kit/frame");
+const { WORLDS } = await import("../src/kit/world");
+/* the world a row's last world step connected, which the next one lets go of */
+let letGo: (() => void) | undefined;
 const { ROWS } = await import("./table/rows");
 
 type Runtime = import("@m3e/app-runtime").Runtime;
@@ -182,6 +186,13 @@ describe("the consistency table on the mini-program kit", () => {
           if (stack.length > 1) stack.pop();
           draw();
         },
+        /* the world an engine connects to a view's channel, and the frame the platform would run next */
+        world: (w) => {
+          letGo?.();
+          letGo = WORLDS.channel("table-world").attach?.(tableWorld(w));
+          for (const loop of liveFrames()) loop.tick();
+          draw();
+        },
         settle: async () => {
           for (let i = 0; i < 6; i++) {
             await turns(2);
@@ -194,7 +205,7 @@ describe("the consistency table on the mini-program kit", () => {
           /* the motion a back is handed is what the kit's navigator keeps (the page stack plays the platform's own) */
           const last = lastMove();
           const move = last ? { back: last.back, motion: last.motion?.kind ?? "none" } : undefined;
-          return { vars: Object.fromEntries(row.vars.map((id) => [id, readVar(id)])) as Record<string, string | number | boolean>, words: [...wordsIn(top()), ...worldWords(top())], toast, screen: row.screens[key] ?? key, calls: backend.calls, ...(move ? { move } : {}) };
+          return { vars: Object.fromEntries(row.vars.map((id) => [id, readVar(id)])) as Record<string, string | number | boolean>, words: [...wordsIn(top()), ...worldWords(top()), ...liveFrames().flatMap((loop) => loop.words())], toast, screen: row.screens[key] ?? key, calls: backend.calls, ...(move ? { move } : {}) };
         },
       };
     });

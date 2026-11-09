@@ -1702,6 +1702,120 @@ export const ROWS: KitRow[] = [
   }
  },
  {
+  "id": "frame-world-words",
+  "title": "每帧绑定：文字读世界快照里按 id 的实体，每帧写出；快照变了，下一帧跟着变",
+  "ref": "每帧绑定；游戏阶段 K3（HUD 的绑定模型）",
+  "steps": [
+   {
+    "world": {
+     "view": {
+      "entities": [
+       {
+        "id": "hero",
+        "kind": "player",
+        "x": 10,
+        "y": 10,
+        "hp": 72
+       }
+      ]
+     }
+    }
+   },
+   {
+    "world": {
+     "view": {
+      "entities": [
+       {
+        "id": "hero",
+        "kind": "player",
+        "x": 10,
+        "y": 10,
+        "hp": 40
+       }
+      ]
+     }
+    }
+   }
+  ],
+  "expect": {
+   "shown": {
+    "HP 40": true,
+    "HP 72": false
+   }
+  },
+  "vars": [],
+  "screens": {
+   "home": "home"
+  }
+ },
+ {
+  "id": "frame-world-clock",
+  "title": "每帧绑定：冷却按世界的时钟（world.clock.now）推算，不读设备的时钟",
+  "ref": "每帧绑定；世界宿主契约“时钟”",
+  "steps": [
+   {
+    "world": {
+     "view": {
+      "entities": [
+       {
+        "id": "hero",
+        "kind": "player",
+        "x": 10,
+        "y": 10,
+        "readyAt": 4000
+       }
+      ]
+     },
+     "clock": {
+      "now": 2500
+     }
+    }
+   }
+  ],
+  "expect": {
+   "shown": {
+    "CD 1.5": true
+   }
+  },
+  "vars": [],
+  "screens": {
+   "home": "home"
+  }
+ },
+ {
+  "id": "frame-world-missing",
+  "title": "每帧绑定：快照里没有的值读成空（?? 补上），分数参与算术；同一屏几个部件各写各的",
+  "ref": "每帧绑定；表达式“读不到就是空”",
+  "steps": [
+   {
+    "world": {
+     "view": {
+      "entities": [
+       {
+        "id": "hero",
+        "kind": "player",
+        "x": 10,
+        "y": 10,
+        "hp": 1
+       }
+      ],
+      "score": 21
+     }
+    }
+   }
+  ],
+  "expect": {
+   "shown": {
+    "Gold 0": true,
+    "42 pts": true
+   }
+  },
+  "vars": [],
+  "screens": {
+   "home": "home"
+  }
+ },
+ {
   "id": "message-runs-action",
   "title": "实时消息运行订阅的动作：读 event 和订阅收下的数据",
   "ref": "订阅；报告 1.8、10",

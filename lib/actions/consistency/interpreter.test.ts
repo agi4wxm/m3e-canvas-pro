@@ -23,6 +23,7 @@ describe("the consistency table on the interpreter", () => {
         restart: () => h.restart(),
         /* the reference's own back, as the platform's would be: no action asks for it */
         platformBack: () => h.back(),
+        world: (w) => h.showWorld(w),
         settle: () => turns(),
         observe: () => h.observe(),
       };

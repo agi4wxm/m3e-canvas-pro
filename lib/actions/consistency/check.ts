@@ -2,7 +2,7 @@
  * held against what the row expects. Nothing but the table's types, so scripts/gen-rn.ts and scripts/gen-miniapp.ts
  * can write this file into the kits' test beds as it is. */
 
-import type { Expect, HostName, Observed, Row, SeenCall, Step } from "./types";
+import type { Expect, HostName, Observed, Row, SeenCall, Step, TableWorld } from "./types";
 
 type Held = { op: string; answer: (a: { status: number; body: unknown }) => void };
 
@@ -150,10 +150,19 @@ export type Driver = {
   platformBack?(): void | Promise<void>;
   type(words: string, value: string): void | Promise<void>;
   restart(): void | Promise<void>;
+  /** The world the HUD reads is now this one (`tableWorld` makes it the World a host is handed), and a frame passes: the
+   *  host's frame loop evaluates its props bound per frame (docs/数据绑定.md “每帧绑定”), and what they come to is on show
+   *  (`observe` lists the words). A runner of a host with no frames leaves it out, and the step does nothing there. */
+  world?(world: TableWorld): void | Promise<void>;
   /** lets what is under way settle: answers already given run, the host draws again */
   settle(): Promise<void>;
   observe(): Observed | Promise<Observed>;
 };
+
+/** A row's world as a host is handed one (a World's snapshot and clock, the `world` root of lib/world/root.ts reads). */
+export function tableWorld(w: TableWorld): { view(): unknown; clock(): { now: number; paused: boolean; rate: number } } {
+  return { view: () => w.view, clock: () => ({ now: w.clock?.now ?? 0, paused: w.clock?.paused ?? false, rate: w.clock?.rate ?? 1 }) };
+}
 
 /** a few turns of the event loop: what an answer starts gets to run */
 export async function turns(n = 4) {
@@ -182,6 +191,7 @@ export async function drive(row: Omit<Row, "design">, make: (backend: Backend) =
     else if ("tapSlot" in step) await d.tapSlot?.(step.tapSlot, step.slot);
     else if ("emit" in step) await d.emit?.(step.emit, step.event, step.payload);
     else if ("platformBack" in step) await d.platformBack?.();
+    else if ("world" in step) await d.world?.(step.world);
     else await d.restart();
     await d.settle();
   }

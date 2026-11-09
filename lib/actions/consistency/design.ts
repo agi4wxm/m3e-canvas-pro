@@ -72,6 +72,8 @@ export function designDoc(d: Design): { doc: Doc; widths: Record<string, number>
       groupOf[p.id] = out.groupId;
       if (p.action && !p.unchecked) tx.run(ops.setAction, { id: p.id, action: p.action as never });
       for (const [slot, action] of Object.entries(p.actions ?? {})) tx.run(ops.setAction, { id: p.id, slot, action: action as never });
+      /* bound per frame as a file or a world's own contract may say, past the example engine's schema */
+      if (p.frame) tx.run(ops.setItem, { id: p.id, patch: { frame: p.frame } });
     }
     for (const sub of d.subscriptions ?? []) tx.run(ops.setSubscription, { screen: sub.screen ?? d.screens[0].id, name: sub.name, channel: sub.channel, ...(sub.params ? { params: sub.params } : {}), ...(sub.messages ? { messages: sub.messages } : {}), ...(sub.actions ? { actions: sub.actions } : {}) } as never);
     for (const f of d.forms ?? []) {

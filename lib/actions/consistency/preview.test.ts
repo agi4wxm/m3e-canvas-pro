@@ -3,7 +3,8 @@ import { PALETTES, type Doc, type Item } from "../../tokens";
 import type { Transport } from "../../api/transport";
 import type { CapabilityHost, FailureKind } from "../../capabilities/types";
 import type { PreviewState } from "../../interact";
-import { drive, givenOf, turns, verdict, type Backend, type Driver } from "./check";
+import { drive, givenOf, tableWorld, turns, verdict, type Backend, type Driver } from "./check";
+import type { FrameLoop } from "../../app/frame";
 import { designDoc } from "./design";
 import { wordsOf } from "./reference";
 import { ROWS } from "./rows";
@@ -83,6 +84,9 @@ function previewOf(doc: Doc, backend: Backend): Driver {
   const heard: Record<string, string[]> = {};
   const worlds = tiny.elements(tree).find((e) => { const v = e.props.value as Partial<Worlds> | undefined; return !!v && typeof v.channel === "function" && typeof v.send === "function"; })?.props.value as Worlds | undefined;
   for (const it of doc.groups.flatMap((g) => g.items)) if (it.component === "world-view") worlds?.channel(it.id).listen((action, value) => (heard[it.id] = inputLog(heard[it.id] ?? [], action, value)));
+  /* the preview's frame loop (components/preview/frames.ts), which its screens hand their props bound per frame */
+  const frames = (): FrameLoop | undefined => tiny.elements(tree).find((e) => { const v = e.props.value as Partial<FrameLoop> | undefined; return !!v && typeof v.tick === "function" && typeof v.listen === "function"; })?.props.value as FrameLoop | undefined;
+  let letGo: (() => void) | undefined;
   return {
     tap: (words) => {
       const { screen, it } = find(words);
@@ -120,6 +124,13 @@ function previewOf(doc: Doc, backend: Backend): Driver {
       (controls.props.onBack as () => void)();
       draw();
     },
+    /* the world an engine connects to a view's channel, and the frame the browser would run next */
+    world: (w) => {
+      letGo?.();
+      letGo = worlds?.channel("table-world").attach?.(tableWorld(w));
+      frames()?.tick();
+      draw();
+    },
     settle: async () => {
       for (let i = 0; i < 6; i++) {
         await turns(2);
@@ -138,6 +149,8 @@ function previewOf(doc: Doc, backend: Backend): Driver {
           words.push(...(heard[it.id] ?? []));
         }
       }
+      /* what the last frame wrote into the parts bound per frame */
+      words.push(...(frames()?.words() ?? []));
       /* the move the screen on show plays: what the preview hands the motion of its screens (`custom`) */
       const played = tiny.elements(tree).find((e) => { const c = e.props.custom as ScreenMove | undefined; return !!c && typeof c === "object" && "backwards" in c; })?.props.custom as ScreenMove | undefined;
       const move = played ? { back: played.backwards, motion: played.motion?.kind ?? "none" } : undefined;

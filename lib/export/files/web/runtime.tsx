@@ -444,7 +444,13 @@ export function AppProvider({ children/*#if !mocks*//*#else , capabilities#end*/
 //#if frames
   /* the bindings per frame of the screens on show (lib/bindings/frame.ts): one loop on the browser's frames, over the
      world a view connected to its channel; a frame writes into the parts, never through a render */
-  const [frames] = useState(() => createFrameLoop({ world: () => worlds.attached(), schedule: (fn) => window.requestAnimationFrame(fn), cancel: (h) => window.cancelAnimationFrame(h as number) }))
+  const [frames] = useState(() =>
+    createFrameLoop({
+      world: () => worlds.attached(),
+      /* a page with no frames of its own (a server's render, a test) runs it by hand */
+      ...(typeof window.requestAnimationFrame === "function" ? { schedule: (fn: () => void) => window.requestAnimationFrame(fn), cancel: (h: unknown) => window.cancelAnimationFrame(h as number) } : {}),
+    }),
+  )
 //#end
 //#if acts
   /* A tap's steps each read the state as the step before left it (lib/actions), not as it was last drawn: every change

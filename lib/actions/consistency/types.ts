@@ -42,6 +42,8 @@ export type PartSpec = {
   hidden?: boolean;
   /** the input fills this field of its form (`Item.field`) */
   field?: string;
+  /** its props bound per frame (`Item.frame`): a text's `text` to an expression over `world` (docs/数据绑定.md “每帧绑定”) */
+  frame?: Record<string, string>;
 };
 
 export type ScreenSpec = { id: string; name: string; params?: string[]; auth?: "required" | "login" };
@@ -109,7 +111,14 @@ export type Step =
   | { push: string; message: string; payload?: Record<string, unknown> }
   /** The back end's clock stands still or runs on, at a rate: what the hosts read as `now`. It starts running at
    *  `TABLE_CLOCK_START`, and moves only with the `wait` steps (each `rate` times as far), so what it tells is exact. */
-  | { clock: { paused?: boolean; rate?: number } };
+  | { clock: { paused?: boolean; rate?: number } }
+  /** The world the HUD reads is now one whose snapshot (`World.view()`) is `view` and whose clock is `clock` (standing
+   *  at 0 unless said), connected to a world view's channel as an engine connects; then a frame passes, and the props
+   *  bound per frame are written (docs/数据绑定.md “每帧绑定”). */
+  | { world: TableWorld };
+
+/** a world a row hands the hosts: its snapshot and its clock */
+export type TableWorld = { view: Record<string, unknown>; clock?: { now: number; paused?: boolean; rate?: number } };
 
 /** a call as the back end saw it: its operation and what it was given (query and JSON body fields together) */
 export type SeenCall = { op: string; in: Record<string, unknown> };
