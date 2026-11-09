@@ -495,6 +495,9 @@ export type PropRename = {
   wrapped?: (source: string) => boolean;
   /** a value as the part reads it now, back in the old unit or form: for the tests of old files (`asWrittenAt4`) */
   down?: (v: unknown) => unknown;
+  /** what a tap that sets the prop sets it to now, where that is not `value` (a tap sets words, a number or yes or no,
+   *  never rows: a palette's colors set by a tap stay the words the palette reads its colors from) */
+  set?: (v: unknown) => unknown;
 };
 
 const PRICE_SIZES: Record<string, string> = { small: "sm", medium: "default", large: "lg" };
@@ -612,7 +615,7 @@ const renamedSets =
         if (!isRecord(e) || e.do !== "setProp" || typeof e.prop !== "string") return e;
         const r = renameIn(table, partAt(parts, e.part), e.prop);
         if (!r) return e;
-        return withKey(withKey(e, "prop", r.to), "value", convert(r, e.value));
+        return withKey(withKey(e, "prop", r.to), "value", r.set ? r.set(e.value) : convert(r, e.value));
       }),
     );
     return withKey(b, "effects", effects);
@@ -749,8 +752,16 @@ export const COLOR_WORDS_6: Record<string, Record<string, string>> = {
   "text.color": { default: "", muted: "on-surface-variant", inverse: "inverse-on-surface" },
 };
 
-/** a color written as a hex, a role, a role at a share (parts/color.ts at version 6) */
-const COLOR_6 = /^(#([0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})|[a-z]+(-[a-z]+)*(\/\d{1,3})?)$/i;
+/** the roles a color may name, as parts/color.ts had them at version 6 */
+const ROLES_6 = new Set(
+  "primary on-primary primary-container on-primary-container inverse-primary primary-fixed primary-fixed-dim on-primary-fixed on-primary-fixed-variant secondary on-secondary secondary-container on-secondary-container secondary-fixed secondary-fixed-dim on-secondary-fixed on-secondary-fixed-variant tertiary on-tertiary tertiary-container on-tertiary-container tertiary-fixed tertiary-fixed-dim on-tertiary-fixed on-tertiary-fixed-variant error on-error error-container on-error-container background on-background surface on-surface surface-variant on-surface-variant surface-dim surface-bright surface-container-lowest surface-container-low surface-container surface-container-high surface-container-highest inverse-surface inverse-on-surface surface-tint outline outline-variant shadow scrim".split(" "),
+);
+/** whether words are a color as version 6 reads one: a hex, a role, a role at a share of itself */
+function isColor6(v: string): boolean {
+  if (/^#([0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/i.test(v)) return true;
+  const m = /^([a-z]+(?:-[a-z]+)*)(?:\/(\d{1,3}))?$/.exec(v);
+  return !!m && ROLES_6.has(m[1]) && (m[2] === undefined || Number(m[2]) <= 100);
+}
 
 /** an expression's source that comes to the color its words drew: each word as its color, anything else as it came */
 const colorWordsExpr = (words: Record<string, string>) => (source: string) => {
@@ -781,8 +792,8 @@ export const PROP_CHANGES_6: readonly PropRename[] = [
     return { slug, from: key, to: key, value: choiceIn(words), expr: colorWordsExpr(words), wrapped: colorWordsWrapped(words), down: choiceIn(backOf(words)) };
   }),
   /* a rarity's color is a color; words that were none were never painted */
-  { slug: "item-cell", from: "rarityColor", to: "rarityColor", value: (v) => (typeof v === "string" && !COLOR_6.test(v.trim()) ? "" : typeof v === "string" ? v.trim() : v) },
-  { slug: "color-palette", from: "colors", to: "colors", value: colorRows, down: colorWords },
+  { slug: "item-cell", from: "rarityColor", to: "rarityColor", value: (v) => (typeof v !== "string" ? v : isColor6(v.trim()) ? v.trim() : "") },
+  { slug: "color-palette", from: "colors", to: "colors", value: colorRows, down: colorWords, set: (v) => v },
   /* places from 0, each under a key of its own */
   { slug: "table", from: "selected", to: "selectedRow", value: numberIn((n) => n - 1), expr: (s) => `(${s}) - 1`, down: numberIn((n) => n + 1) },
   { slug: "pagination", from: "current", to: "page", value: numberIn((n) => n - 1), expr: (s) => `(${s}) - 1`, down: numberIn((n) => n + 1) },

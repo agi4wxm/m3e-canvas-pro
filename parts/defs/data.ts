@@ -108,7 +108,7 @@ export const data: PartDef[] = [
       { key: "height", label: "Height", kind: "number", default: 200, min: 96, max: 600, step: 4, unit: "px" },
     ],
     tree: (p) => {
-      const pts = p.table("data").rows.map((r) => [value(r[0]), value(r[1])]);
+      const pts = p.rows("data").map((r) => [value(r.x), value(r.y)]);
       const span = (axis: 0 | 1) => {
         const all = pts.map((q) => q[axis]);
         const lo = Math.min(...all, 0);
@@ -217,7 +217,7 @@ export const data: PartDef[] = [
       h(
         "dl",
         { "data-slot": "dashboard-description-list", className: "grid grid-cols-[auto_1fr] gap-x-4 gap-y-2", style: { width: Math.round(p.n("width")) } },
-        ...p.table("data").rows.flatMap((r) => [h("dt", { className: "text-label-large text-on-surface-variant" }, r[0] ?? ""), h("dd", { className: "text-body-medium text-on-surface" }, r[1] ?? "")]),
+        ...p.rows("data").flatMap((r) => [h("dt", { className: "text-label-large text-on-surface-variant" }, r.name ?? ""), h("dd", { className: "text-body-medium text-on-surface" }, r.value ?? "")]),
       ),
   },
   {
@@ -260,7 +260,7 @@ export const data: PartDef[] = [
       { key: "title", label: "Title", labels: { zh: "标题" }, kind: "text", default: "Invoices", defaults: { zh: "发票列表" } },
       { key: "data", label: "Data", labels: { ja: "データ", zh: "数据", ko: "데이터" }, kind: "table", default: { columns: COLUMNS, rows: ROWS }, structure: true },
       { key: "caption", label: "Caption", labels: { ja: "キャプション", zh: "说明文字", ko: "캡션" }, kind: "text", default: "" },
-      { key: "selectedRow", label: "Selected row (from 0, -1: none)", labels: { ja: "選択中の行（0 から、-1: なし）", zh: "选中的行（从 0 数，-1 为无）", ko: "선택한 행 (0부터, -1: 없음)" }, kind: "number", default: -1, min: -1, max: 99, step: 1 },
+      { key: "selectedRow", label: "Selected row (from 0, -1: none)", labels: { ja: "選択中の行（0 から、-1: なし）", zh: "选中的行（从 0 数，-1 为无）", ko: "선택한 행 (0부터, -1: 없음)" }, kind: "number", default: -1, min: -1, max: 99, step: 1, of: "data" },
       { key: "alignLast", label: "Right-align the last column", labels: { ja: "最後の列を右揃え", zh: "最后一列右对齐", ko: "마지막 열 오른쪽 정렬" }, kind: "bool", default: false },
       { key: "width", label: "Width", kind: "number", default: 420, min: 200, max: 960, step: 4, unit: "px" },
     ],

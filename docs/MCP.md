@@ -279,7 +279,7 @@ npx playwright install chromium
 | `duplicate_nodes` | 搭建 |  |  | Duplicates parts (a container with what it holds) a step aside and selects the copies. |
 | `set_item` | 搭建 |  |  | Changes a part's own fields: props, fill, textColor, corners, look, note, action/actions, bind, slot (true or a component name such as "BuyButton": the exported apps draw the part… |
 | `set_props` | 搭建 |  |  | Sets prop values of a part (checked against its PropDefs); null resets one to its default. |
-| `set_rows` | 搭建 |  |  | Gives a list prop of a part its rows (a navigation bar's tabs, a menu's entries…), in order: each {label, icon?…}. |
+| `set_rows` | 搭建 |  |  | Gives a list or table prop of a part its rows (a navigation bar's tabs, a menu's entries, a chart's points, a leaderboard's players…), in order. |
 | `set_group` | 搭建 |  |  | Sets a group's fields (by the group's or one of its parts' id): name, hidden (at the start of the preview), locked, showWhen (a condition), pane. |
 | `toggle_lock` | 搭建 |  |  | Locks the groups of the given parts, or unlocks them when all already are. |
 | `nudge` | 搭建 |  |  | Moves parts (or a screen with everything on it) by dx, dy. |

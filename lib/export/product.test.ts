@@ -49,7 +49,7 @@ beforeAll(async () => {
 describe("the prototype export", () => {
   /* The single-app export stays as it was, to the byte, beside the product. These digests were taken from the export
      before the product existed; one that changes on purpose is written again here (last: format version 6, lib/converge.ts: parts/types.ts, which
-     ships, has the color prop kind and a palette's rows of colors, the widgets paint a color only when it is one
+     ships, has the color prop kind, a palette's rows of colors, the row model's `P.rows` and places among rows (`of`), the widgets paint a color only when it is one
      (parts/widgets/look.ts `PAINTABLE`, the item cell's rarity and the palette's swatches), and a multiple choice's
      picks are its rows' places from 0 (`picked`); before that the time the parts' countdowns read comes from the app's
      clock, parts/widgets/host.ts `setDomainClock` and seed.ts `clockNow` (the device's in a prototype, which hands in
@@ -85,11 +85,11 @@ describe("the prototype export", () => {
      icons asking again and the ripple under reduced motion; in parts, form fields keyed by their item and resizable
      sizes as percentages). */
   const DIGESTS: Record<string, [number, string]> = {
-    proof: [90, "92a93d4dbdbc19e080e057360a27eaad4212fe2cbebdc4044476d7017d937c38"],
+    proof: [90, "531568478c9df29d46e7e807a4c7473e4c058bb6d11c3ecc700e1ed5c26a6964"],
     systems: [47, "ea74120eac5b2ff06d26672a005d6b99de1c8630a1003c010a3acfe0d5762b8b"],
     reuse: [38, "c06247a5f0f8f2ef00b9e3afdfe4e3f4d01a16767094ed306db35204957caa11"],
-    sweep: [100, "406a2b6593bfa019b617822ce53dd3d99292e2797bcea16bac8ed96a235cb58b"],
-    parts: [140, "261a22b36c9a3a9537c415c8e145305659001326048079879ec988e09ffaeabc"],
+    sweep: [100, "d47e5fa4d2cb20095455d14e996efddb76b7dd81b860890f639779c536aa9ba1"],
+    parts: [140, "c7ca20d6707890fb2d713d97803f659f168fd8e5fcc9d12d2590cf9d00cda0a4"],
   };
   const DOCS: Record<string, () => { doc: Doc; widths: Record<string, number> }> = { proof: proofDoc, systems: systemsDoc, reuse: reuseDoc, sweep: sweepDoc, parts: () => ({ doc: allPartsDoc(), widths: {} }) };
   it.each(Object.keys(DIGESTS))("is byte for byte what it was: %s", async (name) => {

@@ -1,7 +1,12 @@
+import { MATERIAL } from "./theme.generated";
+
 /* Colors as the stylesheet has them: every M3 role is a CSS variable on the screen's root (`--md-sys-color-<role>`, and
  * its red, green and blue as `--md-sys-color-<role>-rgb` so an opacity can be laid over it), the style's own colors are
  * `--m3e-st-<name>`. A painted surface redefines the words' roles for what it holds (`inkVars`), the way the web's
  * parts redefine `--md-sys-color-on-surface` (parts/appearance.ts). */
+
+/** the roles a color may name: every theme defines them */
+const ROLES = new Set(Object.keys(MATERIAL.light.colors));
 
 const kebab = (s: string) => s.replace(/[A-Z]/g, (x) => `-${x.toLowerCase()}`);
 const round = (n: number) => Math.round(n * 1000) / 1000;
@@ -21,7 +26,8 @@ export function css(ref: string | undefined): string | undefined {
   if (!ref || typeof ref !== "string") return undefined;
   if (ref.startsWith("#")) return /^#[0-9a-f]{3,8}$/i.test(ref) ? ref : undefined;
   const [role, alpha] = ref.split("/");
-  if (!/^[a-z][a-z0-9-]*$/.test(role)) return undefined;
+  /* a role of the scheme (the one color value, the editor's parts/color.ts): words that name none are no color */
+  if (!ROLES.has(role) || (alpha !== undefined && !/^\d{1,3}$/.test(alpha))) return undefined;
   return alpha === undefined ? c(role) : ca(role, Number(alpha) / 100);
 }
 

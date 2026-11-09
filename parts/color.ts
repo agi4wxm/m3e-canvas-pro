@@ -161,3 +161,11 @@ export function paintOf(ref: ColorValue, classes: Record<string, string | undefi
 /** The colors a color prop is drawn each way with where only a few can be (a printed app that picks among drawings, a
  *  panel's swatches): its default, the roles it was designed around, and none. */
 export const colorChoicesOf = (d: { default: string; roles?: string[] }): string[] => [...new Set([d.default, ...(d.roles ?? []), ""])];
+
+/** A list of colors given as words (a palette's colors as a tap sets them, or an expression gives them: "#6750A4,primary"),
+ *  as rows of the row model: each a color and the name it is read out by, its color. */
+export const colorRowsOf = (words: string): { label: string; color: string }[] =>
+  words
+    .split(/[,\n]/)
+    .map((w) => w.trim())
+    .map((c) => ({ label: c, color: c }));

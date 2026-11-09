@@ -301,6 +301,8 @@ Icons are Material Symbols names (`home`, `search`, `add`, `favorite`, `settings
 
 These are all the parts there are; a `component` that is not here shows as an unknown part. A `kind` other than `component` makes the whole file unreadable. Numbers are in dp unless they say otherwise.
 
+A prop marked *color* takes one color value: a role of the scheme (`primary`, `on-surface-variant`, `surface-container-high`…), a role at a share of itself (`primary/40`), or a hex of your own (`#7BAE7A`); `""` is none set (the part's own color, or no fill). There are no other color words (`muted` is `on-surface-variant`). A list's rows and a table's rows are rows of cells: a list's `{ "label", "icon"… }`, a table's cells under its columns, read by the keys each part lists (`set_rows` takes a table's rows as records of those keys). A place among rows counts from 0: a table's `selectedRow` (-1 for none), a pagination's `page`, a level map's `level`, a multiple choice's `picked` (`"0,2"`).
+
 <!-- parts:begin -->
 
 #### Atoms

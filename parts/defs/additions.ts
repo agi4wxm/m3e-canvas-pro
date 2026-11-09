@@ -347,7 +347,7 @@ export const additions: PartDef[] = [
     h: 80,
     props: [
       { key: "items", label: "Options", labels: { zh: "选项" }, kind: "list", default: [{ label: "Email" }, { label: "Push" }, { label: "SMS" }], min: 1, max: 24 },
-      { key: "picked", label: "Picked rows, from 0 (0,2)", labels: { ja: "選んだ行（0 から、例 0,2）", zh: "选中的行（从 0 数，如 0,2）", ko: "선택한 행 (0부터, 예: 0,2)" }, kind: "text", default: "0" },
+      { key: "picked", label: "Picked rows, from 0 (0,2)", labels: { ja: "選んだ行（0 から、例 0,2）", zh: "选中的行（从 0 数，如 0,2）", ko: "선택한 행 (0부터, 예: 0,2)" }, kind: "text", default: "0", of: "items" },
       WIDTH(320, 120, 800),
       ariaLabelProp(),
     ],

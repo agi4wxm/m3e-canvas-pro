@@ -152,13 +152,13 @@ export const more: PartDef[] = [
       HEIGHT(892, 120, 2400),
       WIDTH(412, 120, 1600),
     ],
-    slots: (p) => p.table("hotspots").rows.map((r, i) => ({ key: `tab:${i}`, label: r[0] || `${i + 1}` })),
+    slots: (p) => p.rows("hotspots").map((r, i) => ({ key: `tab:${i}`, label: r.label || `${i + 1}` })),
     tree: (p) =>
       h("Scene", {
         image: p.s("image"),
         icon: p.s("icon"),
         scrim: p.s("scrim"),
-        hotspots: p.table("hotspots").rows.map((r) => ({ label: r[0] ?? "", x: percent(r[1]), y: percent(r[2]), w: percent(r[3]), h: percent(r[4]) })),
+        hotspots: p.rows("hotspots").map((r) => ({ label: r.label ?? "", x: percent(r.x), y: percent(r.y), w: percent(r.w), h: percent(r.h) })),
         height: px(p, "height"),
         width: px(p),
       }),
@@ -337,7 +337,7 @@ export const more: PartDef[] = [
       table("data", "Steps", { columns: ["Step", "Value"], rows: [["Visits", "5200"], ["Sign-ups", "2100"], ["Activated", "1300"], ["Paid", "480"]] }),
       WIDTH(380, 200),
     ],
-    tree: (p) => h("FunnelChart", { title: p.s("title"), rows: p.table("data").rows.map((r) => ({ name: r[0] ?? "", value: n(r[1]) })), width: px(p) }),
+    tree: (p) => h("FunnelChart", { title: p.s("title"), rows: p.rows("data").map((r) => ({ name: r.step ?? "", value: n(r.value) })), width: px(p) }),
   },
   {
     slug: "gantt-chart",
@@ -356,7 +356,7 @@ export const more: PartDef[] = [
       num("today", "Today (-1: none)", 4, -1, 52),
       WIDTH(380, 240),
     ],
-    tree: (p) => h("GanttChart", { title: p.s("title"), rows: p.table("data").rows.map((r) => ({ name: r[0] ?? "", start: n(r[1]), length: n(r[2]), done: n(r[3]) })), units: Math.round(p.n("units")), unit: p.s("unit"), today: p.n("today"), width: px(p) }),
+    tree: (p) => h("GanttChart", { title: p.s("title"), rows: p.rows("data").map((r) => ({ name: r.task ?? "", start: n(r.start), length: n(r.length), done: n(r.done) })), units: Math.round(p.n("units")), unit: p.s("unit"), today: p.n("today"), width: px(p) }),
   },
   /* ---------- talking ---------- */
   {
@@ -551,13 +551,13 @@ export const more: PartDef[] = [
           "div",
           { className: "flex flex-col gap-2 p-3" },
           h("div", null, h("div", { "data-slot": "character-card-title", className: "text-title-large" }, p.s("name")), p.s("role") && h("div", { "data-slot": "character-card-subtitle", className: "text-body-small text-on-surface-variant" }, p.s("role"))),
-          ...p.table("data").rows.map((r) =>
+          ...p.rows("data").map((r) =>
             h(
               "div",
               { "data-slot": "character-card-stat", className: "flex items-center gap-2" },
-              h("span", { className: "text-label-medium w-12 shrink-0 truncate" }, r[0] ?? ""),
-              h("div", { "data-slot": "character-card-track", className: "bg-surface-container-highest h-2 min-w-0 flex-1 overflow-hidden rounded-full" }, h("div", { "data-slot": "character-card-fill", className: "bg-primary h-full rounded-full", style: { width: `${Math.min(100, (n(r[1]) / Math.max(1, n(r[2]))) * 100)}%` } })),
-              h("span", { "data-slot": "character-card-value", className: "text-label-small w-8 shrink-0 text-right tabular-nums" }, r[1] ?? ""),
+              h("span", { className: "text-label-medium w-12 shrink-0 truncate" }, r.stat ?? ""),
+              h("div", { "data-slot": "character-card-track", className: "bg-surface-container-highest h-2 min-w-0 flex-1 overflow-hidden rounded-full" }, h("div", { "data-slot": "character-card-fill", className: "bg-primary h-full rounded-full", style: { width: `${Math.min(100, (n(r.value) / Math.max(1, n(r.max))) * 100)}%` } })),
+              h("span", { "data-slot": "character-card-value", className: "text-label-small w-8 shrink-0 text-right tabular-nums" }, r.value ?? ""),
             ),
           ),
           p.s("action") && h("Button", { "data-tap": "action" }, p.s("action")),

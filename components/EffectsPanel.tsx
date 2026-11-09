@@ -609,13 +609,13 @@ export function VisibilitySection({ p }: { p: Palette }) {
 }
 
 /** the props that can follow a variable: a part's measure is the layout's to set */
-const bindable = (d: PropDef) => (d.kind === "text" || d.kind === "number" || d.kind === "bool") && d.key !== "width" && d.key !== "height" && !(d.kind === "number" && d.axis);
+const bindable = (d: PropDef) => (d.kind === "text" || d.kind === "number" || d.kind === "bool" || d.kind === "color") && d.key !== "width" && d.key !== "height" && !(d.kind === "number" && d.axis);
 
-const typeOfProp = (d: PropDef): VarType => (d.kind === "bool" ? "bool" : d.kind === "number" ? "number" : "text");
+const typeOfProp = (d: PropDef): VarType => (d.kind === "bool" ? "bool" : d.kind === "number" ? "number" : d.kind === "color" ? "color" : "text");
 
-/** whether a variable of a type can stand for a prop: a number for a number, yes or no for a switch, and words (or a
- *  number, a yes or no read as words) for words and choices */
-const fitsProp = (type: VarType, d: PropDef): boolean => (d.kind === "bool" ? type === "bool" : d.kind === "number" ? type === "number" : type !== "color" || d.kind === "text");
+/** whether a variable of a type can stand for a prop: a number for a number, yes or no for a switch, a color (or words
+ *  that hold one) for a color, and words (or a number, a yes or no read as words) for words and choices */
+const fitsProp = (type: VarType, d: PropDef): boolean => (d.kind === "bool" ? type === "bool" : d.kind === "number" ? type === "number" : d.kind === "color" ? type === "color" || type === "text" : type !== "color" || d.kind === "text");
 
 /** A prop's row with a small control beside it that ties the prop to a variable. Quiet until it is
  *  used: the row stays what it was for anyone who never touches it. */

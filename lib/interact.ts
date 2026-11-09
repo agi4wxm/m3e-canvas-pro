@@ -1,4 +1,4 @@
-import { colorValue } from "../parts/color";
+import { colorRowsOf, colorValue } from "../parts/color";
 import { PARTS, partBySlug, reader } from "../parts/registry";
 import { arrangeFlows, outOfPane } from "./flow";
 import { type Row, fillCurrent, fillDeep, firstRows, rowVars } from "./collections";
@@ -155,6 +155,8 @@ function propValue(it: Item, key: string, v: unknown): unknown {
           : d.kind === "list"
             ? { kind: "list", max: d.max }
             : { kind: "text" };
+  /* a list of colors given as words is its colors, one a comma or a line, as a tap may set them */
+  if (d.kind === "list" && d.colors && typeof v === "string") return colorRowsOf(v);
   const out = propValueOf(v, read);
   /* a color is one only if the one reader of colors says so (parts/color.ts); anything else keeps the design's */
   if (d.kind === "color") return colorValue(out);

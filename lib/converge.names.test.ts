@@ -17,7 +17,7 @@ import { drawnStates, drawnTrees } from "./fixtures/history/drawn";
 beforeAll(() => setGlobalLang("en"));
 
 const dir = new URL("./fixtures/history/", import.meta.url);
-const FILES = ["2026-11-04-bf2463d-all-parts", "2026-11-05-65278cb-proof", "2026-11-06-55ab801-systems", "2026-11-06-79ec9e7-reuse", "2026-11-06-cf3fa45-bound-shop", "2026-11-09-0228f1c-names"];
+const FILES = ["2026-11-04-bf2463d-all-parts", "2026-11-05-65278cb-proof", "2026-11-06-55ab801-systems", "2026-11-06-79ec9e7-reuse", "2026-11-06-cf3fa45-bound-shop", "2026-11-09-0228f1c-names", "2026-11-09-07bd67d-rows-colors"];
 const fileOf = (name: string) => JSON.parse(readFileSync(new URL(`${name}.json`, dir), "utf8")) as { document: Doc };
 const readJson = (name: string) => JSON.parse(readFileSync(new URL(name, dir), "utf8")) as Record<string, Record<string, string>>;
 

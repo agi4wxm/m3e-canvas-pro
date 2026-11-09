@@ -77,7 +77,7 @@ function ownDoc(): Doc {
   store.transact("Build the controls", "mcp", (tx) => {
     tx.run(ops.setTitle, { title: "Own" });
     tx.run(ops.addScreen, { id: SCREEN, name: "Own", w: 412, h: 1600 });
-    tx.run(ops.addVar, { id: "picks", name: "picks", type: "text", value: "1" });
+    tx.run(ops.addVar, { id: "picks", name: "picks", type: "text", value: "0" });
     const at = (y: number) => ({ x: 16, y });
     const say = (message: string) => ({ to: "none", effects: [{ do: "snackbar", message }] }) as never;
     /* two cards whose tap says so; the first one's heart has an action of its own */
@@ -91,11 +91,11 @@ function ownDoc(): Doc {
     tx.run(ops.setAction, { id: "orders", slot: "row:*", action: say("Row {{slot.index}}") });
     /* a choice of several, bound both ways */
     tx.run(ops.addPart, { slug: "multi-select", id: "chips", screen: SCREEN, at: at(900) });
-    tx.run(ops.bindProp, { id: "chips", prop: "selected", var: "picks" });
+    tx.run(ops.bindProp, { id: "chips", prop: "picked", var: "picks" });
     tx.run(ops.addPart, { slug: "text", id: "picks-shown", screen: SCREEN, at: at(960), props: { text: "-" } });
     tx.run(ops.bindProp, { id: "picks-shown", prop: "text", var: "picks" });
     tx.run(ops.addPart, { slug: "button", id: "pick-three", screen: SCREEN, at: at(1000), props: { label: "Pick the third" } });
-    tx.run(ops.setAction, { id: "pick-three", action: { to: "none", effects: [{ do: "setVar", var: "picks", value: "3" }] } as never });
+    tx.run(ops.setAction, { id: "pick-three", action: { to: "none", effects: [{ do: "setVar", var: "picks", value: "2" }] } as never });
   });
   return savedDoc(store.get());
 }
@@ -229,12 +229,12 @@ export const tests: E2ETest[] = [
       await part(page, "orders").locator('[data-tap="row:2"]').first().click();
       await snackSays(page, "Row 2");
 
-      /* a controlled choice of several: the variable reaches the chips, a pick writes it */
+      /* a controlled choice of several: the variable reaches the chips, a pick writes it (the rows by their places from 0) */
       equal(await attr(page, "chips", "multi-select", "data-selected"), "0", "the chips start at the variable");
       await part(page, "pick-three").click();
       await until("the chips follow the variable", async () => (await attr(page, "chips", "multi-select", "data-selected")) === "2");
       await part(page, "chips").locator("button").nth(1).click();
-      await until("a pick writes the variable", async () => (await textOf(page, "picks-shown")) === "2,3");
+      await until("a pick writes the variable", async () => (await textOf(page, "picks-shown")) === "1,2");
       await page.keyboard.press("Escape");
       await settle(page, 600);
     },

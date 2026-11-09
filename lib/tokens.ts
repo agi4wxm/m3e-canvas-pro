@@ -4,6 +4,7 @@ import { holdsNow, partBySlug, reader } from "../parts/registry";
 import { axisValue, axisWrite, resizeOf } from "../parts/resize";
 import { roleOf } from "../parts/role";
 import type { ListItem, TableData } from "../parts/types";
+import { holdsRows, placesMoved } from "../parts/rows";
 import { TRANSITION_MOTIONS, type Motion, type Transition } from "./screenMotion";
 import { STAY_TARGET, linkUrlOf, type Action, type ActionBody, type Condition, type VarType, type VarValue } from "./actions/model";
 import { normalizeRecipes, normalizeUx, styleOf, stylePalette, stylePatch, styleSeed, type CustomStyle, type Recipes, type StyleContext, type StyleUX } from "./styles";
@@ -921,32 +922,52 @@ export function actionSlotsOf(it: Item): IconSlot[] {
   return def.slots(reader(def, it.props)).map((s) => ({ key: s.key, label: s.label, value: s.icon ?? null }));
 }
 
-/** the patch that gives a list prop new rows. `order` holds, for each new row, the index it had
- *  (-1 for a new one). The part's chosen entry goes with its row. Where the part's `tab:N` slots
- *  are this list's rows, so does a row's tap target, and the target of a removed row goes with it. */
-export function listRowsPatch(it: Item, key: string, rows: ListItem[], order: number[]): Partial<Item> {
-  const patch: Partial<Item> = { props: { ...it.props, [key]: rows } };
+/** The patch that gives a prop of rows (a list's or a table's, parts/rows.ts) its new rows. `order` holds, for each new
+ *  row, the index it had (-1 for a new one). What is a row's goes with it: every place among these rows the part holds
+ *  (a number or the words of places that say `of` this prop, and the part's chosen entry where its first list or its
+ *  only table is these rows), and, where the part's `tab:N` slots are these rows, a row's tap; a removed row's tap goes
+ *  with it. A choice the author never made stays unmade until its row moves. */
+export function rowsPatch(it: Item, key: string, value: ListItem[] | TableData, order: number[]): Partial<Item> {
+  const patch: Partial<Item> = { props: { ...it.props, [key]: value } };
   const def = partBySlug(it.component);
-  if (!def) return patch;
-  const was = reader(def, it.props).list(key);
-  const select = def.props.find((d) => d.key === def.selectKey);
-  /* a part's choice counts the rows of its first list */
-  if (select?.kind === "number" && def.props.find((d) => d.kind === "list")?.key === key) {
-    const sel = reader(def, it.props).n(select.key);
-    if (sel >= 0 && sel < was.length) {
-      /* a removed entry leaves the choice on the one that takes its place */
-      const at = order.indexOf(sel);
-      const next = at >= 0 ? at : Math.min(sel, Math.max(0, rows.length - 1));
-      /* a choice the author never made stays unmade until its row moves */
-      if (next !== sel) patch.props![select.key] = next;
+  const d = def?.props.find((x) => x.key === key);
+  if (!def || !holdsRows(d)) return patch;
+  const p = reader(def, it.props);
+  const was = d.kind === "list" ? p.list(key).length : p.table(key).rows.length;
+  const count = d.kind === "list" ? (value as ListItem[]).length : (value as TableData).rows.length;
+  /* a table whose rows all stand where they stood is only retyped */
+  if (d.kind === "table" && was === count && order.every((o, i) => o === i)) return patch;
+  /* the rows the part counts its choice and its tab slots by: its first list, or its only table when it has no list */
+  const theRows = d.kind === "list" ? def.props.find((x) => x.kind === "list")?.key === key : def.props.find((x) => x.kind === "table")?.key === key && !def.props.some((x) => x.kind === "list");
+  /* a removed entry leaves the choice on the one that takes its place */
+  const moved = (sel: number) => {
+    const at = order.indexOf(sel);
+    return at >= 0 ? at : Math.min(sel, Math.max(0, count - 1));
+  };
+  for (const x of def.props) {
+    const counts = (theRows && x.key === def.selectKey) || ("of" in x && x.of === key);
+    if (!counts) continue;
+    if (x.kind === "number") {
+      const sel = p.n(x.key);
+      if (sel >= 0 && sel < was) {
+        const next = "of" in x && x.of === key && order.indexOf(sel) < 0 ? -1 : moved(sel);
+        if (next !== sel) patch.props![x.key] = Math.max(x.min, next);
+      }
+    } else if (x.kind === "text") {
+      const words = p.s(x.key);
+      const next = placesMoved(words, order);
+      if (next !== words) patch.props![x.key] = next;
     }
   }
-  if (!def.slots) return patch;
-  const tabSlots = (list: ListItem[]) => def.slots!(reader(def, { ...it.props, [key]: list })).filter((s) => s.key.startsWith("tab:")).length;
-  /* the slots are this list's rows when they come and go with them */
-  if (tabSlots([...was, { label: "" }]) === tabSlots(was)) return patch;
+  if (!def.slots || !theRows) return patch;
+  if (d.kind === "list") {
+    const list = p.list(key);
+    const tabSlots = (rows: ListItem[]) => def.slots!(reader(def, { ...it.props, [key]: rows })).filter((s) => s.key.startsWith("tab:")).length;
+    /* the slots are this list's rows when they come and go with them */
+    if (tabSlots([...list, { label: "" }]) === tabSlots(list)) return patch;
+  }
   /* a slot past the rows (a menu's destructive entry) only keeps its distance from their end */
-  const to = (j: number) => (j >= was.length ? j + rows.length - was.length : order.indexOf(j));
+  const to = (j: number) => (j >= was ? j + count - was : order.indexOf(j));
   if (it.actions) {
     const actions: NonNullable<Item["actions"]> = {};
     for (const [slot, action] of Object.entries(it.actions)) {
@@ -959,42 +980,35 @@ export function listRowsPatch(it: Item, key: string, rows: ListItem[], order: nu
   return patch;
 }
 
-/** The patch that gives a table prop new rows, its taps and its choice going with them as a list's do: a table is
- *  edited as text, so a row is followed by its cells (the first unclaimed row of the same cells is the one it was). */
+/** the patch that gives a list prop new rows (`rowsPatch`); `order` holds, for each new row, the index it had */
+export const listRowsPatch = (it: Item, key: string, rows: ListItem[], order: number[]): Partial<Item> => rowsPatch(it, key, rows, order);
+
+/** The patch that gives a table prop new rows, its taps and its choice going with them as a list's do (`rowsPatch`): a
+ *  table is edited as text, so a row is followed by its cells (the first unclaimed row of the same cells is the one it
+ *  was, parts/rows.ts `rowsOrder`). */
 export function tableRowsPatch(it: Item, key: string, table: TableData): Partial<Item> {
-  const patch: Partial<Item> = { props: { ...it.props, [key]: table } };
   const def = partBySlug(it.component);
-  if (!def) return patch;
-  const was = reader(def, it.props).table(key).rows;
+  const d = def?.props.find((x) => x.key === key);
+  if (!def || d?.kind !== "table") return { props: { ...it.props, [key]: table } };
+  const was = reader(def, it.props).table(key);
+  /* a row is the row of the same cells; one edited is a new one (its tap and its choice stay where they were only when
+     nothing else moved) */
+  const cells = (t: TableData) => t.rows.map((r) => Object.fromEntries(r.map((c, i) => [String(i), c])));
+  const width = Math.max(was.columns.length, table.columns.length, ...was.rows.map((r) => r.length), ...table.rows.map((r) => r.length));
+  const keys = Array.from({ length: width }, (_, i) => String(i));
+  const order = exactOrder(cells(was), cells(table), keys);
+  return rowsPatch(it, key, table, order);
+}
+
+/** for each new row, the old row of exactly the same cells (the first unclaimed), else -1 */
+function exactOrder(was: Record<string, string>[], rows: Record<string, string>[], keys: string[]): number[] {
   const used = new Set<number>();
-  const order = table.rows.map((row) => {
-    const at = was.findIndex((r, i) => !used.has(i) && r.length === row.length && r.every((c, j) => c === row[j]));
+  const same = (a: Record<string, string>, b: Record<string, string>) => keys.every((k) => (a[k] ?? "") === (b[k] ?? "")) && Object.keys(a).length === Object.keys(b).length;
+  return rows.map((row) => {
+    const at = was.findIndex((r, i) => !used.has(i) && same(r, row));
     if (at >= 0) used.add(at);
     return at;
   });
-  if (order.every((o, i) => o === i) && was.length === table.rows.length) return patch;
-  /* the moves as a list's: the choice and the row taps of a part whose rows are this table's */
-  const rowsAreList = def.props.find((d) => d.kind === "table")?.key === key && !def.props.some((d) => d.kind === "list");
-  if (!rowsAreList) return patch;
-  const select = def.props.find((d) => d.key === def.selectKey);
-  if (select?.kind === "number") {
-    const sel = reader(def, it.props).n(select.key);
-    if (sel >= 0 && sel < was.length) {
-      const at = order.indexOf(sel);
-      const next = at >= 0 ? at : Math.min(sel, Math.max(0, table.rows.length - 1));
-      if (next !== sel) patch.props![select.key] = next;
-    }
-  }
-  if (it.actions && def.slots) {
-    const actions: NonNullable<Item["actions"]> = {};
-    for (const [slot, action] of Object.entries(it.actions)) {
-      const m = /^tab:(\d+)$/.exec(slot);
-      const at = m ? (Number(m[1]) >= was.length ? Number(m[1]) + table.rows.length - was.length : order.indexOf(Number(m[1]))) : 0;
-      if (at >= 0) actions[m ? `tab:${at}` : slot] = action;
-    }
-    patch.actions = Object.keys(actions).length ? actions : undefined;
-  }
-  return patch;
 }
 
 /** a free group down to one part is just that part again */

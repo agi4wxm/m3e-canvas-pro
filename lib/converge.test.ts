@@ -7,7 +7,7 @@
 import { readFileSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { beforeAll, describe, expect, it } from "vitest";
-import { asWrittenAt4, bodyMotion, bodyTransition, CONVERGE, CONVERGE_4, CONVERGE_5, CONVERGE_6, enteredNow, conditionExpr, conditionValue, convergeBindings, convergeConditions, convergeMotions, convergeRows, convergeTransitions, itemBind, itemBindExpr } from "./converge";
+import { asWrittenAt4, bodyMotion, bodyTransition, CONVERGE, CONVERGE_4, CONVERGE_5, CONVERGE_6, asWrittenAt5, enteredNow, conditionExpr, conditionValue, convergeBindings, convergeConditions, convergeMotions, convergeRows, convergeTransitions, itemBind, itemBindExpr } from "./converge";
 import { DEFAULT_MOTION, TRANSITION_MOTIONS } from "./screenMotion";
 import { boundVarOf, comparisonExpr, comparisonOf, fieldVarOf } from "./bindings/bind";
 import { fillRow } from "./collections";
@@ -178,7 +178,7 @@ describe("the steps", () => {
 
 describe("old files in the preview", () => {
   const dir = new URL("./fixtures/history/", import.meta.url);
-  const files = ["2026-11-04-bf2463d-all-parts", "2026-11-05-65278cb-proof", "2026-11-06-55ab801-systems", "2026-11-06-79ec9e7-reuse", "2026-11-06-cf3fa45-bound-shop", "2026-11-09-0228f1c-names"];
+  const files = ["2026-11-04-bf2463d-all-parts", "2026-11-05-65278cb-proof", "2026-11-06-55ab801-systems", "2026-11-06-79ec9e7-reuse", "2026-11-06-cf3fa45-bound-shop", "2026-11-09-0228f1c-names", "2026-11-09-07bd67d-rows-colors"];
   /* what the preview of the version that wrote each drew of it (version 3 for the older files, version 4 for the one of
      the props version 5 renames; written by lib/fixtures/history/drawn.ts), each part's props read under the names of
      version 4 */
@@ -186,7 +186,8 @@ describe("old files in the preview", () => {
 
   it.each(files)("draw every part as the version that wrote them drew them, at the start, after each tap and after each input is used: %s", (name) => {
     const file = JSON.parse(readFileSync(new URL(`${name}.json`, dir), "utf8")) as { document: Doc };
-    const now = drawnStates(loadDocument(file)!.doc, asWrittenAt4, enteredNow);
+    /* read under the names of the version that wrote it: version 4's for the older files, 5's for the one of the props version 6 changes */
+    const now = drawnStates(loadDocument(file)!.doc, (file as { version?: number }).version === 5 ? asWrittenAt5 : asWrittenAt4, enteredNow);
     expect(Object.keys(now).sort()).toEqual(Object.keys(golden[name]).sort());
     expect(Object.entries(now).filter(([k, v]) => golden[name][k] !== v).map(([k]) => k)).toEqual([]);
   });

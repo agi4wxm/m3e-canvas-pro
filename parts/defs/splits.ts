@@ -792,7 +792,7 @@ export const SPLITS: Record<string, (p: P, look?: KitLook) => Node> = {
 
   "reward-track": (p) => {
     const claimed = new Set(p.s("claimed").split(/[\s,，]+/).map((x) => Number(x) - 1));
-    const rows = p.table("data").rows.map((r, i) => ({ at: Number(r[0]) || 0, label: r[1] ?? "", glyph: claimed.has(i) ? "check" : (r[2] ?? ""), claimed: claimed.has(i) }));
+    const rows = p.rows("data").map((r, i) => ({ at: Number(r.at) || 0, label: r.label ?? "", glyph: claimed.has(i) ? "check" : (r.icon ?? ""), claimed: claimed.has(i) }));
     const value = Math.round(p.n("value"));
     const share = Math.min(100, Math.max(0, (value / Math.max(1, p.n("max"))) * 100));
     return vbox({ width: px(p), hugWidth: false, gap: 8 }, [

@@ -188,10 +188,10 @@ export const game: PartDef[] = [
       { key: "width", label: "Width", kind: "number", default: 380, min: 200, max: 800, step: 4, unit: "px" },
     ],
     /* a press on a reward that is ready asks to claim it; what is claimed is the game's to say */
-    slots: (p) => p.table("data").rows.map((r, i) => ({ key: `tab:${i}`, label: r[1] || `${i + 1}` })),
+    slots: (p) => p.rows("data").map((r, i) => ({ key: `tab:${i}`, label: r.label || `${i + 1}` })),
     families: [EVERY_ENTRY],
     demo: { what: "marks a reward claimed as soon as it is pressed", takenOverBy: ["claimed"] },
-    tree: (p) => h("RewardTrack", { rewards: p.table("data").rows.map((r) => ({ at: Number(r[0]) || 0, label: r[1] ?? "", icon: r[2] ?? "" })), value: Math.round(p.n("value")), max: Math.round(p.n("max")), ...(p.s("claimed") ? { claimed: p.s("claimed") } : {}), action: p.s("action"), width: Math.round(p.n("width")) }),
+    tree: (p) => h("RewardTrack", { rewards: p.rows("data").map((r) => ({ at: Number(r.at) || 0, label: r.label ?? "", icon: r.icon ?? "" })), value: Math.round(p.n("value")), max: Math.round(p.n("max")), ...(p.s("claimed") ? { claimed: p.s("claimed") } : {}), action: p.s("action"), width: Math.round(p.n("width")) }),
   },
   {
     slug: "check-in",

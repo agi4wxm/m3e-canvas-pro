@@ -4076,5 +4076,147 @@
     "gone": []
    }
   }
+ },
+ "2026-11-09-07bd67d-rows-colors": {
+  "screens": [
+   "s-colors",
+   "s-rows"
+  ],
+  "vars": {
+   "v-tone": "muted",
+   "v-row": 1,
+   "v-page": 4,
+   "v-swatch": 2
+  },
+  "gone": [],
+  "taps": {
+   "b-colors/tap": {
+    "to": "none",
+    "moves": null,
+    "trigger": {
+     "on": "tap"
+    },
+    "overlay": false,
+    "scrollTo": null,
+    "params": null,
+    "vars": {
+     "v-tone": "inverse",
+     "v-row": 1,
+     "v-page": 4,
+     "v-swatch": 2
+    },
+    "hidden": {},
+    "props": {
+     "t1": {
+      "color": "inverse"
+     },
+     "i2": {
+      "color": "muted"
+     },
+     "d1": {
+      "color": "muted"
+     },
+     "l2": {
+      "iconFill": "surface"
+     },
+     "c1": {
+      "fill": "none"
+     },
+     "s1": {
+      "color": "default"
+     }
+    },
+    "opened": {},
+    "snack": null,
+    "gone": []
+   },
+   "pg1/tab:3": {
+    "to": "none",
+    "moves": null,
+    "trigger": {
+     "on": "tap"
+    },
+    "overlay": false,
+    "scrollTo": null,
+    "params": null,
+    "vars": {
+     "v-tone": "muted",
+     "v-row": 1,
+     "v-page": 4,
+     "v-swatch": 2
+    },
+    "hidden": {},
+    "props": {
+     "pg1": {
+      "current": 4
+     }
+    },
+    "opened": {},
+    "snack": null,
+    "gone": []
+   },
+   "lv/tab:1": {
+    "to": "none",
+    "moves": null,
+    "trigger": {
+     "on": "tap"
+    },
+    "overlay": false,
+    "scrollTo": null,
+    "params": null,
+    "vars": {
+     "v-tone": "muted",
+     "v-row": 1,
+     "v-page": 4,
+     "v-swatch": 2
+    },
+    "hidden": {},
+    "props": {
+     "lv": {
+      "current": 2
+     }
+    },
+    "opened": {},
+    "snack": null,
+    "gone": []
+   },
+   "b-places/tap": {
+    "to": "none",
+    "moves": null,
+    "trigger": {
+     "on": "tap"
+    },
+    "overlay": false,
+    "scrollTo": null,
+    "params": null,
+    "vars": {
+     "v-tone": "muted",
+     "v-row": 2,
+     "v-page": 2,
+     "v-swatch": 2
+    },
+    "hidden": {},
+    "props": {
+     "tb1": {
+      "selected": 3
+     },
+     "tb2": {
+      "selected": 1
+     },
+     "pg2": {
+      "current": 6
+     },
+     "ms1": {
+      "selected": "2"
+     },
+     "pal": {
+      "colors": "#000000,#ffffff"
+     }
+    },
+    "opened": {},
+    "snack": null,
+    "gone": []
+   }
+  }
  }
 }

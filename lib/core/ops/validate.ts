@@ -31,7 +31,7 @@ const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === "obj
 export function propKindText(d: PropDef): string {
   switch (d.kind) {
     case "text":
-      return "text";
+      return d.of ? `the rows of ${d.of} picked, by their places from 0 with commas between ("0,2")` : "text";
     case "icon":
       return 'a Material Symbols icon name, or svg:<id> for one of the document\'s own icons ("" for none)';
     case "enum":
@@ -39,13 +39,14 @@ export function propKindText(d: PropDef): string {
     case "bool":
       return "true or false";
     case "number":
-      return `a number from ${d.min} to ${d.max}${d.unit ? ` ${d.unit}` : ""}`;
+      return `a number from ${d.min} to ${d.max}${d.unit ? ` ${d.unit}` : ""}${d.of ? `: a row of ${d.of}, counted from 0${d.min < 0 ? " (-1: none)" : ""}` : ""}`;
     case "image":
       return 'a picture drawn into the document (a data:image URL; generate_image paints one) or ""';
     case "list":
       return `a list of rows like {"label": "…"${d.icons ? ', "icon": "…"' : ""}${d.images ? ', "image": "…"' : ""}${d.colors ? ', "color": "#6750A4"' : ""}}${d.min !== undefined ? `, at least ${d.min}` : ""}${d.max !== undefined ? `, at most ${d.max}` : ""}`;
     case "table":
-      return 'a table {"columns": ["…"], "rows": [["…"]]}';
+      /* the row model (parts/rows.ts): what set_rows takes a row as */
+      return `a table {"columns": ["…"], "rows": [["…"]]}${d.columns?.length ? `; its rows are read by key (${d.columns.map((c) => c.key).join(", ")}), set_rows takes them as records of those keys` : ""}`;
     case "color":
       return `a color: a role (${(d.roles ?? ["primary", "on-surface"]).slice(0, 4).join(", ")}…), a role at a share of itself ("primary/40") or a hex ("#7BAE7A"); "" for ${d.none === "none" ? "none" : "the part's own"}`;
   }

@@ -249,7 +249,12 @@ export function ComponentProps({ item, palette: p, onChange, frame, layoutApart,
   const rowsToPick = tabs?.map((s) => s.label) ?? (firstList ? values.list(firstList.key).map((r) => r.label) : firstTable ? values.table(firstTable.key).rows.map((r) => r[0] ?? "") : undefined);
   /* a choice input is picked among the options it declares (a palette's colors), the way a chosen row is */
   const choice = def.input?.kind === "choice" ? def.input.prop : undefined;
-  const rowsOf = (d: PropDef) => (d.key === choice ? optionsOf(item) : d.key === def.selectKey ? rowsToPick : undefined);
+  /* a place among another prop's rows (`of`, parts/rows.ts) is picked by its row's first cell, as a chosen row is */
+  const placeAmong = (key: string) => {
+    const rowsProp = def.props.find((x) => x.key === key);
+    return rowsProp?.kind === "list" ? values.list(key).map((r) => r.label) : rowsProp?.kind === "table" ? values.table(key).rows.map((r) => r[0] ?? "") : undefined;
+  };
+  const rowsOf = (d: PropDef) => (d.key === choice ? optionsOf(item) : d.key === def.selectKey ? rowsToPick : d.kind === "number" && d.of ? placeAmong(d.of) : undefined);
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
       {def.props

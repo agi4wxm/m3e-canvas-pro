@@ -30,7 +30,16 @@ export type PropDef = {
    *  a layout places the part, and the panel leaves it out then */
   screen?: boolean;
 } & (
-  | { kind: "text"; default: string; multiline?: boolean; /** the seed in each language; `default` stays English */ defaults?: Labels }
+  | {
+      kind: "text";
+      default: string;
+      multiline?: boolean;
+      /** the seed in each language; `default` stays English */
+      defaults?: Labels;
+      /** places among the rows of another prop of the part, from 0 with commas between ("0,2", parts/rows.ts): each goes
+       *  with its row when the rows move */
+      of?: string;
+    }
   | { kind: "enum"; default: string; options: Choice[] }
   | { kind: "bool"; default: boolean }
   | {
@@ -43,6 +52,9 @@ export type PropDef = {
       /** the measure the canvas handles pull when it is not the prop's name (a basic
        *  dialog's `dialogWidth` is still a width) */
       axis?: "width" | "height";
+      /** a place among the rows of another prop of the part (parts/rows.ts), from 0, -1 for none: it goes with its row
+       *  when the rows move, and is gone with it */
+      of?: string;
     }
   /** a Material Symbols name; "" means no icon */
   | { kind: "icon"; default: string }
@@ -75,6 +87,9 @@ export type P = {
   b: (key: string) => boolean;
   list: (key: string) => ListItem[];
   table: (key: string) => TableData;
+  /** a list's or a table's rows as the row model has them (parts/rows.ts): records of words by the columns' keys, a
+   *  table's lined up by the columns the part declares */
+  rows: (key: string) => Record<string, string>[];
   /** words a part says by itself, in the editor's language */
   say: (words: string) => string;
   /** a name for the part being drawn, the same wherever it is drawn or printed (from its item's id), or "" when
