@@ -20,7 +20,7 @@ function shopWith(swap: Record<string, { component: string; props: Record<string
 describe("the D3 inputs in a mini-program", () => {
   it("fill their form's fields as their kinds say", () => {
     const { doc, widths } = shopWith({
-      category: { component: "color-palette", props: { colors: "#6750A4,#386A20", selected: 1 } },
+      category: { component: "color-palette", props: { colors: [{ label: "#6750A4", color: "#6750A4" }, { label: "#386A20", color: "#386A20" }], selected: 1 } },
       description: { component: "signature-pad", props: {} },
       stock: { component: "number-picker", props: { value: 3 } },
       name: { component: "tag-input", props: { items: [{ label: "Lamp" }] } },
@@ -47,7 +47,7 @@ describe("the D3 inputs in a mini-program", () => {
     expect(pickers).toContain('selected={s.value<number>("itemPicker", 0)}');
     expect(pickers).toContain('"colorPalette": { value: 0, var: "swatch", labels: ["#6750A4", "#625B71", "#7D5260", "#B3261E", "#386A20", "#006A6A"] }');
     /* several picks are words of their own, not a choice */
-    expect(pickers).toContain('selected={s.value<string>("multipleChoice", "1,3")}');
+    expect(pickers).toContain('picked={s.value<string>("multipleChoice", "0,2")}');
     expect(pickers).toContain('picked={s.value<string>("seatMap", "")}');
     /* a list of words is one a line */
     expect(entry).toContain('"tagInput": { value: "Design\\nPrototype", var: "tags" }');

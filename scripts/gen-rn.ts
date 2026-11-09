@@ -37,14 +37,20 @@ function themeOf(key: string) {
   return rnThemeOf({ theme: normalizeTheme(key === "material" ? undefined : { style: key }), paletteKey: "purple" });
 }
 
+/** the keys of the columns a part's table props are read by (the row model, parts/rows.ts), where it declares any */
+function tableColumns(d: (typeof PARTS)[number]): { columns?: Record<string, string[]> } {
+  const out = Object.fromEntries(d.props.flatMap((x) => (x.kind === "table" && x.columns?.length ? [[x.key, x.columns.map((c) => c.key)]] : [])));
+  return Object.keys(out).length ? { columns: out } : {};
+}
+
 /** every part's props as the canvas reads them with nothing set, by part */
 function partsModule(): string {
   /* under the names the kit takes them by (`style` is React Native's) */
   const renamed = (slug: string, v: Record<string, unknown>) => Object.fromEntries(Object.entries(v).filter(([k]) => !SET_ONLY.has(k)).map(([k, x]) => [kitPropName(slug, k), x]));
-  const parts = Object.fromEntries(PARTS.map((d) => [d.slug, { name: d.name, tier: tierOf(d), category: d.category, defaults: renamed(d.slug, propValues(d, {})) }]));
+  const parts = Object.fromEntries(PARTS.map((d) => [d.slug, { name: d.name, tier: tierOf(d), category: d.category, defaults: renamed(d.slug, propValues(d, {})), ...tableColumns(d) }]));
   return `${HEAD}
 /** every part of the editor: its name, tier, section and the value of each prop when nothing is set (in English) */
-export type PartInfo = { name: string; tier: "atom" | "composite"; category: string; defaults: Record<string, unknown> };
+export type PartInfo = { name: string; tier: "atom" | "composite"; category: string; defaults: Record<string, unknown>; /** the keys of the columns each table prop is read by (parts/tableColumns.ts), in place order */ columns?: Record<string, string[]> };
 
 export const PARTS: Record<string, PartInfo> = ${json(parts)};
 

@@ -23,7 +23,7 @@ export const splashScreen = (link?: Link): ScreenSeed =>
     body: [
       mark(),
       txt(say("App name", "应用名称", "アプリ名", "앱 이름"), "headline", { align: "center" }),
-      txt(say("One line on what it does", "一句话介绍这个应用", "何ができるかを一文で", "무엇을 하는 앱인지 한 줄로"), "body", { align: "center", color: "muted" }),
+      txt(say("One line on what it does", "一句话介绍这个应用", "何ができるかを一文で", "무엇을 하는 앱인지 한 줄로"), "body", { align: "center", color: "on-surface-variant" }),
       row({ justify: "center" }, [part("spinner", { size: "md" }, { action: link })]),
     ],
   });
@@ -46,7 +46,7 @@ export const signUpScreen = (links: Links = {}): ScreenSeed =>
       /* in one layout: the form comes out taller in some styles, and the line stays under it */
       col({ gap: 12 }, [
         authForm("sign-up", links),
-        txt(say("By signing up you agree to the terms and the privacy policy.", "注册即表示你同意用户协议和隐私政策。", "登録すると利用規約とプライバシーポリシーに同意したことになります。", "가입하면 이용약관과 개인정보 처리방침에 동의하게 됩니다."), "caption", { align: "center", color: "muted" }),
+        txt(say("By signing up you agree to the terms and the privacy policy.", "注册即表示你同意用户协议和隐私政策。", "登録すると利用規約とプライバシーポリシーに同意したことになります。", "가입하면 이용약관과 개인정보 처리방침에 동의하게 됩니다."), "caption", { align: "center", color: "on-surface-variant" }),
       ]),
     ],
   });
@@ -74,7 +74,7 @@ export const forgotScreen = (links: { send?: Link; back?: Link } = {}): ScreenSe
     name: say("Forgot password", "忘记密码", "パスワードを忘れた", "비밀번호 찾기"),
     top: [backBar(say("Forgot password", "忘记密码", "パスワードを忘れた", "비밀번호 찾기"), links.back)],
     body: [
-      txt(say("Enter your email and we will send you a code.", "输入注册时的邮箱，我们会发送验证码。", "登録したメールアドレスに確認コードを送ります。", "가입한 이메일로 인증번호를 보내 드립니다."), "body", { color: "muted" }),
+      txt(say("Enter your email and we will send you a code.", "输入注册时的邮箱，我们会发送验证码。", "登録したメールアドレスに確認コードを送ります。", "가입한 이메일로 인증번호를 보내 드립니다."), "body", { color: "on-surface-variant" }),
       part("text-field", { label: say("Email", "邮箱", "メールアドレス", "이메일"), value: "", helperText: "" }),
       part("button", { label: say("Send code", "发送验证码", "コードを送信", "인증번호 보내기"), size: "md" }, { action: links.send }),
     ],
@@ -86,7 +86,7 @@ export const verifyScreen = (links: { verify?: Link; back?: Link } = {}): Screen
     name: say("Verification code", "验证码", "確認コード", "인증번호"),
     top: [backBar(say("Enter the code", "输入验证码", "コードを入力", "인증번호 입력"), links.back)],
     body: [
-      txt(say("We sent a 6-digit code to your email.", "6 位验证码已发送到你的邮箱。", "6 桁のコードをメールに送りました。", "6자리 인증번호를 이메일로 보냈습니다."), "body", { color: "muted" }),
+      txt(say("We sent a 6-digit code to your email.", "6 位验证码已发送到你的邮箱。", "6 桁のコードをメールに送りました。", "6자리 인증번호를 이메일로 보냈습니다."), "body", { color: "on-surface-variant" }),
       row({ justify: "center" }, [part("input-otp", { length: 6, group: 3, value: "" })]),
       part("button", { label: say("Verify", "验证", "確認", "확인"), size: "md" }, { action: links.verify }),
       part("button", { label: say("Send again", "重新发送", "再送信", "다시 보내기"), variant: "text" }),

@@ -853,7 +853,7 @@ export function wrapInFlow(groups: Group[], ids: Set<string>, id: string, widths
   const sorted = [...b].sort((x, y) => (across ? x.l - y.l : x.t - y.t));
   const spaces = sorted.slice(1).map((x, i) => (across ? x.l - sorted[i].r : x.t - sorted[i].b));
   const gap = spaces.length ? Math.min(96, Math.max(0, Math.round(spaces.reduce((n, s) => n + s, 0) / spaces.length / 4) * 4)) : 8;
-  const item: Item = { ...makeItem("container"), props: { layout: across ? "row" : "column", gap, padX: 0, padY: 0, label: "", fill: "none", border: "none", hugWidth: true, hugHeight: true, width: Math.round(r - l), height: Math.round(bt - t) } };
+  const item: Item = { ...makeItem("container"), props: { layout: across ? "row" : "column", gap, padX: 0, padY: 0, label: "", fill: "", border: "none", hugWidth: true, hugHeight: true, width: Math.round(r - l), height: Math.round(bt - t) } };
   const host: Group = { id, x: l, y: t, axis: "x", items: [item] };
   const first = groups.findIndex((g) => ids.has(g.id));
   const out = groups.map((g) => (ids.has(g.id) && !g.locked ? { ...g, inFlow: id } : g));

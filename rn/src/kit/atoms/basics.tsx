@@ -5,7 +5,7 @@ import Svg, { Path, SvgXml } from "react-native-svg";
 
 import { Glyph } from "../icons/Icon";
 import { Cell, flowStyle, GridRows, NoFill, useFill, type FlowProps } from "../layout";
-import { paint, type Appearance } from "../look";
+import { colorOf, paint, type Appearance } from "../look";
 import { sourceOf, withDefaults, type Picture } from "../parts";
 import { accentText, surfaceInk, surfaceStyle } from "../recipes";
 import { SHAPE_PATHS, SVG_PRESETS } from "../shapes.generated";
@@ -53,7 +53,8 @@ export function wordsColor(kit: Kit, color: string): string {
     case undefined:
       return kit.colors["on-surface"];
     default:
-      return kit.colors[color] ?? kit.colors["on-surface"];
+      /* any color of the one color value: a role, a share of one, a hex */
+      return colorOf(kit, color) ?? kit.colors["on-surface"];
   }
 }
 
@@ -97,7 +98,8 @@ export function Text(props: TextProps) {
 
 /* ---------- an icon ---------- */
 
-const ICON_COLORS: Record<string, string | undefined> = { default: undefined, primary: "primary", secondary: "secondary", tertiary: "tertiary", error: "error", muted: "on-surface-variant", "on-surface": "on-surface", "on-primary": "on-primary", inverse: "inverse-on-surface" };
+/* by the one color value: "" is the words' own color; a color it was not designed around is drawn as it is */
+const ICON_COLORS: Record<string, string | undefined> = { "": undefined, primary: "primary", secondary: "secondary", tertiary: "tertiary", error: "error", "on-surface-variant": "on-surface-variant", "on-surface": "on-surface", "on-primary": "on-primary", "inverse-on-surface": "inverse-on-surface" };
 
 export type IconAtomProps = PartBase & { name?: string; size?: number; filled?: boolean; color?: string };
 
@@ -105,8 +107,8 @@ export function Icon(props: IconAtomProps) {
   const p = withDefaults<IconAtomProps>("icon", props);
   const kit = useKit();
   const painted = useMemo(() => paint(kit, p), [kit, p]);
-  const role = ICON_COLORS[p.color ?? "default"];
-  const color = p.textColor ? painted.ink?.["on-surface"] : role ? kit.colors[role] : undefined;
+  const role = ICON_COLORS[p.color ?? ""];
+  const color = p.textColor ? painted.ink?.["on-surface"] : role ? kit.colors[role] : colorOf(kit, p.color);
   const glyph = <Glyph name={p.name || "favorite"} size={Math.round(p.size ?? 24)} filled={!!p.filled} color={color} testID={p.testID} label={p.name || "favorite"} />;
   return p.onPress || Object.keys(painted.style).length ? (
     <Surface appearance={p} onPress={p.onPress} accessibilityRole={p.onPress ? "button" : "image"}>
@@ -119,10 +121,11 @@ export function Icon(props: IconAtomProps) {
 
 /* ---------- a vector drawing ---------- */
 
+/* by the one color value: "" is the color around it; a color it was not designed around is drawn as it is */
 const INK: Record<string, string | undefined> = {
-  current: undefined,
-  default: "on-surface",
-  muted: "on-surface-variant",
+  "": undefined,
+  "on-surface": "on-surface",
+  "on-surface-variant": "on-surface-variant",
   primary: "primary",
   secondary: "secondary",
   tertiary: "tertiary",
@@ -157,8 +160,8 @@ const VIEWBOX = /^-?[\d.]+(\s+-?[\d.]+){3}$/;
 export function Svg_(props: SvgProps) {
   const p = withDefaults<SvgProps>("svg", props);
   const kit = useKit();
-  const role = INK[p.color ?? "current"];
-  const color = role ? kit.colors[role] : kit.colors["on-surface"];
+  const role = INK[p.color ?? ""];
+  const color = role ? kit.colors[role] : (colorOf(kit, p.color) ?? kit.colors["on-surface"]);
   const w = Math.round(p.width ?? 48);
   const h = Math.round(p.height ?? 48);
   const aspect = p.stretch ? "none" : "xMidYMid meet";
@@ -217,9 +220,9 @@ export function Separator(props: SeparatorProps) {
   const vertical = p.orientation === "vertical";
   const length = Math.round(p.length ?? 240);
   const t = Math.round(p.thickness ?? 1);
-  const colored = p.color && p.color !== "default";
+  const colored = colorOf(kit, p.color);
   const base: ViewStyle = {
-    backgroundColor: colored ? kit.colors[p.color!] : kit.colors["outline-variant"],
+    backgroundColor: colored ?? kit.colors["outline-variant"],
     ...(vertical ? { width: t, height: length } : { height: t, width: length }),
     ...(colored ? { borderRadius: 999 } : null),
   };
@@ -249,7 +252,7 @@ export function Shape(props: ShapeProps) {
   return (
     <Surface appearance={p} onPress={p.onPress} testID={p.testID} accessibilityRole="image" base={{ width: w, height: h }}>
       <Svg width={w} height={h} viewBox="0 0 100 100" preserveAspectRatio="none">
-        <Path d={d} fill={kit.colors[SHAPE_COLORS[p.color ?? "primary"] ?? "primary"]} />
+        <Path d={d} fill={SHAPE_COLORS[p.color || "primary"] ? kit.colors[SHAPE_COLORS[p.color || "primary"]] : (colorOf(kit, p.color) ?? kit.colors.primary)} />
       </Svg>
     </Surface>
   );
@@ -315,8 +318,8 @@ export function Container(props: ContainerProps & { ground?: string }) {
   const base: ViewStyle = {
     ...BORDER[p.border ?? "dashed"],
     borderColor: kit.colors["outline-variant"],
-    backgroundColor: ground === "none" ? undefined : kit.colors[ground],
-    borderRadius: ground === "none" && p.border === "none" ? 0 : p.radius === 12 || p.radius === undefined ? corner(kit, "md") : p.radius,
+    backgroundColor: ground === "" || ground === "none" ? undefined : colorOf(kit, ground),
+    borderRadius: (ground === "" || ground === "none") && p.border === "none" ? 0 : p.radius === 12 || p.radius === undefined ? corner(kit, "md") : p.radius,
     overflow: "hidden",
     ...heldLayout(free ? { ...p, layout: "column", padX: 16, padY: 16, align: p.place === "start" ? "start" : "center", justify: p.place === "start" ? "start" : "center" } : p, fillStyle),
   };

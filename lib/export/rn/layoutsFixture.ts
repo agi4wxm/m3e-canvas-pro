@@ -38,7 +38,7 @@ export function layoutsDoc(): { doc: Doc; widths: Record<string, number> } {
     /* ---------- getting around ---------- */
     g("g-header", 492, 0, item("header", "mini-program-header", { title: "Around" })),
     g("g-menu", 508, 72, item("menu", "navigation-menu", { menus: [{ label: "Guides" }], pages: [{ label: "Start here" }], links: [{ label: "Docs" }] })),
-    g("g-pages", 508, 240, item("pages", "pagination", { pages: 8, current: 3, width: 380 }, { actions: { "tab:3": go("f-layouts") } })),
+    g("g-pages", 508, 240, item("pages", "pagination", { pages: 8, page: 2, width: 380 }, { actions: { "tab:3": go("f-layouts") } })),
     g("g-toc", 508, 300, item("toc", "toc", { items: [{ label: "Overview" }, { label: "  Install" }, { label: "API" }] }, { actions: { "tab:2": go("f-floating") } })),
     g("g-slide", 508, 460, item("slide", "slide-group", { items: [{ label: "All" }, { label: "Music" }, { label: "Podcasts" }, { label: "Live" }], width: 380 })),
     g("g-shortcuts", 508, 520, item("shortcuts", "icon-grid", { items: [{ label: "Deals", icon: "local_offer", variant: "new" }, { label: "Orders", icon: "receipt_long" }], columns: 4, width: 380 }, { actions: { "tab:1": go("f-layouts") } })),

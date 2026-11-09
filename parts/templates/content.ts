@@ -68,7 +68,7 @@ export const content: Template[] = [
         top: [part("app-bar", { title: "", leading: "arrow_back", trailing: "more_vert" })],
         body: [
           part("video", { title: "", time: "01:24 / 03:45" }),
-          col({ gap: 2 }, [txt(say("Video title", "视频标题", "動画のタイトル", "동영상 제목"), "title"), txt(say("12K views · 2 days ago", "1.2 万次观看 · 2 天前", "視聴回数 1.2 万回 · 2 日前", "조회수 1.2만회 · 2일 전"), "caption", { color: "muted" })]),
+          col({ gap: 2 }, [txt(say("Video title", "视频标题", "動画のタイトル", "동영상 제목"), "title"), txt(say("12K views · 2 days ago", "1.2 万次观看 · 2 天前", "視聴回数 1.2 万回 · 2 日前", "조회수 1.2만회 · 2일 전"), "caption", { color: "on-surface-variant" })]),
           row({ gap: 12 }, [part("avatar", { initials: FACE }), txt(PEOPLE.ada, "label", {}, { fill: true }), part("button", { label: say("Follow", "关注", "フォロー", "팔로우"), size: "sm", variant: "tonal" })]),
           part("button-group", {
             buttonVariant: "tonal",
@@ -202,7 +202,7 @@ export const content: Template[] = [
           txt(say("The title of the article", "文章标题", "記事のタイトル", "기사 제목"), "headline"),
           row({ gap: 12 }, [
             part("avatar", { initials: FACE }),
-            col({ gap: 0 }, [txt(PEOPLE.ada, "label"), txt(say("4 min read", "阅读 4 分钟", "4 分で読めます", "4분 분량"), "caption", { color: "muted" })], { fill: true }),
+            col({ gap: 0 }, [txt(PEOPLE.ada, "label"), txt(say("4 min read", "阅读 4 分钟", "4 分で読めます", "4분 분량"), "caption", { color: "on-surface-variant" })], { fill: true }),
           ]),
           txt(
             say(
@@ -271,7 +271,7 @@ export const content: Template[] = [
             action: say("Start 14-day trial", "开始 14 天试用", "14 日間の試用を開始", "14일 체험 시작"),
           }),
           panel({ gap: 4 }, [
-            txt(say("What you get", "包含内容", "含まれるもの", "포함 내용"), "label", { color: "muted" }),
+            txt(say("What you get", "包含内容", "含まれるもの", "포함 내용"), "label", { color: "on-surface-variant" }),
             part("item", {
               size: "sm",
               description: "",
@@ -360,7 +360,7 @@ export const content: Template[] = [
               { label: say("128 going", "128 人参加", "128 人が参加", "128명 참여"), icon: "group" },
             ],
           }),
-          row({ gap: 12 }, [part("avatar", { initials: FACE }), col({ gap: 0 }, [txt(PEOPLE.ada, "label"), txt(say("Organizer", "主办方", "主催者", "주최자"), "caption", { color: "muted" })], { fill: true }), part("button", { label: say("Follow", "关注", "フォロー", "팔로우"), size: "sm", variant: "tonal" })]),
+          row({ gap: 12 }, [part("avatar", { initials: FACE }), col({ gap: 0 }, [txt(PEOPLE.ada, "label"), txt(say("Organizer", "主办方", "主催者", "주최자"), "caption", { color: "on-surface-variant" })], { fill: true }), part("button", { label: say("Follow", "关注", "フォロー", "팔로우"), size: "sm", variant: "tonal" })]),
           col({ gap: 4 }, [txt(say("About", "活动介绍", "概要", "소개"), "title"), txt(say("A few lines about what to expect, who it is for and what to bring.", "用几句话介绍活动内容、适合人群和需要携带的物品。", "内容、対象、持ち物を数行で紹介します。", "행사 내용과 대상, 준비물을 몇 줄로 소개합니다."), "body")]),
         ],
       }),
@@ -381,8 +381,8 @@ export const content: Template[] = [
         bottom: [part("checkout-bar", { label: say("Price", "价格", "価格", "가격"), amount: "$29", note: say("All lessons included", "含全部课时", "全レッスン込み", "모든 강의 포함"), icons: [], action: say("Enroll", "立即报名", "受講する", "수강하기"), done: "" })],
         body: [
           part("video", { title: "", time: "00:00 / 02:10" }),
-          col({ gap: 2 }, [txt(say("Course name", "课程名称", "コース名", "강의 이름"), "headline"), txt(say("4.8 · 12 lessons · 3 h 20 min", "4.8 分 · 12 节课 · 3 小时 20 分", "4.8 · 全 12 回 · 3 時間 20 分", "4.8 · 12강 · 3시간 20분"), "caption", { color: "muted" })]),
-          row({ gap: 12 }, [part("avatar", { initials: FACE }), col({ gap: 0 }, [txt(PEOPLE.ada, "label"), txt(say("Instructor", "讲师", "講師", "강사"), "caption", { color: "muted" })], { fill: true })]),
+          col({ gap: 2 }, [txt(say("Course name", "课程名称", "コース名", "강의 이름"), "headline"), txt(say("4.8 · 12 lessons · 3 h 20 min", "4.8 分 · 12 节课 · 3 小时 20 分", "4.8 · 全 12 回 · 3 時間 20 分", "4.8 · 12강 · 3시간 20분"), "caption", { color: "on-surface-variant" })]),
+          row({ gap: 12 }, [part("avatar", { initials: FACE }), col({ gap: 0 }, [txt(PEOPLE.ada, "label"), txt(say("Instructor", "讲师", "講師", "강사"), "caption", { color: "on-surface-variant" })], { fill: true })]),
           part("playlist", {
             title: say("Lessons", "课程目录", "レッスン", "강의 목록"),
             selected: 0,
@@ -476,8 +476,8 @@ export const content: Template[] = [
                 },
               }),
             ]),
-            row({ gap: 12, align: "start", padX: 16, padY: 12, fill: "surface-container-highest", radius: 12 }, [part("icon", { name: "location_disabled", size: 24, color: "error" }), txt(say("Location is off for this app. Turn it on in Settings, or type where you are.", "这个应用的定位被关闭了。请在设置中打开，或手动输入出发地。", "このアプリの位置情報がオフです。設定でオンにするか、出発地を入力してください。", "이 앱의 위치 정보가 꺼져 있습니다. 설정에서 켜거나 출발지를 입력하세요."), "caption", { color: "muted" }, { fill: true })], { showWhen: { expr: 'vars.locIssue == "denied"' } }),
-            row({ gap: 12, align: "start", padX: 16, padY: 12, fill: "surface-container-highest", radius: 12 }, [part("icon", { name: "location_searching", size: 24, color: "error" }), txt(say("Your location could not be found. Try again outdoors.", "暂时取不到你的位置，请到开阔处重试。", "現在地を取得できませんでした。屋外でもう一度お試しください。", "위치를 찾지 못했습니다. 실외에서 다시 시도하세요."), "caption", { color: "muted" }, { fill: true })], { showWhen: { expr: "vars.locIssue != '' && vars.locIssue != 'denied'" } }),
+            row({ gap: 12, align: "start", padX: 16, padY: 12, fill: "surface-container-highest", radius: 12 }, [part("icon", { name: "location_disabled", size: 24, color: "error" }), txt(say("Location is off for this app. Turn it on in Settings, or type where you are.", "这个应用的定位被关闭了。请在设置中打开，或手动输入出发地。", "このアプリの位置情報がオフです。設定でオンにするか、出発地を入力してください。", "이 앱의 위치 정보가 꺼져 있습니다. 설정에서 켜거나 출발지를 입력하세요."), "caption", { color: "on-surface-variant" }, { fill: true })], { showWhen: { expr: 'vars.locIssue == "denied"' } }),
+            row({ gap: 12, align: "start", padX: 16, padY: 12, fill: "surface-container-highest", radius: 12 }, [part("icon", { name: "location_searching", size: 24, color: "error" }), txt(say("Your location could not be found. Try again outdoors.", "暂时取不到你的位置，请到开阔处重试。", "現在地を取得できませんでした。屋外でもう一度お試しください。", "위치를 찾지 못했습니다. 실외에서 다시 시도하세요."), "caption", { color: "on-surface-variant" }, { fill: true })], { showWhen: { expr: "vars.locIssue != '' && vars.locIssue != 'denied'" } }),
             part("toggle-group", {
               selected: 1,
               items: [

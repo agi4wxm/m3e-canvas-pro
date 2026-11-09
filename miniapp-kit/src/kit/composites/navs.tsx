@@ -121,17 +121,27 @@ export function pagesShown(pages: number, current: number): (number | "gap")[] {
   return out;
 }
 
-export type PaginationProps = PartBase & { pages?: number; current?: number; previous?: string; next?: string; width?: number; onChange?: (page: number) => void };
+export type PaginationProps = PartBase & {
+  pages?: number;
+  /** the page it is on, counted from 0 as every place is; it shows it counted from 1 */
+  page?: number;
+  previous?: string;
+  next?: string;
+  width?: number;
+  /** told of the page gone to, from 0 */
+  onChange?: (page: number) => void;
+};
 
-/** Previous, the pages around the current one, Next. A tap on a page goes to it (`tab:N` is page N + 1). */
+/** Previous, the pages around the current one, Next. A tap on a page goes to it (`tab:N` is page N, from 0). */
 export function Pagination(props: PaginationProps) {
   const p = withDefaults<PaginationProps>("pagination", props);
   const kit = useKit();
   const fill = useFill();
   const pages = Math.max(1, Math.round(p.pages ?? 10));
-  const [current, setCurrent] = useDraft(clampInt(p.current ?? 1, 1, pages), p.onChange);
+  const [page, setPage] = useDraft(clampInt(p.page ?? 1, 0, pages - 1), p.onChange);
+  const current = page + 1;
   const go = (n: number, slot: string) => {
-    setCurrent(clampInt(n, 1, pages));
+    setPage(clampInt(n, 1, pages) - 1);
     tapOf(p, slot)?.();
   };
   const step = (slot: "previous" | "next", label: string | undefined, to: number) => (

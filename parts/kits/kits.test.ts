@@ -1,3 +1,4 @@
+import { colorValue } from "../color";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -54,6 +55,8 @@ function wrongValue(d: PropDef, v: unknown): string {
       return Array.isArray(v) && v.every((x) => typeof x?.label === "string") ? "" : "not rows";
     case "table":
       return typeof v === "object" ? "" : "not a table";
+    case "color":
+      return colorValue(v) !== undefined ? "" : `${String(v)} is not a color`;
   }
 }
 

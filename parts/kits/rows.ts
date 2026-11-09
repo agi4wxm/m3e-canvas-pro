@@ -27,7 +27,7 @@ const conversation = kit(
   "a row box: an avatar, then a column taking the rest of a name line (the name, the time at its end) over a message line (the last message cut short, an unread count at its end); denser on desktop",
   [
     variant("material", "Avatar, name, message, count", ["头像·名称·消息·未读数", "アバター・名前・メッセージ・件数", "아바타·이름·메시지·개수"], () =>
-      row([avatar("MC"), vbox({ gap: 2, hugWidth: false, width: 200 }, [topLine(MIA, muted("9:41", "caption")), hbox({ gap: 8 }, [para(LAST, "body", { color: "muted", maxLines: 1 }, { grow: true }), atom("badge", { kind: "label", label: "2" })])], { grow: true })]),
+      row([avatar("MC"), vbox({ gap: 2, hugWidth: false, width: 200 }, [topLine(MIA, muted("9:41", "caption")), hbox({ gap: 8 }, [para(LAST, "body", { color: "on-surface-variant", maxLines: 1 }, { grow: true }), atom("badge", { kind: "label", label: "2" })])], { grow: true })]),
     ),
     variant(
       "im",
@@ -37,7 +37,7 @@ const conversation = kit(
         row(
           [
             avatar("MC"),
-            vbox({ gap: 4, hugWidth: false, width: 200 }, [topLine(MIA, muted("9:41", "caption"), false), hbox({ gap: 8 }, [para(LAST, "body", { color: "muted", maxLines: 1 }, { grow: true }), atom("badge", { kind: "label", label: "3", variant: "destructive" })])], { grow: true }),
+            vbox({ gap: 4, hugWidth: false, width: 200 }, [topLine(MIA, muted("9:41", "caption"), false), hbox({ gap: 8 }, [para(LAST, "body", { color: "on-surface-variant", maxLines: 1 }, { grow: true }), atom("badge", { kind: "label", label: "3", variant: "destructive" })])], { grow: true }),
           ],
           12,
           12,
@@ -49,7 +49,7 @@ const conversation = kit(
       "Dense, selected",
       ["紧凑·选中", "詰めた・選択中", "촘촘·선택됨"],
       () =>
-        hbox({ width: 280, hugWidth: false, padX: 10, padY: 6, gap: 10 }, [avatar("MC", { size: "sm" }), vbox({ gap: 0, hugWidth: false, width: 160 }, [hbox({ gap: 6 }, [para(MIA, "label", { bold: true, maxLines: 1 }, { grow: true }), muted("9:41", "caption")]), para(LAST, "caption", { color: "muted", maxLines: 1 })], { grow: true })], { fill: "surfaceContainerHigh", corners: round(6) }),
+        hbox({ width: 280, hugWidth: false, padX: 10, padY: 6, gap: 10 }, [avatar("MC", { size: "sm" }), vbox({ gap: 0, hugWidth: false, width: 160 }, [hbox({ gap: 6 }, [para(MIA, "label", { bold: true, maxLines: 1 }, { grow: true }), muted("9:41", "caption")]), para(LAST, "caption", { color: "on-surface-variant", maxLines: 1 })], { grow: true })], { fill: "surfaceContainerHigh", corners: round(6) }),
       { suits: isDense },
     ),
   ],
@@ -97,7 +97,7 @@ const notification = kit(
       row(
         [
           disc("local_shipping"),
-          vbox({ gap: 2, hugWidth: false, width: 200 }, [topLine(say("Your order is on its way", "你的订单已发货", "ご注文の商品を発送しました", "주문하신 상품이 배송 중입니다"), muted(say("2m", "2 分钟", "2 分", "2분"), "caption")), para(say("Arrives tomorrow between 9 and 12. Track it any time.", "预计明天 9 点到 12 点送达，可随时查看物流。", "明日 9〜12 時にお届け予定。いつでも追跡できます。", "내일 9시~12시 도착 예정. 언제든 조회할 수 있어요."), "body", { color: "muted", maxLines: 2 })], { grow: true }),
+          vbox({ gap: 2, hugWidth: false, width: 200 }, [topLine(say("Your order is on its way", "你的订单已发货", "ご注文の商品を発送しました", "주문하신 상품이 배송 중입니다"), muted(say("2m", "2 分钟", "2 分", "2분"), "caption")), para(say("Arrives tomorrow between 9 and 12. Track it any time.", "预计明天 9 点到 12 点送达，可随时查看物流。", "明日 9〜12 時にお届け予定。いつでも追跡できます。", "내일 9시~12시 도착 예정. 언제든 조회할 수 있어요."), "body", { color: "on-surface-variant", maxLines: 2 })], { grow: true }),
           atom("dot", { color: "primary", size: 8 }),
         ],
         12,
@@ -150,7 +150,7 @@ const file = kit(
 );
 
 /** the end of a money row: the amount over a muted line, flush right */
-const amount = (sum: Say, note: Node, color = "default"): Node => vbox({ gap: 2, align: "end" }, [text(sum, "label", { bold: true, color }), note]);
+const amount = (sum: Say, note: Node, color = ""): Node => vbox({ gap: 2, align: "end" }, [text(sum, "label", { bold: true, color }), note]);
 
 const transaction = kit(
   "transaction-row",
@@ -167,7 +167,7 @@ const transaction = kit(
       row([avatar("MC"), lines(MIA, say("Transfer · Yesterday", "转账 · 昨天", "送金 · 昨日", "송금 · 어제")), amount(say("+$1,200.00", "+¥1,200.00", "+¥12,000", "+₩120,000"), muted(say("Balance", "余额", "残高", "잔액"), "caption"), "primary")], isDense(l) ? 8 : 12),
     ),
     variant("pending", "Pending", ["处理中", "処理中", "처리 중"], (l) =>
-      row([tile("schedule", "surfaceContainerHigh", 40, 22, 20), lines(say("City Rides", "城市出行", "シティライド", "시티 라이드"), say("Transport · 8:12", "出行 · 8:12", "交通 · 8:12", "교통 · 8:12")), vbox({ gap: 2, align: "end" }, [text(say("-$24.00", "-¥24.00", "-¥360", "-₩3,200"), "label", { bold: true, color: "muted" }), tag(say("Pending", "处理中", "処理中", "처리 중"), "outline")])], isDense(l) ? 8 : 12),
+      row([tile("schedule", "surfaceContainerHigh", 40, 22, 20), lines(say("City Rides", "城市出行", "シティライド", "시티 라이드"), say("Transport · 8:12", "出行 · 8:12", "交通 · 8:12", "교통 · 8:12")), vbox({ gap: 2, align: "end" }, [text(say("-$24.00", "-¥24.00", "-¥360", "-₩3,200"), "label", { bold: true, color: "on-surface-variant" }), tag(say("Pending", "处理中", "処理中", "처리 중"), "outline")])], isDense(l) ? 8 : 12),
     ),
   ],
 );
@@ -181,7 +181,7 @@ const leaderboard = kit(
   "a row box: the rank, an avatar, a name over a level taking the rest, and the score in bold; your own row tinted; or the top three's row on a panel with a round medal and a trophy by the score",
   [
     variant("rank", "Rank and score", ["名次和分数", "順位とスコア", "순위와 점수"], () =>
-      row([hbox({ gap: 0, justify: "center", hugWidth: false, width: 28 }, [text("4", "heading", { bold: true, color: "muted" })]), avatar("LP"), lines(LEO, say("Lv. 32 · Dawnbreakers", "32 级 · 破晓者", "Lv. 32 · 夜明け団", "Lv. 32 · 새벽단")), text("8,420", "heading", { bold: true })], 10, 12),
+      row([hbox({ gap: 0, justify: "center", hugWidth: false, width: 28 }, [text("4", "heading", { bold: true, color: "on-surface-variant" })]), avatar("LP"), lines(LEO, say("Lv. 32 · Dawnbreakers", "32 级 · 破晓者", "Lv. 32 · 夜明け団", "Lv. 32 · 새벽단")), text("8,420", "heading", { bold: true })], 10, 12),
     ),
     variant("me", "Your own row", ["我的排名", "自分の行", "내 순위"], () =>
       row([hbox({ gap: 0, justify: "center", hugWidth: false, width: 28 }, [text("12", "heading", { bold: true })]), avatar("ME"), lines(say("You", "我", "あなた", "나"), say("Lv. 28 · 320 to go", "28 级 · 还差 320", "Lv. 28 · あと 320", "Lv. 28 · 320 남음")), text("6,180", "heading", { bold: true })], 10, 12, { surface: "panel" }, { fill: "primaryContainer", corners: round(14) }),
@@ -229,7 +229,7 @@ const sectionHead = kit(
       { suits: (l) => l.list === "inset" },
     ),
     variant("large", "Large title", ["大标题", "大きな見出し", "큰 제목"], () =>
-      hbox({ width: W, hugWidth: false, justify: "between", gap: 12 }, [vbox({ gap: 2, hugWidth: false, width: 200 }, [para(POPULAR, "title", { bold: true, maxLines: 1 }), para(say("Picked from what you saved", "根据你的收藏推荐", "保存した場所から", "저장한 곳 기반 추천"), "body", { color: "muted", maxLines: 1 })], { grow: true }), iconButton("arrow_forward", T.seeAll, { variant: "tonal", size: "sm" })]),
+      hbox({ width: W, hugWidth: false, justify: "between", gap: 12 }, [vbox({ gap: 2, hugWidth: false, width: 200 }, [para(POPULAR, "title", { bold: true, maxLines: 1 }), para(say("Picked from what you saved", "根据你的收藏推荐", "保存した場所から", "저장한 곳 기반 추천"), "body", { color: "on-surface-variant", maxLines: 1 })], { grow: true }), iconButton("arrow_forward", T.seeAll, { variant: "tonal", size: "sm" })]),
     ),
   ],
 );
@@ -251,7 +251,7 @@ const insetGroup = kit(
   "a column of setting rows under a heading: Material's bare rows (an icon, a name over its value) under a heading in the primary color; an iPhone's rounded card on the grey ground (a glyph on a colored tile, the name, the value and a chevron, parted by hairlines) between a capitalized heading and a footnote; or rows running edge to edge with hairlines",
   [
     variant("material", "Under a colored heading", ["彩色标题下", "色付き見出しの下", "색 제목 아래"], () =>
-      vbox({ width: W, hugWidth: false, gap: 0 }, [hbox({ padX: 16, padY: 8 }, [text(GROUP, "label", { color: "primary", bold: true })]), ...SETTINGS.map(([name, label, value]) => hbox({ padX: 16, padY: 12, gap: 16 }, [icon(name, { color: "muted", filled: true }), lines(label, value)]))]),
+      vbox({ width: W, hugWidth: false, gap: 0 }, [hbox({ padX: 16, padY: 8 }, [text(GROUP, "label", { color: "primary", bold: true })]), ...SETTINGS.map(([name, label, value]) => hbox({ padX: 16, padY: 12, gap: 16 }, [icon(name, { color: "on-surface-variant", filled: true }), lines(label, value)]))]),
     ),
     variant(
       "inset",
@@ -262,13 +262,13 @@ const insetGroup = kit(
           hbox({ padX: 16 }, [muted(GROUP, "caption", {}, { look: { text: { case: "upper", letterSpacing: 0.4 } } })]),
           /* the hairlines start at the words, past the 30 px tile: 16 + 30 + 12 */
           section(
-            SETTINGS.map(([name, label, value, fill]) => hbox({ padX: 16, padY: 10, gap: 12 }, [tile(name, fill, 30, 18, 7), para(label, "body", { maxLines: 1 }, { grow: true }), muted(value), icon("chevron_right", { size: 20, color: "muted" })])),
+            SETTINGS.map(([name, label, value, fill]) => hbox({ padX: 16, padY: 10, gap: 12 }, [tile(name, fill, 30, 18, 7), para(label, "body", { maxLines: 1 }, { grow: true }), muted(value), icon("chevron_right", { size: 20, color: "on-surface-variant" })])),
             look,
             58,
             W,
             "inset",
           ),
-          hbox({ padX: 16 }, [para(NOTE, "caption", { color: "muted" }, { grow: true })]),
+          hbox({ padX: 16 }, [para(NOTE, "caption", { color: "on-surface-variant" }, { grow: true })]),
         ]),
       /* grouped on a card where the style groups lists, and where a game sets its rows on tiles */
       { suits: (l) => l.list === "inset" || l.list === "tile" },
@@ -280,7 +280,7 @@ const insetGroup = kit(
       /* cells 56 px high across the screen, the hairlines from the words: 16 + 24 + 12 */
       (look) =>
         section(
-          SETTINGS.map(([name, label, value]) => hbox({ padX: 16, padY: 16, gap: 12 }, [icon(name, { color: "default", filled: true }), para(label, "lead", { maxLines: 1 }, { grow: true }), muted(value), icon("chevron_right", { size: 20, color: "muted" })])),
+          SETTINGS.map(([name, label, value]) => hbox({ padX: 16, padY: 16, gap: 12 }, [icon(name, { color: "", filled: true }), para(label, "lead", { maxLines: 1 }, { grow: true }), muted(value), icon("chevron_right", { size: 20, color: "on-surface-variant" })])),
           look,
           52,
           SCREEN,

@@ -137,10 +137,10 @@ describe("the pickers", () => {
   });
 
   it("several choices keep a draft that starts over when what they are given changes", () => {
-    draw(P.MultiSelect, { items: [{ label: "A" }, { label: "B" }], selected: "1" });
+    draw(P.MultiSelect, { items: [{ label: "A" }, { label: "B" }], picked: "0" });
     press(named("B"));
     expect(named("B")?.props.ariaChecked).toBe(true);
-    draw(P.MultiSelect, { items: [{ label: "A" }, { label: "B" }], selected: "" });
+    draw(P.MultiSelect, { items: [{ label: "A" }, { label: "B" }], picked: "" });
     expect(named("A")?.props.ariaChecked).toBe(false);
     expect(named("B")?.props.ariaChecked).toBe(false);
   });

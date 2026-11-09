@@ -10,7 +10,7 @@ import type { KitDef, KitLook } from "./types";
  * its corners never have to match the card's. */
 
 /** the price on a shop tile: red and bold where shops sell by the tile, the plain words color elsewhere */
-const priceColor = (l: KitLook) => (l.list === "tile" ? "error" : "default");
+const priceColor = (l: KitLook) => (l.list === "tile" ? "error" : "");
 
 const PRODUCT = say("Wireless noise-cancelling headphones, 40 h battery", "无线降噪耳机，40 小时续航", "ワイヤレスノイズキャンセリングヘッドホン 40 時間再生", "무선 노이즈 캔슬링 헤드폰, 40시간 재생");
 const PRICE = say("$129", "¥899", "¥19,800", "₩189,000");
@@ -71,10 +71,10 @@ const plan = kit(
   "a card box: the plan's name, its price large with the period after it, a muted line, a hairline, features each with a check, and a wide button; the featured one tinted with a tag; or a choice row with a radio, the plan over its price and a saving tag",
   [
     variant("card", "Card", ["卡片", "カード", "카드"], () =>
-      vbox({ surface: "card", width: 300, hugWidth: false, padX: 20, padY: 20, gap: 14 }, [text(PRO, "heading", { bold: true }), planPrice(say("$12", "¥68", "¥1,800", "₩16,000"), MONTH), para(say("For people who build every day.", "适合每天都在创作的人。", "毎日つくる人のために。", "매일 만드는 사람을 위해."), "body", { color: "muted" }), rule(260), featureList(), button(say("Start free trial", "免费试用", "無料で試す", "무료 체험 시작"), { variant: "outlined", size: "md" })]),
+      vbox({ surface: "card", width: 300, hugWidth: false, padX: 20, padY: 20, gap: 14 }, [text(PRO, "heading", { bold: true }), planPrice(say("$12", "¥68", "¥1,800", "₩16,000"), MONTH), para(say("For people who build every day.", "适合每天都在创作的人。", "毎日つくる人のために。", "매일 만드는 사람을 위해."), "body", { color: "on-surface-variant" }), rule(260), featureList(), button(say("Start free trial", "免费试用", "無料で試す", "무료 체험 시작"), { variant: "outlined", size: "md" })]),
     ),
     variant("featured", "Featured", ["推荐", "おすすめ", "추천"], () =>
-      vbox({ surface: "card", width: 300, hugWidth: false, padX: 20, padY: 20, gap: 14 }, [hbox({ justify: "between" }, [text(say("Team", "团队版", "チーム", "팀"), "heading", { bold: true }), tag(say("Most popular", "最受欢迎", "人気 No.1", "가장 인기"), "default")]), planPrice(say("$24", "¥128", "¥3,400", "₩32,000"), MONTH), para(say("Share libraries and review together.", "共享组件库，一起评审。", "ライブラリを共有し、一緒にレビュー。", "라이브러리를 공유하고 함께 검토하세요."), "body", { color: "muted" }), rule(260), featureList(), button(say("Get Team", "购买团队版", "チームを選ぶ", "팀 시작하기"), { variant: "filled", size: "md" })], { fill: "primaryContainer" }),
+      vbox({ surface: "card", width: 300, hugWidth: false, padX: 20, padY: 20, gap: 14 }, [hbox({ justify: "between" }, [text(say("Team", "团队版", "チーム", "팀"), "heading", { bold: true }), tag(say("Most popular", "最受欢迎", "人気 No.1", "가장 인기"), "default")]), planPrice(say("$24", "¥128", "¥3,400", "₩32,000"), MONTH), para(say("Share libraries and review together.", "共享组件库，一起评审。", "ライブラリを共有し、一緒にレビュー。", "라이브러리를 공유하고 함께 검토하세요."), "body", { color: "on-surface-variant" }), rule(260), featureList(), button(say("Get Team", "购买团队版", "チームを選ぶ", "팀 시작하기"), { variant: "filled", size: "md" })], { fill: "primaryContainer" }),
     ),
     variant("option", "A choice row", ["选项行", "選択の行", "선택 행"], () =>
       hbox({ surface: "chip", width: W, hugWidth: false, padX: 16, padY: 14, gap: 12 }, [atom("radio", { label: "", checked: true }), vbox({ gap: 2, hugWidth: false, width: 160 }, [text(say("Yearly", "按年", "年額", "연간"), "lead", { bold: true }), muted(say("$79.99 / year · $6.67 / month", "¥398 / 年 · 约 ¥33 / 月", "¥9,800 / 年 · 月あたり ¥817", "₩99,000 / 년 · 월 ₩8,250"))], { grow: true }), tag(say("Save 45%", "省 45%", "45% お得", "45% 절약"), "tertiary")], { corners: round(14) }),
@@ -192,10 +192,10 @@ const post = kit(
       hbox({ width: W, hugWidth: false, padX: 0, padY: 12, gap: 12, align: "start" }, [
         avatar("MC"),
         vbox({ gap: 6, hugWidth: false, width: 200 }, [
-          hbox({ gap: 6 }, [text(say("Mia Carter", "林小雨", "佐藤 葵", "김하늘"), "label", { bold: true }), para(say("@mia · 2h", "@xiaoyu · 2 小时", "@aoi · 2 時間", "@haneul · 2시간"), "label", { color: "muted", maxLines: 1 }, { grow: true }), icon("more_horiz", { size: 18, color: "muted" })]),
+          hbox({ gap: 6 }, [text(say("Mia Carter", "林小雨", "佐藤 葵", "김하늘"), "label", { bold: true }), para(say("@mia · 2h", "@xiaoyu · 2 小时", "@aoi · 2 時間", "@haneul · 2시간"), "label", { color: "on-surface-variant", maxLines: 1 }, { grow: true }), icon("more_horiz", { size: 18, color: "on-surface-variant" })]),
           para(POST, "body"),
           image({ height: 180, alt: "" }),
-          hbox({ justify: "between" }, [["chat_bubble", "12"], ["repeat", "4"], ["favorite", "38"], ["bar_chart", "1.2k"]].map(([g, n]) => hbox({ gap: 4 }, [icon(g, { size: 18, color: "muted", filled: g === "repeat" }), muted(n, "caption")]))),
+          hbox({ justify: "between" }, [["chat_bubble", "12"], ["repeat", "4"], ["favorite", "38"], ["bar_chart", "1.2k"]].map(([g, n]) => hbox({ gap: 4 }, [icon(g, { size: 18, color: "on-surface-variant", filled: g === "repeat" }), muted(n, "caption")]))),
         ], { grow: true }),
       ]),
       /* microblogs, and a messenger's moments with its square avatars */
@@ -219,7 +219,7 @@ const promo = kit(
       ], { fill: "primaryContainer" }),
     ),
     variant("strip", "Thin strip", ["细横条", "細い帯", "얇은 띠"], () =>
-      hbox({ surface: "panel", width: W, hugWidth: false, padX: 12, padY: 10, gap: 10 }, [icon("sell", { size: 20, color: "tertiary" }), para(say("Free delivery on orders over $30", "满 99 元包邮", "3,000 円以上で送料無料", "3만 원 이상 무료 배송"), "body", { maxLines: 1 }, { grow: true }), icon("chevron_right", { size: 20, color: "muted" })], { fill: "tertiaryContainer", corners: round(12) }),
+      hbox({ surface: "panel", width: W, hugWidth: false, padX: 12, padY: 10, gap: 10 }, [icon("sell", { size: 20, color: "tertiary" }), para(say("Free delivery on orders over $30", "满 99 元包邮", "3,000 円以上で送料無料", "3만 원 이상 무료 배송"), "body", { maxLines: 1 }, { grow: true }), icon("chevron_right", { size: 20, color: "on-surface-variant" })], { fill: "tertiaryContainer", corners: round(12) }),
     ),
     variant(
       "game",
@@ -248,12 +248,12 @@ const emptyNote = kit(
       vbox({ width: W, hugWidth: false, padX: 24, padY: 24, gap: 12, align: "center" }, [
         box({ surface: "well", layout: "row", align: "center", justify: "center", padX: 0, padY: 0, width: 96, height: 96, hugWidth: false, hugHeight: false }, [icon("inbox", { size: 48, color: "primary" })], { corners: round(48) }),
         text(say("No messages yet", "还没有消息", "メッセージはまだありません", "아직 메시지가 없어요"), "title", { align: "center" }),
-        para(say("When someone writes to you, it shows up here.", "有人给你发消息时，会显示在这里。", "誰かからメッセージが届くとここに表示されます。", "누군가 메시지를 보내면 여기에 표시됩니다."), "body", { color: "muted", align: "center", width: 300 }),
+        para(say("When someone writes to you, it shows up here.", "有人给你发消息时，会显示在这里。", "誰かからメッセージが届くとここに表示されます。", "누군가 메시지를 보내면 여기에 표시됩니다."), "body", { color: "on-surface-variant", align: "center", width: 300 }),
         button(say("Start a chat", "发起聊天", "チャットを始める", "채팅 시작"), { variant: "tonal" }),
       ]),
     ),
     variant("quiet", "Just a line", ["只有一行", "一行だけ", "한 줄만"], () =>
-      vbox({ width: W, hugWidth: false, padX: 24, padY: 32, gap: 8, align: "center" }, [icon("search_off", { size: 40, color: "muted", filled: true }), muted(say("No results for “ramen”", "没有找到“拉面”", "「ラーメン」の結果はありません", "‘라멘’ 검색 결과 없음"), "body", { align: "center" })]),
+      vbox({ width: W, hugWidth: false, padX: 24, padY: 32, gap: 8, align: "center" }, [icon("search_off", { size: 40, color: "on-surface-variant", filled: true }), muted(say("No results for “ramen”", "没有找到“拉面”", "「ラーメン」の結果はありません", "‘라멘’ 검색 결과 없음"), "body", { align: "center" })]),
     ),
     variant(
       "desk",
@@ -261,9 +261,9 @@ const emptyNote = kit(
       ["桌面靠左", "デスクトップ・左寄せ", "데스크톱·왼쪽"],
       () =>
         vbox({ width: 480, hugWidth: false, padX: 0, padY: 24, gap: 10, align: "start" }, [
-          icon("folder_open", { size: 40, color: "muted" }),
+          icon("folder_open", { size: 40, color: "on-surface-variant" }),
           text(say("No folder open", "没有打开的文件夹", "フォルダーが開かれていません", "열린 폴더 없음"), "heading", { bold: true }),
-          para(say("Open a folder to start, or clone a repository.", "打开一个文件夹开始，或克隆一个仓库。", "フォルダーを開くか、リポジトリをクローンして始めましょう。", "폴더를 열거나 저장소를 복제해 시작하세요."), "body", { color: "muted" }),
+          para(say("Open a folder to start, or clone a repository.", "打开一个文件夹开始，或克隆一个仓库。", "フォルダーを開くか、リポジトリをクローンして始めましょう。", "폴더를 열거나 저장소를 복제해 시작하세요."), "body", { color: "on-surface-variant" }),
           hbox({ gap: 8 }, [button(say("Open folder", "打开文件夹", "フォルダーを開く", "폴더 열기"), { variant: "filled", size: "xs" }), button(say("Clone repository", "克隆仓库", "リポジトリをクローン", "저장소 복제"), { variant: "outlined", size: "xs" })]),
         ]),
       { suits: isDense },

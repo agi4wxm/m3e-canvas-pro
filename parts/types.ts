@@ -9,8 +9,10 @@ export type Labels = Partial<Record<PartLang, string>>;
 /** a choice of an `enum` prop: the value the component takes, and what the panel calls it */
 export type Choice = string | { value: string; label: string; labels?: Labels };
 
-/** one row of a `list` prop: a tab, a menu entry, a destination */
-export type ListItem = { label: string; icon?: string; variant?: string; width?: string; image?: string };
+/** one row of a `list` prop: a tab, a menu entry, a destination; a swatch of a palette, with its `color` (parts/color.ts).
+ *  A row is cells under the list's declared columns (parts/rows.ts `rowColumnsOf`): its words, and the cells its
+ *  definition gives it. */
+export type ListItem = { label: string; icon?: string; variant?: string; width?: string; image?: string; color?: string };
 
 /** a per-row choice of a `list` prop: one more column beside the icon and the words
  *  (a button group's per-row variant, say) */
@@ -28,7 +30,16 @@ export type PropDef = {
    *  a layout places the part, and the panel leaves it out then */
   screen?: boolean;
 } & (
-  | { kind: "text"; default: string; multiline?: boolean; /** the seed in each language; `default` stays English */ defaults?: Labels }
+  | {
+      kind: "text";
+      default: string;
+      multiline?: boolean;
+      /** the seed in each language; `default` stays English */
+      defaults?: Labels;
+      /** places among the rows of another prop of the part, from 0 with commas between ("0,2", parts/rows.ts): each goes
+       *  with its row when the rows move */
+      of?: string;
+    }
   | { kind: "enum"; default: string; options: Choice[] }
   | { kind: "bool"; default: boolean }
   | {
@@ -41,14 +52,21 @@ export type PropDef = {
       /** the measure the canvas handles pull when it is not the prop's name (a basic
        *  dialog's `dialogWidth` is still a width) */
       axis?: "width" | "height";
+      /** a place among the rows of another prop of the part (parts/rows.ts), from 0, -1 for none: it goes with its row
+       *  when the rows move, and is gone with it */
+      of?: string;
     }
   /** a Material Symbols name; "" means no icon */
   | { kind: "icon"; default: string }
+  /** A color (parts/color.ts): a role, a role at a share of itself (`primary/40`) or a hex, or "" for none set. `roles`
+   *  are the ones the part was designed around, offered first by the panel and drawn by the part's own classes; `none`
+   *  says what "" is: the part's own color (`default`, a text's ink) or no paint at all (`none`, a box without a fill). */
+  | { kind: "color"; default: string; roles?: string[]; none?: "default" | "none" }
   /** an image the author picks or links: a `data:` URL or an http(s) address; "" is none */
   | { kind: "image"; default?: string }
   /** rows the author adds and removes; `icons` gives each row an icon as well, `images` a
    *  picture, `fields` one more choice per row */
-  | { kind: "list"; default: ListItem[]; min?: number; max?: number; icons?: boolean; images?: boolean; fields?: ListField[] }
+  | { kind: "list"; default: ListItem[]; min?: number; max?: number; icons?: boolean; images?: boolean; fields?: ListField[]; /** each row is a color (`color`, parts/color.ts), its words its name */ colors?: boolean }
   /** rows of cells under named columns: the data a table or a chart shows. `columns` is the structure the part reads
    *  its cells by (parts/tables.ts), one for each of the default's columns. */
   | { kind: "table"; default: TableData; columns?: TableColumn[]; /** the author lays out its columns' structure (a table of data) */ structure?: boolean }
@@ -69,6 +87,9 @@ export type P = {
   b: (key: string) => boolean;
   list: (key: string) => ListItem[];
   table: (key: string) => TableData;
+  /** a list's or a table's rows as the row model has them (parts/rows.ts): records of words by the columns' keys, a
+   *  table's lined up by the columns the part declares */
+  rows: (key: string) => Record<string, string>[];
   /** words a part says by itself, in the editor's language */
   say: (words: string) => string;
   /** a name for the part being drawn, the same wherever it is drawn or printed (from its item's id), or "" when

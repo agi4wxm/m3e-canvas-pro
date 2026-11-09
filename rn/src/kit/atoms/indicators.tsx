@@ -5,7 +5,7 @@ import Svg, { Circle, Path } from "react-native-svg";
 
 import { Glyph } from "../icons/Icon";
 import { useFill } from "../layout";
-import { withAlpha } from "../look";
+import { colorOf, withAlpha } from "../look";
 import { clampInt, sourceOf, withDefaults, type ListRow, type Picture } from "../parts";
 import { extraColor } from "../recipes";
 import { SHAPE_PATHS } from "../shapes.generated";
@@ -191,7 +191,7 @@ export function Spinner(props: SpinnerProps) {
   const s = SPINNER[p.size ?? "sm"] ?? 24;
   return (
     <View testID={p.testID} style={{ width: s, height: s, alignItems: "center", justifyContent: "center" }}>
-      <ActivityIndicator size={s >= 32 ? "large" : "small"} color={c(kit, p.color ?? "primary")} />
+      <ActivityIndicator size={s >= 32 ? "large" : "small"} color={colorOf(kit, p.color || "primary") ?? c(kit, "primary")} />
     </View>
   );
 }
@@ -217,13 +217,14 @@ export function LoadingIndicator(props: PartBase & { variant?: "default" | "cont
 
 /* ---------- small marks ---------- */
 
-const DOT: Record<string, string> = { primary: "primary", secondary: "secondary", tertiary: "tertiary", error: "error", outline: "outline", muted: "on-surface-variant", surface: "surface-container-highest" };
+/* by the one color value: any other color is drawn as it is, none draws no dot's color */
+const DOT: Record<string, string> = { primary: "primary", secondary: "secondary", tertiary: "tertiary", error: "error", outline: "outline", "on-surface-variant": "on-surface-variant", "surface-container-highest": "surface-container-highest" };
 
 export function Dot(props: PartBase & { color?: string; size?: number; ring?: boolean }) {
   const p = withDefaults<{ color?: string; size?: number; ring?: boolean; testID?: string }>("dot", props);
   const kit = useKit();
   const s = Math.round(p.size ?? 8);
-  return <View testID={p.testID} accessibilityRole="none" style={{ width: s, height: s, borderRadius: s / 2, backgroundColor: c(kit, DOT[p.color ?? "primary"] ?? "primary"), ...(p.ring ? { outlineWidth: 2, outlineColor: c(kit, "surface") } : null) }} />;
+  return <View testID={p.testID} accessibilityRole="none" style={{ width: s, height: s, borderRadius: s / 2, backgroundColor: DOT[p.color ?? "primary"] ? c(kit, DOT[p.color ?? "primary"]) : (colorOf(kit, p.color) ?? "transparent"), ...(p.ring ? { outlineWidth: 2, outlineColor: c(kit, "surface") } : null) }} />;
 }
 
 export function PageDots(props: PartBase & { count?: number; current?: number }) {

@@ -28,7 +28,7 @@ const card: KitDef = {
           { surface: "card", width: 380, hugWidth: false, padX: 12, padY: 12, gap: 12 },
           [
             image({ height: 180, alt: "" }),
-            vbox({ padX: 4, padY: 0, gap: 6 }, [text(OVERLINE, "label", { color: "primary" }), para(TITLE, "title"), para(BODY, "body", { color: "muted", maxLines: 3 })]),
+            vbox({ padX: 4, padY: 0, gap: 6 }, [text(OVERLINE, "label", { color: "primary" }), para(TITLE, "title"), para(BODY, "body", { color: "on-surface-variant", maxLines: 3 })]),
             hbox({ justify: "end", gap: 8 }, [button(SHARE, { variant: "text" }), button(BOOK, { variant: "filled" })]),
           ],
           { name: say("Card", "卡片", "カード", "카드") },
@@ -41,7 +41,7 @@ const card: KitDef = {
       build: () =>
         hbox(
           { surface: "card", width: 380, hugWidth: false, padX: 12, padY: 12, gap: 12, align: "start" },
-          [image({ width: 96, height: 96, alt: "" }), vbox({ gap: 4, hugWidth: false, width: 200 }, [para(TITLE, "heading", { maxLines: 1 }), para(BODY, "body", { color: "muted", maxLines: 2 }), hbox({ justify: "end", gap: 8 }, [button(BOOK, { variant: "tonal", size: "xs" })])], { grow: true })],
+          [image({ width: 96, height: 96, alt: "" }), vbox({ gap: 4, hugWidth: false, width: 200 }, [para(TITLE, "heading", { maxLines: 1 }), para(BODY, "body", { color: "on-surface-variant", maxLines: 2 }), hbox({ justify: "end", gap: 8 }, [button(BOOK, { variant: "tonal", size: "xs" })])], { grow: true })],
           { name: say("Card", "卡片", "カード", "카드") },
         ),
     },
@@ -52,7 +52,7 @@ const card: KitDef = {
       build: () =>
         vbox(
           { surface: "card", width: 380, hugWidth: false, padX: 16, padY: 16, gap: 8 },
-          [para(TITLE, "title"), para(BODY, "body", { color: "muted" }), hbox({ justify: "end", gap: 8 }, [button(SHARE, { variant: "text" }), button(BOOK, { variant: "tonal" })])],
+          [para(TITLE, "title"), para(BODY, "body", { color: "on-surface-variant" }), hbox({ justify: "end", gap: 8 }, [button(SHARE, { variant: "text" }), button(BOOK, { variant: "tonal" })])],
           { name: say("Card", "卡片", "カード", "카드") },
         ),
     },

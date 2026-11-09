@@ -27,7 +27,7 @@ describe("the D3 inputs on a phone", () => {
       description: { component: "rich-text-editor", props: { text: "" } },
       stock: { component: "quantity-stepper", props: { value: 3 } },
       name: { component: "tag-input", props: { items: [{ label: "Lamp" }] } },
-      "price.currency": { component: "multi-select", props: { items: [{ label: "CNY" }, { label: "USD" }], selected: "1" } },
+      "price.currency": { component: "multi-select", props: { items: [{ label: "CNY" }, { label: "USD" }], picked: "0" } },
     });
     const form = screenOf(doc, widths, "NewProductScreen");
     expect(form).toContain('selected={optionOf([{ label: "shoes" }, { label: "shirts" }, { label: "bags" }], form1.value("category"))}');
@@ -37,12 +37,12 @@ describe("the D3 inputs on a phone", () => {
     expect(form).toContain('onValueChange={(v: number) => form1.set("stock", v)}');
     expect(form).toContain('items={(form1.value("name") as string[] | undefined) ?? "Lamp"}');
     expect(form).toContain('onChange={(v: string[]) => form1.set("name", v)}');
-    expect(form).toContain('selected={form1.text("price.currency")}');
+    expect(form).toContain('picked={form1.text("price.currency")}');
     /* what each starts with is what the design shows: the option's words, the number, the tags, the rows picked */
     expect(form).toMatch(/initial: \{[^}]*category: "shirts"/);
     expect(form).toMatch(/initial: \{[^}]*stock: 3/);
     expect(form).toMatch(/initial: \{[^}]*name: \["Lamp"\]/);
-    expect(form).toMatch(/initial: \{[^}]*"price\.currency": "1"/);
+    expect(form).toMatch(/initial: \{[^}]*"price\.currency": "0"/);
     /* their field states, as the form says */
     expect(form).toContain('error={!!form1.error("category")}');
     expect(form).toContain('testID="field:stock"');
