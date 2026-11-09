@@ -156,6 +156,8 @@ import { usePhoneLayout } from "./editor/usePhoneLayout";
 import { usePanels } from "./editor/usePanels";
 import { useOutsideImages } from "./editor/useOutsideImages";
 import { OutsideBanner } from "@/components/OutsideBanner";
+import { MaterialsContext, type MaterialsApi } from "@/components/Materials";
+import { materialUseCounts } from "@/lib/materials";
 import { RetiredBanner } from "@/components/RetiredBanner";
 import { retireText } from "@/lib/i18n/retire";
 import { isOutside } from "@/lib/outside";
@@ -295,6 +297,8 @@ export default function Editor({ initialLang, onReady, persist = editorProjects(
   /** the groups before and after the last tidy; "undo" is offered only while the after-state is still current */
   const tidyRef = useRef<{ frameId: string; before: Group[]; after: Group[] } | null>(null);
   const projectFileRef = useRef<HTMLInputElement>(null);
+  /* a material pack picked to be added to the document's library (lib/materials.ts): it never replaces the project */
+  const materialFileRef = useRef<HTMLInputElement>(null);
 
   const p = useMemo(() => paletteOf(paletteKey, customPalette, theme), [paletteKey, customPalette, theme]);
   /* corner helpers read the shape scale outside React; keep it current before anything renders */
@@ -983,6 +987,20 @@ export default function Editor({ initialLang, onReady, persist = editorProjects(
     return out;
   })();
   const groupView: GroupView = { instantRef, selectedSet, startsHidden, widths, canvas, p, handMode, acts: groupActs, view, gapOut, widthShift, pressedId, widthDragId, clips };
+  const materialsApi: MaterialsApi = {
+    materials: core.doc.materials ?? [],
+    importPack: () => materialFileRef.current?.click(),
+    remove: (id) => void runOp(ops.removeMaterial, { id }),
+    uses: (id) => materialUseCounts(savedDoc(core)).get(id) ?? 0,
+  };
+  const importMaterialFile = async (file: File) => {
+    let parsed: unknown = null;
+    try {
+      parsed = JSON.parse(await file.text());
+    } catch {}
+    const done = runOp(ops.addMaterials, { file: parsed }, { refused: () => showToast(t("mtInvalid", lang), 3000, "error") });
+    if (done) showToast(t("mtImported", lang).replace("{n}", String(done.added.length)), 2000, "check");
+  };
 
   return (
     <LangContext.Provider value={lang}>
@@ -991,6 +1009,7 @@ export default function Editor({ initialLang, onReady, persist = editorProjects(
     <BehaviorContext.Provider value={behavior}>
     <BindingsContext.Provider value={bindingsPanel}>
     <StyleRulesContext.Provider value={isStrict(theme, docStyles)}>
+    <MaterialsContext.Provider value={materialsApi}>
       <PartThemeStyle seed={partTheme.seed} contrast={partTheme.contrast} />
       <PartStyleSheet theme={theme} />
       <div
@@ -1896,6 +1915,7 @@ export default function Editor({ initialLang, onReady, persist = editorProjects(
                   onOpenFile: () => void project.openFile(),
                   onOpenFolder: project.canPickFolder ? () => void project.openFolder() : undefined,
                   onDownload: project.downloadCopy,
+                  onImportMaterials: () => materialFileRef.current?.click(),
                   onStopSaving: project.link ? project.stopSaving : undefined,
                   onSaveState: project.projects ? project.openSaveState : undefined,
                   canSync: project.canSyncFile && !!project.projects,
@@ -2286,6 +2306,19 @@ export default function Editor({ initialLang, onReady, persist = editorProjects(
           }}
         />
 
+        <input
+          ref={materialFileRef}
+          type="file"
+          accept=".m3e-material.json,.json,application/json"
+          hidden
+          data-material-file-input
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            e.target.value = "";
+            if (file) void importMaterialFile(file);
+          }}
+        />
+
         <ShareDialog
           p={p}
           doc={doc}
@@ -2482,6 +2515,7 @@ export default function Editor({ initialLang, onReady, persist = editorProjects(
             </div>
         </div>
       )}
+    </MaterialsContext.Provider>
     </StyleRulesContext.Provider>
     </BindingsContext.Provider>
     </BehaviorContext.Provider>

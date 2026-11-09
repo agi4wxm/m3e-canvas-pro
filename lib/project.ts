@@ -3,6 +3,7 @@ import { standIn } from "./instances";
 import { cleanLook } from "./look";
 import { cleanStyles } from "./styles";
 import { cleanDocIcons } from "./docIcons";
+import { cleanDocMaterials } from "./materials";
 import { cleanApi } from "./api/clean";
 import { cleanMocks } from "./mocks/clean";
 import { cleanCapabilities } from "./capabilities/clean";
@@ -496,6 +497,13 @@ export function cleanBehavior(doc: Doc): Doc {
     const icons = cleanDocIcons(out.icons);
     if (icons) out.icons = icons;
     else delete out.icons;
+  }
+  /* the materials are pictures and numbers, held to what the material format allows (lib/material.ts): a picture is a
+     png, webp or jpeg data URL, a number within its range, an id that comes again goes */
+  if (out.materials !== undefined) {
+    const materials = cleanDocMaterials(out.materials);
+    if (materials) out.materials = materials;
+    else delete out.materials;
   }
   /* the API section is held to its shape and its bounds (lib/api/clean.ts); what is merely wrong in it stays, for the
      author to see and fix */
