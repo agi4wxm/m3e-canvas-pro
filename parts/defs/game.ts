@@ -2,6 +2,7 @@ import { h, ic, listSlots } from "../node";
 import type { ListItem, P, PartDef, TableData } from "../types";
 import { FIELD, fieldFrame, fieldValues } from "../fieldState";
 import { ariaLabelProp } from "../a11y";
+import { cssColor } from "../color";
 
 /* The game parts, after 17722797729/m3e-canvas game-ui (MIT): a definition below and a widget in
  * parts/widgets for each. */
@@ -145,12 +146,12 @@ export const game: PartDef[] = [
       { key: "name", label: "Name", labels: { ja: "名前", zh: "名称", ko: "이름" }, kind: "text", default: "Leaf", defaults: { zh: "树叶" } },
       { key: "count", label: "Count", labels: { ja: "数量", zh: "数量", ko: "수량" }, kind: "text", default: "23" },
       { key: "rarity", label: "Rarity", labels: { ja: "レア度", zh: "稀有度", ko: "희귀도" }, kind: "text", default: "" },
-      { key: "rarityColor", label: "Rarity color", labels: { ja: "レア度の色", zh: "稀有度颜色", ko: "희귀도 색상" }, kind: "text", default: "#7BAE7A" },
+      { key: "rarityColor", label: "Rarity color", labels: { ja: "レア度の色", zh: "稀有度颜色", ko: "희귀도 색상" }, kind: "color", default: "#7BAE7A", roles: ["primary", "secondary", "tertiary", "error", "outline"], none: "default" },
       { key: "badge", label: "Badge", labels: { ja: "バッジ", zh: "角标", ko: "배지" }, kind: "text", default: "" },
       { key: "pressed", label: "Selected", labels: { ja: "選択中", zh: "选中", ko: "선택됨" }, kind: "bool", default: false },
       { key: "size", label: "Size", labels: { zh: "尺寸" }, kind: "number", default: 60, min: 32, max: 160, step: 4, unit: "px" },
     ],
-    tree: (p) => h("ItemCell", { icon: p.s("icon"), name: p.s("name"), count: p.s("count"), rarity: p.s("rarity"), rarityColor: p.s("rarityColor"), badge: p.s("badge"), ...(p.b("pressed") ? { selected: true } : {}), size: Math.round(p.n("size")) }),
+    tree: (p) => h("ItemCell", { icon: p.s("icon"), name: p.s("name"), count: p.s("count"), rarity: p.s("rarity"), rarityColor: cssColor(p.s("rarityColor")) ?? "", badge: p.s("badge"), ...(p.b("pressed") ? { selected: true } : {}), size: Math.round(p.n("size")) }),
   },
   {
     slug: "task-row",
@@ -187,10 +188,10 @@ export const game: PartDef[] = [
       { key: "width", label: "Width", kind: "number", default: 380, min: 200, max: 800, step: 4, unit: "px" },
     ],
     /* a press on a reward that is ready asks to claim it; what is claimed is the game's to say */
-    slots: (p) => p.table("data").rows.map((r, i) => ({ key: `tab:${i}`, label: r[1] || `${i + 1}` })),
+    slots: (p) => p.rows("data").map((r, i) => ({ key: `tab:${i}`, label: r.label || `${i + 1}` })),
     families: [EVERY_ENTRY],
     demo: { what: "marks a reward claimed as soon as it is pressed", takenOverBy: ["claimed"] },
-    tree: (p) => h("RewardTrack", { rewards: p.table("data").rows.map((r) => ({ at: Number(r[0]) || 0, label: r[1] ?? "", icon: r[2] ?? "" })), value: Math.round(p.n("value")), max: Math.round(p.n("max")), ...(p.s("claimed") ? { claimed: p.s("claimed") } : {}), action: p.s("action"), width: Math.round(p.n("width")) }),
+    tree: (p) => h("RewardTrack", { rewards: p.rows("data").map((r) => ({ at: Number(r.at) || 0, label: r.label ?? "", icon: r.icon ?? "" })), value: Math.round(p.n("value")), max: Math.round(p.n("max")), ...(p.s("claimed") ? { claimed: p.s("claimed") } : {}), action: p.s("action"), width: Math.round(p.n("width")) }),
   },
   {
     slug: "check-in",

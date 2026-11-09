@@ -16,7 +16,7 @@ const OUT = say("Yes! See you at 7", "约！七点见", "うん！7時にね", "
 
 const tailIn = { tl: 18, tr: 18, br: 18, bl: 4 };
 const tailOut = { tl: 18, tr: 18, br: 4, bl: 18 };
-const bubble = (words: Say, fill: Node["fill"], corners: Node["corners"], color = "default"): Node => hbox({ surface: "panel", padX: 12, padY: 8 }, [text(words, "body", { color })], { fill, corners });
+const bubble = (words: Say, fill: Node["fill"], corners: Node["corners"], color = ""): Node => hbox({ surface: "panel", padX: 12, padY: 8 }, [text(words, "body", { color })], { fill, corners });
 
 const chatBubble = kit(
   "chat-bubble",

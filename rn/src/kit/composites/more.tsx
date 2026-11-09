@@ -8,12 +8,11 @@ import { starred, withField, type FieldProps } from "../field";
 import { Glyph } from "../icons/Icon";
 import { useFill } from "../layout";
 import { withAlpha } from "../look";
-import { clampInt, sourceOf, withDefaults, type ListRow, type Picture } from "../parts";
+import { clampInt, recordsOf, sourceOf, withDefaults, type ListRow, type Picture } from "../parts";
 import { fieldStyle } from "../recipes";
 import { Surface } from "../Surface";
 import { corner, recipeOf, typeStyle, useKit, type Kit } from "../theme/ThemeProvider";
 import { tapOf } from "./bars";
-import { rowsOfTable } from "./media";
 
 /* More of what screens are made of, after the most common: a group of radio buttons, an input with what goes before and
  * after it, a grid of shortcuts, an accordion, a block of code, a place to drop files, a scene behind a game screen, a
@@ -197,13 +196,14 @@ const percentOf = (cell: string | undefined): `${number}%` => `${Math.max(0, Mat
 export function Scene(props: SceneProps & Record<string, unknown>) {
   const p = withDefaults<SceneProps>("scene", props);
   const kit = useKit();
-  const spots = rowsOfTable(p.hotspots);
+  /* the places to tap, read by key as the editor's row model reads them: label, x, y, w, h (parts/tableColumns.ts) */
+  const spots = recordsOf("scene", "hotspots", p.hotspots);
   return (
     <Surface base={{ width: Math.round(p.width ?? 412), height: Math.round(p.height ?? 892), backgroundColor: c(kit, "surface-container-high"), overflow: "hidden", alignItems: "center", justifyContent: "center" }} appearance={p} testID={p.testID}>
       {p.image ? <ExpoImage source={sourceOf(p.image)} contentFit="cover" style={{ position: "absolute", top: 0, right: 0, bottom: 0, left: 0 }} /> : <Glyph name={p.icon || "landscape"} size={48} color={c(kit, "outline")} />}
       {p.scrim && p.scrim !== "none" ? <View pointerEvents="none" style={{ position: "absolute", top: 0, right: 0, bottom: 0, left: 0, backgroundColor: withAlpha("#000000", 0.35) }} /> : null}
       {spots.map((r, i) => (
-        <Pressable key={i} accessibilityRole="button" accessibilityLabel={r[0] || `${i + 1}`} onPress={() => tapOf(p, `tab:${i}`)?.()} style={{ position: "absolute", left: percentOf(r[1]), top: percentOf(r[2]), width: percentOf(r[3]), height: percentOf(r[4]) }} />
+        <Pressable key={i} accessibilityRole="button" accessibilityLabel={r.label || `${i + 1}`} onPress={() => tapOf(p, `tab:${i}`)?.()} style={{ position: "absolute", left: percentOf(r.x), top: percentOf(r.y), width: percentOf(r.w), height: percentOf(r.h) }} />
       ))}
       {p.children}
     </Surface>

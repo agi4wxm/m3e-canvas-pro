@@ -1,3 +1,4 @@
+import { colorChoicesOf } from "../../../parts/color";
 import { lookAsColours } from "../../materials";
 import { bindExpr, boundVar } from "../../bindings/bind";
 import { assetIdOf, assetSlotOf, isAssetName } from "../../assetRefs";
@@ -385,8 +386,8 @@ class ScreenPrinter {
         ? [design]
         : d.kind === "number"
           ? [design, `${d.min}`, `${d.max}`]
-          : d.kind === "enum"
-            ? [`${expr(d.options.map((x) => (typeof x === "string" ? x : x.value)))} as const`, design]
+          : d.kind === "enum" || d.kind === "color"
+            ? [`${expr(d.kind === "color" ? colorChoicesOf(d) : d.options.map((x) => (typeof x === "string" ? x : x.value)))} as const`, design]
             : d.kind === "list"
               ? [design, `${d.max ?? 50}`]
               : [];

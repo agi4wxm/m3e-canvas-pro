@@ -35,13 +35,19 @@ const json = (v: unknown) => JSON.stringify(v, null, 1);
 
 const themeOf = (key: string) => miniThemeOf({ theme: normalizeTheme(key === "material" ? undefined : { style: key }), paletteKey: "purple" });
 
+/** the keys of the columns a part's table props are read by (the row model, parts/rows.ts), where it declares any */
+function tableColumns(d: (typeof PARTS)[number]): { columns?: Record<string, string[]> } {
+  const out = Object.fromEntries(d.props.flatMap((x) => (x.kind === "table" && x.columns?.length ? [[x.key, x.columns.map((c) => c.key)]] : [])));
+  return Object.keys(out).length ? { columns: out } : {};
+}
+
 /** the props of every part the kit draws, as the canvas reads them with nothing set */
 function partsModule(): string {
   const renamed = (slug: string, v: Record<string, unknown>) => Object.fromEntries(Object.entries(v).filter(([k]) => !SET_ONLY.has(k)).map(([k, x]) => [kitPropName(slug, k), x]));
-  const parts = Object.fromEntries(PARTS.filter((d) => Object.prototype.hasOwnProperty.call(NATIVE, d.slug)).map((d) => [d.slug, { name: d.name, tier: tierOf(d), defaults: renamed(d.slug, propValues(d, {})) }]));
+  const parts = Object.fromEntries(PARTS.filter((d) => Object.prototype.hasOwnProperty.call(NATIVE, d.slug)).map((d) => [d.slug, { name: d.name, tier: tierOf(d), defaults: renamed(d.slug, propValues(d, {})), ...tableColumns(d) }]));
   return `${HEAD}
 /** every part the kit draws: its name, tier and the value of each prop when nothing is set (in English) */
-export type PartInfo = { name: string; tier: "atom" | "composite"; defaults: Record<string, unknown> };
+export type PartInfo = { name: string; tier: "atom" | "composite"; defaults: Record<string, unknown>; /** the keys of the columns each table prop is read by (parts/tableColumns.ts), in place order */ columns?: Record<string, string[]> };
 
 export const PARTS: Record<string, PartInfo> = ${json(parts)};
 `;

@@ -9,7 +9,7 @@ import type { KitDef, KitLook } from "./types";
  * button. */
 
 const shopLike = (l: KitLook) => l.list === "tile";
-const priceColor = (l: KitLook) => (shopLike(l) ? "error" : "default");
+const priceColor = (l: KitLook) => (shopLike(l) ? "error" : "");
 
 const ITEM = say("Linen shirt, relaxed fit", "亚麻衬衫 宽松版", "リネンシャツ リラックスフィット", "린넨 셔츠 릴랙스 핏");
 const ITEM_PRICE = say("$48.00", "¥199", "¥5,900", "₩59,000");
@@ -46,7 +46,7 @@ const SUMS: [Say, Say][] = [
 ];
 const TOTAL = say("$92.88", "¥358", "¥11,880", "₩118,800");
 /** a line of the sums: what it is muted at the start, how much at the end */
-const sumLine = ([what, much]: [Say, Say], color = "default"): Node => hbox({ justify: "between" }, [muted(what), text(much, "body", { color })]);
+const sumLine = ([what, much]: [Say, Say], color = ""): Node => hbox({ justify: "between" }, [muted(what), text(much, "body", { color })]);
 
 const summary = kit(
   "price-summary",
@@ -57,12 +57,12 @@ const summary = kit(
   "a column of lines, each a muted name at the start and the sum at the end, then a hairline and the total in bold; or the same on a card with a coupon line (a tag glyph, the coupon, the saving in red and a chevron)",
   [
     variant("lines", "Lines and a total", ["明细与合计", "内訳と合計", "내역과 합계"], () =>
-      vbox({ width: W, hugWidth: false, gap: 10 }, [...SUMS.map((s, i) => sumLine(s, i === 1 ? "primary" : "default")), rule(), hbox({ justify: "between" }, [text(say("Total", "合计", "合計", "합계"), "lead", { bold: true }), text(TOTAL, "title", { bold: true })])]),
+      vbox({ width: W, hugWidth: false, gap: 10 }, [...SUMS.map((s, i) => sumLine(s, i === 1 ? "primary" : "")), rule(), hbox({ justify: "between" }, [text(say("Total", "合计", "合計", "합계"), "lead", { bold: true }), text(TOTAL, "title", { bold: true })])]),
     ),
     variant("card", "On a card, with a coupon", ["卡片带优惠券", "カード・クーポン付き", "카드·쿠폰"], (l) =>
       vbox({ surface: "card", width: W, hugWidth: false, padX: 16, padY: 16, gap: 10 }, [
         ...SUMS.slice(0, 2).map((s) => sumLine(s)),
-        hbox({ gap: 8 }, [icon("sell", { size: 18, color: "error" }), para(say("Coupon", "优惠券", "クーポン", "쿠폰"), "body", { maxLines: 1 }, { grow: true }), text(say("-$10.00", "-¥20", "-¥1,000", "-₩10,000"), "body", { color: "error" }), icon("chevron_right", { size: 18, color: "muted" })]),
+        hbox({ gap: 8 }, [icon("sell", { size: 18, color: "error" }), para(say("Coupon", "优惠券", "クーポン", "쿠폰"), "body", { maxLines: 1 }, { grow: true }), text(say("-$10.00", "-¥20", "-¥1,000", "-₩10,000"), "body", { color: "error" }), icon("chevron_right", { size: 18, color: "on-surface-variant" })]),
         rule(),
         hbox({ justify: "between" }, [text(say("Total", "合计", "合計", "합계"), "lead", { bold: true }), text(TOTAL, "title", { bold: true, color: priceColor(l) })]),
       ]),
@@ -101,7 +101,7 @@ const buyBar = kit(
       "Select all and checkout",
       ["全选与结算", "すべて選択と購入", "전체 선택과 결제"],
       (l) =>
-        hbox({ surface: "bar", pin: "bottom", width: SCREEN, hugWidth: false, padX: 16, padY: 10, gap: 8 }, [atom("checkbox", { label: say("All", "全选", "すべて", "전체"), checked: true }), para(say("Total:", "合计：", "合計：", "합계:"), "body", { color: "muted", align: "end", maxLines: 1 }, { grow: true }), text(TOTAL, "heading", { bold: true, color: priceColor(l) }), button(say("Checkout (2)", "结算(2)", "購入 (2)", "결제 (2)"), { variant: "filled", size: "sm" })]),
+        hbox({ surface: "bar", pin: "bottom", width: SCREEN, hugWidth: false, padX: 16, padY: 10, gap: 8 }, [atom("checkbox", { label: say("All", "全选", "すべて", "전체"), checked: true }), para(say("Total:", "合计：", "合計：", "합계:"), "body", { color: "on-surface-variant", align: "end", maxLines: 1 }, { grow: true }), text(TOTAL, "heading", { bold: true, color: priceColor(l) }), button(say("Checkout (2)", "结算(2)", "購入 (2)", "결제 (2)"), { variant: "filled", size: "sm" })]),
       { span: "screen" },
     ),
   ],
@@ -118,7 +118,7 @@ const couponCard = kit(
     variant("ticket", "Ticket", ["票根", "チケット", "티켓"], () =>
       hbox({ surface: "card", width: W, hugWidth: false, padX: 0, padY: 0, gap: 0, align: "stretch", hugHeight: false, height: 88 }, [
         vbox({ gap: 0, align: "center", justify: "center", hugWidth: false, width: 104, hugHeight: false, height: 88 }, [text(say("$10", "¥20", "¥1,000", "₩10,000"), "headline", { bold: true }), muted(say("OFF", "立减", "オフ", "할인"), "caption")], { fill: "primaryContainer", corners: { tl: 12, tr: 0, br: 0, bl: 12 } }),
-        vbox({ gap: 2, padX: 14, padY: 0, justify: "center", hugWidth: false, width: 160, hugHeight: false, height: 88 }, [para(say("On orders over $50", "满 199 元可用", "5,000 円以上で利用可", "5만 원 이상 주문 시"), "label", { bold: true, maxLines: 1 }), para(say("Valid until Dec 31", "有效期至 12 月 31 日", "12 月 31 日まで有効", "12월 31일까지"), "caption", { color: "muted", maxLines: 1 })], { grow: true }),
+        vbox({ gap: 2, padX: 14, padY: 0, justify: "center", hugWidth: false, width: 160, hugHeight: false, height: 88 }, [para(say("On orders over $50", "满 199 元可用", "5,000 円以上で利用可", "5만 원 이상 주문 시"), "label", { bold: true, maxLines: 1 }), para(say("Valid until Dec 31", "有效期至 12 月 31 日", "12 月 31 日まで有効", "12월 31일까지"), "caption", { color: "on-surface-variant", maxLines: 1 })], { grow: true }),
         hbox({ padX: 12, padY: 0, gap: 0, hugHeight: false, height: 88 }, [button(say("Use", "使用", "使う", "사용"), { variant: "filled", size: "xs" })]),
       ], { corners: round(12) }),
     ),

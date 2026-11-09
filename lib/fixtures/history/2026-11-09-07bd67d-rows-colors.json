@@ -1,0 +1,1171 @@
+{
+  "format": "m3e-project",
+  "version": 5,
+  "document": {
+    "brief": "",
+    "components": [
+      {
+        "groups": [
+          {
+            "axis": "x",
+            "id": "cg-text",
+            "items": [
+              {
+                "component": "text",
+                "icon": null,
+                "id": "c-text",
+                "kind": "component",
+                "label": "text",
+                "variant": "filled",
+                "props": {
+                  "text": "Inside",
+                  "color": "default"
+                }
+              }
+            ],
+            "x": 0,
+            "y": 0
+          },
+          {
+            "axis": "x",
+            "id": "cg-text2",
+            "items": [
+              {
+                "component": "text",
+                "icon": null,
+                "id": "c-text2",
+                "kind": "component",
+                "label": "text",
+                "variant": "filled",
+                "props": {
+                  "text": "Toned"
+                }
+              }
+            ],
+            "x": 0,
+            "y": 30
+          },
+          {
+            "axis": "x",
+            "id": "cg-pg",
+            "items": [
+              {
+                "component": "pagination",
+                "icon": null,
+                "id": "c-pg",
+                "kind": "component",
+                "label": "pagination",
+                "variant": "filled",
+                "props": {
+                  "pages": 6,
+                  "current": 2,
+                  "width": 300
+                }
+              }
+            ],
+            "x": 0,
+            "y": 60
+          },
+          {
+            "axis": "x",
+            "id": "cg-tb",
+            "items": [
+              {
+                "component": "table",
+                "icon": null,
+                "id": "c-tb",
+                "kind": "component",
+                "label": "table",
+                "variant": "filled",
+                "props": {
+                  "selected": 3,
+                  "width": 300
+                }
+              }
+            ],
+            "x": 0,
+            "y": 100
+          },
+          {
+            "axis": "x",
+            "id": "cg-ms",
+            "items": [
+              {
+                "component": "multi-select",
+                "icon": null,
+                "id": "c-ms",
+                "kind": "component",
+                "label": "multi-select",
+                "variant": "filled",
+                "props": {
+                  "items": [
+                    {
+                      "label": "X"
+                    },
+                    {
+                      "label": "Y"
+                    }
+                  ],
+                  "selected": "1"
+                }
+              }
+            ],
+            "x": 0,
+            "y": 250
+          }
+        ],
+        "h": 300,
+        "id": "c-card",
+        "name": "Card of rows and colors",
+        "props": [
+          {
+            "id": "p-tone",
+            "name": "Tone",
+            "targets": [
+              "c-text2/color"
+            ],
+            "type": "text",
+            "value": "muted"
+          }
+        ],
+        "w": 300
+      }
+    ],
+    "frame": "phone",
+    "frames": [
+      {
+        "id": "s-colors",
+        "name": "Colors",
+        "x": 0,
+        "y": 0
+      },
+      {
+        "id": "s-rows",
+        "name": "Rows",
+        "x": 454,
+        "y": 0
+      }
+    ],
+    "groups": [
+      {
+        "axis": "x",
+        "id": "g-t1",
+        "items": [
+          {
+            "component": "text",
+            "icon": null,
+            "id": "t1",
+            "kind": "component",
+            "label": "text",
+            "variant": "filled",
+            "props": {
+              "text": "Muted words",
+              "color": "muted"
+            }
+          }
+        ],
+        "x": 16,
+        "y": 40
+      },
+      {
+        "axis": "x",
+        "id": "g-t2",
+        "items": [
+          {
+            "component": "text",
+            "icon": null,
+            "id": "t2",
+            "kind": "component",
+            "label": "text",
+            "variant": "filled",
+            "props": {
+              "text": "Default words",
+              "color": "default"
+            }
+          }
+        ],
+        "x": 16,
+        "y": 80
+      },
+      {
+        "axis": "x",
+        "id": "g-t3",
+        "items": [
+          {
+            "component": "text",
+            "icon": null,
+            "id": "t3",
+            "kind": "component",
+            "label": "text",
+            "variant": "filled",
+            "props": {
+              "text": "Inverse words",
+              "color": "inverse"
+            }
+          }
+        ],
+        "x": 16,
+        "y": 120
+      },
+      {
+        "axis": "x",
+        "id": "g-t4",
+        "items": [
+          {
+            "component": "text",
+            "icon": null,
+            "id": "t4",
+            "kind": "component",
+            "label": "text",
+            "variant": "filled",
+            "props": {
+              "text": "Bound words"
+            },
+            "bind": {
+              "color": "=vars.tone"
+            }
+          }
+        ],
+        "x": 16,
+        "y": 160
+      },
+      {
+        "axis": "x",
+        "id": "g-t5",
+        "items": [
+          {
+            "component": "text",
+            "icon": null,
+            "id": "t5",
+            "kind": "component",
+            "label": "text",
+            "variant": "filled",
+            "props": {
+              "text": "Primary words",
+              "color": "primary"
+            }
+          }
+        ],
+        "x": 16,
+        "y": 200
+      },
+      {
+        "axis": "x",
+        "id": "g-i1",
+        "items": [
+          {
+            "component": "icon",
+            "icon": null,
+            "id": "i1",
+            "kind": "component",
+            "label": "icon",
+            "variant": "filled",
+            "props": {
+              "name": "star",
+              "color": "muted"
+            }
+          }
+        ],
+        "x": 16,
+        "y": 240
+      },
+      {
+        "axis": "x",
+        "id": "g-i2",
+        "items": [
+          {
+            "component": "icon",
+            "icon": null,
+            "id": "i2",
+            "kind": "component",
+            "label": "icon",
+            "variant": "filled",
+            "props": {
+              "name": "star",
+              "color": "default"
+            }
+          }
+        ],
+        "x": 64,
+        "y": 240
+      },
+      {
+        "axis": "x",
+        "id": "g-i3",
+        "items": [
+          {
+            "component": "icon",
+            "icon": null,
+            "id": "i3",
+            "kind": "component",
+            "label": "icon",
+            "variant": "filled",
+            "props": {
+              "name": "star",
+              "color": "inverse"
+            }
+          }
+        ],
+        "x": 112,
+        "y": 240
+      },
+      {
+        "axis": "x",
+        "id": "g-s1",
+        "items": [
+          {
+            "component": "svg",
+            "icon": null,
+            "id": "s1",
+            "kind": "component",
+            "label": "svg",
+            "variant": "filled",
+            "props": {
+              "color": "current"
+            }
+          }
+        ],
+        "x": 16,
+        "y": 290
+      },
+      {
+        "axis": "x",
+        "id": "g-s2",
+        "items": [
+          {
+            "component": "svg",
+            "icon": null,
+            "id": "s2",
+            "kind": "component",
+            "label": "svg",
+            "variant": "filled",
+            "props": {
+              "color": "default"
+            }
+          }
+        ],
+        "x": 80,
+        "y": 290
+      },
+      {
+        "axis": "x",
+        "id": "g-s3",
+        "items": [
+          {
+            "component": "svg",
+            "icon": null,
+            "id": "s3",
+            "kind": "component",
+            "label": "svg",
+            "variant": "filled",
+            "props": {
+              "color": "muted"
+            }
+          }
+        ],
+        "x": 144,
+        "y": 290
+      },
+      {
+        "axis": "x",
+        "id": "g-d1",
+        "items": [
+          {
+            "component": "dot",
+            "icon": null,
+            "id": "d1",
+            "kind": "component",
+            "label": "dot",
+            "variant": "filled",
+            "props": {
+              "color": "surface"
+            }
+          }
+        ],
+        "x": 16,
+        "y": 350
+      },
+      {
+        "axis": "x",
+        "id": "g-d2",
+        "items": [
+          {
+            "component": "dot",
+            "icon": null,
+            "id": "d2",
+            "kind": "component",
+            "label": "dot",
+            "variant": "filled",
+            "props": {
+              "color": "muted"
+            }
+          }
+        ],
+        "x": 40,
+        "y": 350
+      },
+      {
+        "axis": "x",
+        "id": "g-d3",
+        "items": [
+          {
+            "component": "dot",
+            "icon": null,
+            "id": "d3",
+            "kind": "component",
+            "label": "dot",
+            "variant": "filled",
+            "props": {
+              "color": "error"
+            }
+          }
+        ],
+        "x": 64,
+        "y": 350
+      },
+      {
+        "axis": "x",
+        "id": "g-l1",
+        "items": [
+          {
+            "component": "item",
+            "icon": null,
+            "id": "l1",
+            "kind": "component",
+            "label": "item",
+            "variant": "filled",
+            "props": {
+              "items": [
+                {
+                  "label": "Inbox",
+                  "icon": "inbox"
+                }
+              ],
+              "iconFill": "surface"
+            }
+          }
+        ],
+        "x": 16,
+        "y": 380
+      },
+      {
+        "axis": "x",
+        "id": "g-l2",
+        "items": [
+          {
+            "component": "item",
+            "icon": null,
+            "id": "l2",
+            "kind": "component",
+            "label": "item",
+            "variant": "filled",
+            "props": {
+              "items": [
+                {
+                  "label": "Sent",
+                  "icon": "send"
+                }
+              ],
+              "iconFill": "none"
+            }
+          }
+        ],
+        "x": 16,
+        "y": 450
+      },
+      {
+        "axis": "x",
+        "id": "g-l3",
+        "items": [
+          {
+            "component": "item",
+            "icon": null,
+            "id": "l3",
+            "kind": "component",
+            "label": "item",
+            "variant": "filled",
+            "props": {
+              "items": [
+                {
+                  "label": "Draft",
+                  "icon": "draft"
+                }
+              ],
+              "iconFill": "tertiary-container"
+            }
+          }
+        ],
+        "x": 16,
+        "y": 520
+      },
+      {
+        "axis": "x",
+        "id": "g-sep1",
+        "items": [
+          {
+            "component": "separator",
+            "icon": null,
+            "id": "sep1",
+            "kind": "component",
+            "label": "separator",
+            "variant": "filled",
+            "props": {
+              "color": "default"
+            }
+          }
+        ],
+        "x": 16,
+        "y": 600
+      },
+      {
+        "axis": "x",
+        "id": "g-sep2",
+        "items": [
+          {
+            "component": "separator",
+            "icon": null,
+            "id": "sep2",
+            "kind": "component",
+            "label": "separator",
+            "variant": "filled",
+            "props": {
+              "color": "primary",
+              "thickness": 3
+            }
+          }
+        ],
+        "x": 16,
+        "y": 610
+      },
+      {
+        "axis": "x",
+        "id": "g-c1",
+        "items": [
+          {
+            "component": "container",
+            "icon": null,
+            "id": "c1",
+            "kind": "component",
+            "label": "container",
+            "variant": "filled",
+            "props": {
+              "fill": "none",
+              "border": "none",
+              "label": "Bare",
+              "width": 160,
+              "height": 60
+            }
+          }
+        ],
+        "x": 16,
+        "y": 630
+      },
+      {
+        "axis": "x",
+        "id": "g-c2",
+        "items": [
+          {
+            "component": "container",
+            "icon": null,
+            "id": "c2",
+            "kind": "component",
+            "label": "container",
+            "variant": "filled",
+            "props": {
+              "fill": "secondary-container",
+              "label": "Filled",
+              "width": 160,
+              "height": 60
+            }
+          }
+        ],
+        "x": 200,
+        "y": 630
+      },
+      {
+        "axis": "x",
+        "id": "g-sp",
+        "items": [
+          {
+            "component": "spinner",
+            "icon": null,
+            "id": "sp",
+            "kind": "component",
+            "label": "spinner",
+            "variant": "filled",
+            "props": {
+              "color": "error"
+            }
+          }
+        ],
+        "x": 16,
+        "y": 700
+      },
+      {
+        "axis": "x",
+        "id": "g-sh",
+        "items": [
+          {
+            "component": "shape",
+            "icon": null,
+            "id": "sh",
+            "kind": "component",
+            "label": "shape",
+            "variant": "filled",
+            "props": {
+              "color": "tertiary",
+              "width": 48,
+              "height": 48
+            }
+          }
+        ],
+        "x": 60,
+        "y": 700
+      },
+      {
+        "axis": "x",
+        "id": "g-fab",
+        "items": [
+          {
+            "component": "fab",
+            "icon": null,
+            "id": "fab",
+            "kind": "component",
+            "label": "fab",
+            "variant": "filled",
+            "props": {
+              "color": "surface"
+            }
+          }
+        ],
+        "x": 120,
+        "y": 700
+      },
+      {
+        "axis": "x",
+        "id": "g-bar",
+        "items": [
+          {
+            "component": "stat-bar",
+            "icon": null,
+            "id": "bar",
+            "kind": "component",
+            "label": "stat-bar",
+            "variant": "filled",
+            "props": {
+              "color": "tertiary"
+            }
+          }
+        ],
+        "x": 16,
+        "y": 770
+      },
+      {
+        "axis": "x",
+        "id": "g-ic1",
+        "items": [
+          {
+            "component": "item-cell",
+            "icon": null,
+            "id": "ic1",
+            "kind": "component",
+            "label": "item-cell",
+            "variant": "filled",
+            "props": {
+              "name": "Gem",
+              "rarity": "SR",
+              "rarityColor": "#E0A030"
+            }
+          }
+        ],
+        "x": 16,
+        "y": 800
+      },
+      {
+        "axis": "x",
+        "id": "g-ic2",
+        "items": [
+          {
+            "component": "item-cell",
+            "icon": null,
+            "id": "ic2",
+            "kind": "component",
+            "label": "item-cell",
+            "variant": "filled",
+            "props": {
+              "name": "Rock",
+              "rarity": "N",
+              "rarityColor": "#5B8DEF"
+            }
+          }
+        ],
+        "x": 90,
+        "y": 800
+      },
+      {
+        "axis": "x",
+        "id": "g-ic3",
+        "items": [
+          {
+            "component": "item-cell",
+            "icon": null,
+            "id": "ic3",
+            "kind": "component",
+            "label": "item-cell",
+            "variant": "filled",
+            "props": {
+              "name": "Leaf",
+              "rarity": "R",
+              "rarityColor": ""
+            }
+          }
+        ],
+        "x": 164,
+        "y": 800
+      },
+      {
+        "axis": "x",
+        "id": "g-btn1",
+        "items": [
+          {
+            "component": "button",
+            "icon": null,
+            "id": "b-colors",
+            "kind": "component",
+            "label": "button",
+            "variant": "filled",
+            "props": {
+              "label": "Change colors"
+            },
+            "action": {
+              "to": "none",
+              "effects": [
+                {
+                  "do": "setProp",
+                  "part": "t1",
+                  "prop": "color",
+                  "value": "inverse"
+                },
+                {
+                  "do": "setProp",
+                  "part": "i2",
+                  "prop": "color",
+                  "value": "muted"
+                },
+                {
+                  "do": "setProp",
+                  "part": "d1",
+                  "prop": "color",
+                  "value": "muted"
+                },
+                {
+                  "do": "setProp",
+                  "part": "l2",
+                  "prop": "iconFill",
+                  "value": "surface"
+                },
+                {
+                  "do": "setProp",
+                  "part": "c1",
+                  "prop": "fill",
+                  "value": "none"
+                },
+                {
+                  "do": "setProp",
+                  "part": "s1",
+                  "prop": "color",
+                  "value": "default"
+                },
+                {
+                  "do": "setVar",
+                  "var": "v-tone",
+                  "value": "inverse"
+                }
+              ]
+            }
+          }
+        ],
+        "x": 16,
+        "y": 900
+      },
+      {
+        "axis": "x",
+        "id": "g-pal",
+        "items": [
+          {
+            "component": "color-palette",
+            "icon": null,
+            "id": "pal",
+            "kind": "component",
+            "label": "color-palette",
+            "variant": "filled",
+            "props": {
+              "colors": "#6750A4,#386A20,#B3261E",
+              "selected": 1
+            }
+          }
+        ],
+        "x": 470,
+        "y": 40
+      },
+      {
+        "axis": "x",
+        "id": "g-pal2",
+        "items": [
+          {
+            "component": "color-palette",
+            "icon": null,
+            "id": "pal2",
+            "kind": "component",
+            "label": "color-palette",
+            "variant": "filled",
+            "props": {
+              "colors": "#6750A4,nope,#386A20"
+            },
+            "bind": {
+              "selected": "=vars.swatch"
+            }
+          }
+        ],
+        "x": 470,
+        "y": 140
+      },
+      {
+        "axis": "x",
+        "id": "g-tb1",
+        "items": [
+          {
+            "component": "table",
+            "icon": null,
+            "id": "tb1",
+            "kind": "component",
+            "label": "table",
+            "variant": "filled",
+            "props": {
+              "selected": 2,
+              "title": "Second"
+            }
+          }
+        ],
+        "x": 470,
+        "y": 240
+      },
+      {
+        "axis": "x",
+        "id": "g-tb2",
+        "items": [
+          {
+            "component": "table",
+            "icon": null,
+            "id": "tb2",
+            "kind": "component",
+            "label": "table",
+            "variant": "filled",
+            "props": {
+              "selected": 0,
+              "title": "None"
+            }
+          }
+        ],
+        "x": 470,
+        "y": 460
+      },
+      {
+        "axis": "x",
+        "id": "g-tb3",
+        "items": [
+          {
+            "component": "table",
+            "icon": null,
+            "id": "tb3",
+            "kind": "component",
+            "label": "table",
+            "variant": "filled",
+            "props": {
+              "title": "Bound"
+            },
+            "bind": {
+              "selected": "=vars.row"
+            }
+          }
+        ],
+        "x": 470,
+        "y": 680
+      },
+      {
+        "axis": "x",
+        "id": "g-pg1",
+        "items": [
+          {
+            "component": "pagination",
+            "icon": null,
+            "id": "pg1",
+            "kind": "component",
+            "label": "pagination",
+            "variant": "filled",
+            "props": {
+              "pages": 8,
+              "current": 3,
+              "width": 380
+            },
+            "actions": {
+              "tab:3": {
+                "to": "none",
+                "effects": [
+                  {
+                    "do": "setProp",
+                    "part": "pg1",
+                    "prop": "current",
+                    "value": 4
+                  }
+                ]
+              }
+            }
+          }
+        ],
+        "x": 470,
+        "y": 900
+      },
+      {
+        "axis": "x",
+        "id": "g-pg2",
+        "items": [
+          {
+            "component": "pagination",
+            "icon": null,
+            "id": "pg2",
+            "kind": "component",
+            "label": "pagination",
+            "variant": "filled",
+            "props": {
+              "pages": 12,
+              "width": 380
+            },
+            "bind": {
+              "current": "=vars.page"
+            }
+          }
+        ],
+        "x": 470,
+        "y": 950
+      },
+      {
+        "axis": "x",
+        "id": "g-lv",
+        "items": [
+          {
+            "component": "level-map",
+            "icon": null,
+            "id": "lv",
+            "kind": "component",
+            "label": "level-map",
+            "variant": "filled",
+            "props": {
+              "levels": 8,
+              "current": 4,
+              "perRow": 4
+            },
+            "actions": {
+              "tab:1": {
+                "to": "none",
+                "effects": [
+                  {
+                    "do": "setProp",
+                    "part": "lv",
+                    "prop": "current",
+                    "value": 2
+                  }
+                ]
+              }
+            }
+          }
+        ],
+        "x": 470,
+        "y": 1000
+      },
+      {
+        "axis": "x",
+        "id": "g-ms1",
+        "items": [
+          {
+            "component": "multi-select",
+            "icon": null,
+            "id": "ms1",
+            "kind": "component",
+            "label": "multi-select",
+            "variant": "filled",
+            "props": {
+              "items": [
+                {
+                  "label": "Email"
+                },
+                {
+                  "label": "Push"
+                },
+                {
+                  "label": "SMS"
+                }
+              ],
+              "selected": "1,3"
+            }
+          }
+        ],
+        "x": 470,
+        "y": 1300
+      },
+      {
+        "axis": "x",
+        "id": "g-ms2",
+        "items": [
+          {
+            "component": "multi-select",
+            "icon": null,
+            "id": "ms2",
+            "kind": "component",
+            "label": "multi-select",
+            "variant": "filled",
+            "props": {
+              "items": [
+                {
+                  "label": "A"
+                },
+                {
+                  "label": "B"
+                }
+              ]
+            }
+          }
+        ],
+        "x": 470,
+        "y": 1380
+      },
+      {
+        "axis": "x",
+        "id": "g-btn2",
+        "items": [
+          {
+            "component": "button",
+            "icon": null,
+            "id": "b-places",
+            "kind": "component",
+            "label": "button",
+            "variant": "filled",
+            "props": {
+              "label": "Change places"
+            },
+            "action": {
+              "to": "none",
+              "effects": [
+                {
+                  "do": "setProp",
+                  "part": "tb1",
+                  "prop": "selected",
+                  "value": 3
+                },
+                {
+                  "do": "setProp",
+                  "part": "tb2",
+                  "prop": "selected",
+                  "value": 1
+                },
+                {
+                  "do": "setProp",
+                  "part": "pg2",
+                  "prop": "current",
+                  "value": 6
+                },
+                {
+                  "do": "setProp",
+                  "part": "ms1",
+                  "prop": "selected",
+                  "value": "2"
+                },
+                {
+                  "do": "setProp",
+                  "part": "pal",
+                  "prop": "colors",
+                  "value": "#000000,#ffffff"
+                },
+                {
+                  "by": 1,
+                  "do": "addVar",
+                  "var": "v-row"
+                },
+                {
+                  "do": "setVar",
+                  "var": "v-page",
+                  "value": 2
+                }
+              ]
+            }
+          }
+        ],
+        "x": 470,
+        "y": 1460
+      },
+      {
+        "axis": "x",
+        "id": "i-card",
+        "items": [
+          {
+            "component": "container",
+            "icon": null,
+            "id": "i-card-part",
+            "kind": "component",
+            "label": "container",
+            "variant": "filled",
+            "props": {
+              "border": "none",
+              "fill": "none",
+              "height": 300,
+              "label": "",
+              "note": "",
+              "radius": 0,
+              "width": 300
+            }
+          }
+        ],
+        "x": 470,
+        "y": 1520,
+        "instanceOf": "c-card",
+        "overrides": {
+          "c-text/color": "muted",
+          "c-pg/current": 5,
+          "c-tb/selected": 1,
+          "c-ms/selected": "2"
+        },
+        "properties": {
+          "p-tone": "inverse"
+        }
+      }
+    ],
+    "paletteKey": "purple",
+    "title": "Rows and colors at version 5",
+    "vars": [
+      {
+        "id": "v-tone",
+        "name": "tone",
+        "type": "text",
+        "value": "muted"
+      },
+      {
+        "id": "v-row",
+        "name": "row",
+        "type": "number",
+        "value": 1
+      },
+      {
+        "id": "v-page",
+        "name": "page",
+        "type": "number",
+        "value": 4
+      },
+      {
+        "id": "v-swatch",
+        "name": "swatch",
+        "type": "number",
+        "value": 2
+      }
+    ]
+  }
+}

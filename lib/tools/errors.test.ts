@@ -86,6 +86,18 @@ describe("aliases", () => {
     expect(item(s, "pay")!.props?.label).toBe("Pay");
     expect(item(s, "ic")!.props?.name).toBe("home");
   });
+
+  it("read the words a color had before the one color value as the color they drew, and a palette's words as its rows", async () => {
+    expect(propsAliased("text", { color: "muted" })).toEqual({ color: "on-surface-variant" });
+    expect(propsAliased("container", { fill: "none" })).toEqual({ fill: "" });
+    expect(propsAliased("text", { color: "primary/40" })).toEqual({ color: "primary/40" });
+    expect(propsAliased("color-palette", { colors: "#111111,primary" })).toEqual({ colors: [{ label: "#111111", color: "#111111" }, { label: "primary", color: "primary" }] });
+    const s = fresh();
+    ok(await run(s, "add_part", { slug: "text", id: "t", screen: "F1", props: { text: "Hi", color: "muted" } }));
+    expect(item(s, "t")!.props?.color).toBe("on-surface-variant");
+    const bad = await run(s, "set_props", { id: "t", props: { color: "chartreuse" } });
+    expect(bad.ok).toBe(false);
+  });
 });
 
 describe("a failed batch", () => {

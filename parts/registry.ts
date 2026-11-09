@@ -31,6 +31,8 @@ import { getLang, type Lang } from "../lib/i18n";
 import { fieldProps } from "./fieldState";
 import { TABLE_COLUMNS } from "./tableColumns";
 import { lineUp } from "./tables";
+import { colorRowsOf, colorValue } from "./color";
+import { holdsRows, rowsOf } from "./rows";
 
 /* ---------- what a part is for, and what it is made of ----------
  * Parts come in two tiers. An atom cannot be split any further: a box, a line of text, an icon, a
@@ -179,7 +181,7 @@ export const OFFERED_PARTS: PartDef[] = PARTS.filter((d) => !d.retired);
 
 /** the fields of a row a tree reads. A row comes from the document, so one that holds anything but words
  *  there (a node, code to print) is read with those fields left out. */
-const ROW_FIELDS = ["icon", "variant", "width", "image"] as const;
+const ROW_FIELDS = ["icon", "variant", "width", "image", "color"] as const;
 function rowOf(row: ListItem): ListItem {
   if (ROW_FIELDS.every((k) => row[k] === undefined || typeof row[k] === "string")) return row;
   const out: ListItem = { label: row.label };
@@ -202,9 +204,14 @@ function read(def: PropDef, values: PropValues | undefined): unknown {
       return typeof v === "boolean" ? v : def.default;
     case "image":
       return typeof v === "string" ? v : (def.default ?? "");
+    case "color":
+      /* one reader of a color (parts/color.ts): anything else is the part's default */
+      return colorValue(v) ?? def.default;
     case "number":
       return typeof v === "number" && Number.isFinite(v) ? Math.min(def.max, Math.max(def.min, v)) : def.default;
     case "list": {
+      /* a list of colors may be given as their words (a tap sets words, never rows) */
+      if (def.colors && typeof v === "string") return colorRowsOf(v);
       if (!Array.isArray(v) || !v.every((x) => typeof x === "object" && x !== null && typeof (x as ListItem).label === "string")) return def.default.map((x) => ({ ...x, label: listTextOf(x.label, getLang()) }));
       const rows = (v as ListItem[]).map(rowOf);
       return rows.every((r, i) => r === v[i]) ? v : rows;
@@ -237,6 +244,11 @@ export function reader(def: PartDef, values: PropValues | undefined, scope = "")
     b: (key) => get(key) as boolean,
     list: (key) => get(key) as ListItem[],
     table: (key) => get(key) as TableData,
+    rows: (key) => {
+      const d = byKey.get(key);
+      if (!holdsRows(d)) throw new Error(`${def.slug} has no rows "${key}"`);
+      return rowsOf(d, read(d, values));
+    },
     say: (words) => listTextOf(words, getLang()),
     scope,
   };

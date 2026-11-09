@@ -201,7 +201,7 @@ describe("getting around", () => {
     expect(N.pagesShown(10, 9)).toEqual([1, "gap", 8, 9, 10]);
     const third = mock(() => {});
     const previous = mock(() => {});
-    let tree = draw(N.Pagination, { pages: 10, current: 3, taps: { "tab:2": third, previous } });
+    let tree = draw(N.Pagination, { pages: 10, page: 2, taps: { "tab:2": third, previous } });
     tree = tap(one(tree, "button", "Previous"));
     expect(previous).toHaveBeenCalled();
     expect(one(tree, "button", "2").props.ariaSelected).toBe(true);

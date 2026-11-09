@@ -1,3 +1,4 @@
+import { colorChoicesOf } from "../parts/color";
 import { appearanceOf } from "../parts/appearance";
 import { isNode, isRaw, isWrap, mapNodes, raw, type PNode, type PValue } from "../parts/node";
 import { EXPR_NODE, namesIn, printValue, str } from "../parts/print";
@@ -291,6 +292,7 @@ function samplesOf(d: PropDef, def: PartDef, it: Item): VarValue[] {
   const p = reader(def, it.props);
   if (d.kind === "bool") return [true, false];
   if (d.kind === "enum") return d.options.map((o) => (typeof o === "string" ? o : o.value));
+  if (d.kind === "color") return colorChoicesOf(d);
   if (d.kind !== "number") return [];
   const now = p.n(d.key);
   if (d.key === def.selectKey) {
@@ -1025,7 +1027,7 @@ export class Behaviour {
     const p = reader(def, it.props);
     const fromForm = this.bound ? this.bound.formProps(it, def) : [];
     for (const d of def.props) {
-      const design = d.kind === "text" || d.kind === "image" || d.kind === "icon" ? (it.props?.[d.key] ?? undefined) : d.kind === "number" ? p.n(d.key) : d.kind === "bool" ? p.b(d.key) : d.kind === "enum" ? p.s(d.key) : undefined;
+      const design = d.kind === "text" || d.kind === "image" || d.kind === "icon" ? (it.props?.[d.key] ?? undefined) : d.kind === "number" ? p.n(d.key) : d.kind === "bool" ? p.b(d.key) : d.kind === "enum" || d.kind === "color" ? p.s(d.key) : undefined;
       const byExpr = this.bound ? this.bound.prop(it, d, d.kind === "text" ? p.s(d.key) : design) : null;
       if (byExpr !== null && !(d.key === inputKey && this.bound?.form && it.field)) {
         out.push({ d, expr: byExpr.code, ...(byExpr.samples ? { samples: byExpr.samples } : {}) });
@@ -1036,11 +1038,11 @@ export class Behaviour {
         out.push({ d, expr: given.expr });
         continue;
       }
-      if (d.kind !== "text" && d.kind !== "number" && d.kind !== "bool" && d.kind !== "enum") continue;
+      if (d.kind !== "text" && d.kind !== "number" && d.kind !== "bool" && d.kind !== "enum" && d.kind !== "color") continue;
       if (d.key === inputKey && inputVar) continue;
       const boundId = boundVar(it, d.key, this.doc.vars);
       const bound = boundId ? this.vars.get(boundId) : undefined;
-      if (bound && d.kind !== "enum") out.push({ d, expr: this.readVar(bound, d.kind, uses) });
+      if (bound && d.kind !== "enum" && d.kind !== "color") out.push({ d, expr: this.readVar(bound, d.kind, uses) });
       else if (d.key === def.selectKey && this.selecting(it, def)) {
         const bar = this.barKey(it, def);
         this.usedParts.add(bar);
@@ -1049,7 +1051,7 @@ export class Behaviour {
         const own = it.props?.[d.key];
         out.push({ d, expr: isNavBar(def) && own === undefined ? `tab(${json(bar)}, undefined, ${p.n(d.key)})` : `tab(${json(bar)}, ${p.n(d.key)})` });
       } else if ((d.key === "expanded" && this.railToggles(it, def)) || this.propTargets.get(it.id)?.has(d.key)) {
-        const start = d.kind === "text" ? p.s(d.key) : d.kind === "enum" ? p.s(d.key) : d.kind === "number" ? p.n(d.key) : p.b(d.key);
+        const start = d.kind === "text" ? p.s(d.key) : d.kind === "enum" || d.kind === "color" ? p.s(d.key) : d.kind === "number" ? p.n(d.key) : p.b(d.key);
         uses.app.add("prop");
         out.push({ d, expr: `prop(${this.part(it.id)}, ${json(d.key)}, ${json(start)})` });
       }

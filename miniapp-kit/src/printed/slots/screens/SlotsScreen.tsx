@@ -26,7 +26,7 @@ export function SlotsScreen() {
             testID="salesToday"
           >
             <Cell dir="column" fillWidth>
-              <Text text="Revenue" styleVariant="label" fit="auto" color="muted" />
+              <Text text="Revenue" styleVariant="label" fit="auto" color="on-surface-variant" />
             </Cell>
             <Cell dir="column" fillWidth>
               <Text text={"$48,200"} styleVariant="headline" fit="auto" />

@@ -52,11 +52,11 @@ export function KitsScreen() {
           hugWidth={false}
           corners={{ tl: 10, tr: 10, br: 10, bl: 10 }}
         >
-          <Icon name="search" size={20} color="muted" />
+          <Icon name="search" size={20} color="on-surface-variant" />
           <Cell dir="row" grow>
             <Input placeholder="Search" variant="plain" width={312} />
           </Cell>
-          <Icon name="mic" size={20} color="muted" />
+          <Icon name="mic" size={20} color="on-surface-variant" />
         </Box>
       </At>
       <At x={16} y={136}>
@@ -66,7 +66,7 @@ export function KitsScreen() {
               <Text
                 text="Connections"
                 styleVariant="caption"
-                color="muted"
+                color="on-surface-variant"
                 fit="auto"
                 look={{ text: { letterSpacing: 0.4, case: "upper" } }}
               />
@@ -105,8 +105,8 @@ export function KitsScreen() {
                   <Cell dir="row" grow>
                     <Text text="Wi-Fi" width={228} maxLines={1} />
                   </Cell>
-                  <Text text="Home" color="muted" fit="auto" />
-                  <Icon name="chevron_right" size={20} color="muted" />
+                  <Text text="Home" color="on-surface-variant" fit="auto" />
+                  <Icon name="chevron_right" size={20} color="on-surface-variant" />
                 </Box>
               </Cell>
               <Cell dir="column" fillWidth>
@@ -147,8 +147,8 @@ export function KitsScreen() {
                   <Cell dir="row" grow>
                     <Text text="Bluetooth" width={245} maxLines={1} />
                   </Cell>
-                  <Text text="On" color="muted" fit="auto" />
-                  <Icon name="chevron_right" size={20} color="muted" />
+                  <Text text="On" color="on-surface-variant" fit="auto" />
+                  <Icon name="chevron_right" size={20} color="on-surface-variant" />
                 </Box>
               </Cell>
               <Cell dir="column" fillWidth>
@@ -189,8 +189,8 @@ export function KitsScreen() {
                   <Cell dir="row" grow>
                     <Text text="Notifications" width={212} maxLines={1} />
                   </Cell>
-                  <Text text="Allowed" color="muted" fit="auto" />
-                  <Icon name="chevron_right" size={20} color="muted" />
+                  <Text text="Allowed" color="on-surface-variant" fit="auto" />
+                  <Icon name="chevron_right" size={20} color="on-surface-variant" />
                 </Box>
               </Cell>
             </Box>
@@ -201,7 +201,7 @@ export function KitsScreen() {
                 <Text
                   text="Turn off Bluetooth to save battery when you are not using it."
                   styleVariant="caption"
-                  color="muted"
+                  color="on-surface-variant"
                   width={348}
                 />
               </Cell>
@@ -257,20 +257,20 @@ export function KitsScreen() {
           </Cell>
           <Cell dir="row" grow>
             <Box gap={2} padX={0} padY={0} align="center" width={99} height={44} hugWidth={false}>
-              <Icon name="explore" size={26} filled color="muted" />
-              <Text text="Discover" styleVariant="tiny" color="muted" fit="auto" />
+              <Icon name="explore" size={26} filled color="on-surface-variant" />
+              <Text text="Discover" styleVariant="tiny" color="on-surface-variant" fit="auto" />
             </Box>
           </Cell>
           <Cell dir="row" grow>
             <Box gap={2} padX={0} padY={0} align="center" width={99} height={44} hugWidth={false}>
-              <Icon name="chat_bubble" size={26} filled color="muted" />
-              <Text text="Messages" styleVariant="tiny" color="muted" fit="auto" />
+              <Icon name="chat_bubble" size={26} filled color="on-surface-variant" />
+              <Text text="Messages" styleVariant="tiny" color="on-surface-variant" fit="auto" />
             </Box>
           </Cell>
           <Cell dir="row" grow>
             <Box gap={2} padX={0} padY={0} align="center" width={99} height={44} hugWidth={false}>
-              <Icon name="person" size={26} filled color="muted" />
-              <Text text="Me" styleVariant="tiny" color="muted" fit="auto" />
+              <Icon name="person" size={26} filled color="on-surface-variant" />
+              <Text text="Me" styleVariant="tiny" color="on-surface-variant" fit="auto" />
             </Box>
           </Cell>
         </Box>

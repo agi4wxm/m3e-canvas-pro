@@ -52,7 +52,7 @@ describe("what every front end prints of the bindings", () => {
     expect(regionOptions(undefined, undefined, "$", true)).toEqual(['load: "enter"']);
     expect(regionOptions(undefined, "len(data.cart.items) == 0", "$1", false)).toEqual(['emptyWhen: () => $1.holds("len(data.cart.items) == 0")']);
     expect(regionOptions("demand", undefined, "$", false)).toEqual(['load: "demand"']);
-    expect(["text", "image", "color", "number", "bool", "enum", "list", "table"].map((k) => readOf(k as never))).toEqual(["text", "text", "text", "num", "bool", "pick", "rows", null]);
+    expect(["text", "image", "color", "number", "bool", "enum", "list", "table"].map((k) => readOf(k as never))).toEqual(["text", "text", "pick", "num", "bool", "pick", "rows", null]);
     expect(readCode("num", "$", "item.count", ["0", "1", "9"])).toBe('$.num("item.count", 0, 1, 9)');
     expect(readCode("rows", "$r1", "item.tags", ["[]", "50"])).toBe('rowsOf($r1.ev("item.tags"), [], 50)');
     expect(holdsCode("$form", "form.error")).toBe('$form.holds("form.error")');

@@ -2,6 +2,7 @@ import { h, ic, listSlots, type PNode } from "../node";
 import { around, type P, type PartDef, type PropDef } from "../types";
 import { iconMeaning } from "../a11y";
 import { FLOW_PROPS } from "../flow";
+import { cssColor, onColorOf, paintOf } from "../color";
 
 /* An overlay that holds parts (`holds: "laidOut"`): with its auto layout on, what it shows between its title and its
  * buttons is the parts laid out in it, not a fixed description. Its body is drawn at a size it says, and its title on
@@ -35,13 +36,14 @@ const SCRIM = {
 } as const;
 
 /** the disc a list row's icon can sit on */
+/* by the one color value (parts/color.ts): "" is no disc; any other color is painted, its words in its on-color */
 const ICON_DISCS: Record<string, string> = {
-  none: "",
+  "": "",
   "primary-container": "bg-primary-container text-on-primary-container",
   "secondary-container": "bg-secondary-container text-on-secondary-container",
   "tertiary-container": "bg-tertiary-container text-on-tertiary-container",
   primary: "bg-primary text-on-primary",
-  surface: "bg-surface-container-highest text-on-surface-variant",
+  "surface-container-highest": "bg-surface-container-highest text-on-surface-variant",
 };
 
 /** the card's image area: a band along the top or bottom, a column down a side, or the whole
@@ -106,8 +108,9 @@ function cardTree(p: P): PNode {
 }
 
 /** a line in a color of its own; the default is the separator's */
+/* by the one color value (parts/color.ts): "" is the separator's own outline-variant */
 const LINE_COLORS: Record<string, string | undefined> = {
-  default: undefined,
+  "": undefined,
   primary: "bg-primary rounded-full",
   "primary-container": "bg-primary-container rounded-full",
   "secondary-container": "bg-secondary-container rounded-full",
@@ -175,7 +178,7 @@ export const containment: PartDef[] = [
     h: 64,
     props: [
       { key: "items", label: "Rows", kind: "list", default: [{ label: "Inbox", icon: "inbox" }], min: 1, max: 6, icons: true },
-      { key: "iconFill", label: "Icon background", labels: { ja: "アイコンの背景", zh: "图标底色", ko: "아이콘 배경" }, kind: "enum", default: "none", options: Object.keys(ICON_DISCS) },
+      { key: "iconFill", label: "Icon background", labels: { ja: "アイコンの背景", zh: "图标底色", ko: "아이콘 배경" }, kind: "color", default: "", roles: Object.keys(ICON_DISCS).filter(Boolean), none: "none" },
       { key: "description", label: "Supporting text", kind: "text", default: "12 new messages" },
       { key: "variant", label: "Variant", kind: "enum", default: "default", options: ["default", "outline", "muted", "segmented"] },
       { key: "size", label: "Size", kind: "enum", default: "default", options: ["default", "sm", "xs"] },
@@ -188,8 +191,12 @@ export const containment: PartDef[] = [
     slots: (p) => listSlots(p.list("items")),
     tree: (p) => {
       const trailing = p.s("trailing");
-      const color = ICON_DISCS[p.s("iconFill")];
-      const disc = color ? `size-10 rounded-full group-data-[size=sm]/item:size-8 group-data-[size=xs]/item:size-6 ${color}` : "";
+      const fill = p.s("iconFill");
+      const own = Object.prototype.hasOwnProperty.call(ICON_DISCS, fill);
+      const color = own ? ICON_DISCS[fill] : fill ? " " : "";
+      const disc = color ? `size-10 rounded-full group-data-[size=sm]/item:size-8 group-data-[size=xs]/item:size-6 ${color}`.trimEnd() : "";
+      /* a color the row was not designed around is painted, its glyph in the color that reads over it */
+      const discStyle = own || !fill ? undefined : { background: cssColor(fill), color: cssColor(onColorOf(fill)) };
       /* a control at a row's end is named by its row; an icon there by what it means */
       const end = (name: string) =>
         trailing === "switch"
@@ -211,7 +218,7 @@ export const containment: PartDef[] = [
         h(
           "Item",
           { variant: p.s("variant") === "default" ? undefined : p.s("variant"), size: p.s("size") === "default" ? undefined : p.s("size"), "data-flush": p.s("variant") === "default" ? true : undefined, "data-tap": `tab:${i}` },
-          it.icon && h("ItemMedia", { variant: "icon", className: disc || undefined }, ic(it.icon)),
+          it.icon && h("ItemMedia", { variant: "icon", className: disc || undefined, ...(discStyle ? { style: discStyle } : {}) }, ic(it.icon)),
           h("ItemContent", null, h("ItemTitle", null, it.label), p.s("description") && h("ItemDescription", null, p.s("description"))),
           end(it.label),
           chevron,
@@ -592,16 +599,17 @@ export const containment: PartDef[] = [
       { key: "orientation", label: "Orientation", kind: "enum", default: "horizontal", options: ["horizontal", "vertical"] },
       { key: "length", label: "Length", kind: "number", default: 280, min: 8, max: 1600, step: 4, unit: "px" },
       { key: "thickness", label: "Thickness", kind: "number", default: 1, min: 1, max: 64, step: 1, unit: "px" },
-      { key: "color", label: "Color", kind: "enum", default: "default", options: Object.keys(LINE_COLORS) },
+      { key: "color", label: "Color", kind: "color", default: "", roles: Object.keys(LINE_COLORS).filter(Boolean), none: "default" },
     ],
     tree: (p) => {
       const vertical = p.s("orientation") === "vertical";
       const length = Math.round(p.n("length"));
       const thickness = Math.round(p.n("thickness"));
+      const paint = paintOf(p.s("color"), LINE_COLORS, "background");
       return h("Separator", {
         orientation: vertical ? "vertical" : undefined,
-        className: LINE_COLORS[p.s("color")],
-        style: { ...(vertical ? { height: length } : { width: length }), ...(thickness === 1 ? {} : vertical ? { width: thickness } : { height: thickness }) },
+        className: paint.className ?? (paint.style ? "rounded-full" : undefined),
+        style: { ...(vertical ? { height: length } : { width: length }), ...(thickness === 1 ? {} : vertical ? { width: thickness } : { height: thickness }), ...paint.style },
       });
     },
   },

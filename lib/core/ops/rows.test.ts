@@ -60,7 +60,7 @@ describe("set_rows", () => {
       expect(() => bar().run(ops.setRows, args as never, ai)).toThrow(OpError);
       expect(() => bar().run(ops.setRows, args as never, ai)).toThrow(words);
     };
-    refused({ id: "p", prop: "selected", rows: rows("A") }, /no list prop "selected"/);
+    refused({ id: "p", prop: "selected", rows: rows("A") }, /no list or table prop "selected"/);
     refused({ id: "p", prop: "items", rows: rows("A", "B", "C"), order: [0] }, /order should give/);
     refused({ id: "p", prop: "items", rows: rows("A", "B", "C"), order: [0, 0, 1] }, /order should give/);
     refused({ id: "p", prop: "items", rows: rows("A", "B", "C"), order: [7, 0, 1] }, /order should give/);
@@ -97,5 +97,58 @@ describe("set_props on a list", () => {
     s.run(ops.setProps, { id: "p", props: { selected: null } }, ai);
     expect(part(s).props).not.toHaveProperty("selected");
     expect(part(s).actions).toEqual({ "tab:0": to("a"), "tab:2": to("c") });
+  });
+});
+
+/* ---------- the row model: a table's rows as records, places among rows ---------- */
+
+describe("set_rows on a table (the row model)", () => {
+  const board = () =>
+    store({
+      component: "leaderboard",
+      props: { data: { columns: ["Name", "Score", "Change"], rows: [["Ann", "90", "1"], ["Bo", "80", "0"], ["Cy", "70", "-1"]] }, selected: 2 },
+      actions: { "tab:0": to("a"), "tab:2": to("c") },
+    });
+  const invoices = () => store({ component: "table", props: { data: { columns: ["Invoice", "Status", "Amount"], rows: [["INV-1", "Paid", "$1"], ["INV-2", "Open", "$2"], ["INV-3", "Paid", "$3"]] }, selectedRow: 1 } });
+
+  it("takes rows as records by the keys its columns are read by, and the choice and the taps go with them", () => {
+    const s = board();
+    s.run(ops.setRows, { id: "p", prop: "data", rows: [{ name: "Cy", score: "70", change: "-1" }, { name: "Ann", score: "95", change: "2" }, { name: "Bo", score: "80", change: "0" }] }, ai);
+    expect((part(s).props!.data as { rows: string[][] }).rows).toEqual([["Cy", "70", "-1"], ["Ann", "95", "2"], ["Bo", "80", "0"]]);
+    /* Ann was edited and kept her first cell: still her row */
+    expect(part(s).actions).toEqual({ "tab:1": to("a"), "tab:0": to("c") });
+    expect(part(s).props?.selected).toBe(0);
+  });
+
+  it("takes a row as its cells in its columns' order, and refuses a cell it has no column for", () => {
+    const s = board();
+    s.run(ops.setRows, { id: "p", prop: "data", rows: [["Dee", "60", "3"]], order: [-1] }, ai);
+    expect((part(s).props!.data as { rows: string[][] }).rows).toEqual([["Dee", "60", "3"]]);
+    expect(part(s).actions).toBeUndefined();
+    expect(() => board().run(ops.setRows, { id: "p", prop: "data", rows: [{ name: "X", rank: "1" }] }, ai)).toThrow(/no column for: its columns are name, score, change/);
+  });
+
+  it("keeps the row a table has picked (`of`) on its row, and none when it is gone", () => {
+    const s = invoices();
+    const row = (invoice: string) => ({ invoice, status: "Paid", amount: "$" });
+    s.run(ops.setRows, { id: "p", prop: "data", rows: [{ invoice: "INV-3", status: "Paid", amount: "$3" }, { invoice: "INV-2", status: "Open", amount: "$2" }] }, ai);
+    expect(part(s).props?.selectedRow).toBe(1);
+    s.run(ops.setRows, { id: "p", prop: "data", rows: [row("INV-3")], order: [0] }, ai);
+    expect(part(s).props?.selectedRow).toBe(-1);
+  });
+
+  it("keeps a multiple choice's picks on their rows (`of`), and drops a removed row's", () => {
+    const s = store({ component: "multi-select", props: { items: rows("Email", "Push", "SMS"), picked: "0,2" } });
+    s.run(ops.setRows, { id: "p", prop: "items", rows: rows("SMS", "Email", "Push") }, ai);
+    expect(part(s).props?.picked).toBe("0,1");
+    s.run(ops.setRows, { id: "p", prop: "items", rows: rows("Email", "Push") }, ai);
+    expect(part(s).props?.picked).toBe("0");
+  });
+
+  it("refuses a palette's row of no color", () => {
+    const s = store({ component: "color-palette" });
+    expect(() => s.run(ops.setRows, { id: "p", prop: "colors", rows: [{ label: "Red", color: "red" }] }, ai)).toThrow(/color/);
+    s.run(ops.setRows, { id: "p", prop: "colors", rows: [{ label: "Brand", color: "primary" }, { label: "Ink", color: "#1d1b20" }] }, ai);
+    expect(part(s).props?.colors).toEqual([{ label: "Brand", color: "primary" }, { label: "Ink", color: "#1d1b20" }]);
   });
 });

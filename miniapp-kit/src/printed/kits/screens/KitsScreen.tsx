@@ -66,7 +66,7 @@ export function KitsScreen() {
           corners={{ tl: 10, tr: 10, br: 10, bl: 10 }}
           testID="searchBar"
         >
-          <Icon name="search" size={20} color="muted" testID="icon" />
+          <Icon name="search" size={20} color="on-surface-variant" testID="icon" />
           <Cell dir="row" grow>
             <Input
               placeholder="Search"
@@ -77,7 +77,7 @@ export function KitsScreen() {
               testID="input"
             />
           </Cell>
-          <Icon name="mic" size={20} color="muted" testID="icon2" />
+          <Icon name="mic" size={20} color="on-surface-variant" testID="icon2" />
         </Box>
       </At>
       <At x={16} y={136}>
@@ -87,7 +87,7 @@ export function KitsScreen() {
               <Text
                 text="Connections"
                 styleVariant="caption"
-                color="muted"
+                color="on-surface-variant"
                 fit="auto"
                 look={{ text: { letterSpacing: 0.4, case: "upper" } }}
                 testID="text2"
@@ -139,8 +139,8 @@ export function KitsScreen() {
                   <Cell dir="row" grow>
                     <Text text="Wi-Fi" width={228} maxLines={1} testID="text3" />
                   </Cell>
-                  <Text text="Home" color="muted" fit="auto" testID="text4" />
-                  <Icon name="chevron_right" size={20} color="muted" testID="icon4" />
+                  <Text text="Home" color="on-surface-variant" fit="auto" testID="text4" />
+                  <Icon name="chevron_right" size={20} color="on-surface-variant" testID="icon4" />
                 </Box>
               </Cell>
               <Cell dir="column" fillWidth>
@@ -212,8 +212,8 @@ export function KitsScreen() {
                   <Cell dir="row" grow>
                     <Text text="Bluetooth" width={245} maxLines={1} testID="text5" />
                   </Cell>
-                  <Text text="On" color="muted" fit="auto" testID="text6" />
-                  <Icon name="chevron_right" size={20} color="muted" testID="icon6" />
+                  <Text text="On" color="on-surface-variant" fit="auto" testID="text6" />
+                  <Icon name="chevron_right" size={20} color="on-surface-variant" testID="icon6" />
                 </Box>
               </Cell>
               <Cell dir="column" fillWidth>
@@ -285,8 +285,8 @@ export function KitsScreen() {
                   <Cell dir="row" grow>
                     <Text text="Notifications" width={212} maxLines={1} testID="text7" />
                   </Cell>
-                  <Text text="Allowed" color="muted" fit="auto" testID="text8" />
-                  <Icon name="chevron_right" size={20} color="muted" testID="icon8" />
+                  <Text text="Allowed" color="on-surface-variant" fit="auto" testID="text8" />
+                  <Icon name="chevron_right" size={20} color="on-surface-variant" testID="icon8" />
                 </Box>
               </Cell>
             </Box>
@@ -297,7 +297,7 @@ export function KitsScreen() {
                 <Text
                   text="Turn off Bluetooth to save battery when you are not using it."
                   styleVariant="caption"
-                  color="muted"
+                  color="on-surface-variant"
                   width={348}
                   testID="text9"
                 />
@@ -376,20 +376,20 @@ export function KitsScreen() {
           </Cell>
           <Cell dir="row" grow>
             <Box gap={2} padX={0} padY={0} align="center" width={99} height={44} hugWidth={false} testID="box17">
-              <Icon name="explore" size={26} filled color="muted" testID="icon11" />
-              <Text text="Discover" styleVariant="tiny" color="muted" fit="auto" testID="text12" />
+              <Icon name="explore" size={26} filled color="on-surface-variant" testID="icon11" />
+              <Text text="Discover" styleVariant="tiny" color="on-surface-variant" fit="auto" testID="text12" />
             </Box>
           </Cell>
           <Cell dir="row" grow>
             <Box gap={2} padX={0} padY={0} align="center" width={99} height={44} hugWidth={false} testID="box18">
-              <Icon name="chat_bubble" size={26} filled color="muted" testID="icon12" />
-              <Text text="Messages" styleVariant="tiny" color="muted" fit="auto" testID="text13" />
+              <Icon name="chat_bubble" size={26} filled color="on-surface-variant" testID="icon12" />
+              <Text text="Messages" styleVariant="tiny" color="on-surface-variant" fit="auto" testID="text13" />
             </Box>
           </Cell>
           <Cell dir="row" grow>
             <Box gap={2} padX={0} padY={0} align="center" width={99} height={44} hugWidth={false} testID="box19">
-              <Icon name="person" size={26} filled color="muted" testID="icon13" />
-              <Text text="Me" styleVariant="tiny" color="muted" fit="auto" testID="text14" />
+              <Icon name="person" size={26} filled color="on-surface-variant" testID="icon13" />
+              <Text text="Me" styleVariant="tiny" color="on-surface-variant" fit="auto" testID="text14" />
             </Box>
           </Cell>
         </Box>

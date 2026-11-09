@@ -273,7 +273,7 @@ export const STATE_TEXT: Record<RegionState, UIKey> = { ready: "bdStateReady", l
 
 /** the props a part can bind to an expression: those with a value of one line, or a list */
 /** the props an expression can stand for: a table too, from a list of records (an API list, a collection) */
-const bindable = (it: Item) => (partBySlug(it.component)?.props ?? []).filter((d) => d.kind === "text" || d.kind === "number" || d.kind === "bool" || d.kind === "enum" || d.kind === "image" || d.kind === "icon" || d.kind === "list" || d.kind === "table");
+const bindable = (it: Item) => (partBySlug(it.component)?.props ?? []).filter((d) => d.kind === "text" || d.kind === "number" || d.kind === "bool" || d.kind === "enum" || d.kind === "color" || d.kind === "image" || d.kind === "icon" || d.kind === "list" || d.kind === "table");
 
 /** On a part: its props from expressions, and on a container a repeat from data, the states of a region, a form; on an
  *  input in a form, its field. */

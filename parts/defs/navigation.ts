@@ -21,9 +21,12 @@ function crumbsShown(p: P): number[] {
 }
 
 /** the pages a pagination shows: the first, the last and the current with a neighbour either side, a gap of one page filled */
+/** the page a pagination is on, counted from 1 as it shows it: its `page` is counted from 0, as every place is */
+const pageShown = (p: P, pages: number) => Math.min(pages, Math.max(1, Math.round(p.n("page")) + 1));
+
 function pagesShown(p: P): number[] {
   const pages = Math.max(1, Math.round(p.n("pages")));
-  const current = Math.min(pages, Math.max(1, Math.round(p.n("current"))));
+  const current = pageShown(p, pages);
   const wanted = [...new Set([1, current - 1, current, current + 1, pages])].filter((n) => n >= 1 && n <= pages).toSorted((a, b) => a - b);
   return wanted.flatMap((n, i) => (wanted[i - 1] !== undefined && n - wanted[i - 1] === 2 ? [n - 1, n] : [n]));
 }
@@ -298,7 +301,7 @@ export const navigation: PartDef[] = [
     h: 40,
     props: [
       { key: "pages", label: "Pages", kind: "number", default: 10, min: 1, max: 99, step: 1 },
-      { key: "current", label: "Current page", kind: "number", default: 2, min: 1, max: 99, step: 1 },
+      { key: "page", label: "Current page (from 0)", labels: { ja: "現在のページ（0 から）", zh: "当前页（从 0 数）", ko: "현재 페이지 (0부터)" }, kind: "number", default: 1, min: 0, max: 98, step: 1 },
       { key: "previous", label: "Previous label", kind: "text", default: "Previous" },
       { key: "next", label: "Next label", kind: "text", default: "Next" },
       { key: "width", label: "Width", kind: "number", default: 480, min: 240, max: 1280, step: 4, unit: "px" },
@@ -312,7 +315,7 @@ export const navigation: PartDef[] = [
     families: [{ prefix: "tab", label: "Every page", labels: { ja: "すべてのページ", zh: "每一页", ko: "모든 페이지" } }],
     tree: (p) => {
       const pages = Math.max(1, Math.round(p.n("pages")));
-      const current = Math.min(pages, Math.max(1, Math.round(p.n("current"))));
+      const current = pageShown(p, pages);
       // the first, the last and the current page with a neighbour either side; a gap of one page is filled, a longer one is an ellipsis
       const wanted = [...new Set([1, current - 1, current, current + 1, pages])].filter((n) => n >= 1 && n <= pages).toSorted((a, b) => a - b);
       const cells: PNode[] = [];
