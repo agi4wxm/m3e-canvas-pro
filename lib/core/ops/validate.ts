@@ -15,6 +15,9 @@ import { EVENT_PREFIX, outletKeysOf } from "../../partContract";
 import { H_CONSTRAINTS, V_CONSTRAINTS } from "../../constraints";
 import { OpError } from "../op";
 import { pictureError } from "../images";
+import { ASSET_ID } from "../../assetManifest";
+import { assetCatalog } from "../../assetCatalog";
+import { SLOT_TYPES, assetGapOf, assetIdOf, assetName, assetSlotOf, isAssetName, type AssetSlot } from "../../assetRefs";
 import { docIconId, docIconName, isDocIconName } from "../../docIcons";
 import type { CoreState } from "../state";
 import { exprSyntaxError } from "../../bindings/check";
@@ -29,13 +32,16 @@ import { worldInputsOf } from "../../world/design";
 
 const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
 
+/** an asset of the pipeline's manifest, by its id (lib/assetRefs.ts) */
+const isPipelineAsset = (v: string) => v.startsWith("asset:") && ASSET_ID.test(v.slice(6));
+
 /** what a prop takes, in words */
 export function propKindText(d: PropDef): string {
   switch (d.kind) {
     case "text":
       return "text";
     case "icon":
-      return 'a Material Symbols icon name, or svg:<id> for one of the document\'s own icons ("" for none)';
+      return 'a Material Symbols icon name, svg:<id> for one of the document\'s own icons, or asset:<id> for one of the asset manifest\'s ("" for none)';
     case "enum":
       return `one of ${d.options.map((o) => JSON.stringify(choiceValueOf(o))).join(", ")}`;
     case "bool":
@@ -43,7 +49,7 @@ export function propKindText(d: PropDef): string {
     case "number":
       return `a number from ${d.min} to ${d.max}${d.unit ? ` ${d.unit}` : ""}`;
     case "image":
-      return 'a picture drawn into the document (a data:image URL; generate_image paints one) or ""';
+      return 'a picture drawn into the document (a data:image URL; generate_image paints one), asset:<id> for one of the asset manifest\'s (list_assets), or ""';
     case "list":
       return `a list of rows like {"label": "…"${d.icons ? ', "icon": "…"' : ""}${d.images ? ', "image": "…"' : ""}}${d.min !== undefined ? `, at least ${d.min}` : ""}${d.max !== undefined ? `, at most ${d.max}` : ""}`;
     case "table":
@@ -72,7 +78,7 @@ export function propValueError(d: PropDef, v: unknown): string | null {
     case "text":
       return typeof v === "string" ? null : "should be text";
     case "icon":
-      return typeof v === "string" && (/^[a-z0-9_]*$/.test(v) || isDocIconName(v)) ? null : "should be a Material Symbols icon name in snake_case, or svg:<id>";
+      return typeof v === "string" && (/^[a-z0-9_]*$/.test(v) || isDocIconName(v) || isPipelineAsset(v)) ? null : "should be a Material Symbols icon name in snake_case, svg:<id>, or asset:<id>";
     case "enum": {
       if (typeof v === "string" && d.options.some((o) => choiceValueOf(o) === v)) return null;
       const near = typeof v === "string" ? nearestChoice(d, v) : undefined;
@@ -132,8 +138,27 @@ export function checkProps(def: PartDef, props: Record<string, unknown>, s: Core
       const own = Object.keys(s.doc.icons ?? {}).map(docIconName);
       throw new OpError("invalid_value", `The document has no icon ${v}. ${own.length ? `Its own icons are: ${own.join(", ")}.` : "It has none of its own yet:"} set_icon (or generate_svg with icon) adds one.`, key);
     }
+    assetInReach(def, d, v, key);
     if (isStrict(s.doc.theme, styleContext(s.doc.styles)) && styleOwnsProp(def.slug, key)) throw new OpError("refused", `The document is held to its style, which decides ${def.slug}.${key}.`, key);
   }
+}
+
+/** An asset a prop is set to, where a manifest is in reach (lib/assetCatalog.ts): one it lists, of a type the prop
+ *  takes. With none in reach the reference is kept, and the export lists it as a gap. */
+function assetInReach(def: PartDef, d: PropDef, v: unknown, key: string) {
+  const manifest = assetCatalog()?.manifest;
+  if (!manifest) return;
+  const check = (x: unknown, slot: AssetSlot | null) => {
+    if (!isAssetName(x)) return;
+    const gap = assetGapOf({ id: assetIdOf(x), slot }, manifest);
+    if (!gap) return;
+    const fits = Object.entries(manifest.assets)
+      .filter(([, a]) => !slot || SLOT_TYPES[slot].includes(a.type))
+      .map(([id]) => assetName(id));
+    throw new OpError(gap.reason === "missing" ? "not_found" : "invalid_value", `${gap.detail}. ${fits.length ? `The manifest's ${slot ?? ""} assets are: ${fits.slice(0, 40).join(", ")}${fits.length > 40 ? ", …" : ""} (list_assets lists them all).` : "The manifest has none that fit."}`, key);
+  };
+  if (Array.isArray(v)) for (const row of v) for (const field of ["image", "icon"] as const) check((row as Record<string, unknown> | null)?.[field], assetSlotOf(def, d, field));
+  else check(v, assetSlotOf(def, d));
 }
 
 const FLOW_SIZING = ["fixed", "hug", "fill"];
@@ -499,4 +524,5 @@ export function varError(v: unknown): string | null {
 }
 
 export type { Condition, DocVar, Effect };
+
 import { fitsType } from "../../variables";

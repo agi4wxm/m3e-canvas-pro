@@ -301,6 +301,8 @@ Icons are Material Symbols names (`home`, `search`, `add`, `favorite`, `settings
 
 These are all the parts there are; a `component` that is not here shows as an unknown part. A `kind` other than `component` makes the whole file unreadable. Numbers are in dp unless they say otherwise.
 
+When the project uses a game's or an app's own art, its asset pipeline lists it in an asset manifest, each asset under a stable id. Name one as `asset:<id>` wherever a part takes a picture (an image's `src`, a card's `image`, a list row's `image`), an icon (an icon's `name`, a button's `icon`) or a video's `src`: the canvas draws it from the manifest, and the export keeps the reference. Only use ids you were given (an MCP client reads them with `list_assets`); never invent one, and never copy the file into the document.
+
 <!-- parts:begin -->
 
 #### Atoms

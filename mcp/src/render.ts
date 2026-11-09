@@ -21,6 +21,7 @@ import { dirname, extname, join, normalize, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { guessMeasurer, type CoreState } from "../../lib/core";
 import { laidOut } from "../../lib/core/ops/common";
+import { assetCatalog } from "../../lib/assetCatalog";
 import type { Lang } from "../../lib/i18n";
 import { ToolFailure, type Renderer } from "../../lib/tools/types";
 import type { Log } from "./log";
@@ -274,9 +275,11 @@ export class HeadlessRenderer {
     const lang = this.lang;
     /* the page holds outside pictures back itself unless some may load; the browser refuses the rest either way */
     const outside = (this.o.outside ?? []).length > 0;
+    /* the asset manifest the backend read beside the project (lib/assetCatalog.ts): what `asset:<id>` draws */
+    const assets = assetCatalog();
     this.held = [];
     /* the parts measured as the canvas would, the containers laid out by those sizes, then the screen drawn */
-    const sizes = await page.evaluate((job) => window.m3eMeasure!(job as never), { doc: state.doc, lang, outside });
+    const sizes = await page.evaluate((job) => window.m3eMeasure!(job as never), { doc: state.doc, lang, outside, assets });
     /* nothing of a screenshot given up reaches the store */
     if (gone.aborted) throw gone.reason;
     measured?.(sizes);
@@ -285,11 +288,11 @@ export class HeadlessRenderer {
     /* Another version of the document (a screen with its mock data in) was never laid out by these sizes the way the
        canvas lays out what it holds as it is measured: once more, from where the first pass put everything. */
     if (!measured) {
-      const again = await page.evaluate((job) => window.m3eMeasure!(job as never), { doc: laid.doc, lang, outside });
+      const again = await page.evaluate((job) => window.m3eMeasure!(job as never), { doc: laid.doc, lang, outside, assets });
       widths = { ...widths, ...again };
       laid = laidOut({ ...laid, session: { ...laid.session, widths } }, widths);
     }
-    const out: { png: string; skipped: string[]; blocked?: string[] } | string = await page.evaluate((job) => window.m3eRender!(job as never), { doc: laid.doc, widths, id, scale, lang, outside });
+    const out: { png: string; skipped: string[]; blocked?: string[] } | string = await page.evaluate((job) => window.m3eRender!(job as never), { doc: laid.doc, widths, id, scale, lang, outside, assets });
     if (gone.aborted) throw gone.reason;
     /* a render page built before pictures were set aside hands back the PNG alone */
     if (typeof out === "string") return out;

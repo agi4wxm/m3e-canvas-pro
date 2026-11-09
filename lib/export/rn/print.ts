@@ -1,5 +1,6 @@
 import { lookAsColours } from "../../materials";
 import { bindExpr, boundVar } from "../../bindings/bind";
+import { assetIdOf, assetSlotOf, isAssetName } from "../../assetRefs";
 import { COLOR_TOKENS, BACK_TARGET, LINK_TARGET, GAP, linkUrlOf, normalizeTheme, type Action, type ActionBody, type Condition, type DataSource, type Doc, type Effect, type Frame, type Group, type Item, type ScreenParam } from "../../tokens";
 import type { Answer } from "../../actions/model";
 import { partBySlug } from "../../../parts/registry";
@@ -44,7 +45,7 @@ export { iconNamesOf };
 
 /** something the printed app does not do as the design says, for the exporter to list */
 export type RnWarning = {
-  kind: "placeholder" | "atoms" | "holder" | "effects" | "condition" | "hidden" | "trigger" | "slot" | "event" | "look" | "image" | "unknown" | "binding" | "input" | "style";
+  kind: "placeholder" | "atoms" | "holder" | "effects" | "condition" | "hidden" | "trigger" | "slot" | "event" | "look" | "image" | "unknown" | "binding" | "input" | "style" | "asset";
   /** the screen, by its name */
   screen?: string;
   /** what touches more than one (what of the style is not drawn), every screen it touches */
@@ -100,6 +101,9 @@ export type RnPrintOptions = {
    *  is required by in the images module (lib/export/rn/app.ts `RnPictures`), `from` is where a screen imports that
    *  module from. Left out, such a picture is left out of the app, and reported. */
   images?: { from: string; name: (data: string) => string | undefined };
+  /** The asset pipeline's assets the design names (`asset:<id>`): where a screen imports `asset(id)` from, the lookup
+   *  the export writes from the manifest (lib/export/assets.ts). Left out, such an asset is left out, and reported. */
+  assets?: { from: string };
   /** The app's runtime, for a document bound to its API: where a screen imports the data layer the export generates
    *  beside the screens (its data sources, forms, scope; see lib/export/rn/mobile.ts). Left out (the kit's test bed),
    *  the bindings keep the design's values and are reported. */
@@ -136,7 +140,7 @@ type SubInfo = { v: string; plan: SubscriptionPlan };
 /** the kit's parts with a copy button of their own, which take `onCopy` */
 const COPIES = new Set(["copy-row", "qr-code"]);
 
-const RESERVED = new Set(["app", "act", "nav", "params", "given", "item", "index", "keyOf", "regionOf", "rowsOf", "optionOf", "pickFile", "fileName", "copyText", "useSource", "useFormFor", "useParams", "useScreenScope", "useSubscription", "event", "View", "IMAGES"]);
+const RESERVED = new Set(["app", "act", "nav", "params", "given", "item", "index", "keyOf", "regionOf", "rowsOf", "optionOf", "pickFile", "fileName", "copyText", "useSource", "useFormFor", "useParams", "useScreenScope", "useSubscription", "event", "View", "IMAGES", "asset"]);
 
 class ScreenPrinter {
   /** the kit's components this screen names */
@@ -163,6 +167,8 @@ class ScreenPrinter {
   icons = new Set<string>();
   /** whether the screen reads a picture the app bundles (the images module) */
   pictures = false;
+  /** whether the screen reads an asset of the pipeline's from the lookup (the assets module) */
+  assets = false;
   ctx: Ctx;
   private n = { action: 0, event: 0, form: 0, region: 0, row: 0, source: 0 };
   readonly runtime: boolean;
@@ -457,11 +463,47 @@ class ScreenPrinter {
     return new Raw(`IMAGES.${name}`);
   }
 
+  /** An asset of the pipeline's (`asset:<id>`) as the screen reads it: its address from the lookup the export writes
+   *  from the manifest. Without one (the kit's test bed), it is left out, and reported. */
+  asset(name: string, part: string): Raw | string {
+    if (!this.o.assets) {
+      this.warn("asset", "an asset of the asset pipeline's is left out: this app has no lookup of them", part);
+      return "";
+    }
+    this.assets = true;
+    return new Raw(`asset(${str(assetIdOf(name))})`);
+  }
+
   /** the pictures a tree of atoms holds as data, each the file the app bundles it as */
   pictured(v: unknown, part: string | undefined): unknown {
+    if (isAssetName(v)) return this.asset(v, part ?? "");
     if (typeof v === "string") return v.startsWith("data:image/") && this.o.images ? this.picture(v, part ?? "") : v;
     if (Array.isArray(v)) return v.map((x) => this.pictured(x, part));
     if (v && typeof v === "object") return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, this.pictured(x, part)]));
+    return v;
+  }
+
+  /** A prop's value with the pipeline's assets it names read from the lookup: a picture's or a clip's address, a list
+   *  row's picture. One named as an icon is not drawn by the kit yet: it draws none, and that is reported. */
+  assetProp(def: PartDef, d: PartDef["props"][number], v: unknown, part: string): unknown {
+    const slot = assetSlotOf(def, d);
+    if (isAssetName(v)) {
+      if (slot === "icon") {
+        this.warn("asset", `${d.key} names ${v} as an icon, which the phone's kit does not draw yet: it shows no icon`, part);
+        return "";
+      }
+      return slot ? this.asset(v, part) : v;
+    }
+    if (d.kind === "list" && Array.isArray(v) && v.some((row) => isAssetName((row as Record<string, unknown>)?.image) || isAssetName((row as Record<string, unknown>)?.icon)))
+      return (v as Record<string, unknown>[]).map((row) => {
+        let out = row;
+        if (isAssetName(row.image)) out = { ...out, image: this.asset(row.image, part) };
+        if (isAssetName(row.icon)) {
+          this.warn("asset", `a row of ${d.key} names ${row.icon} as its icon, which the phone's kit does not draw yet: it shows no icon`, part);
+          out = { ...out, icon: "" };
+        }
+        return out;
+      });
     return v;
   }
 
@@ -477,6 +519,7 @@ class ScreenPrinter {
       if (SET_ONLY.has(d.key) && !(it.props && typeof it.props[d.key] === "number")) continue;
       if (d.kind === "image" && typeof v === "string" && v.startsWith("data:")) v = this.picture(v, it.id);
       if (d.kind === "list" && Array.isArray(v)) v = (v as Record<string, unknown>[]).map((row) => (typeof row.image === "string" && row.image.startsWith("data:") ? { ...row, image: this.picture(row.image, it.id) } : row));
+      v = this.assetProp(def, d, v, it.id);
       if (def.slug === "svg" && d.key === "markup" && typeof v === "string" && v) v = svgMarkup(v, it.id) ?? "";
       let code: string | undefined;
       const ref = it.bind?.[d.key];
@@ -1072,6 +1115,7 @@ function screensOf(source: Doc, widths: Record<string, number>, o: RnPrintOption
       ...(p.slots.size && o.slots ? [`import { ${[...p.slots].sort().join(", ")} } from ${str(o.slots.from)};`] : []),
       ...(p.bind.size && o.runtime ? [p.bind.line(o.runtime.bind, "mixed")] : []),
       ...(p.pictures && o.images ? [`import { IMAGES } from ${str(o.images.from)};`] : []),
+      ...(p.assets && o.assets ? [`import { asset } from ${str(o.assets.from)};`] : []),
     ];
     const source = [
       "// Generated by M3E Canvas from the design. Do not edit: change the design and export again.",
