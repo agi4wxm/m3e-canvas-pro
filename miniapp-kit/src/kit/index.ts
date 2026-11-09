@@ -12,7 +12,7 @@ export { DatePicker, FileUpload, Menu, RadioGroup, SegmentedButton, Select, Text
 export { ActionSheet, AlertDialog, Dialog, Sheet } from "./composites/overlays";
 export { Placeholder } from "./Placeholder";
 export { SplitView, type SplitViewProps } from "./split";
-export { WORLDS, WorldStandIn, entitiesOf, type WorldStandInProps } from "./world";
+export { WORLDS, WorldStandIn, entitiesOf, setStandInWorld, type StandInWorld, type WorldStandInProps } from "./world";
 export { At, Layer, Pin, Screen, ThemeRoot, chrome, useChrome, type Chrome } from "./screen";
 export { Glyph, base64, glyphFor, hasGlyph, registerIcons, svgUrl, type IconData } from "./icons";
 export { Surface, tagOf } from "./Surface";

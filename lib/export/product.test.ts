@@ -48,7 +48,10 @@ beforeAll(async () => {
 
 describe("the prototype export", () => {
   /* The single-app export stays as it was, to the byte, beside the product. These digests were taken from the export
-     before the product existed; one that changes on purpose is written again here (last: the world view and its input
+     before the product existed; one that changes on purpose is written again here (last: the world view's mock world,
+     batch 6 H6: World.tsx plays a world script handed to it (parts/widgets/mockWorld.ts, lib/world/script.ts and
+     scripted.ts copied beside it) and draws a 3D model picture with parts/widgets/mesh.ts (which reads data URLs with
+     lib/mocks/bytes.ts and formats/table.ts), six more files of the every-parts document; before that the world view and its input
      actions, batch 5 K2: the interpreter copied into src/lib/actions runs move, press and release (model.ts, host.ts,
      run.ts), the widgets' host contract hands a world view its channel (parts/widgets/host.ts), parts/types.ts says
      what `world` is, the joystick sends `move` with each push, and the every-parts document draws a world view
@@ -90,7 +93,7 @@ describe("the prototype export", () => {
     systems: [47, "42e116738aba93300d77a0f5ab04094c4cd36f7ec700b3ea32a02ee3cd07df78"],
     reuse: [38, "45f2eeffec96e6987a68be50863bd53e5a0096fa8506f0c6f95c79955b524d04"],
     sweep: [100, "56281f14bfb278ca1256149f351854d2ab9bdb334c2dd2cb37c5e7068228a0c5"],
-    parts: [150, "21190e3bcb8f9ab8e760ea966341e85e050452e4257d471d2031484969413b9f"],
+    parts: [156, "6a4ea76a06345bd80ee30857643961c5f05362bd81710a7f73ff6dcb0c5bd178"],
   };
   const DOCS: Record<string, () => { doc: Doc; widths: Record<string, number> }> = { proof: proofDoc, systems: systemsDoc, reuse: reuseDoc, sweep: sweepDoc, parts: () => ({ doc: allPartsDoc(), widths: {} }) };
   it.each(Object.keys(DIGESTS))("is byte for byte what it was: %s", async (name) => {
