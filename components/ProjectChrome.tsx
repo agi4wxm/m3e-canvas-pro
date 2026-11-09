@@ -131,6 +131,8 @@ export type ProjectMenuActions = {
   onDownload: () => void;
   /** adds a material pack (.m3e-material.json) to the document's library */
   onImportMaterials?: () => void;
+  /** links the game loop's gameplay contract (.m3e-game.json), read-only */
+  onImportGameContract?: () => void;
   onStopSaving?: () => void;
   /** where the browser's copy and the file's stand, at any time */
   onSaveState?: () => void;
@@ -179,6 +181,7 @@ export function ProjectMenu({ p, close, a }: { p: Palette; close: () => void; a:
       {row("download", t("downloadProjectFile", lang), a.onDownload)}
       {a.onImportMaterials && rule("c")}
       {a.onImportMaterials && row("texture", t("mtImport", lang), a.onImportMaterials, { hint: t("mtImportHint", lang) })}
+      {a.onImportGameContract && row("sports_esports", t("gcImport", lang), a.onImportGameContract, { hint: t("gcImportHint", lang) })}
     </div>
   );
 }

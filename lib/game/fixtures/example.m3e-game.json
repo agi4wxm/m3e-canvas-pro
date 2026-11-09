@@ -1,0 +1,72 @@
+{
+  "format": "m3e-game",
+  "version": 1,
+  "namespace": "game",
+  "contractVersion": "1.0.0",
+  "summary": "The smallest game loop M3E's examples are written to: a summon, a daily check-in, and a world a player moves through picking up coins and hitting enemies.",
+  "clock": { "unit": "ms", "pausable": true, "rates": [0.5, 1, 2] },
+  "snapshot": {
+    "type": "object",
+    "properties": {
+      "entities": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": { "id": { "type": "string" }, "kind": { "type": "string" }, "x": { "type": "number", "minimum": 0, "maximum": 100 }, "y": { "type": "number", "minimum": 0, "maximum": 100 }, "label": { "type": "string" } },
+          "required": ["id", "kind", "x", "y"],
+          "additionalProperties": false
+        }
+      },
+      "follow": { "type": "string" },
+      "score": { "type": "number", "minimum": 0 },
+      "status": { "type": "string", "enum": ["running", "paused", "ended"] }
+    },
+    "required": ["entities", "score", "status"],
+    "additionalProperties": false
+  },
+  "events": {
+    "hit": { "summary": "something was hit", "payload": { "type": "object", "properties": { "id": { "type": "string" }, "by": { "type": "string" } }, "required": ["id", "by"], "additionalProperties": false } },
+    "collected": { "summary": "something was picked up", "payload": { "type": "object", "properties": { "id": { "type": "string" }, "kind": { "type": "string" } }, "required": ["id", "kind"], "additionalProperties": false } },
+    "ended": { "summary": "the round is over", "payload": { "type": "object", "properties": { "score": { "type": "number" } }, "required": ["score"], "additionalProperties": false } }
+  },
+  "commands": {
+    "pull": {
+      "via": "api",
+      "summary": "Summons once or ten times, paid in gems; the game loop draws what comes out",
+      "params": { "type": "object", "properties": { "count": { "type": "integer", "enum": [1, 10] } }, "required": ["count"], "additionalProperties": false },
+      "result": {
+        "type": "object",
+        "properties": {
+          "pulled": { "type": "array", "items": { "type": "object", "properties": { "id": { "type": "string" }, "name": { "type": "string" }, "rarity": { "type": "string", "enum": ["common", "rare", "epic"] } }, "required": ["id", "name", "rarity"] } },
+          "gems": { "type": "integer", "minimum": 0, "description": "the gems left" }
+        },
+        "required": ["pulled", "gems"]
+      },
+      "rejections": {
+        "insufficient-resources": { "status": 409, "title": "Not enough gems", "summary": "The pulls cost more gems than the player has" },
+        "pool-closed": { "status": 409, "title": "The summon has ended", "summary": "The limited summon is over" }
+      }
+    },
+    "checkIn": {
+      "via": "api",
+      "summary": "Checks in for today; the game loop says which day of the month it is and what it gives",
+      "result": {
+        "type": "object",
+        "properties": { "day": { "type": "integer", "minimum": 1, "maximum": 31 }, "reward": { "type": "object", "properties": { "item": { "type": "string" }, "count": { "type": "integer", "minimum": 1 } }, "required": ["item", "count"] } },
+        "required": ["day", "reward"]
+      },
+      "rejections": {
+        "cooldown": { "status": 429, "title": "Checked in already today", "summary": "The next check-in opens at the game's midnight" }
+      }
+    },
+    "move": { "via": "input", "summary": "the way the player goes, x and y from -1 to 1", "input": "vec2" },
+    "attack": { "via": "input", "summary": "held down: hits the enemies near the player", "input": "bool" }
+  },
+  "facts": {
+    "purchaseSettled": {
+      "summary": "A purchase of gems went through: the payment service tells the game loop, never the app",
+      "from": "payments",
+      "params": { "type": "object", "properties": { "orderId": { "type": "string" }, "gems": { "type": "integer", "minimum": 1 } }, "required": ["orderId", "gems"] }
+    }
+  }
+}

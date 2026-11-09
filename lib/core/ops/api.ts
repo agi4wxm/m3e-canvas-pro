@@ -49,6 +49,7 @@ import {
 } from "../../api";
 import { cleanPagination, cleanSecurity } from "../../api/clean";
 import { define, isRecord } from "../../api/schema";
+import { gameMarkOf } from "../../game/map";
 import { op, OpError, S } from "../op";
 import { withDoc, type CoreState } from "../state";
 
@@ -95,6 +96,16 @@ function endpointAt(s: CoreState, id: string): number {
   const at = list.findIndex((e) => e.operationId === id);
   if (at < 0) throw new OpError("not_found", `There is no endpoint ${JSON.stringify(id)}.${list.length ? ` The endpoints are: ${list.map((e) => e.operationId).slice(0, 40).join(", ")}.` : " There are none yet."}`, id);
   return at;
+}
+
+/** An endpoint the gameplay contract made (lib/game: `x-m3e-game`) is the game loop's: it changes only by importing the
+ *  contract again, never by hand, and its namespace is the contract's. */
+function notTheGameLoops(s: CoreState, id: string, at?: number) {
+  const e = at === undefined ? undefined : apiOf(s).endpoints?.[at];
+  const mark = gameMarkOf(e);
+  if (mark) throw new OpError("refused", `${id} is the game loop's (its gameplay contract, version ${mark.contractVersion}): it is read-only here. A change to it is made in the game loop and comes in with import_game_contract.`, id);
+  const ns = (s.doc as { game?: { contract: { namespace: string } } }).game?.contract.namespace;
+  if (ns && id.startsWith(`${ns}.`)) throw new OpError("refused", `${ns}.* is the namespace of the gameplay contract's operations: name the endpoint otherwise.`, id);
 }
 
 function channelAt(s: CoreState, id: string): number {
@@ -345,6 +356,7 @@ export const addEndpoint = op<EndpointArgs, { operationId: string; parameters: s
   label: () => "Add endpoint",
   run(s, a) {
     const api = apiOf(s);
+    notTheGameLoops(s, a.operationId);
     checkOperationId(a.operationId, api);
     checkPath(a.path);
     strayPathParams(a.path, a.parameters);
@@ -362,9 +374,11 @@ export const updateEndpoint = op<Partial<EndpointArgs> & { operationId: string; 
   label: () => "Endpoint",
   run(s, a) {
     const at = endpointAt(s, a.operationId);
+    notTheGameLoops(s, a.operationId, at);
     const api = apiOf(s);
     const was = api.endpoints![at];
     const id = a.rename ?? was.operationId;
+    if (a.rename) notTheGameLoops(s, a.rename);
     if (a.rename) checkOperationId(a.rename, api, was.operationId);
     const path = a.path ?? was.path;
     checkPath(path);
@@ -388,6 +402,7 @@ export const removeEndpoint = op<{ operationId: string }, { removed: string }>({
   label: () => "Delete endpoint",
   run(s, a) {
     const at = endpointAt(s, a.operationId);
+    notTheGameLoops(s, a.operationId, at);
     const api = apiOf(s);
     let auth = api.auth;
     if (auth && (auth.login === a.operationId || auth.refresh === a.operationId || auth.logout === a.operationId)) auth = compact({ ...auth, login: auth.login === a.operationId ? undefined : auth.login, refresh: auth.refresh === a.operationId ? undefined : auth.refresh, logout: auth.logout === a.operationId ? undefined : auth.logout });
@@ -596,7 +611,13 @@ function imported(s: CoreState, text: string, format: "openapi" | "asyncapi", mo
     if (e instanceof ApiImportError) throw new OpError("invalid_value", e.message, "text");
     throw e;
   }
-  const merged = mergeApi(s.doc.api, read.api, format, mode);
+  const mergedFile = mergeApi(s.doc.api, read.api, format, mode);
+  /* the gameplay contract's operations are the game loop's, whatever a file of the author's says of the same ids */
+  const theGames = (s.doc.api?.endpoints ?? []).filter((e) => gameMarkOf(e));
+  const ids = new Set(theGames.map((e) => e.operationId));
+  const keepProblem = theGames.length && !mergedFile?.models?.some((m) => m.name === PROBLEM_MODEL_NAME);
+  const problem = s.doc.api?.models?.find((m) => m.name === PROBLEM_MODEL_NAME) ?? problemModel();
+  const merged = theGames.length ? { ...mergedFile, models: [...(mergedFile?.models ?? []), ...(keepProblem ? [problem] : [])], endpoints: [...(mergedFile?.endpoints ?? []).filter((e) => !ids.has(e.operationId)), ...theGames] } : mergedFile;
   const next = merged ? (cleanApi(merged) ?? {}) : {};
   /* what the file brings is the file's: its problems are reported, not refused, but none may be made of what was here */
   const before = apiProblems(s.doc.api);

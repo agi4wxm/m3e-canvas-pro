@@ -54,6 +54,8 @@ export type { Action, ActionBody, Effect, Condition } from "../actions/model";
  * contract with an engine, and M3E's example engine */
 export { createWorlds, inputLog, inputWords, QUIET_CHANNEL, type Worlds } from "../world/channel";
 export { connectWorld, createExampleWorld, type ExampleWorld, type ExampleWorldOptions } from "../world/example";
+export { createScriptedWorld, type ScriptedWorld, type ScriptedWorldOptions } from "../world/scripted";
+export { eventsBetween, playsOn, sceneAt, scriptLength, type WorldScene, type WorldScript, type WorldScriptEntity, type WorldScriptEvent, type WorldScriptFired, type WorldScriptStep } from "../world/script";
 export { EXAMPLE_WORLD_CONTRACT, contractInputs, type WorldContract, type WorldSchema } from "../world/contract";
 export { WORLD_HOST_CONTRACT, WORLD_LIFECYCLE, type InputPriority, type OverlayPolicy, type PausePolicy, type WorldHostContract, type WorldLifecycleStep } from "../world/hostContract";
 export { WORLD_EVENTS, type Vec2, type World, type WorldChannel, type WorldClock, type WorldEntity, type WorldInputDecl, type WorldInputType, type WorldEventName, type WorldEvents, type WorldInput, type WorldListener, type WorldPointer, type WorldRect, type WorldSlotProps, type WorldState, type WorldStatus } from "../world/types";

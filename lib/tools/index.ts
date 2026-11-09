@@ -8,6 +8,7 @@ export { READ_TOOLS } from "./read";
 export { API_READ_TOOLS } from "./apiRead";
 export { MOCK_READ_TOOLS } from "./mocksRead";
 export { CAPABILITY_READ_TOOLS } from "./capabilitiesRead";
+export { GAME_READ_TOOLS } from "./gameRead";
 export { ASSET_READ_TOOLS } from "./assetsRead";
 export { REFERENCE_TOOLS } from "./reference";
 export { compareGrid, decodePng, paletteOf, readPixels, regionColor, type Pixels } from "./pixels";

@@ -51,6 +51,8 @@ import { footOf, type Foot } from "../../foot";
 import { isOverlayPart } from "../../interact";
 import { eventOfKey, eventsOf, familiesOf, familyOfKey, isPlaceKey } from "../../partContract";
 import { formsOf } from "../../bindings/view";
+import { slotTakes } from "../../capabilities/doc";
+import type { CapabilitySpec } from "../../capabilities/types";
 import { dockPanes, isLaidOutDock, offTabOf } from "../panes";
 import { plainTree, type AtomTaps, type PlainNode } from "../rn/data";
 import { kitPropName } from "../../../rn/src/kit/coverage";
@@ -247,9 +249,12 @@ export function atomsOf(doc: Doc, def: PartDef, it: Item): { plain: PlainNode; t
   return { plain: plainTree(tree, getLang()), taps: { node: tree, actions: taps.actions, placed: taps.placed, owner: it.id } };
 }
 
-/** what a slot is handed of a capability view: the props of the design's stand-in, as plain values */
-export const slotGiven = (def: PartDef, it: Item): [string, unknown][] =>
-  Object.entries(treeOf(def, it.props).props ?? {}).filter(([k, v]) => /^[a-z][A-Za-z0-9]*$/.test(k) && k !== "className" && k !== "style" && k !== "width" && k !== "height" && (v === null || ["string", "number", "boolean", "object"].includes(typeof v)));
+/** What a slot is handed of a capability view (or a world view): the props of the design's stand-in, as plain values,
+ *  that the view's props take (`slotTakes`: the stand-in may be drawn with more, which only the stand-in gets). */
+export function slotGiven(def: PartDef, it: Item, spec: CapabilitySpec | undefined): [string, unknown][] {
+  const takes = def.capability ? slotTakes(spec, def.capability) : () => true;
+  return Object.entries(treeOf(def, it.props).props ?? {}).filter(([k, v]) => /^[a-z][A-Za-z0-9]*$/.test(k) && k !== "className" && k !== "style" && k !== "width" && k !== "height" && takes(k) && (v === null || ["string", "number", "boolean", "object"].includes(typeof v)));
+}
 
 /** an overlay that keeps its trigger on the screen while shut (a menu): closing it shuts its popup only */
 export function keepsTrigger(it: Item | undefined): boolean {
