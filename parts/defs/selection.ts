@@ -1,7 +1,7 @@
 import { h } from "../node";
 import { inputNode } from "../inputNode";
 import type { P, PartDef } from "../types";
-import { FIELD, fieldFrame, fieldValues, requiredMark } from "../fieldState";
+import { FIELD, fieldFrame, fieldValues, HELPER_TEXT, requiredMark } from "../fieldState";
 import { ariaLabelProp, nameFor } from "../a11y";
 
 /** a control's words with a star after them while it is required */
@@ -182,7 +182,7 @@ export const selection: PartDef[] = [
   {
     slug: "select",
     input: { prop: "selected", kind: "choice" },
-    field: { ...FIELD, helperText: "supporting" },
+    field: FIELD,
     appearance: { target: "SelectTrigger", radius: 4 },
     name: "Select",
     category: "Pickers",
@@ -196,7 +196,7 @@ export const selection: PartDef[] = [
       { key: "variant", label: "Variant", kind: "enum", default: "outlined", options: ["outlined", "filled"] },
       { key: "label", label: "Label", kind: "text", default: "" },
       { key: "placeholder", label: "Placeholder", kind: "text", default: "Select a fruit" },
-      { key: "supporting", label: "Supporting text", kind: "text", default: "" },
+      HELPER_TEXT,
       { key: "size", label: "Size", kind: "enum", default: "default", options: ["default", "sm"] },
       { key: "disabled", label: "Disabled", kind: "bool", default: false },
       { key: "width", label: "Width", kind: "number", default: 224, min: 120, max: 520, step: 4, unit: "px" },
@@ -227,7 +227,7 @@ export const selection: PartDef[] = [
               size: p.s("size") === "sm" ? "sm" : undefined,
               variant: p.s("variant") === "filled" ? "filled" : undefined,
               label: p.s("label") ? starred(p, p.s("label")) : undefined,
-              supporting: (v.invalid && v.message) || p.s("supporting") || undefined,
+              supporting: (v.invalid && v.message) || p.s("helperText") || undefined,
               "aria-label": name || undefined,
               "aria-invalid": v.invalid || undefined,
               style: { width: Math.round(p.n("width")) },
@@ -236,7 +236,7 @@ export const selection: PartDef[] = [
           ),
           h("SelectContent", null, ...items.map((it) => h("SelectItem", { value: it.label }, it.label))),
         )),
-        { holds: true, marksRequired: !!p.s("label"), showsMessage: true },
+        { holds: true, marksRequired: !!p.s("label"), showsMessage: true, showsHelper: true },
       );
     },
   },

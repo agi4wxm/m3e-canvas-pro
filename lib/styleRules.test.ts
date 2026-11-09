@@ -65,8 +65,8 @@ describe("a style's rules", () => {
     expect(conformItem(part("image", {}, { radius: 40, src: "x" })).props).toEqual({ src: "x" });
     expect(conformItem(part("scene", {}, { style: "oil paint", prompt: "a" })).props).toEqual({ prompt: "a" });
     /* the same word on another part is that part's own */
-    expect(styleOwnsProp("search", "style")).toBe(false);
-    expect(conformItem(part("search", {}, { style: "outlined" })).props).toEqual({ style: "outlined" });
+    expect(styleOwnsProp("text", "style")).toBe(false);
+    expect(conformItem(part("text", {}, { style: "headline" })).props).toEqual({ style: "headline" });
   });
 
   it("change nothing that has nothing to take off, so a document at rest is not rewritten", () => {

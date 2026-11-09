@@ -108,9 +108,10 @@ export type FieldPartProps = PartBase & {
   label?: string;
   control?: "input" | "textarea" | "checkbox" | "switch";
   placeholder?: string;
-  description?: string;
+  /** the words under it saying what it is for */
+  helperText?: string;
   /** its error's message: saying one puts it in error */
-  error?: string;
+  errorText?: string;
   disabled?: boolean;
   readOnly?: boolean;
   required?: boolean;
@@ -130,13 +131,13 @@ export function Field(props: FieldPartProps) {
   const kit = useKit();
   const fill = useFill();
   const width = Math.round(p.width ?? 320);
-  const invalid = !!p.error;
+  const invalid = !!p.errorText;
   const side = p.control === "checkbox" || p.control === "switch";
   const label = p.label ? <Words text={starred(p.label, p.required)} style={{ ...typeStyle(kit, "title-small"), color: c("on-surface") }} /> : null;
   const words = (
     <>
-      {p.description ? <Words text={p.description} style={{ ...typeStyle(kit, "body-small"), color: c("on-surface-variant") }} /> : null}
-      {invalid ? <Words text={p.error} style={{ ...typeStyle(kit, "body-small"), color: c("error") }} /> : null}
+      {p.helperText ? <Words text={p.helperText} style={{ ...typeStyle(kit, "body-small"), color: c("on-surface-variant") }} /> : null}
+      {invalid ? <Words text={p.errorText} style={{ ...typeStyle(kit, "body-small"), color: c("error") }} /> : null}
     </>
   );
   const shared = { disabled: p.disabled, readOnly: p.readOnly, error: invalid, ariaLabel: p.label };

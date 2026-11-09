@@ -147,10 +147,10 @@ export const game: PartDef[] = [
       { key: "rarity", label: "Rarity", labels: { ja: "レア度", zh: "稀有度", ko: "희귀도" }, kind: "text", default: "" },
       { key: "rarityColor", label: "Rarity color", labels: { ja: "レア度の色", zh: "稀有度颜色", ko: "희귀도 색상" }, kind: "text", default: "#7BAE7A" },
       { key: "badge", label: "Badge", labels: { ja: "バッジ", zh: "角标", ko: "배지" }, kind: "text", default: "" },
-      { key: "selected", label: "Selected", labels: { ja: "選択中", zh: "选中", ko: "선택됨" }, kind: "bool", default: false },
+      { key: "pressed", label: "Selected", labels: { ja: "選択中", zh: "选中", ko: "선택됨" }, kind: "bool", default: false },
       { key: "size", label: "Size", labels: { zh: "尺寸" }, kind: "number", default: 60, min: 32, max: 160, step: 4, unit: "px" },
     ],
-    tree: (p) => h("ItemCell", { icon: p.s("icon"), name: p.s("name"), count: p.s("count"), rarity: p.s("rarity"), rarityColor: p.s("rarityColor"), badge: p.s("badge"), ...(p.b("selected") ? { selected: true } : {}), size: Math.round(p.n("size")) }),
+    tree: (p) => h("ItemCell", { icon: p.s("icon"), name: p.s("name"), count: p.s("count"), rarity: p.s("rarity"), rarityColor: p.s("rarityColor"), badge: p.s("badge"), ...(p.b("pressed") ? { selected: true } : {}), size: Math.round(p.n("size")) }),
   },
   {
     slug: "task-row",
@@ -225,10 +225,10 @@ export const game: PartDef[] = [
     props: [
       { key: "label", label: "Label", kind: "text", default: "Event", defaults: { zh: "活动" } },
       { key: "icon", label: "Icon", kind: "icon", default: "bolt" },
-      { key: "timer", label: "Countdown (0: none)", labels: { ja: "カウントダウン（0: なし）", zh: "倒计时（0 为无）", ko: "카운트다운 (0: 없음)" }, kind: "number", default: 3, min: 0, max: 999, step: 1 },
+      { key: "timer", label: "Countdown (0: none)", labels: { ja: "カウントダウン（0: なし）", zh: "倒计时（0 为无）", ko: "카운트다운 (0: 없음)" }, kind: "number", unit: "s", default: 3, min: 0, max: 999, step: 1 },
       { key: "unit", label: "Unit", labels: { ja: "単位", zh: "单位", ko: "단위" }, kind: "enum", default: "minute", options: ["second", "minute", "hour"] },
-      { key: "endsAt", ...ENDS_AT, kind: "number", default: 0, min: 0, max: 1e14, step: 1 },
-      { key: "clockSkew", ...SKEW, kind: "number", default: 0, min: -1e10, max: 1e10, step: 1 },
+      { key: "endsAt", ...ENDS_AT, kind: "number", unit: "ms", default: 0, min: 0, max: 1e14, step: 1 },
+      { key: "clockSkew", ...SKEW, kind: "number", unit: "ms", default: 0, min: -1e10, max: 1e10, step: 1 },
       { key: "size", label: "Size", labels: { zh: "尺寸" }, kind: "number", default: 50, min: 32, max: 120, step: 2, unit: "px" },
     ],
     tree: (p) =>

@@ -3911,5 +3911,170 @@
     ]
    }
   }
+ },
+ "2026-11-09-0228f1c-names": {
+  "screens": [
+   "s-fields",
+   "s-overlays",
+   "s-numbers",
+   "s-more"
+  ],
+  "vars": {
+   "v-row": 3,
+   "v-ms": 120,
+   "v-help": "Shown under the field",
+   "v-err": "",
+   "v-close": true,
+   "v-size": "large",
+   "v-pick": false
+  },
+  "gone": [],
+  "taps": {
+   "b-help/tap": {
+    "to": "none",
+    "moves": null,
+    "trigger": {
+     "on": "tap"
+    },
+    "overlay": false,
+    "scrollTo": null,
+    "params": null,
+    "vars": {
+     "v-row": 3,
+     "v-ms": 120,
+     "v-help": "Shown under the field",
+     "v-err": "Bad",
+     "v-close": true,
+     "v-size": "large",
+     "v-pick": false
+    },
+    "hidden": {},
+    "props": {
+     "tf": {
+      "supporting": "Changed"
+     },
+     "field": {
+      "error": ""
+     },
+     "up": {
+      "hint": "Any file"
+     }
+    },
+    "opened": {},
+    "snack": null,
+    "gone": []
+   },
+   "b-dlg/tap": {
+    "to": "none",
+    "moves": null,
+    "trigger": {
+     "on": "tap"
+    },
+    "overlay": false,
+    "scrollTo": null,
+    "params": null,
+    "vars": {
+     "v-row": 3,
+     "v-ms": 120,
+     "v-help": "Shown under the field",
+     "v-err": "",
+     "v-close": false,
+     "v-size": "large",
+     "v-pick": false
+    },
+    "hidden": {},
+    "props": {
+     "dlg": {
+      "style": "basic"
+     },
+     "search": {
+      "style": "elevated"
+     },
+     "banner": {
+      "closable": false
+     },
+     "notice": {
+      "closable": true
+     },
+     "alert": {
+      "cancel": "Not now"
+     }
+    },
+    "opened": {},
+    "snack": null,
+    "gone": []
+   },
+   "b-num/tap": {
+    "to": "none",
+    "moves": null,
+    "trigger": {
+     "on": "tap"
+    },
+    "overlay": false,
+    "scrollTo": null,
+    "params": null,
+    "vars": {
+     "v-row": 4,
+     "v-ms": 600,
+     "v-help": "Shown under the field",
+     "v-err": "",
+     "v-close": true,
+     "v-size": "medium",
+     "v-pick": true
+    },
+    "hidden": {},
+    "props": {
+     "table2": {
+      "selected": 3
+     },
+     "scene": {
+      "frameMs": 90
+     },
+     "price3": {
+      "size": "small"
+     },
+     "ticker": {
+      "size": "title"
+     },
+     "cell": {
+      "selected": false
+     }
+    },
+    "opened": {},
+    "snack": null,
+    "gone": []
+   },
+   "i-card/c-btn/tap": {
+    "to": "none",
+    "moves": null,
+    "trigger": {
+     "on": "tap"
+    },
+    "overlay": false,
+    "scrollTo": null,
+    "params": null,
+    "vars": {
+     "v-row": 3,
+     "v-ms": 120,
+     "v-help": "Shown under the field",
+     "v-err": "",
+     "v-close": true,
+     "v-size": "large",
+     "v-pick": false
+    },
+    "hidden": {},
+    "props": {
+     "i-card/c-table": {
+      "selected": 0
+     },
+     "i-card/c-banner": {
+      "closable": false
+     }
+    },
+    "opened": {},
+    "snack": null,
+    "gone": []
+   }
+  }
  }
 }

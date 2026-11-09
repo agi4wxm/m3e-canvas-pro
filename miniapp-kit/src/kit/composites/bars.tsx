@@ -287,7 +287,7 @@ export function Tabs(props: TabsProps) {
 
 /* ---------- search ---------- */
 
-export type SearchProps = PartBase & { kind?: "view" | "bar"; styleVariant?: "elevated" | "outlined"; placeholder?: string; leading?: string; trailing?: string; size?: "default" | "sm"; results?: ListRow[]; width?: number; value?: string; onChange?: (text: string) => void };
+export type SearchProps = PartBase & { kind?: "view" | "bar"; variant?: "elevated" | "outlined"; placeholder?: string; leading?: string; trailing?: string; size?: "default" | "sm"; results?: ListRow[]; width?: number; value?: string; onChange?: (text: string) => void };
 
 /** Search: Material's floating bar (or its open view with suggestions), the style's grey box, iOS's Cancel beside it */
 export function Search(props: SearchProps) {
@@ -304,8 +304,8 @@ export function Search(props: SearchProps) {
   const box = merge(
     { ...ROW, flex: 1, minWidth: 0, height: h, columnGap: own ? 6 : 16, paddingLeft: own ? 8 : 16, paddingRight: own ? 8 : 16, boxSizing: "border-box", backgroundColor: ground, borderRadius: ios ? 10 : recipe === "filled" ? corner(kit, "sm") : recipe === "boxed" ? corner(kit, "xs") : h / 2 },
     recipe === "pill" || recipe === "boxed" ? { border: `1px solid ${c("outline-variant")}` } : null,
-    !own && p.styleVariant === "outlined" ? { border: `1px solid ${c("outline-variant")}`, backgroundColor: c("surface") } : null,
-    !own && p.styleVariant !== "outlined" && p.kind === "bar" ? { boxShadow: "0px 1px 2px 0px rgba(0,0,0,0.3), 0px 1px 3px 1px rgba(0,0,0,0.15)" } : null,
+    !own && p.variant === "outlined" ? { border: `1px solid ${c("outline-variant")}`, backgroundColor: c("surface") } : null,
+    !own && p.variant !== "outlined" && p.kind === "bar" ? { boxShadow: "0px 1px 2px 0px rgba(0,0,0,0.3), 0px 1px 3px 1px rgba(0,0,0,0.15)" } : null,
     !own && p.kind === "view" ? { borderBottomLeftRadius: 0, borderBottomRightRadius: 0, borderBottom: `1px solid ${c("outline")}` } : null,
   );
   const results = p.kind === "view" && !own && open ? (p.results ?? []) : [];

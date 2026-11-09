@@ -48,7 +48,7 @@ const deliverTo = (): Node =>
 const addPhotos = (): Node =>
   part("file-upload", {
     title: say("Add photos", "添加照片", "写真を追加", "사진 추가"),
-    hint: say("Up to 5 photos", "最多 5 张", "5 枚まで", "최대 5장"),
+    helperText: say("Up to 5 photos", "最多 5 张", "5 枚まで", "최대 5장"),
     action: say("Choose photos", "选择照片", "写真を選ぶ", "사진 선택"),
   });
 
@@ -91,7 +91,7 @@ export const productDetailScreen = (links: { cart?: Link; back?: Link } = {}): S
     ],
     body: [
       part("image", { alt: TOTE, height: 240 }),
-      part("price-tag", { currency: "$", amount: "24.00", original: "$32.00", discount: "-25%", size: "medium" }),
+      part("price-tag", { currency: "$", amount: "24.00", original: "$32.00", discount: "-25%", size: "default" }),
       txt(TOTE, "title", { bold: true }),
       row({ gap: 8 }, [part("rating", { value: 5, readOnly: true }), txt(say("4.6 · 128 reviews", "4.6 · 128 条评价", "4.6 · レビュー 128 件", "4.6 · 리뷰 128개"), "caption", { color: "muted" }, { fill: true })]),
       txt(say("Heavy cotton canvas with a roomy inside pocket. Made to carry a laptop and a day's shopping.", "厚实的棉质帆布，内袋宽敞，放得下笔记本和一天的采购。", "厚手のコットンキャンバスに広い内ポケット。ノートパソコンと一日の買い物が入ります。", "두꺼운 면 캔버스에 넉넉한 안주머니. 노트북과 하루치 장보기가 들어갑니다."), "body", { color: "muted" }),

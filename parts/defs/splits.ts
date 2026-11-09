@@ -36,8 +36,8 @@ const searchBar = (p: P, sm = false): Node =>
   );
 
 /** the paint of a search: raised on the high container, or outlined on the surface */
-const searchSurface = (p: P) => (p.s("style") === "outlined" ? { surface: "chip" } : { surface: "field" });
-const searchLook = (p: P): Pick<Node, "look"> => (p.s("style") === "outlined" ? {} : { look: { elevation: 3 } });
+const searchSurface = (p: P) => (p.s("variant") === "outlined" ? { surface: "chip" } : { surface: "field" });
+const searchLook = (p: P): Pick<Node, "look"> => (p.s("variant") === "outlined" ? {} : { look: { elevation: 3 } });
 
 /** an app bar's title and the line under it, the room it is given less the 12 the heading keeps on each side (16 with nothing before it) */
 const barTitle = (p: P, lead: boolean): Node =>
@@ -234,7 +234,7 @@ export const SPLITS: Record<string, (p: P, look?: KitLook) => Node> = {
 
   banner: (p) =>
     vbox({ surface: "panel", width: px(p), hugWidth: false, padX: 12, padY: 12, gap: 8 }, [
-      hbox({ gap: 12, align: "start" }, some(p.s("icon") && box({ surface: "button", layout: "row", align: "center", justify: "center", padX: 10, padY: 10 }, [icon(p.s("icon"), { size: 20, color: "on-primary" })], { fill: "primaryContainer", corners: round(20) }), para(p.s("text"), "body", {}, { grow: true }), p.b("closable") && iconButton("close", p.say("Close"), { variant: "ghost", size: "sm" }))),
+      hbox({ gap: 12, align: "start" }, some(p.s("icon") && box({ surface: "button", layout: "row", align: "center", justify: "center", padX: 10, padY: 10 }, [icon(p.s("icon"), { size: 20, color: "on-primary" })], { fill: "primaryContainer", corners: round(20) }), para(p.s("text"), "body", {}, { grow: true }), p.b("closeButton") && iconButton("close", p.say("Close"), { variant: "ghost", size: "sm" }))),
       ...some((p.s("action") || p.s("secondary")) && hbox({ justify: "end", gap: 8 }, some(p.s("secondary") && button(p.s("secondary"), { variant: "text", size: "xs" }), p.s("action") && button(p.s("action"), { variant: "tonal", size: "xs" })))),
     ]),
 
@@ -260,7 +260,7 @@ export const SPLITS: Record<string, (p: P, look?: KitLook) => Node> = {
   "notice-bar": (p) =>
     hbox(
       { surface: "panel", width: px(p), hugWidth: false, padX: 12, padY: 8, gap: 8 },
-      some(p.s("icon") && icon(p.s("icon"), { size: 20 }), para(p.list("items")[0]?.label ?? "", "body", { maxLines: 1 }, { grow: true }), p.b("closable") && iconButton("close", p.say("Close"), { variant: "ghost", size: "xs" })),
+      some(p.s("icon") && icon(p.s("icon"), { size: 20 }), para(p.list("items")[0]?.label ?? "", "body", { maxLines: 1 }, { grow: true }), p.b("closeButton") && iconButton("close", p.say("Close"), { variant: "ghost", size: "xs" })),
       { fill: "tertiaryContainer" },
     ),
 
@@ -394,8 +394,8 @@ export const SPLITS: Record<string, (p: P, look?: KitLook) => Node> = {
   /* ---------- overlays and feedback ---------- */
 
   dialog: (p, look = MATERIAL_LOOK) => {
-    if (p.s("style") !== "fullscreen" && asAlert(look)) return alertOf(look, p.s("title"), p.s("description"), [p.s("dismiss"), p.s("confirm")].filter(Boolean), p.b("stacked"), p.s("icon") || undefined);
-    if (p.s("style") === "fullscreen")
+    if (p.s("variant") !== "fullscreen" && asAlert(look)) return alertOf(look, p.s("title"), p.s("description"), [p.s("dismiss"), p.s("confirm")].filter(Boolean), p.b("stacked"), p.s("icon") || undefined);
+    if (p.s("variant") === "fullscreen")
       return vbox({ surface: "sheet", width: px(p), hugWidth: false, height: px(p, "height"), hugHeight: false, padX: 0, padY: 0, gap: 0 }, [
         hbox({ padX: 12, padY: 8, gap: 8 }, some(iconButton("close", p.say("Close")), para(p.s("title"), "heading", { maxLines: 1 }, { grow: true }), p.s("confirm") && button(p.s("confirm"), { variant: "text" }))),
         rule(px(p)),
@@ -412,11 +412,11 @@ export const SPLITS: Record<string, (p: P, look?: KitLook) => Node> = {
   },
 
   "alert-dialog": (p, look = MATERIAL_LOOK) => {
-    if (asAlert(look)) return alertOf(look, p.s("title"), p.s("description"), [p.s("cancel"), p.s("action")].filter(Boolean), false, p.s("icon") || undefined);
+    if (asAlert(look)) return alertOf(look, p.s("title"), p.s("description"), [p.s("dismiss"), p.s("confirm")].filter(Boolean), false, p.s("icon") || undefined);
     const small = p.s("size") === "sm";
     const center = small || !!p.s("icon");
     const w = small ? 320 : DIALOG_W;
-    const buttons = some(p.s("cancel") && button(p.s("cancel"), { variant: "text" }, small ? { grow: true } : {}), p.s("action") && button(p.s("action"), { variant: "filled" }, small ? { grow: true } : {}));
+    const buttons = some(p.s("dismiss") && button(p.s("dismiss"), { variant: "text" }, small ? { grow: true } : {}), p.s("confirm") && button(p.s("confirm"), { variant: "filled" }, small ? { grow: true } : {}));
     return vbox({ surface: "overlay", width: w, hugWidth: false, padX: 24, padY: 24, gap: 16 }, [
       vbox({ gap: 16, align: center ? "center" : "stretch" }, some(p.s("icon") && icon(p.s("icon"), { color: "secondary" }), para(p.s("title"), "headline", { align: center ? "center" : "start", width: w - 48 }), p.s("description") && para(p.s("description"), "body", { color: "muted", align: center ? "center" : "start", width: w - 48 }))),
       ...(buttons.length ? [hbox({ justify: small ? "start" : "end", gap: 8, padY: 0 }, buttons)] : []),
@@ -625,7 +625,7 @@ export const SPLITS: Record<string, (p: P, look?: KitLook) => Node> = {
 
   "price-tag": (p) => {
     const [whole, cents] = p.s("amount").split(".");
-    const big = { small: "heading", medium: "headline", large: "display" }[p.s("size")] ?? "headline";
+    const big = { sm: "heading", default: "headline", lg: "display" }[p.s("size")] ?? "headline";
     return hbox(
       { gap: 4, align: "end", wrap: true },
       some(
@@ -785,7 +785,7 @@ export const SPLITS: Record<string, (p: P, look?: KitLook) => Node> = {
   "item-cell": (p) => {
     const size = Math.round(p.n("size"));
     return vbox({ gap: 2, align: "center", width: size, hugWidth: false }, [
-      box({ surface: "chip", layout: "column", align: "center", justify: "center", gap: 0, padX: 0, padY: 0, width: size, height: size, hugWidth: false, hugHeight: false }, some(p.s("rarity") && atom("badge", { kind: "label", label: p.s("rarity"), variant: "default" }), p.s("icon") && icon(p.s("icon"), { size: 28 }), p.s("count") && text(p.s("count"), "tiny"), p.s("badge") && atom("badge", { kind: "label", label: p.s("badge"), variant: "destructive" })), { fill: "surfaceContainerHigh", corners: round(8), ...(p.b("selected") ? { look: { stroke: { width: 2, color: "primary" } } } : {}) }),
+      box({ surface: "chip", layout: "column", align: "center", justify: "center", gap: 0, padX: 0, padY: 0, width: size, height: size, hugWidth: false, hugHeight: false }, some(p.s("rarity") && atom("badge", { kind: "label", label: p.s("rarity"), variant: "default" }), p.s("icon") && icon(p.s("icon"), { size: 28 }), p.s("count") && text(p.s("count"), "tiny"), p.s("badge") && atom("badge", { kind: "label", label: p.s("badge"), variant: "destructive" })), { fill: "surfaceContainerHigh", corners: round(8), ...(p.b("pressed") ? { look: { stroke: { width: 2, color: "primary" } } } : {}) }),
       ...some(p.s("name") && para(p.s("name"), "tiny", { color: "muted", align: "center", maxLines: 1, width: size })),
     ]);
   },

@@ -141,7 +141,7 @@ export function inputsDoc(): { doc: Doc; widths: Record<string, number> } {
   y = 24;
   add(entry, "input-group", 56, { button: "Go" });
   add(entry, "input-otp", 56, { value: "12" });
-  add(entry, "field", 96, { control: "switch", error: "Turn it on" });
+  add(entry, "field", 96, { control: "switch", errorText: "Turn it on" });
   add(entry, "form", 240);
   add(entry, "copy-row", 40);
   add(entry, "quantity-stepper", 56, {}, { value: "count" });

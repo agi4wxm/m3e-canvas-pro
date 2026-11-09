@@ -276,7 +276,7 @@ describe("the composites that split", () => {
       "contact-list": { trailing: "call", grouped: false, search: "" },
       leaderboard: { faces: false, selected: 1 },
       "product-card": { layout: "horizontal", liked: true, badge: "" },
-      "price-tag": { size: "large", amount: "99" },
+      "price-tag": { size: "lg", amount: "99" },
       "balance-card": { hidden: true },
       "profile-header": { showCover: false, following: true },
       "post-card": { showImage: false },

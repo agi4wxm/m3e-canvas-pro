@@ -308,7 +308,7 @@ describe("a split that looks like the part", () => {
     expect(view.at("icon").x).toBe(16);
     expect(view.at("input").x).toBe(56);
     expect(laid("search", { kind: "bar", width: 360 }).size).toEqual({ w: 360, h: 56 });
-    expect(laid("search", { kind: "bar", style: "outlined" }).root.look).toBeUndefined();
+    expect(laid("search", { kind: "bar", variant: "outlined" }).root.look).toBeUndefined();
   });
 });
 

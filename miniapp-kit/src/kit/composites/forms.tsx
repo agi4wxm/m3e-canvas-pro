@@ -26,7 +26,6 @@ import { starred, withField, type FieldProps } from "../field";
 export type TextFieldProps = PartBase & {
   label?: string;
   value?: string;
-  supporting?: string;
   variant?: "outlined" | "filled";
   leadingIcon?: string;
   trailingIcon?: string;
@@ -58,8 +57,8 @@ export function TextField(props: TextFieldProps) {
   const outlinedLabel = p.variant !== "filled" && !own && up;
   const words = sx(typeStyle(kit, "body-large"), BARE, { color: c("on-surface"), width: "100%", minHeight: 24 }, p.multiline ? { height: 72 } : { height: 24 });
   const held = !!p.disabled || !!p.readOnly;
-  /* the message of its error stands where its supporting words were */
-  const supporting = p.error && p.errorText ? p.errorText : p.supporting;
+  /* the message of its error stands where its line of help was */
+  const supporting = p.error && p.errorText ? p.errorText : p.helperText;
   return withField(
     { loading: p.loading },
     <View {...tagOf(p.testID)} style={sx({ display: "flex", flexDirection: "column", rowGap: 4, width: Math.round(p.width ?? 280), flexShrink: 0, opacity: p.disabled ? 0.38 : 1 }, fill)}>
@@ -98,7 +97,7 @@ export function TextField(props: TextFieldProps) {
 
 /* ---------- a select ---------- */
 
-export type SelectProps = PartBase & FieldProps & { items?: ListRow[]; selected?: number; variant?: "outlined" | "filled"; label?: string; placeholder?: string; supporting?: string; size?: "default" | "sm"; disabled?: boolean; width?: number; error?: boolean; onChange?: (i: number) => void };
+export type SelectProps = PartBase & FieldProps & { items?: ListRow[]; selected?: number; variant?: "outlined" | "filled"; label?: string; placeholder?: string; size?: "default" | "sm"; disabled?: boolean; width?: number; error?: boolean; onChange?: (i: number) => void };
 
 /** a field that opens the platform's picker of its options */
 export function Select(props: SelectProps) {
@@ -113,7 +112,7 @@ export function Select(props: SelectProps) {
   /* M3's outlined field carries its label in a notch of its border, as the editor draws it; other fields over it */
   const notched = !!p.label && (p.variant ?? "outlined") === "outlined" && recipeOf(kit, "field") === "m3";
   const notch = notched ? <Words text={starred(p.label, p.required)} lines={1} style={{ position: "absolute", left: 12, top: -8, paddingLeft: 4, paddingRight: 4, ...typeStyle(kit, "body-small"), lineHeight: "16px", backgroundColor: c("surface"), color: c("on-surface-variant") }} /> : null;
-  const supporting = p.error && p.errorText ? p.errorText : p.supporting;
+  const supporting = p.error && p.errorText ? p.errorText : p.helperText;
   return withField(
     { loading: p.loading },
     <View {...tagOf(p.testID)} style={sx({ display: "flex", flexDirection: "column", rowGap: 4, width: Math.round(p.width ?? 224), flexShrink: 0 }, fill)}>
@@ -389,7 +388,7 @@ export type PickedFile = { path: string; name: string; type: string; size: numbe
 
 /** `pick`: how the app asks for the files (an exported app's capability registry, file.pick); the platform's own
  *  pickers (`pickFiles`) without it */
-export type FileUploadProps = PartBase & FieldProps & { title?: string; hint?: string; action?: string; multiple?: boolean; accept?: string; width?: number; error?: boolean; disabled?: boolean; value?: PickedFile | PickedFile[]; onChange?: (files: PickedFile | PickedFile[] | undefined) => void; pick?: (o: { multiple?: boolean; accept?: string }) => Promise<PickedFile[]> };
+export type FileUploadProps = PartBase & FieldProps & { title?: string; action?: string; multiple?: boolean; accept?: string; width?: number; error?: boolean; disabled?: boolean; value?: PickedFile | PickedFile[]; onChange?: (files: PickedFile | PickedFile[] | undefined) => void; pick?: (o: { multiple?: boolean; accept?: string }) => Promise<PickedFile[]> };
 
 const mimeOf = (path: string) => {
   const ext = /\.([a-z0-9]+)(?:\?|$)/i.exec(path)?.[1]?.toLowerCase();
@@ -426,8 +425,9 @@ export function FileUpload(props: FileUploadProps) {
       .catch(() => {});
   };
   const held = !!p.disabled || !!p.readOnly;
+  /* its line of help stands in the panel, under the title: the field's note is only its error and its spinner */
   return withField(
-    p,
+    { ...p, helperText: undefined },
     <Surface
       base={merge({ display: "flex", flexDirection: "column", width: Math.round(p.width ?? 360), padding: 24, rowGap: 8, alignItems: "center", borderRadius: corner(kit, "lg"), border: `2px dashed ${p.error ? c("error") : c("outline-variant")}`, backgroundColor: c("surface-container-low"), opacity: p.disabled ? 0.38 : 1 }, fill)}
       appearance={p}
@@ -435,7 +435,7 @@ export function FileUpload(props: FileUploadProps) {
     >
       <Glyph name="upload_file" size={32} color="primary" />
       <Words text={list.length ? list.map((f) => f.name).join(", ") : starred(p.title, p.required)} style={{ ...typeStyle(kit, "title-medium"), color: c("on-surface"), textAlign: "center" }} />
-      {p.hint ? <Words text={p.hint} style={{ ...typeStyle(kit, "body-small"), color: c("on-surface-variant") }} /> : null}
+      {p.helperText ? <Words text={p.helperText} style={{ ...typeStyle(kit, "body-small"), color: c("on-surface-variant") }} /> : null}
       {/* the button in the middle, as the editor centres it (a button keeps to the start of its row by itself) */}
       {p.action ? (
         <View style={sx({ display: "flex", flexDirection: "row", justifyContent: "center", alignSelf: "stretch" })}>

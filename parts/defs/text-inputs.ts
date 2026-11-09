@@ -1,7 +1,7 @@
 import { h, ic } from "../node";
 import { inputNode } from "../inputNode";
 import type { P, PartDef } from "../types";
-import { FIELD, fieldFrame, fieldValues, requiredMark } from "../fieldState";
+import { FIELD, fieldFrame, fieldValues, HELPER_TEXT, requiredMark } from "../fieldState";
 import { ariaLabelProp, nameFor } from "../a11y";
 
 /** The id a part's own label points its control at: one of its own on a screen of several (from the part's id, as
@@ -15,8 +15,7 @@ export const textInputs: PartDef[] = [
   {
     slug: "text-field",
     input: { prop: "value", kind: "text" },
-    /* its line of help has always been its supporting text */
-    field: { ...FIELD, helperText: "supporting" },
+    field: FIELD,
     appearance: { target: "TextField", radius: 4 },
     name: "Text field",
     category: "Forms",
@@ -30,7 +29,7 @@ export const textInputs: PartDef[] = [
       { key: "placeholder", label: "Placeholder", kind: "text", default: "" },
       /* the keyboard and how the words show; a form's field of a format says the same */
       { key: "type", label: "Type", kind: "enum", default: "text", options: ["text", "email", "password", "number", "search", "tel", "url"] },
-      { key: "supporting", label: "Supporting text", kind: "text", default: "" },
+      HELPER_TEXT,
       { key: "variant", label: "Variant", kind: "enum", default: "outlined", options: ["outlined", "filled"] },
       { key: "prefix", label: "Prefix", labels: { ja: "接頭辞", zh: "前缀", ko: "접두사" }, kind: "text", default: "" },
       { key: "suffix", label: "Suffix", labels: { ja: "接尾辞", zh: "后缀", ko: "접미사" }, kind: "text", default: "" },
@@ -59,7 +58,7 @@ export const textInputs: PartDef[] = [
             prefix: p.s("prefix") || undefined,
             suffix: p.s("suffix") || undefined,
             variant: p.s("variant") === "filled" ? "filled" : undefined,
-            supportingText: p.s("supporting") || undefined,
+            supportingText: p.s("helperText") || undefined,
             leadingIcon: p.s("leadingIcon") ? ic(p.s("leadingIcon")) : undefined,
             trailingIcon: p.s("trailingIcon") ? ic(p.s("trailingIcon")) : undefined,
             error: v.invalid || undefined,
@@ -71,7 +70,7 @@ export const textInputs: PartDef[] = [
             containerClassName: "w-full",
           })),
         ),
-        { holds: true, marksRequired: !!label, showsMessage: true },
+        { holds: true, marksRequired: !!label, showsMessage: true, showsHelper: true },
       );
     },
   },
@@ -258,8 +257,8 @@ export const textInputs: PartDef[] = [
   },
   {
     slug: "field",
-    /* its message has always been `error`: the message is the error, and saying one puts the field in error */
-    field: { disabled: "disabled", readOnly: "readOnly", required: "required", loading: "loading", errorText: "error", helperText: "description" },
+    /* it has no `error` of its own: saying a message puts the field in error */
+    field: { disabled: "disabled", readOnly: "readOnly", required: "required", loading: "loading", errorText: "errorText", helperText: "helperText" },
     appearance: { target: "Input", radius: 4 },
     name: "Field",
     category: "Forms",
@@ -270,14 +269,14 @@ export const textInputs: PartDef[] = [
       { key: "label", label: "Label", kind: "text", default: "Email" },
       { key: "control", label: "Control", kind: "enum", default: "input", options: ["input", "textarea", "checkbox", "switch"] },
       { key: "placeholder", label: "Placeholder", kind: "text", default: "you@example.com" },
-      { key: "description", label: "Description", kind: "text", default: "We will never share it." },
-      { key: "error", label: "Error message", kind: "text", default: "" },
+      { ...HELPER_TEXT, default: "We will never share it." },
+      { key: "errorText", label: "Error message", kind: "text", default: "" },
       { key: "disabled", label: "Disabled", kind: "bool", default: false },
       { key: "width", label: "Width", kind: "number", default: 320, min: 160, max: 520, step: 4, unit: "px" },
     ],
     tree: (p) => {
       const control = p.s("control");
-      const error = p.s("error");
+      const error = p.s("errorText");
       const invalid = !!error || undefined;
       const disabled = p.b("disabled") || undefined;
       const required = p.b("required") || undefined;
@@ -294,7 +293,7 @@ export const textInputs: PartDef[] = [
             : control === "textarea"
               ? h("Textarea", { ...field, readOnly, placeholder: p.s("placeholder") || undefined })
               : h("Input", { ...field, readOnly, placeholder: p.s("placeholder") || undefined });
-      const description = !!p.s("description") && h("FieldDescription", null, p.s("description"));
+      const description = !!p.s("helperText") && h("FieldDescription", null, p.s("helperText"));
       const message = !!error && h("FieldError", null, error);
       /* its own label, description and error line say the rest; the frame only shows that it loads */
       return fieldFrame(
@@ -304,7 +303,7 @@ export const textInputs: PartDef[] = [
           { orientation: horizontal ? "horizontal" : undefined, "data-invalid": invalid, "data-disabled": disabled, style: { width: Math.round(p.n("width")) } },
           ...(horizontal ? [input, h("FieldContent", null, label, description, message)] : [label, input, description, message]),
         ),
-        { holds: true, marksRequired: true, showsMessage: true },
+        { holds: true, marksRequired: true, showsMessage: true, showsHelper: true },
       );
     },
   },
