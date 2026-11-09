@@ -5,6 +5,7 @@ import { LAYOUT_KO, LAYOUT_UI } from "./i18n/layout";
 import { LOOK_KO, LOOK_UI } from "./i18n/look";
 import { MATERIAL_KO, MATERIAL_UI } from "./i18n/material";
 import { GAME_KO, GAME_UI } from "./i18n/game";
+import { HUB_KO, HUB_UI } from "./i18n/hub";
 import { STYLES_KO, STYLES_UI } from "./i18n/styles";
 import { CUSTOM_STYLES_KO, CUSTOM_STYLES_UI } from "./i18n/customStyles";
 import { EDITOR_KO, EDITOR_UI } from "./i18n/editor";
@@ -573,6 +574,7 @@ export const UI = {
   ...LOOK_UI,
   ...MATERIAL_UI,
   ...GAME_UI,
+  ...HUB_UI,
   ...LAYOUT_UI,
   ...STYLES_UI,
   ...CUSTOM_STYLES_UI,
@@ -681,6 +683,7 @@ export const KO: Record<UIKey, string> = {
   ...LOOK_KO,
   ...MATERIAL_KO,
   ...GAME_KO,
+  ...HUB_KO,
   ...LAYOUT_KO,
   ...STYLES_KO,
   ...CUSTOM_STYLES_KO,

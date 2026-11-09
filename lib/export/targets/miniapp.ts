@@ -346,7 +346,7 @@ export const miniappTarget: ProductTarget = {
     const files: ProductFiles = {};
     /* what the mini-program does not do as the design says (a part drawn as its atoms or as a placeholder, a tap not
        printed): listed beside the screens for the author, as the React Native printer lists its own */
-    const warnings = [...printed.warnings, ...boundaryDifferences(ctx.doc, "miniapp", ctx.widths, ctx.assets).map(({ app: _app, ...w }) => w)];
+    const warnings = [...printed.warnings, ...boundaryDifferences(ctx.doc, "miniapp", ctx.widths, ctx).map(({ app: _app, ...w }) => w)];
     files["src/generated/warnings.json"] = generated(`${JSON.stringify(warnings, null, 1)}\n`);
     ctx.differences.push(...warnings.map((w) => ({ app: "miniapp" as const, ...w })));
     for (const path of MINIAPP_KIT_FILES) files[`src/kit/${path}`] = generated(kitFileFor(await ctx.read(`${MINIAPP_KIT_DIR}/${path}`), `${ctx.scope}/app-runtime`));

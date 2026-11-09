@@ -207,7 +207,7 @@ export const webTarget: ProductTarget = {
     files["src/generated/env.d.ts"] = generated(ENV);
     /* what the web app leans on that is not there yet (a prototype demo, a part event, an interface, a capability),
        and what it prints differently: listed beside the screens, as the mobile apps list theirs */
-    const warnings = boundaryDifferences(ctx.doc, "web", ctx.widths, ctx.assets).map(({ app: _app, ...w }) => w);
+    const warnings = boundaryDifferences(ctx.doc, "web", ctx.widths, ctx).map(({ app: _app, ...w }) => w);
     files["src/generated/warnings.json"] = generated(`${JSON.stringify(warnings, null, 1)}\n`);
     ctx.differences.push(...warnings.map((w) => ({ app: "web" as const, ...w })));
     files["src/main.tsx"] = generated(MAIN(ctx.scope));

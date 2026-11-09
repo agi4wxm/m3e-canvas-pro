@@ -10,6 +10,8 @@ import type { Lang } from "../i18n";
 import type { Doc } from "../tokens";
 import type { ApiModel } from "./api";
 import type { AssetManifest } from "../assetManifest";
+import type { LinkedData } from "./gaps";
+import type { ContractIndex } from "../hub/contractIndex";
 
 /** Where an app draws or does something other than the design says (a part drawn as the atoms it splits into, a
  *  placeholder, a tap that is not printed, a prototype demo the product does not run): what its printer and the
@@ -70,6 +72,10 @@ export type ProductContext = {
   /** the project's asset manifest (lib/assetManifest.ts): each app's lookup of the assets it names is made from it
    *  (lib/export/assets.ts), and an asset it does not have is a gap (lib/export/gaps.ts). Null: none was read. */
   assets?: AssetManifest | null;
+  /** the document's linked data as it stands now, and the hub's contract index (lib/export/gaps.ts `HubInputs`): what
+   *  of them the design leans on and is not delivered is a gap */
+  linkedData?: readonly LinkedData[];
+  contractIndex?: ContractIndex | null;
 };
 
 /** One npm workspace of the product, or a folder that is only a placeholder (no package.json). Its files' paths are

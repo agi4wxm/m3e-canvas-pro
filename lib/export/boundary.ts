@@ -18,6 +18,13 @@
  * - `asset`: an asset of the asset pipeline's the design names (`asset:<id>`, lib/assetRefs.ts) that its manifest does
  *   not have (removed, not delivered yet, of another type), or every one when no manifest was read: the app draws the
  *   part's placeholder. The same gaps go to the hub in `.m3e/gaps.json` (lib/export/gaps.ts).
+ * - `game`: what the design calls, sends, acts on or reads that its gameplay contract does not have (lib/game/gaps.ts):
+ *   a command, a parameter, a refusal a catch branches on, an input action, an event, a path of the world's snapshot
+ *   or of an event's payload. The game loop's to deliver; listed in `.m3e/gaps.json` too, module `game-loop`.
+ * - `data`: a linked data set whose table changed since the design read it, or is gone (the data module's, the plan's
+ *   J4: lib/export/gaps.ts `LinkedData`).
+ * - `contract`: a contract the design is written to that the hub's contract index (lib/hub/contractIndex.ts) has at
+ *   another version, or not at all.
  *
  * The printers report what they draw differently themselves; this is what holds for the design whatever the printer. */
 
@@ -30,6 +37,9 @@ import { untakenDemos } from "../partContract";
 import { groupsInFrame, type ActionBody, type Doc, type Effect, type Item } from "../tokens";
 import type { DesignDifference } from "./types";
 import type { AssetManifest } from "../assetManifest";
+import { dataGaps, type Gap, type HubInputs } from "./gaps";
+import { gameHubGaps } from "../game/gaps";
+import { contractIndexGaps, linkedContractsOf } from "../hub/contractIndex";
 import { assetGapOf, assetUsesOfItem } from "../assetRefs";
 import { slotNames, slotsOf } from "./appCapabilities";
 
@@ -55,9 +65,22 @@ function operationsOf(b: ActionBody | undefined, into: Set<string>, depth = 0): 
   return into;
 }
 
+/** the report's kind for a gap of the gap file's (lib/export/gaps.ts): one word per module's kind of thing */
+const reportKindOf = (g: Gap) => (g.kind.startsWith("game-") ? "game" : g.kind === "contract-version" ? "contract" : g.kind);
+
+/** a gap's words in the report: where in the part (and the component) it is, then why */
+function gapDetail(g: Gap, at: Gap["where"][number] | undefined): string {
+  const head = [at?.component !== undefined ? `component ${at.component}` : "", at?.prop ?? ""].filter(Boolean).join(", ");
+  return head ? `${head}: ${g.detail}` : g.detail;
+}
+
 /** What every app of the product leans on that is not there yet, for one app: its demos, part events, missing
- *  interfaces and platform capabilities, screen by screen. */
-export function boundaryDifferences(given: Doc, app: DesignDifference["app"], widths: Record<string, number> = {}, assets?: AssetManifest | null): DesignDifference[] {
+ *  interfaces and platform capabilities, screen by screen, then what of the gameplay contract, the linked data and the
+ *  hub's contract index the design leans on and is not delivered. `hub` is what the export knows of the modules
+ *  outside M3E (lib/export/gaps.ts `HubInputs`), or the asset manifest alone. */
+export function boundaryDifferences(given: Doc, app: DesignDifference["app"], widths: Record<string, number> = {}, hub?: AssetManifest | HubInputs | null): DesignDifference[] {
+  const inputs: HubInputs = hub && (hub as AssetManifest).format === "asset-manifest" ? { assets: hub as AssetManifest } : ((hub as HubInputs | null | undefined) ?? {});
+  const assets = inputs.assets;
   const doc = expandDoc(given, widths);
   const out: DesignDifference[] = [];
   const add = (kind: string, screen: string, it: Item | undefined, detail: string) => out.push({ app, kind, screen, ...(it ? { part: nameOf(it) } : {}), detail });
@@ -109,5 +132,12 @@ export function boundaryDifferences(given: Doc, app: DesignDifference["app"], wi
     for (const d of f.data ?? []) missing.add(d.operationId);
     for (const op of missing) if (!endpointOf(doc.api, op)) add("interface", f.name, undefined, `uses the operation "${op}", which the API contract does not have`);
   }
+  /* what the modules outside M3E do not deliver, as the gap file has it (an asset's are above, part by part): one line
+     per place the design leans on it, screen by screen as the gap file places them */
+  for (const g of [...gameHubGaps(given, widths), ...dataGaps(inputs.linkedData), ...contractIndexGaps(linkedContractsOf(given), inputs.contractIndex)])
+    for (const at of g.where.length ? g.where : [undefined]) {
+      const part = at?.part?.replace(/[^\p{L}\p{N}_ -]/gu, "").slice(0, 60);
+      out.push({ app, kind: reportKindOf(g), ...(at?.screen !== undefined ? { screen: at.screen } : {}), ...(part ? { part } : {}), detail: gapDetail(g, at) });
+    }
   return out;
 }

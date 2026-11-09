@@ -388,7 +388,7 @@ export const mobileTarget: ProductTarget = {
     for (const [path, bytes] of Object.entries(pictures.files)) files[path] = generated(bytes);
     /* what the app does not do as the design says (a part drawn as its atoms or as a placeholder, a binding the kit
        keeps at the design's value): listed beside the screens for the author, as the mini-program lists its own */
-    const warnings = [...screens.warnings, ...boundaryDifferences(doc, "mobile", ctx.widths, ctx.assets).map(({ app: _app, ...w }) => w)];
+    const warnings = [...screens.warnings, ...boundaryDifferences(doc, "mobile", ctx.widths, ctx).map(({ app: _app, ...w }) => w)];
     files["src/generated/warnings.json"] = generated(`${JSON.stringify(warnings, null, 1)}\n`);
     ctx.differences.push(...warnings.map((w) => ({ app: "mobile" as const, ...w })));
 
