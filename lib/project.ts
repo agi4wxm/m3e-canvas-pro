@@ -16,6 +16,7 @@ import { fields, withUnknown } from "./keep";
 import { bindRule, conditionRule } from "./rules";
 /* how deep a call's `then` and `catch` may hold calls of their own: the interpreter's own limit */
 import { MAX_CALL_DEPTH } from "./actions/model";
+import { cleanFrameFocus, cleanItemFocus } from "./focus/clean";
 
 /* A project file is the Doc as JSON, nothing more. Reading one back only checks
  * the shape the editor relies on. */
@@ -270,6 +271,7 @@ const cleanItem = (it: Item) =>
     scope: () => undefined,
     constraints: cleanConstraints,
     field: (v) => (typeof v === "string" && v && v.length <= 200 ? v : undefined),
+    focus: cleanItemFocus,
   }) as unknown as Item;
 
 const cleanOverrides = (map: unknown) => (isRecord(map) ? Object.fromEntries(Object.entries(map).filter(([, v]) => isValue(v))) : undefined);
@@ -329,6 +331,7 @@ const cleanFrame = (f: Frame) =>
     subscriptions: (v) => cleanSubscriptions(v, (a) => cleanAction(a) as Action | undefined, (cleanDataSources(f.data) ?? []).map((d) => d.name)),
     params: cleanScreenParams,
     auth: (v) => (v === "required" || v === "login" ? v : undefined),
+    focus: cleanFrameFocus,
   }) as unknown as Frame;
 
 /** A scheme of the author's own: colors, and only colors, since every one of them is painted with and printed.
@@ -401,7 +404,7 @@ function cleanCollection(c: unknown): Collection | undefined {
 }
 
 /** the fields a part (`Item`) has */
-const ITEM_FIELDS = fields("id", "kind", "label", "icon", "variant", "component", "props", "look", "navTabs", "note", "noteHistory", "collapseOnScroll", "fill", "textColor", "corners", "flowFill", "flowSize", "alignSelf", "flowAbsolute", "flowMin", "flowMax", "flowSpan", "constraints", "action", "actions", "bind", "field", "row", "scope");
+const ITEM_FIELDS = fields("id", "kind", "label", "icon", "variant", "component", "props", "look", "navTabs", "note", "noteHistory", "collapseOnScroll", "fill", "textColor", "corners", "flowFill", "flowSize", "alignSelf", "flowAbsolute", "flowMin", "flowMax", "flowSpan", "constraints", "action", "actions", "bind", "field", "row", "scope", "focus");
 
 /** An instance has a definition to draw from and one item standing in for it, whatever the file said.
  *  One of nothing known loses the link, and goes altogether if nothing else is left of it. */

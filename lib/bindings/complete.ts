@@ -164,6 +164,10 @@ function schemaOfPath(api: ApiSpec, shape: ScopeShape, path: string[]): Reached 
       if ((rest[0] === "errors" || rest[0] === "values") && rest.length === 1) return { kind: "steps", steps: shape.form.map((n) => ({ name: n, type: rest[0] === "errors" ? "string" : "field" })) };
       if (rest[0] === "error" && rest.length === 1) return { kind: "steps", steps: PROBLEM_FIELDS };
       return { kind: "none" };
+    case "input":
+      if (!rest.length) return { kind: "steps", steps: [{ name: "device", type: "string" }, { name: "keyboard", type: "boolean" }, { name: "gamepad", type: "boolean" }, { name: "touch", type: "boolean" }, { name: "pad", type: "string" }, { name: "hint", type: "object" }] };
+      if (rest[0] === "hint" && rest.length === 1) return { kind: "steps", steps: ["up", "down", "left", "right", "confirm", "cancel"].map((name) => ({ name, type: "string" })) };
+      return { kind: "none" };
     case "auth":
       if (!rest.length) return { kind: "steps", steps: [{ name: "signedIn", type: "boolean" }, { name: "user", type: "object" }] };
       if (rest[0] === "user") return inSchema(shape.user, rest.slice(1));
@@ -196,6 +200,7 @@ export function suggest(api: ApiSpec, shape: ScopeShape, text: string, caret = t
       shape.inRepeat ? { label: "index", insert: "index", detail: "its place, from 0", kind: "root" } : null,
       shape.form ? { label: "form", insert: "form", detail: "the form's values and errors", kind: "root" } : null,
       { label: "auth", insert: "auth", detail: "signedIn, user", kind: "root" },
+      { label: "input", insert: "input", detail: "device, keyboard, gamepad, touch, hint.confirm…", kind: "root" },
       shape.response !== undefined ? { label: "response", insert: "response", detail: "the call's answer", kind: "root" } : null,
       shape.error ? { label: "error", insert: "error", detail: "status, title, detail, errors", kind: "root" } : null,
       shape.row?.length ? { label: "row", insert: "row", detail: shape.row.join(", "), kind: "root" } : null,

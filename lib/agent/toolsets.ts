@@ -21,7 +21,7 @@ export const SET_ABOUT: Record<ToolSet, string> = {
   screens: "screens and the document: templates, sizes, variants, places, title, brief, clearing",
   components: "reusable components and their instances: variants, component properties, swapping an instance",
   style: "styles, themes, palettes, looks, custom styles",
-  data: "variables (collections, modes such as light and dark, color variables bound to fills), data collections, repeats, taps and their effects, triggers and animations, bindings; platform capabilities (payment, sign-in with another service, location, scanning, push, share, clipboard, links, files, calls) invoked from a tap",
+  data: "variables (collections, modes such as light and dark, color variables bound to fills), data collections, repeats, taps and their effects, triggers and animations, a keyboard's and a gamepad's focus (where it starts, what cancel runs, where each direction goes), bindings; platform capabilities (payment, sign-in with another service, location, scanning, push, share, clipboard, links, files, calls) invoked from a tap",
   api: "the contract with the back end: data models (JSON Schema), endpoints (OpenAPI 3.1) with paging and uploads, auth, realtime channels (AsyncAPI 3.0), servers, importing and reading specs",
   mocks: "the mock library answering the API while it is designed: made-up data (hints per field, counts, pinned records), scenarios (empty, errors, slow, signed out, retries), mock files, realtime scripts, mock sign-in; reading records, trying endpoints",
   bindings:
@@ -70,7 +70,7 @@ export function setOf(t: Pick<Tool<never>, "name" | "group">): ToolSet {
   if (API.has(t.name)) return "api";
   if (BINDINGS.has(t.name)) return "bindings";
   if (STYLE_READS.has(t.name) || t.group === "style") return "style";
-  if (t.name === "list_data" || t.group === "data") return "data";
+  if (t.name === "list_data" || t.name === "describe_focus" || t.group === "data") return "data";
   if (t.group === "generate") return "generate";
   return "layout";
 }
@@ -113,10 +113,10 @@ const CUES: [ToolSet, Cue][] = [
     "data",
     {
       yes: any(
-        /\b(?:variables?|data[- ]?(?:collections?|sets?|driven|binding|source)|collections?|datasets?|repeat(?:s|ed|ing)? (?:for|over) (?:each|every|the)|bind(?:s|ing)?|bound to|unbind|prototyp\w*|interactions?|interactive|navigat\w*|go(?:es)? back|go(?:es)? to (?:the |a )?\w+(?: \w+)? (?:screen|page|tab)|opens? (?:the |a )?\w+(?: \w+)? (?:screen|page|dialog|sheet|menu)|taps?|tapp(?:ed|ing)|clicks?|click(?:ed|ing)|press(?:es|ed|ing)?|link(?:s|ed)? (?:to|it to|them to)|(?:dark|light|theme|mode)\s+(?:mode\s+)?(?:toggle|switch)(?:es)?|toggles? (?:between|the (?:dark|light|theme|mode)|dark|light)|switch(?:es)? between|counters?|show (?:and|or) hide|conditional(?:ly)?|(?:login|log[- ]in|sign[- ]?in|sign[- ]?up|checkout|onboarding|user|purchase|payment|booking|registration) flows?|pay(?:s|ing|ment)?|wechat pay|alipay|apple pay|google pay|in-app purchases?|scan(?:s|ning)? (?:a |the )?(?:qr|bar)? ?codes?|qr codes?|(?:current |my )?location|geolocation|push notifications?|share sheets?|copy to (?:the )?clipboard|biometric\w*|face id|touch id|video calls?|capabilit(?:y|ies))\b/,
-        /变量|数据(?:集|集合|驱动|绑定|源)|示例数据|集合|绑定|交互|跳转|点击|点一下|轻点|点按|按下|原型|流程|计数|显示隐藏|显示或隐藏|返回上一|支付|付款|微信支付|支付宝|内购|扫码|二维码|定位|当前位置|推送|分享|复制到剪贴板|指纹|人脸识别|视频通话|平台能力|切换(?!风格|主题|成|为)|(?:深色|浅色|暗色|夜间|主题|模式)[^，。,.]{0,4}开关|开关[^，。,.]{0,4}(?:深色|浅色|暗色|夜间|主题|模式|变量)|打开(?=[^，。,.]{0,6}(?:页|屏|弹窗|菜单|对话框))/,
-        /変数|データ(?:コレクション|セット|バインド)|コレクション|バインド|タップ(?:し|す|で|した)|クリック|押(?:す|し|した)と|遷移|切り替え(?!ボタン)|プロトタイプ|インタラクション|(?:ダーク|ライト)モード(?:の|を)?(?:切り替え|スイッチ|トグル)|カウンター|フロー/,
-        /변수|데이터 ?(?:컬렉션|세트|바인딩)|컬렉션|바인딩|바인드|탭하면|탭할 때|누르면|클릭|이동(?:하|해|시)|전환(?!\s*버튼)|프로토타입|인터랙션|상호작용|(?:다크|라이트) ?모드 ?(?:전환|토글|스위치)|카운터|플로우/,
+        /\b(?:variables?|data[- ]?(?:collections?|sets?|driven|binding|source)|collections?|datasets?|repeat(?:s|ed|ing)? (?:for|over) (?:each|every|the)|bind(?:s|ing)?|bound to|unbind|prototyp\w*|interactions?|interactive|navigat\w*|go(?:es)? back|go(?:es)? to (?:the |a )?\w+(?: \w+)? (?:screen|page|tab)|opens? (?:the |a )?\w+(?: \w+)? (?:screen|page|dialog|sheet|menu)|taps?|tapp(?:ed|ing)|clicks?|click(?:ed|ing)|press(?:es|ed|ing)?|link(?:s|ed)? (?:to|it to|them to)|(?:dark|light|theme|mode)\s+(?:mode\s+)?(?:toggle|switch)(?:es)?|toggles? (?:between|the (?:dark|light|theme|mode)|dark|light)|switch(?:es)? between|counters?|show (?:and|or) hide|conditional(?:ly)?|(?:login|log[- ]in|sign[- ]?in|sign[- ]?up|checkout|onboarding|user|purchase|payment|booking|registration) flows?|pay(?:s|ing|ment)?|wechat pay|alipay|apple pay|google pay|in-app purchases?|scan(?:s|ning)? (?:a |the )?(?:qr|bar)? ?codes?|qr codes?|(?:current |my )?location|geolocation|push notifications?|share sheets?|copy to (?:the )?clipboard|biometric\w*|face id|touch id|video calls?|capabilit(?:y|ies)|gamepads?|controllers?|d-?pad|keyboard (?:navigation|focus|only|controls?)|arrow keys|focus (?:order|ring|navigation)|tv remotes?)\b/,
+        /变量|数据(?:集|集合|驱动|绑定|源)|示例数据|集合|绑定|交互|跳转|点击|点一下|轻点|点按|按下|原型|流程|计数|显示隐藏|显示或隐藏|返回上一|支付|付款|微信支付|支付宝|内购|扫码|二维码|定位|当前位置|推送|分享|复制到剪贴板|指纹|人脸识别|视频通话|平台能力|切换(?!风格|主题|成|为)|手柄|键盘(?:操作|导航|焦点)|方向键|焦点(?:顺序|导航|框)|遥控器|(?:深色|浅色|暗色|夜间|主题|模式)[^，。,.]{0,4}开关|开关[^，。,.]{0,4}(?:深色|浅色|暗色|夜间|主题|模式|变量)|打开(?=[^，。,.]{0,6}(?:页|屏|弹窗|菜单|对话框))/,
+        /変数|データ(?:コレクション|セット|バインド)|コレクション|バインド|タップ(?:し|す|で|した)|クリック|押(?:す|し|した)と|遷移|切り替え(?!ボタン)|プロトタイプ|インタラクション|(?:ダーク|ライト)モード(?:の|を)?(?:切り替え|スイッチ|トグル)|カウンター|フロー|ゲームパッド|コントローラー|キーボード(?:操作|ナビ)|方向キー|フォーカス/,
+        /변수|데이터 ?(?:컬렉션|세트|바인딩)|컬렉션|바인딩|바인드|탭하면|탭할 때|누르면|클릭|이동(?:하|해|시)|전환(?!\s*버튼)|프로토타입|인터랙션|상호작용|(?:다크|라이트) ?모드 ?(?:전환|토글|스위치)|카운터|플로우|게임패드|컨트롤러|키보드 ?(?:조작|탐색)|방향키|포커스/,
       ),
       no: all(/\b(?:tap|click) targets?\b/, /\btab bars?\b/, /\bnavigation (?:drawers?|bars?|rails?|menus?|tabs?|items?|buttons?|links?)\b/),
     },

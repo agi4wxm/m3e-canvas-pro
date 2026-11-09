@@ -12,6 +12,7 @@ import type { MockSpec } from "./mocks/types";
 import type { CapabilitySpec } from "./capabilities/types";
 import { fields, withUnknown } from "./keep";
 import { mapAction, mapBody, mapCondition, type RefMap } from "./refs";
+import type { FrameFocus, ItemFocus } from "./focus/model";
 
 /* the API section's model (lib/api): data models, endpoints, auth, channels, servers */
 export type * from "./api/types";
@@ -747,6 +748,8 @@ export type Item = {
   /** Runtime only, never saved: what expressions on this part read beyond the screen's own (lib/bindings): the item of
    *  a data repeat it was drawn for and its index, and the form it is in. */
   scope?: ItemScope;
+  /** what it says about a keyboard's or a gamepad's focus over the one its taps and its place give (lib/focus) */
+  focus?: ItemFocus;
   /** the rail remembers which edge it expanded from */
   [railExpansionSide]?: "left" | "right";
 };
@@ -1121,6 +1124,8 @@ export type Frame = {
   /** "required": only with a session (else the app goes to the sign-in screen); "login": the sign-in screen, where a
    *  401 or a screen that needs a session sends the app */
   auth?: "required" | "login";
+  /** where a keyboard's or a gamepad's focus starts on it, what cancel runs on it, whether directions wrap (lib/focus) */
+  focus?: FrameFocus;
 };
 
 /** how much of `backgroundImage` shows when the author has said nothing */
@@ -1286,6 +1291,8 @@ export function retarget(g: Group, ids: Map<string, string> | ((id: string) => s
       ...it,
       ...(it.action ? { action: mapAction(it.action, f) } : {}),
       ...(it.actions ? { actions: Object.fromEntries(Object.entries(it.actions).map(([k, a]) => [k, mapAction(a, f)])) } : {}),
+      /* where the focus goes from it follows the copy too */
+      ...(it.focus?.next ? { focus: { ...it.focus, next: Object.fromEntries(Object.entries(it.focus.next).map(([d, id]) => [d, to(id)])) } } : {}),
     })),
   };
 }

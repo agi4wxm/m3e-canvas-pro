@@ -16,9 +16,10 @@ import * as bindings from "./bindings";
 import * as capabilities from "./capabilities";
 import * as splits from "./split";
 import * as rows from "./rows";
+import * as focus from "./focus";
 import { editComponentOp } from "./definition";
 
-export { document, screens, nodes, layout, components, data, tree, styles, icons, api, mocks, bindings, capabilities, splits, rows };
+export { document, screens, nodes, layout, components, data, tree, styles, icons, api, mocks, bindings, capabilities, splits, rows, focus };
 export * from "./document";
 export * from "./screens";
 export * from "./nodes";
@@ -34,6 +35,7 @@ export * from "./bindings";
 export * from "./capabilities";
 export * from "./split";
 export * from "./rows";
+export * from "./focus";
 export { DEFINITION_OPS, definitionOpened } from "./definition";
 export { OpError } from "../op";
 
@@ -130,6 +132,7 @@ export const OPS: Op<never, unknown>[] = [
   data.removeVarCollection,
   data.setVarMode,
   data.setAction,
+  focus.setFocus,
   data.bindProp,
   data.reorderPanes,
   api.addModel,
