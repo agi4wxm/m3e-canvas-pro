@@ -260,6 +260,9 @@ class ScreenPrinter {
         case "invoke":
           // eslint-disable-next-line unicorn/no-thenable -- an action body as data, never a function: nothing awaits it
           return [{ ...e, then: this.answerData(e.then, depth + 1), catch: this.answerData(e.catch, depth + 1) }];
+        /* the kit has no pool of instances yet: the template is drawn once and its spawn reported (printRnScreens) */
+        case "spawn":
+          return [];
         default:
           return [e as unknown as Record<string, unknown>];
       }

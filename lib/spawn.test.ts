@@ -130,9 +130,15 @@ class El {
   removeAttribute = (k: string) => void this.attrs.delete(k);
   hasAttribute = (k: string) => this.attrs.has(k);
   querySelectorAll(sel: string): El[] {
-    const key = /^\[([\w-]+)\]$/.exec(sel)![1];
+    const name = /^\[([\w-]+)\]$/.exec(sel)![1];
     const out: El[] = [];
-    const walk = (e: El) => e.kids.forEach((k) => k instanceof El && (k.attrs.has(key) && out.push(k), walk(k)));
+    const walk = (e: El) => {
+      for (const kid of e.kids) {
+        if (!(kid instanceof El)) continue;
+        if (kid.attrs.has(name)) out.push(kid);
+        walk(kid);
+      }
+    };
     walk(this);
     return out;
   }

@@ -3,7 +3,7 @@ import { type Action, At, type EventFields, eventOf, NumberPad, Screen, Text, us
 import { useScreenScope } from "../bind";
 
 const E1: EventFields = { value: "text" };
-const A1: Action = { to: "none", effects: [{ do: "spawn", group: "n2" }] };
+const A1: Action = { to: "none" };
 
 export function HomeScreen() {
   const $ = useScreenScope({});
