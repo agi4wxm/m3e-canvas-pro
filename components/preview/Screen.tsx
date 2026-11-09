@@ -48,7 +48,10 @@ export function Screen({
   refreshing,
   onWordHeights,
   spawns = null,
+  spawnClock = domainNow,
 }: {
+  /** the clock the instances live on, ms (the preview's mocks', else the runtime's) */
+  spawnClock?: () => number;
   /** the instances spawned on events, which the screen draws in its templates' copies (lib/spawnDom.ts) */
   spawns?: Spawns | null;
   /** how tall bound words in an auto layout are drawn here, where that is not what the canvas measured (`${id}:h`) */
@@ -232,8 +235,8 @@ export function Screen({
   const hasTemplates = groups.some((g) => g.spawnSlot);
   useEffect(() => {
     if (!spawns || !hasTemplates) return;
-    return driveSpawns(() => screenRef.current, spawns, { now: domainNow, motion: (id) => motions.current.get(id) as never });
-  }, [spawns, hasTemplates]);
+    return driveSpawns(() => screenRef.current, spawns, { now: spawnClock, motion: (id) => motions.current.get(id) as never });
+  }, [spawns, hasTemplates, spawnClock]);
   /* The editor behind the preview is inert while it is up, so focus has nowhere else to
    * go: a screen that becomes the one on show takes it when nothing inside the preview
    * holds it. */

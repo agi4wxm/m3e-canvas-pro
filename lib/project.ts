@@ -5,6 +5,7 @@ import { cleanStyles } from "./styles";
 import { cleanDocIcons } from "./docIcons";
 import { ASSET_PATH } from "./assetManifest";
 import { cleanDocMaterials } from "./materials";
+import { cleanGameLink } from "./game/link";
 import { cleanApi } from "./api/clean";
 import { cleanMocks } from "./mocks/clean";
 import { cleanCapabilities } from "./capabilities/clean";
@@ -487,10 +488,11 @@ function cleanExternal(v: unknown): ExternalFiles | undefined {
   if (!isRecord(v)) return undefined;
   const built: ExternalFiles = {};
   if (typeof v.assetManifest === "string" && ASSET_PATH.test(v.assetManifest)) built.assetManifest = v.assetManifest;
+  if (typeof v.gameContract === "string" && ASSET_PATH.test(v.gameContract)) built.gameContract = v.gameContract;
   const out = withUnknown(v, built, EXTERNAL_KEYS);
   return Object.keys(out).length ? out : undefined;
 }
-const EXTERNAL_KEYS = new Set(["assetManifest"]);
+const EXTERNAL_KEYS = new Set(["assetManifest", "gameContract"]);
 
 export function cleanBehavior(doc: Doc): Doc {
   const out: Doc = { ...doc, frames: doc.frames.map(cleanFrame), groups: cappedNesting(doc.groups.map(cleanGroup)) };
@@ -540,6 +542,13 @@ export function cleanBehavior(doc: Doc): Doc {
     const materials = cleanDocMaterials(out.materials);
     if (materials) out.materials = materials;
     else delete out.materials;
+  }
+  /* the link to the gameplay contract (lib/game): its contract is the game loop's, read again as its format allows and
+     never mended; one that is not a contract any more is no link (where its file is, is `external.gameContract`) */
+  if (out.game !== undefined) {
+    const game = cleanGameLink(out.game);
+    if (game) out.game = game;
+    else delete out.game;
   }
   /* the API section is held to its shape and its bounds (lib/api/clean.ts); what is merely wrong in it stays, for the
      author to see and fix */

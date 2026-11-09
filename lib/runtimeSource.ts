@@ -59,6 +59,8 @@ export function runtimeFlags(spec: RuntimeSpec): Record<string, boolean> {
     worlds: !!spec.worlds,
     /* the templates drawn once per event, and the instances spawned of them (lib/spawn.ts) */
     spawns: !!spec.spawns,
+    /* a prototype's world views play the design's world script */
+    mockWorld: !!spec.mockWorld && !!spec.worlds && !bd,
   };
 }
 
@@ -98,6 +100,7 @@ function runtimeValues(spec: RuntimeSpec, on: Record<string, boolean>): Record<s
     login: b?.login ? str(b.login) : "undefined",
     mockCapabilities: literal({ ...(a?.mocks?.rules ? { capabilities: a.mocks.rules } : {}), ...(a?.mocks?.locale ? { locale: a.mocks.locale } : {}) }),
     capabilitySpec: a?.mocks?.spec ? literal(a.mocks.spec) : "undefined",
+    mockWorld: spec.mockWorld ? literal(spec.mockWorld) : "",
     paramsRows: Object.entries(b?.params ?? {})
       .map(([screen, list]) => `  ${keyOf(screen)}: ${literal(list)},`)
       .join("\n"),

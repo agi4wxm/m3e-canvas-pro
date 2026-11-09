@@ -16,12 +16,13 @@ import * as mocks from "./mocks";
 import * as bindings from "./bindings";
 import * as capabilities from "./capabilities";
 import * as materials from "./materials";
+import * as game from "./game";
 import * as splits from "./split";
 import * as rows from "./rows";
 import * as spawn from "./spawn";
 import { editComponentOp } from "./definition";
 
-export { document, screens, nodes, layout, components, data, tree, styles, icons, assets, api, mocks, bindings, capabilities, splits, rows, materials, spawn };
+export { document, screens, nodes, layout, components, data, tree, styles, icons, assets, api, mocks, bindings, capabilities, splits, rows, materials, game, spawn };
 export * from "./document";
 export * from "./screens";
 export * from "./nodes";
@@ -37,6 +38,7 @@ export * from "./mocks";
 export * from "./bindings";
 export * from "./capabilities";
 export * from "./materials";
+export * from "./game";
 export * from "./split";
 export * from "./rows";
 export * from "./spawn";
@@ -169,6 +171,8 @@ export const OPS: Op<never, unknown>[] = [
   mocks.removeMockFile,
   mocks.setMockRealtime,
   mocks.removeMockRealtime,
+  mocks.setMockWorld,
+  mocks.removeMockWorld,
   mocks.setMockAuth,
   mocks.setMockRoute,
   mocks.fillMocksOp,
@@ -177,6 +181,8 @@ export const OPS: Op<never, unknown>[] = [
   capabilities.declareCapability,
   capabilities.removeCapability,
   capabilities.useCapabilities,
+  game.importGameContract,
+  game.removeGameContract,
   bindings.addDataSource,
   bindings.updateDataSource,
   bindings.removeDataSource,

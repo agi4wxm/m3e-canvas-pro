@@ -62,7 +62,7 @@ import { createPreviewHost, tapOf, type TapExtra } from "./preview/host";
 import { Screen } from "./preview/Screen";
 import { PreviewStore, usePreviewState } from "./preview/store";
 import { useSwipe, type Peek } from "./preview/swipe";
-import { PreviewWorlds } from "./preview/worlds";
+import { PreviewMockWorld, PreviewWorlds } from "./preview/worlds";
 import { PreviewSpawns } from "./preview/spawns";
 import { createSpawns } from "@/lib/spawn";
 import { markTemplates, poolCopies } from "@/lib/spawnPool";
@@ -331,13 +331,23 @@ export function Preview({
   const [worlds] = useState(() => createWorlds());
   /* the instances spawned on events: kept here, drawn by the screens without React (docs/交互规则.md “按事件生成”) */
   const [spawns] = useState(() => createSpawns());
+  /* The clock instances live on: the mocks' (which the bar stops and speeds up, and a world script plays on) when the
+     preview has them, else the runtime's. A document with no API answers its runtime from a stand-in on the device's
+     clock, while its world views still play on the mocks'. */
+  const mocksClock = useRef<(() => number) | undefined>(undefined);
+  mocksClock.current = mocks?.clock.now;
+  const [spawnClock] = useState(() => () => mocksClock.current?.() ?? runtime.now());
+  /* the mock world the bar has chosen, played on the mocks' clock (which the bar stops and speeds up) */
+  const chosenScript = mocks?.worldScript ?? null;
+  const mocksNow = mocks?.clock.now;
+  const mockWorld = useMemo(() => (chosenScript ? { script: chosenScript, ...(mocksNow ? { now: mocksNow } : {}) } : null), [chosenScript, mocksNow]);
   const [host] = useState(() =>
     createPreviewHost({
       worldInput: (part, action, value) => worlds.send(part, action, value),
       spawn: (group, scope) => {
         const template = docRef.current.groups.find((g) => g.id === group);
         /* the time is the runtime's: the mocks' clock, which the bar can stop */
-        if (template?.spawn) spawns.spawn(group, template.spawn, scope, runtime.now(), runtime.ctx());
+        if (template?.spawn) spawns.spawn(group, template.spawn, scope, spawnClock(), runtime.ctx());
       },
       doc: () => docRef.current,
       store,
@@ -632,6 +642,7 @@ export function Preview({
   const screenProps = {
     widths,
     spawns,
+    spawnClock,
     onWordHeights,
     p,
     styled: { ...theme, dark },
@@ -676,6 +687,7 @@ export function Preview({
     <PreviewMocksContext.Provider value={mocks}>
     <PreviewWorlds.Provider value={worlds}>
     <PreviewSpawns.Provider value={spawns}>
+    <PreviewMockWorld.Provider value={mockWorld}>
     <PreviewTheme dark={dark}>
     <motion.div
       initial={{ opacity: 0 }}
@@ -836,6 +848,7 @@ export function Preview({
       />
     </motion.div>
     </PreviewTheme>
+    </PreviewMockWorld.Provider>
     </PreviewSpawns.Provider>
     </PreviewWorlds.Provider>
     </PreviewMocksContext.Provider>

@@ -38,6 +38,10 @@ import { createWorlds, type WorldChannel } from /*$runtime*/"@m3e/app-runtime"/*
 //| import { createWorlds } from "@/lib/world/channel"
 //| import type { WorldChannel } from "@/lib/world/types"
 //#end
+//#if mockWorld
+//| import { setMockWorld } from "@/components/widgets/mockWorld"
+//| import type { WorldScript } from "@/lib/world/script"
+//#end
 //#if product
 import { PartHostContext, browserCapability, setDomainClock } from "@/components/widgets/host"
 import { /*#if acts*/formOutcomeOf, isFilled, outcomeOf, run, /*#end*/screenParams, useRuntime, useSession, /*#if acts*/type Action, type Answer, type CallArgs, type FormHandle, type Host, type Scope, type SourceHandle, type Tap, type VarType, /*#end*/type ParamSpec } from /*$runtime*/"@m3e/app-runtime"/*$*/
@@ -258,6 +262,13 @@ const LOGIN: string | undefined = /*$login*/"signIn"/*$*/
 //| const MOCK_CAPABILITIES = /*$mockCapabilities*/{}/*$*/
 //| const CAPABILITY_SPEC: CapabilitySpec | undefined = /*$capabilitySpec*/undefined/*$*/
 //#end
+//#end
+//#if mockWorld
+//|
+//| /** the world script this prototype's world views play (the design's choice in the Mocks tab, its pictures as data
+//|  *  URLs), on the app's clock: the world's snapshots, its scene's words and picture, its events */
+//| const MOCK_WORLD: WorldScript = /*$mockWorld*/{ id: "world", name: "World", steps: [] }/*$*/
+//| setMockWorld({ script: MOCK_WORLD })
 //#end
 
 const START: State = {

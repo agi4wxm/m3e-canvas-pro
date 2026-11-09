@@ -22,7 +22,7 @@ const REPO = fileURLToPath(new URL("../", import.meta.url));
 const code = readFileSync(join(REPO, RUNTIME_TEMPLATE), "utf8");
 
 /** the configuration the file is written in */
-const REFERENCE = { proto: true, overlay: true, scroll: true, hover: true, delay: true, modes: true, boundFields: true, flows: true, product: true, page: true, varNames: true, colorMode: true, acts: true, families: true, worlds: true, spawns: true, exprs: false, dark: false, mocks: false };
+const REFERENCE = { proto: true, overlay: true, scroll: true, hover: true, delay: true, modes: true, boundFields: true, flows: true, product: true, page: true, varNames: true, colorMode: true, acts: true, families: true, worlds: true, spawns: true, exprs: false, dark: false, mocks: false, mockWorld: false };
 
 describe("the web app's runtime as it stands in the repo", () => {
   it("names exactly the flags the export gives it", () => {
@@ -74,6 +74,7 @@ function configurations(): Record<string, RuntimeSpec> {
     "a prototype with every move, flows and a variable for the dark mode": { ...base, vars: darkVars, dark: "night", proto, flows: [{ key: "main", name: "Main", screen: "home" }], acts, exprs: { vars: {} } },
     "a prototype whose taps reach a world view": { ...base, worlds: true, acts, exprs: { vars: {} } },
     "a prototype that draws a world view and has no taps": { ...base, worlds: true },
+    "a prototype that plays a world script": { ...base, worlds: true, acts, exprs: { vars: {} }, mockWorld: { id: "meadow", name: "Meadow", start: { entities: [{ id: "hero", kind: "player", x: 1, y: 2 }] }, steps: [{ at: 100, events: [{ name: "hit", payload: { id: "a", by: "b" } }] }], loop: 1000 } },
     "a product whose taps reach a world view": { ...base, worlds: true, bound, acts, exprs: { vars: {} } },
     "a prototype whose taps spawn on a world's events": { ...base, worlds: true, spawns: { dmg: { life: 1, max: 4, motion: "float" } }, acts, exprs: { vars: {} } },
     "a prototype that draws a template and has no taps": { ...base, spawns: { dmg: { life: 1, max: 2 } } },

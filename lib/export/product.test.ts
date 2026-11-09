@@ -50,7 +50,12 @@ describe("the prototype export", () => {
   /* The single-app export stays as it was, to the byte, beside the product. These digests were taken from the export
      before the product existed; one that changes on purpose is written again here (last: batch 6 H4, templates spawned on events: the interpreter
      copied into src/lib/actions runs the `spawn` effect, model.ts, host.ts and run.ts, docs/交互规则.md “按事件生成”;
-     before that format version 6, lib/converge.ts: parts/types.ts, which
+     before that a value of a tree that carries a
+     `type` beside other keys is data, not a node, parts/node.ts `isNode`, copied as src/components/node.ts, so the
+     every-parts document's world view is handed its inputs as data and no longer as `<vec2 />` elements; with it the world view's mock world,
+     batch 6 H6: World.tsx plays a world script handed to it (parts/widgets/mockWorld.ts, lib/world/script.ts and
+     scripted.ts copied beside it) and draws a 3D model picture with parts/widgets/mesh.ts (which reads data URLs with
+     lib/mocks/bytes.ts and formats/table.ts), six more files of the every-parts document; before that format version 6, lib/converge.ts: parts/types.ts, which
      ships, has the color prop kind, a palette's rows of colors, the row model's `P.rows` and places among rows (`of`), the widgets paint a color only when it is one
      (parts/widgets/look.ts `PAINTABLE`, the item cell's rarity and the palette's swatches), and a multiple choice's
      picks are its rows' places from 0 (`picked`); with it the icon component draws an asset of the asset pipeline's,
@@ -93,11 +98,11 @@ describe("the prototype export", () => {
      icons asking again and the ripple under reduced motion; in parts, form fields keyed by their item and resizable
      sizes as percentages). */
   const DIGESTS: Record<string, [number, string]> = {
-    proof: [91, "1a438e5c0672ab8d7acfb69e6ec60b1f124e872d2d7e518b81336f4b22dd74d5"],
+    proof: [91, "0ba78324c9f57246902eff927910fb9b5400dd4da6ca4c7cf7f93b4138668142"],
     systems: [48, "b5fdd4975e58dc9497e67070f1233d9118a246dae783586fb10ab6ad11ba17c9"],
     reuse: [38, "dba9e17536592f2423886ecd3117806bafb46008ad0c53f9cb4403a7c89fce05"],
-    sweep: [101, "72b1f5034546272601ce8939991a083fcbbf0a8de123bc095a578aaf78961f88"],
-    parts: [151, "3ed3711891278cf3dea8877976253dc06db9cf7d45a6333e98951f0aab4b093b"],
+    sweep: [101, "0b7063bfa4c3b666dfbfc4937d7e195aea0456814f9b9f42bf39871265feb59e"],
+    parts: [157, "1c698cbfca78c0fb701890be9918651a460ab01b770a3159a54c9aefe0bf904a"],
   };
   const DOCS: Record<string, () => { doc: Doc; widths: Record<string, number> }> = { proof: proofDoc, systems: systemsDoc, reuse: reuseDoc, sweep: sweepDoc, parts: () => ({ doc: allPartsDoc(), widths: {} }) };
   it.each(Object.keys(DIGESTS))("is byte for byte what it was: %s", async (name) => {

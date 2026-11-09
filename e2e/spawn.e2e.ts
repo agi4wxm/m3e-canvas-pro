@@ -42,6 +42,22 @@ function spawnDoc(): Doc {
   return savedDoc(store2.get());
 }
 
+/** The battle template's damage numbers, on the mock library's battle (lib/mocks/world.ts: twenty slimes, a hit every
+ *  0.4 s): a number over each slime hit, up to four at once, a second each. */
+function battleDoc(): Doc {
+  const store = new DocStore(stateOf({ groups: [], frames: [] }), { ids: counterIds("n"), measurer: guessMeasurer, lang: () => "en" });
+  store.transact("Build the battle", "mcp", (tx) => {
+    tx.run(ops.setTitle, { title: "Battle" });
+    tx.run(ops.addScreen, { id: SCREEN, name: "Arena" });
+    tx.run(ops.addPart, { slug: "world-view", id: "world", screen: SCREEN, at: { x: 26, y: 80 }, props: { label: "Arena", width: 360, height: 300 } });
+    tx.run(ops.addPart, { slug: "text", id: "dmg", screen: SCREEN, at: { x: 170, y: 200 }, props: { text: "Hit {{event.id}}" } });
+    tx.run(ops.setSpawn, { id: "dmg", spawn: { life: 1, max: 4, motion: "float", at: "event.id" }, on: { part: "world", event: "hit" } });
+    tx.run(ops.setMockWorld, { from: "battle" });
+    tx.run(ops.setMocks, { world: "battle" });
+  });
+  return savedDoc(store.get());
+}
+
 /** installed before the page's scripts: React reports each commit to the DevTools hook */
 function countCommits() {
   const w = window as unknown as Record<string, unknown>;
@@ -124,6 +140,41 @@ export const tests: E2ETest[] = [
       check((await instances(page)).length === 4, "the four still float half a second on");
       check((await instances(page))[0]?.translate !== rose, "they move frame by frame");
       check(burst <= idle + 1, `twenty spawns and their frames committed ${burst} times to React, a tap that does nothing ${idle}`);
+      await page.keyboard.press("Escape");
+      await settle(page, 600);
+    },
+  },
+  {
+    name: "spawn: the mock library's battle spawns a damage number on each hit, four at most, each gone after its second, none ageing while the clock stands still",
+    async run({ page, base }) {
+      await page.goto(`${base}/?battle#doc=${encodeURIComponent(JSON.stringify(battleDoc()))}`, { waitUntil: "load" });
+      await page.waitForSelector(".m3e-boot", { state: "detached", timeout: 90_000 });
+      await page.waitForSelector(`[data-screen="${SCREEN}"]`, { timeout: 30_000 });
+      await settle(page, 1500);
+      await page.keyboard.press("Escape");
+      await settle(page, 200);
+      await selectScreen(page, SCREEN);
+      await page.keyboard.press("p");
+      await page.waitForSelector("[data-preview-active]", { timeout: 10_000 });
+      await until("the battle plays", async () => (await part(page, "world").locator('[data-world-script="battle"]').count()) > 0);
+      /* a hit every 0.4 s, each number living a second: two or three float at once, never more than four */
+      await until("damage numbers float over the slimes hit", async () => (await instances(page)).length >= 2, 10_000);
+      let most = 0;
+      for (let i = 0; i < 20; i++) {
+        const now = await instances(page);
+        most = Math.max(most, now.length);
+        check(now.every((x) => /^Hit e\d+$/.test(x.words) && x.at === x.words.slice(4)), `each reads the slime it hit: ${JSON.stringify(now)}`);
+        await new Promise((r) => setTimeout(r, 100));
+      }
+      check(most >= 2 && most <= 4, `two to four at once, the cap four: ${most}`);
+      /* the mocks' clock stopped: the battle hits nothing more and the numbers on show stay, however long */
+      await page.locator("[data-preview-clock-pause]").first().click();
+      await settle(page, 200);
+      const stood = (await instances(page)).map((x) => x.words);
+      await settle(page, 1500);
+      equal((await instances(page)).map((x) => x.words), stood, "the numbers on show while the clock stands still");
+      check(stood.length > 0, "something was on show when the clock stopped");
+      await page.locator("[data-preview-clock-pause]").first().click();
       await page.keyboard.press("Escape");
       await settle(page, 600);
     },
