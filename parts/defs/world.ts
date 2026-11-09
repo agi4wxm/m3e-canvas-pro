@@ -13,6 +13,14 @@ export function inputDeclsOf(words: unknown): { name: string; type?: "vec2" | "b
   return [...out.values()];
 }
 
+/** an entity's hit points from the table's HP and Max HP columns, when both are numbers (a mock world's snapshot, a
+ *  screenshot of one at a moment) */
+function hitPoints(hp: string | undefined, max: string | undefined): { hp?: number; maxHp?: number } {
+  const a = hp ? Number(hp) : NaN;
+  const b = max ? Number(max) : NaN;
+  return Number.isFinite(a) && Number.isFinite(b) && b > 0 ? { hp: Math.max(0, a), maxHp: b } : {};
+}
+
 /* The world view (docs/组件规范.md “世界视口”, docs/边界与契约.md “实时玩法”): a viewport whose picture an engine draws.
  * M3E defines only what goes in and out: the world's state the design shows (its entities, the one the camera follows,
  * the score, how it is going: props, bindable to data), the input actions it takes (`inputs`; the design sends them with
@@ -36,10 +44,12 @@ export const world: PartDef[] = [
     props: [
       { key: "label", label: "Name", labels: { ja: "名前", zh: "名称", ko: "이름" }, kind: "text", default: "World", defaults: { zh: "世界", ja: "ワールド", ko: "월드" } },
       { key: "scene", label: "What the picture is", labels: { ja: "画面の内容", zh: "画面是什么", ko: "화면 내용" }, kind: "text", default: "A meadow seen from above", defaults: { zh: "从上方看的一片草地", ja: "上から見た草原", ko: "위에서 본 초원" } },
+      /* a picture of the scene under the words (an image, or a 3D model drawn turning): the stand-in's, never the engine's */
+      { key: "picture", label: "Picture of the scene (an image or a 3D model)", labels: { ja: "シーンの画像（画像または 3D モデル）", zh: "场景的图像（图片或 3D 模型）", ko: "장면 이미지 (이미지 또는 3D 모델)" }, kind: "image" },
       {
         key: "entities",
-        label: "Entities (x, y from 0 to 100)",
-        labels: { ja: "エンティティ（x, y は 0〜100）", zh: "实体（x、y 在 0 到 100 之间）", ko: "엔티티 (x, y는 0~100)" },
+        label: "Entities (x, y from 0 to 100; HP and Max HP if they have hit points)",
+        labels: { ja: "エンティティ（x, y は 0〜100、HP があれば HP と最大 HP）", zh: "实体（x、y 在 0 到 100 之间；有生命值时加 HP、最大 HP 两列）", ko: "엔티티 (x, y는 0~100, 체력이 있으면 HP와 최대 HP)" },
         kind: "table",
         default: {
           columns: ["Id", "Kind", "X", "Y", "Label"],
@@ -69,12 +79,13 @@ export const world: PartDef[] = [
     tree: (p) => {
       const entities = p
         .table("entities")
-        .rows.map((r) => ({ id: r[0] ?? "", kind: r[1] ?? "", x: Number(r[2]), y: Number(r[3]), ...(r[4] ? { label: r[4] } : {}) }))
+        .rows.map((r) => ({ id: r[0] ?? "", kind: r[1] ?? "", x: Number(r[2]), y: Number(r[3]), ...(r[4] ? { label: r[4] } : {}), ...hitPoints(r[5], r[6]) }))
         .filter((e) => e.id && Number.isFinite(e.x) && Number.isFinite(e.y))
         .map((e) => ({ ...e, x: Math.min(100, Math.max(0, e.x)), y: Math.min(100, Math.max(0, e.y)) }));
       return h("WorldView", {
         label: p.s("label"),
         scene: p.s("scene"),
+        ...(p.s("picture") ? { picture: p.s("picture") } : {}),
         entities,
         follow: p.s("follow"),
         score: Math.round(p.n("score")),

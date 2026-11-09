@@ -1,5 +1,6 @@
 /* Operations on the mock library (Doc.mocks, lib/mocks, docs/模拟库.md): its settings, each model's hints, count and
- * pinned records, the scenarios, the files, the realtime scripts, signing in, how an operation is answered, and
+ * pinned records, the scenarios, the files, the realtime scripts, the mock worlds' scripts, signing in, how an
+ * operation is answered, and
  * "fill the mocks for this API" in one step. What they write is cleaned the way a file read in is (lib/mocks/clean.ts),
  * and what names the API (a model, a field, an operation, a channel, a message) must be there, so a mock setting never
  * points at nothing. Changing the document's fields, each is one undo step of the whole document. */
@@ -11,6 +12,10 @@ import { modelShape } from "../../mocks/shape";
 import { fillMocks } from "../../mocks/fill";
 import { FILE_KINDS, formatOf, FORMATS, placeholderFile, type BasicKind, type FileKind } from "../../mocks/files";
 import { MOCK_KINDS, MOCK_LOCALES, MOCK_ROUTE_KINDS, type MockAuth, type MockFile, type MockHint, type MockLocale, type MockModelConfig, type MockOpRule, type MockRealtimeScript, type MockRouteKind, type MockScenario, type MockSpec } from "../../mocks/types";
+import { checkWorldScript, findWorldScript, libraryWorldScript, WORLD_CONTRACTS, WORLD_SCRIPT_LIBRARY, worldScriptsOf } from "../../mocks/world";
+import { cleanWorldScript } from "../../mocks/clean";
+import type { MockWorldScript } from "../../mocks/types";
+import { partBySlug } from "../../../parts/registry";
 import { op, OpError, S, type Schema } from "../op";
 import { withDoc, type CoreState } from "../state";
 
@@ -70,16 +75,18 @@ function checkHint(h: unknown, at: string): MockHint {
 
 /* ---------- settings ---------- */
 
-export const setMocks = op<{ seed?: number; locale?: MockLocale | null; scenario?: string | null; latency?: { min: number; max: number } | null; errorRate?: number | null }>({
+export const setMocks = op<{ seed?: number; locale?: MockLocale | null; scenario?: string | null; latency?: { min: number; max: number } | null; errorRate?: number | null; world?: string | null }>({
   name: "set_mocks",
   summary:
-    "Sets the mock library's settings: seed (the same seed, the same made-up data), locale (zh, en, ja, ko: names, words, addresses, phone numbers), scenario (the scenario the preview starts in; null for none), latency {min, max} in ms (null for the default 150–450), errorRate 0–1 (how often a call fails with 500).",
-  args: S.obj({ seed: S.int("any whole number"), locale: { type: ["string", "null"], enum: [...MOCK_LOCALES, null] }, scenario: { type: ["string", "null"] }, latency: RANGE("how long answers take"), errorRate: { type: ["number", "null"], minimum: 0, maximum: 1 } }),
+    "Sets the mock library's settings: seed (the same seed, the same made-up data), locale (zh, en, ja, ko: names, words, addresses, phone numbers), scenario (the scenario the preview starts in; null for none), latency {min, max} in ms (null for the default 150–450), errorRate 0–1 (how often a call fails with 500), world (the world script the preview's world views start playing: one of the document's or the library's battle, meadow; null for none).",
+  args: S.obj({ seed: S.int("any whole number"), locale: { type: ["string", "null"], enum: [...MOCK_LOCALES, null] }, scenario: { type: ["string", "null"] }, latency: RANGE("how long answers take"), errorRate: { type: ["number", "null"], minimum: 0, maximum: 1 }, world: { type: ["string", "null"], description: "a world script's id" } }),
   label: () => "Mock settings",
   run(s, a) {
     const m = mocksOf(s);
     if (typeof a.scenario === "string" && !m.scenarios?.some((x) => x.id === a.scenario)) throw new OpError("not_found", `There is no scenario ${JSON.stringify(a.scenario)}.${m.scenarios?.length ? ` The scenarios are: ${m.scenarios.map((x) => x.id).join(", ")}.` : " add_mock_scenario or fill_mocks adds some."}`, a.scenario);
+    if (typeof a.world === "string" && !findWorldScript(m, a.world)) throw new OpError("not_found", `There is no world script ${JSON.stringify(a.world)}. The scripts are: ${worldScriptsOf(m).map((x) => x.id).join(", ")}.`, a.world);
     const next: MockSpec = { ...m };
+    if (a.world !== undefined) next.world = a.world ?? undefined;
     if (a.seed !== undefined) next.seed = a.seed;
     if (a.locale !== undefined) next.locale = a.locale ?? undefined;
     if (a.scenario !== undefined) next.scenario = a.scenario ?? undefined;
@@ -478,6 +485,67 @@ export const removeMockRealtime = op<{ id: string }, { removed: string }>({
   },
 });
 
+/* ---------- the mock worlds ---------- */
+
+type WorldArgs = Partial<Omit<MockWorldScript, "contract">> & { from?: string; contract?: string | Record<string, unknown> };
+
+const WORLD_STEP_WORDS =
+  "{at (ms of world time from the start), set (snapshot fields laid over it: score, status, follow, any field the contract names; null takes one away), entities ([{id, …fields}]: laid over the entity of that id, a new id comes in, {id, gone: true} takes it away), scene (what the picture is now, in words), picture (now: a mock file's id, image:<words>, model:<box|sphere|torus|cylinder|gem>; \"\" none), events ([{name, payload}] the world sends then)}";
+
+export const setMockWorld = op<WorldArgs, { id: string; steps: number; contract: string }>({
+  name: "set_mock_world",
+  summary:
+    `Adds or replaces (by id) a world script: what a world view with no engine shows and sends in the preview, a prototype and a development build (the real engine replaces it in production). A timeline of steps ${WORLD_STEP_WORDS}, from a start snapshot (over the world view's own entities), looping every loop ms when given. Its snapshots and events are held to its contract (${Object.keys(WORLD_CONTRACTS).join(", ")}, or one written out as JSON: {version: 1, inputs, snapshot, events, clock}); a script that breaks it is refused with where and why. from: ${WORLD_SCRIPT_LIBRARY.join(" or ")} starts from the library's script of that name (battle: 20 enemies with hp, maxHp and positions, cooldowns {skill1: {readyAt, total}}, hits of the last second, events hit, damaged, defeated, ended; meadow: the example engine's world) and lays what is given over it. views: the world views (item ids) it plays on, every one when left out. set_mocks {world} makes the preview start with it; screenshot {world, at} draws a screen at a moment of it.`,
+  args: S.obj({
+    id: S.str("letters, digits, - _ . (from's, else made from the name, when left out)"),
+    from: S.enum(WORLD_SCRIPT_LIBRARY, "start from the library's script"),
+    name: S.str(),
+    description: S.str(),
+    contract: { type: ["string", "object"], description: `a contract the library has (${Object.keys(WORLD_CONTRACTS).join(", ")}) or one written out` },
+    start: { type: "object", description: "the snapshot it starts from: {entities: [{id, kind, x, y, label?, …}], score, status, …}" },
+    scene: S.str("what the picture is at the start, in words"),
+    picture: S.str("the picture at the start: a mock file's id (an image or a 3D model: glb, gltf, obj, stl), image:<words> or model:<shape>"),
+    steps: S.arr({ type: "object", description: WORLD_STEP_WORDS }),
+    loop: S.num("ms after which it starts over", { minimum: 100 }),
+    views: S.arr(S.str("a world view's id")),
+  }),
+  label: () => "World script",
+  run(s, a) {
+    const m = mocksOf(s);
+    const { from, ...given } = a;
+    if (from !== undefined && !WORLD_SCRIPT_LIBRARY.includes(from)) throw new OpError("not_found", `The library has no world script ${JSON.stringify(from)}: it has ${WORLD_SCRIPT_LIBRARY.join(", ")}.`, from);
+    if (a.id !== undefined && !MOCK_ID.test(a.id)) throw new OpError("invalid_value", `${JSON.stringify(a.id)} cannot be a script's id.`);
+    const made = (a.name ?? "world").toLowerCase().replace(/[^a-z0-9_.-]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 40) || "world";
+    const id = a.id ?? from ?? made;
+    const before = from !== undefined ? libraryWorldScript(from)! : (m.worlds?.find((x) => x.id === id) ?? { id, name: a.name ?? id, steps: [] });
+    if (!from && !a.steps && !m.worlds?.some((x) => x.id === id)) throw new OpError("invalid_value", `A new world script needs its steps, or from: ${WORLD_SCRIPT_LIBRARY.join(" or ")}.`);
+    const views = new Set(s.doc.groups.flatMap((g) => g.items.filter((it) => partBySlug(it.component)?.world).map((it) => it.id)));
+    for (const v of a.views ?? []) if (!views.has(v)) throw new OpError("not_found", `views: ${JSON.stringify(v)} is no world view.${views.size ? ` The world views are: ${[...views].join(", ")}.` : " add_part {slug: \"world-view\"} places one."}`, v);
+    const script = cleanWorldScript({ ...before, ...given, id });
+    if (!script) throw new OpError("invalid_value", "That is no world script: {id, name, steps: [{at, …}]}.");
+    const problems = checkWorldScript(script, { files: m.files });
+    if (problems.length) throw new OpError("invalid_value", `The script breaks its contract (${typeof script.contract === "string" ? script.contract : script.contract ? "its own" : "example"}): ${problems.slice(0, 6).map((p) => `${p.pointer} ${p.detail}`).join("; ")}${problems.length > 6 ? `; and ${problems.length - 6} more` : ""}.`);
+    const worlds = [...(m.worlds ?? [])];
+    const at = worlds.findIndex((x) => x.id === id);
+    if (at >= 0) worlds[at] = script;
+    else worlds.push(script);
+    return { state: withMocks(s, { ...m, worlds }), result: { id, steps: script.steps.length, contract: typeof script.contract === "string" ? script.contract : script.contract ? "own" : "example" } };
+  },
+});
+
+export const removeMockWorld = op<{ id: string }, { removed: string }>({
+  name: "remove_mock_world",
+  summary: "Removes a world script of the document (the library's battle and meadow stay offered).",
+  args: S.obj({ id: S.str() }, ["id"]),
+  label: () => "Remove world script",
+  run(s, a) {
+    const m = mocksOf(s);
+    if (!m.worlds?.some((x) => x.id === a.id)) throw new OpError("not_found", `The document has no world script ${JSON.stringify(a.id)}.${m.worlds?.length ? ` Its scripts are: ${m.worlds.map((x) => x.id).join(", ")}.` : ""}`, a.id);
+    const worlds = m.worlds.filter((x) => x.id !== a.id);
+    return { state: withMocks(s, { ...m, worlds, ...(m.world === a.id ? { world: undefined } : {}) }), result: { removed: a.id } };
+  },
+});
+
 /* ---------- auth and routes ---------- */
 
 export const setMockAuth = op<{ signedIn?: boolean | null; accept?: Record<string, string>[] | null; tokenTtl?: number | null; refreshTtl?: number | null }>({
@@ -541,7 +609,7 @@ export const fillMocksOp = op<{ locale?: MockLocale; counts?: number; scenarios?
 
 export const clearMocks = op<Record<string, never>>({
   name: "clear_mocks",
-  summary: "Takes every mock setting away (hints, counts, pinned records, scenarios, files, scripts): the API is then answered with data made from its schemas alone.",
+  summary: "Takes every mock setting away (hints, counts, pinned records, scenarios, files, scripts, world scripts): the API is then answered with data made from its schemas alone.",
   args: S.obj({}),
   label: () => "Clear mocks",
   run(s) {

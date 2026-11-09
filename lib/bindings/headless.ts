@@ -197,3 +197,47 @@ export async function previewScreen(doc: Doc, screen: string, o: { scenario?: st
     transport?.close();
   }
 }
+
+/** what a world view showed at a moment of a mock world */
+export type WorldMoment = { script: string; at: number; views: string[]; events: string[] };
+
+/** The document with its world views (those on `screen`, else every one) drawn as a mock world's script shows them at
+ *  a moment (docs/模拟库.md “世界脚本”): the script's entities (with their hit points), score, status and follow, its
+ *  words and its picture at `at` ms of world time, for a screenshot of a scene. The script is the one named, else the
+ *  one the document's preview starts with; the events it sent up to then come back with it. */
+export async function worldAt(doc: Doc, o: { script?: string; at?: number; screen?: string; widths?: Widths }): Promise<{ doc: Doc; moment: WorldMoment }> {
+  const { findWorldScript, resolveWorldScript, worldScriptsOf } = await import("../mocks/world");
+  const { eventsBetween, playsOn, roundTime, sceneAt } = await import("../world/script");
+  const { partBySlug } = await import("../../parts/registry");
+  const id = o.script || doc.mocks?.world;
+  const found = findWorldScript(doc.mocks, id);
+  if (!found) throw new Error(id ? `There is no world script ${JSON.stringify(id)} (the scripts are ${worldScriptsOf(doc.mocks).map((s) => s.id).join(", ")}).` : `Name a world script: the document's preview starts with none (the scripts are ${worldScriptsOf(doc.mocks).map((s) => s.id).join(", ")}).`);
+  const script = resolveWorldScript(found, doc.mocks?.files);
+  const at = Math.max(0, Number.isFinite(o.at) ? (o.at as number) : 0);
+  const frame = o.screen ? doc.frames.find((f) => f.id === o.screen) : undefined;
+  const onScreen = frame ? new Set(groupsInFrame(doc.groups, frame, doc.frames, o.widths ?? {}).map((g) => g.id)) : undefined;
+  const views: string[] = [];
+  const str = (v: unknown) => (v === undefined || v === null ? "" : String(v));
+  const groups = doc.groups.map((g) => {
+    if (onScreen && !onScreen.has(g.id)) return g;
+    let changed = false;
+    const items = g.items.map((it) => {
+      if (!partBySlug(it.component)?.world || !playsOn(script, it.id)) return it;
+      changed = true;
+      views.push(it.id);
+      const table = isRecord(it.props?.entities) ? (it.props.entities as { rows?: string[][] }) : undefined;
+      const base = { entities: (table?.rows ?? []).map((r) => ({ id: r[0], kind: r[1], x: Number(r[2]), y: Number(r[3]), ...(r[4] ? { label: r[4] } : {}) })), score: it.props?.score, status: it.props?.status, follow: it.props?.follow };
+      const scene = sceneAt(script, at, base);
+      const list = (Array.isArray(scene.snapshot.entities) ? scene.snapshot.entities : []).filter(isRecord);
+      const hp = list.some((e) => typeof e.hp === "number" && typeof e.maxHp === "number");
+      const entities = { columns: ["Id", "Kind", "X", "Y", "Label", ...(hp ? ["HP", "Max HP"] : [])], rows: list.map((e) => [str(e.id), str(e.kind), str(e.x), str(e.y), str(e.label), ...(hp ? [str(e.hp), str(e.maxHp)] : [])]) };
+      const s = scene.snapshot;
+      const props = { ...it.props, entities, ...(typeof s.score === "number" ? { score: s.score } : {}), ...(typeof s.status === "string" ? { status: s.status } : {}), ...(typeof s.follow === "string" ? { follow: s.follow } : {}), scene: scene.scene ?? it.props?.scene ?? "", picture: scene.picture ?? it.props?.picture ?? "" };
+      return { ...it, props };
+    });
+    return changed ? { ...g, items } : g;
+  });
+  const round = roundTime(script, at);
+  const events = eventsBetween(script, -1, round).slice(-20).map((e) => `${e.at}ms ${e.name} ${JSON.stringify(e.payload)}`);
+  return { doc: { ...doc, groups }, moment: { script: script.id, at: round, views, events } };
+}

@@ -48,7 +48,10 @@ beforeAll(async () => {
 
 describe("the prototype export", () => {
   /* The single-app export stays as it was, to the byte, beside the product. These digests were taken from the export
-     before the product existed; one that changes on purpose is written again here (last: format version 6, lib/converge.ts: parts/types.ts, which
+     before the product existed; one that changes on purpose is written again here (last: the world view's mock world,
+     batch 6 H6: World.tsx plays a world script handed to it (parts/widgets/mockWorld.ts, lib/world/script.ts and
+     scripted.ts copied beside it) and draws a 3D model picture with parts/widgets/mesh.ts (which reads data URLs with
+     lib/mocks/bytes.ts and formats/table.ts), six more files of the every-parts document; before that format version 6, lib/converge.ts: parts/types.ts, which
      ships, has the color prop kind, a palette's rows of colors, the row model's `P.rows` and places among rows (`of`), the widgets paint a color only when it is one
      (parts/widgets/look.ts `PAINTABLE`, the item cell's rarity and the palette's swatches), and a multiple choice's
      picks are its rows' places from 0 (`picked`); with it the icon component draws an asset of the asset pipeline's,
@@ -95,7 +98,7 @@ describe("the prototype export", () => {
     systems: [48, "18f4e60fd98fee038588bbd2eb2922adb6d03f8a3839d9fa5415acc69ed00c89"],
     reuse: [38, "45f2eeffec96e6987a68be50863bd53e5a0096fa8506f0c6f95c79955b524d04"],
     sweep: [101, "64d6ac1dd4da87277fe4cd59cc29afbc9965a96454de2411a913ec9ea83e0418"],
-    parts: [151, "e996951030ad5850cb52840b98d529343affd8cb0fe2c5d28df05939282c831c"],
+    parts: [157, "f60d8b6b9f4ee7df4ed7fdc0f2df2cb70f11acdb52688d75aac9d5a12411109d"],
   };
   const DOCS: Record<string, () => { doc: Doc; widths: Record<string, number> }> = { proof: proofDoc, systems: systemsDoc, reuse: reuseDoc, sweep: sweepDoc, parts: () => ({ doc: allPartsDoc(), widths: {} }) };
   it.each(Object.keys(DIGESTS))("is byte for byte what it was: %s", async (name) => {

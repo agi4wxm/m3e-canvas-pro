@@ -15,7 +15,9 @@ import { slotAction } from "@/lib/partContract";
 import { PartHostContext, type PartHost } from "@/parts/widgets/host";
 import { PartView } from "../PartView";
 import { partBySlug } from "@/parts/registry";
-import { PreviewWorlds } from "./worlds";
+import { PreviewMockWorld, PreviewWorlds } from "./worlds";
+import { MockWorldContext } from "@/parts/widgets/mockWorld";
+import { playsOn } from "@/lib/world/script";
 
 /** the buttons inside an overlay that dismiss it, whichever overlay it is */
 const CLOSERS = '[data-slot$="-close"], [data-slot="alert-dialog-cancel"], [data-slot="alert-dialog-action"]';
@@ -60,7 +62,11 @@ export function LivePart({ item, widths, screen, onTap, onSlot, onHover, easeWid
   const box = useRef<HTMLDivElement>(null);
   /* a world view listens on its own channel, which the design's input actions are sent on */
   const worlds = useContext(PreviewWorlds);
-  const world = worlds && partBySlug(item.component)?.world ? worlds.channel(item.id) : undefined;
+  const isWorld = !!partBySlug(item.component)?.world;
+  const world = worlds && isWorld ? worlds.channel(item.id) : undefined;
+  /* and plays the mock world the bar has chosen, when the script plays on it; never one handed in for an exported app */
+  const chosen = useContext(PreviewMockWorld);
+  const mockWorld = isWorld && chosen && playsOn(chosen.script, item.id) ? chosen : null;
   const live = useRef({ item, onField, onEvent });
   live.current = { item, onField, onEvent };
   /* What a part is handed (parts/widgets/host.ts): the preview is an explicit prototype, so a demo runs where nothing
@@ -115,7 +121,9 @@ export function LivePart({ item, widths, screen, onTap, onSlot, onHover, easeWid
       }
       style={{ position: "relative", display: "flex", flex: "0 0 auto", width: easeWidth ? "max-content" : size.w, height: size.h }}>
       <PartHostContext.Provider value={host}>
-        <PartView key={held ? "held" : "free"} item={item} live screen={screen} held={held} />
+        <MockWorldContext.Provider value={mockWorld}>
+          <PartView key={held ? "held" : "free"} item={item} live screen={screen} held={held} />
+        </MockWorldContext.Provider>
       </PartHostContext.Provider>
     </div>
   );
