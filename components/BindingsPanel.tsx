@@ -11,6 +11,7 @@ import { SAMPLE_ROWS } from "@/lib/collections";
 import { REGION_STATES, frameOfPart, type DataSource, type Doc, type Frame, type Group, type Item, type Palette, type RegionState } from "@/lib/tokens";
 import { t, useLang, type UIKey } from "@/lib/i18n";
 import { partBySlug } from "@/parts/registry";
+import { FRAME_OPACITY, frameProps } from "@/lib/world/frameTargets";
 import { labelOf } from "@/parts/labels";
 import { BehaviorContext, BodyEditor } from "./EffectsPanel";
 import { DesignSection, actionBtn } from "./DesignPanel";
@@ -506,5 +507,59 @@ export function CanvasStateSwitcher({ group, x, y, p, inside }: { group: Group; 
         <StateChips group={group} designs={designs} p={p} compact />
       </div>
     </div>
+  );
+}
+
+/** The part's props bound per frame (lib/bindings/frame.ts, docs/数据绑定.md “每帧绑定”): a text's words, a stat bar's
+ *  value, any part's opacity, each an expression over `world` that every host writes on each frame without drawing
+ *  again. Shown where the document has a world view to read, or the part is bound so already. */
+export function PartFrameSection({ item, frame, p }: { item: Item; frame: Frame | null; p: Palette }) {
+  const lang = useLang();
+  const b = useContext(BindingsContext);
+  const group = useContext(BehaviorContext).group;
+  const shape = useShape(frame ?? undefined, group?.id);
+  const [adding, setAdding] = useState("");
+  const bound = Object.entries(item.frame ?? {});
+  if (!b || !group || (!shape.world && !bound.length)) return null;
+  const def = partBySlug(item.component);
+  const nameOf = (prop: string) => (prop === FRAME_OPACITY ? t("frOpacity", lang) : (() => {
+    const d = def?.props.find((x) => x.key === prop);
+    return d ? labelOf(d, lang) : prop;
+  })());
+  const run = b.run;
+  const free = frameProps(item.component).filter((prop) => !bound.some(([k]) => k === prop));
+  return (
+    <DesignSection id="frame" title={t("frTitle", lang)} p={p}>
+      <div data-part-frame style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        <div style={hint(p)}>{t("frHint", lang)}</div>
+        {bound.map(([prop, expr]) => (
+          <div key={prop} data-frame-prop={prop} style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+              <span style={{ ...label(p), flex: 1 }}>{nameOf(prop)}</span>
+              <IconBtn icon="link_off" p={p} size={24} onClick={() => run(ops.bindExpression, { id: item.id, prop, expr: null, frame: true })} title={t("frUnbind", lang)} />
+            </div>
+            <ExprField name={`frame:${prop}`} value={expr} onCommit={(v) => run(ops.bindExpression, { id: item.id, prop, expr: v || null, frame: true })} shape={shape} api={b.doc.api} p={p} label={nameOf(prop)} />
+          </div>
+        ))}
+        {free.length > 0 && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            <Select height={28} label={t("frBindProp", lang)} p={p} value={adding} options={[{ key: "", label: t("frBindProp", lang), icon: "add_link" }, ...free.map((prop) => ({ key: prop, label: nameOf(prop) }))]} onChange={setAdding} />
+            {adding && (
+              <ExprField
+                name={`newframe:${adding}`}
+                value=""
+                onCommit={(v) => {
+                  if (v) run(ops.bindExpression, { id: item.id, prop: adding, expr: v, frame: true });
+                  setAdding("");
+                }}
+                shape={shape}
+                api={b.doc.api}
+                p={p}
+              />
+            )}
+          </div>
+        )}
+      </div>
+    </DesignSection>
   );
 }

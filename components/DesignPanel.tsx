@@ -17,7 +17,7 @@ import { FlowDirection, FlowSpacing, SelfAlign, SizeLimits, sizingChoices, sizin
 import { LookPanel, type LookBlockKey } from "./LookPanel";
 import { AlignBox, FillRun, LineUp, TextRun, WidthRun, type PlaceFn } from "./PartPanel";
 import { RepeatSection } from "./ReusePanels";
-import { PartDataSection } from "./BindingsPanel";
+import { PartDataSection, PartFrameSection } from "./BindingsPanel";
 import { BehaviorContext, StyleRulesContext } from "./EffectsPanel";
 import { Select, Toggle } from "./ui";
 import { BindButton, BoundChip } from "./VariablesPanel";
@@ -319,6 +319,8 @@ export function PartDesign({ item, frame, onChange, inFlow, flowParent, selfRect
       <RepeatSection p={p} />
 
       <PartDataSection item={item} frame={frame ?? null} p={p} />
+
+      <PartFrameSection item={item} frame={frame ?? null} p={p} />
 
       {(
         <DesignSection

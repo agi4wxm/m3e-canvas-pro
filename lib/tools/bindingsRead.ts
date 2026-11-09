@@ -3,26 +3,27 @@
  * rules, the parts bound to expressions, and the names an expression on it can read. Nothing changes. */
 
 import { endpointLine } from "../api";
-import { endpointOf, formFields } from "../bindings/contract";
+import { endpointOf, formFields, stepsOf } from "../bindings/contract";
+import type { JsonSchema } from "../api/types";
 import { listPaths, shapeFor } from "../bindings/complete";
-import { exprPlaceError } from "../bindings/check";
+import { exprPlaceError, framePlaceError } from "../bindings/check";
 import { HELPERS } from "../bindings/expr";
 import { regionDesigns } from "../core/ops/bindings";
 import { frameOfPart, REGION_STATES, type Group } from "../tokens";
 import { tool, ToolFailure, type Tool } from "./types";
 
-const describeBindings = tool<{ screen: string; expr?: string; at?: string }>({
+const describeBindings = tool<{ screen: string; expr?: string; at?: string; frame?: boolean }>({
   name: "describe_bindings",
   group: "read",
   description:
-    "How a screen is bound to the API: its params and sign-in, each data source (endpoint, params, paging, and the paths it offers: data.<name>.items[], value fields), its regions with the state designs they have, its forms with each field's input and rules, the parts bound to expressions, the lists a repeat can go over, the helpers. With expr (and at: a part's id), checks an expression where it would be read.",
+    "How a screen is bound to the API: its params and sign-in, each data source (endpoint, params, paging, and the paths it offers: data.<name>.items[], value fields), its regions with the state designs they have, its forms with each field's input and rules, the parts bound to expressions, the props bound per frame and what world (the snapshot of the world a world view hosts) offers them, the lists a repeat can go over, the helpers. With expr (and at: a part's id), checks an expression where it would be read; with frame: true, as a binding per frame.",
   input: {
     type: "object",
-    properties: { screen: { type: "string" }, expr: { type: "string", description: "an expression to check" }, at: { type: "string", description: "the part it would be read on (its repeat and form count)" } },
+    properties: { screen: { type: "string" }, expr: { type: "string", description: "an expression to check" }, at: { type: "string", description: "the part it would be read on (its repeat and form count)" }, frame: { type: "boolean", description: "check expr as a binding per frame (bind_expression frame: true)" } },
     required: ["screen"],
     additionalProperties: false,
   },
-  output: "{params, auth, sources, regions, forms, bound, lists, helpers, check?}",
+  output: "{params, auth, sources, regions, forms, bound, frames, world?, lists, helpers, check?}",
   readOnly: true,
   destructive: false,
   run(a, env) {
@@ -66,9 +67,21 @@ const describeBindings = tool<{ screen: string; expr?: string; at?: string }>({
             return { id: g.items[0].id, operationId: g.form!.operationId, fields: specs.map((x) => ({ name: x.name, input: x.kind, required: x.required, bound: bound.has(x.name) })), onSuccess: g.form!.then ?? null, onFailure: g.form!.catch ?? null };
           }),
         bound: groups.flatMap((g) => g.items.flatMap((it) => Object.entries(it.bind ?? {}).filter(([, v]) => v.startsWith("=")).map(([prop, v]) => ({ id: it.id, prop, expr: v.slice(1) })))),
+        /* the props bound per frame (lib/bindings/frame.ts), and what `world` offers them: the snapshot's keys (as the
+           world's contract describes them), the entities' ids under world.byId, the clock */
+        frames: groups.flatMap((g) => g.items.flatMap((it) => Object.entries(it.frame ?? {}).map(([prop, expr]) => ({ id: it.id, prop, expr })))),
+        ...(shape.world
+          ? {
+              world: {
+                reads: [...stepsOf(api, shape.world).map((x) => `world.${x.name}: ${x.type}`), ...(shape.worldIds ?? []).slice(0, 20).map((id) => `world.byId.${id}`)],
+                entity: stepsOf(api, (shape.world as { properties?: { byId?: { additionalProperties?: JsonSchema } } }).properties?.byId?.additionalProperties).map((x) => `${x.name}: ${x.type}`),
+                bindable: "text.text, stat-bar.value, and @opacity (0-100) of any part; reads, literals and arithmetic only, no helper",
+              },
+            }
+          : {}),
         lists: listPaths(api, shape).map((l) => l.path),
         helpers: Object.keys(HELPERS),
-        ...(a.expr !== undefined ? { check: exprPlaceError(a.expr, atGroup ? shapeFor(s.doc, f, atGroup.id, widths) : shape) ?? "ok" } : {}),
+        ...(a.expr !== undefined ? { check: (a.frame ? framePlaceError(a.expr, shape) : exprPlaceError(a.expr, atGroup ? shapeFor(s.doc, f, atGroup.id, widths) : shape)) ?? "ok" } : {}),
       },
     };
   },
