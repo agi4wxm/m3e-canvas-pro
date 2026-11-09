@@ -16,6 +16,7 @@ import { PartHostContext, type PartHost } from "@/parts/widgets/host";
 import { PartView } from "../PartView";
 import { partBySlug } from "@/parts/registry";
 import { PreviewWorlds } from "./worlds";
+import { usePartFrames } from "./frames";
 
 /** the buttons inside an overlay that dismiss it, whichever overlay it is */
 const CLOSERS = '[data-slot$="-close"], [data-slot="alert-dialog-cancel"], [data-slot="alert-dialog-action"]';
@@ -58,6 +59,8 @@ export function LivePart({ item, widths, screen, onTap, onSlot, onHover, easeWid
     if ((onTap || onSlot) && !input) e.preventDefault();
   };
   const box = useRef<HTMLDivElement>(null);
+  /* its props bound per frame are written into its box on every frame, never through a render */
+  usePartFrames(item, box);
   /* a world view listens on its own channel, which the design's input actions are sent on */
   const worlds = useContext(PreviewWorlds);
   const world = worlds && partBySlug(item.component)?.world ? worlds.channel(item.id) : undefined;

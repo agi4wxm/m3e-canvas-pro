@@ -6,6 +6,7 @@
  * as it is. */
 
 import type { WorldChannel, WorldInput, WorldListener } from "./types";
+import type { WorldSource } from "./root";
 
 export type Worlds = {
   /** an input for the world view `part` */
@@ -17,6 +18,9 @@ export type Worlds = {
   release(part: string): void;
   /** forgets every input held (the app started over) */
   clear(): void;
+  /** The world the HUD reads (the `world` root of a binding per frame, lib/world/root.ts): the first world still
+   *  connected to a view's channel (`connectWorld` connects it), else none. */
+  attached(): WorldSource | undefined;
 };
 
 /** a channel for each world view; `now` is the app's clock the inputs are timed by */
@@ -24,6 +28,8 @@ export function createWorlds(now: () => number = () => Date.now()): Worlds {
   const listeners = new Map<string, Set<WorldListener>>();
   const holding = new Map<string, Record<string, WorldInput>>();
   const channels = new Map<string, WorldChannel>();
+  /* the worlds connected to the views' channels, in the order they came */
+  const mounted: { part: string; world: WorldSource }[] = [];
   return {
     send(part, action, value) {
       holding.set(part, { ...holding.get(part), [action]: value });
@@ -42,6 +48,14 @@ export function createWorlds(now: () => number = () => Date.now()): Worlds {
           return () => void set.delete(fn);
         },
         held: () => ({ ...holding.get(part) }),
+        attach(world) {
+          const entry = { part, world };
+          mounted.push(entry);
+          return () => {
+            const at = mounted.indexOf(entry);
+            if (at >= 0) mounted.splice(at, 1);
+          };
+        },
       };
       channels.set(part, made);
       return made;
@@ -55,6 +69,7 @@ export function createWorlds(now: () => number = () => Date.now()): Worlds {
     clear() {
       holding.clear();
     },
+    attached: () => mounted[0]?.world,
   };
 }
 

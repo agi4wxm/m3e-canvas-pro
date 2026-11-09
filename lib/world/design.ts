@@ -6,6 +6,7 @@ import { partBySlug } from "../../parts/registry";
 import type { Item } from "../tokens";
 import { inputDeclsOf } from "../../parts/defs/world";
 import type { WorldInputDecl } from "./types";
+import { EXAMPLE_WORLD_CONTRACT, type WorldContract } from "./contract";
 
 export { inputDeclsOf };
 
@@ -16,4 +17,24 @@ export function worldInputsOf(it: Pick<Item, "component" | "props">): WorldInput
   if (!def?.world) return [];
   const given = it.props?.inputs;
   return inputDeclsOf(given === undefined ? def.props.find((p) => p.key === "inputs")?.default : given);
+}
+
+/** The contract of the world a document's world views host, whose snapshot the `world` root reads (lib/world/root.ts):
+ *  the one place the editor's checks, suggestions and the exports ask for it. Today every world view hosts M3E's example
+ *  engine; a world contract a game loop hands in (the plan's batch 7) is read here instead. */
+export function worldContractOf(_doc?: unknown): WorldContract {
+  return EXAMPLE_WORLD_CONTRACT;
+}
+
+/** the ids of the entities the document's world views start with (their `entities` tables): what `world.byId.` offers */
+export function worldIdsOf(doc: { groups: { items: Pick<Item, "component" | "props">[] }[] }): string[] {
+  const out = new Set<string>();
+  for (const g of doc.groups)
+    for (const it of g.items) {
+      const def = partBySlug(it.component);
+      if (!def?.world) continue;
+      const t = (it.props?.entities ?? def.props.find((p) => p.key === "entities")?.default) as { rows?: unknown[][] } | undefined;
+      for (const r of t?.rows ?? []) if (typeof r?.[0] === "string" && r[0]) out.add(r[0]);
+    }
+  return [...out].slice(0, 200);
 }

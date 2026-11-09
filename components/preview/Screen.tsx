@@ -19,6 +19,7 @@ import { DeviceBars } from "../DeviceBars";
 import { BoundValues } from "../boundValues";
 import { boundTextIds, wordsHeight } from "../previewText";
 import { LivePart } from "./LivePart";
+import { useScreenFrames } from "./frames";
 import type { TapExtra } from "./host";
 
 export function Screen({
@@ -206,6 +207,8 @@ export function Screen({
      then, so a change of state does not start them again */
   const timed = useRef({ groups, onAction });
   timed.current = { groups, onAction };
+  /* its parts' bindings per frame are evaluated on every frame while it is drawn, written straight into them */
+  useScreenFrames(groups);
   useEffect(() => {
     if (!interactive) return;
     const timers = timed.current.groups.flatMap((g) =>

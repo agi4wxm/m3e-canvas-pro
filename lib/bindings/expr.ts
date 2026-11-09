@@ -44,8 +44,8 @@ export const EXPR_LIMITS = {
   text: 20_000,
 };
 
-/** the names a path may start at, besides the helpers'; `event` is the payload of the event an action runs on (`on:<name>`), `slot` the slot of a family that was tapped, `result` what a capability an action invoked gave back, `collections` the document's data sets by name, each a list of records */
-export const ROOTS = ["data", "params", "vars", "item", "index", "form", "auth", "response", "error", "status", "row", "now", "event", "slot", "result", "collections"] as const;
+/** the names a path may start at, besides the helpers'; `event` is the payload of the event an action runs on (`on:<name>`), `slot` the slot of a family that was tapped, `result` what a capability an action invoked gave back, `collections` the document's data sets by name, each a list of records, `world` the snapshot of the world a world view hosts (lib/world/root.ts), which only a binding marked per frame reads (lib/bindings/frame.ts) */
+export const ROOTS = ["data", "params", "vars", "item", "index", "form", "auth", "response", "error", "status", "row", "now", "event", "slot", "result", "collections", "world"] as const;
 export type Root = (typeof ROOTS)[number];
 
 /** keys a path never reads, whatever the data holds */

@@ -14,7 +14,7 @@ import { COLOR_TOKENS, type Action, type ActionBody, Collection, ComponentDef, C
 import { cleanDataSources, cleanExpr, cleanExprMap, cleanForm, cleanRegion, cleanScreenParams, cleanSubscriptions } from "./bindings/clean";
 import { BARE_VERSION, PROJECT_VERSION, migrate, versionOf, type Migration } from "./migrations";
 import { fields, withUnknown } from "./keep";
-import { bindRule, conditionRule } from "./rules";
+import { bindRule, conditionRule, exprRule } from "./rules";
 /* how deep a call's `then` and `catch` may hold calls of their own: the interpreter's own limit */
 import { MAX_CALL_DEPTH, WORLD_ACTION } from "./actions/model";
 
@@ -216,6 +216,14 @@ const cleanBind = (map: unknown) => {
   return kept.length ? Object.fromEntries(kept) : undefined;
 };
 
+/* the props bound per frame (lib/bindings/frame.ts): an expression no longer than any other may be, as a binding's is;
+   one that breaks the per-frame rule is kept for the author to fix, and never evaluated */
+const cleanFrameBinds = (map: unknown) => {
+  if (!isRecord(map)) return undefined;
+  const kept = Object.entries(map).filter(([k, v]) => k.length <= 64 && !exprRule(v));
+  return kept.length ? Object.fromEntries(kept) : undefined;
+};
+
 /** one variable at most is the dark mode: the first that says so */
 function onlyOneDark(vars: DocVar[]): DocVar[] {
   const first = vars.findIndex((v) => v.drives === "dark");
@@ -276,6 +284,7 @@ const cleanItem = (it: Item) =>
     action: cleanAction,
     actions: cleanActions,
     bind: cleanBind,
+    frame: cleanFrameBinds,
     look: (v) => cleanLook(v, true),
     fill: (v) => (COLOR_TOKENS.some((t) => t.key === v) ? v : undefined),
     row: () => undefined,
@@ -413,7 +422,7 @@ function cleanCollection(c: unknown): Collection | undefined {
 }
 
 /** the fields a part (`Item`) has */
-const ITEM_FIELDS = fields("id", "kind", "label", "icon", "variant", "component", "props", "look", "navTabs", "note", "noteHistory", "collapseOnScroll", "fill", "textColor", "corners", "flowFill", "flowSize", "alignSelf", "flowAbsolute", "flowMin", "flowMax", "flowSpan", "constraints", "action", "actions", "bind", "field", "row", "scope");
+const ITEM_FIELDS = fields("id", "kind", "label", "icon", "variant", "component", "props", "look", "navTabs", "note", "noteHistory", "collapseOnScroll", "fill", "textColor", "corners", "flowFill", "flowSize", "alignSelf", "flowAbsolute", "flowMin", "flowMax", "flowSpan", "constraints", "action", "actions", "bind", "frame", "field", "row", "scope");
 
 /** An instance has a definition to draw from and one item standing in for it, whatever the file said.
  *  One of nothing known loses the link, and goes altogether if nothing else is left of it. */

@@ -8,7 +8,9 @@ import { convergedAction } from "../../converge";
 import { partBySlug } from "../../../parts/registry";
 import type { ApiSpec, JsonSchema, JsonSchemaObject } from "../../api/types";
 import { BINDING_NAME } from "../../bindings/clean";
-import { exprPlaceError, exprSyntaxError } from "../../bindings/check";
+import { exprPlaceError, exprSyntaxError, framePlaceError } from "../../bindings/check";
+import { frameExprError } from "../../bindings/frame";
+import { FRAME_OPACITY, frameProps, frameTargetOf } from "../../world/frameTargets";
 import { shapeFor, type ScopeShape } from "../../bindings/complete";
 import { endpointOf, formFields, listOf, paramsOf, resolved, responseSchema, titleOf, type FieldSpec } from "../../bindings/contract";
 import { appMessage } from "../../bindings/messages";
@@ -394,26 +396,43 @@ export const setScreenAuth = op<{ screen: string; auth: "required" | "login" | n
 
 /* ---------- props bound to expressions ---------- */
 
-export const bindExpression = op<{ id: string; prop: string; expr: string | null }>({
+export const bindExpression = op<{ id: string; prop: string; expr: string | null; frame?: boolean }>({
   name: "bind_expression",
   summary:
-    'Binds a prop of a part to an expression, read in the preview and the exported app: data.<source>.value.<field>, item.<field> inside a repeat over data, params.<name>, vars.<name>, form.<field>, auth.user… with helpers such as currency(item.price), relative(item.createdAt), plural(n, "# item", "# items"). null unbinds it. Words in a text prop may also hold {{expressions}}.',
-  args: S.obj({ id: S.str("the part"), prop: S.str("one of its props (describe_part lists them)"), expr: { type: ["string", "null"], description: "the expression, without a leading =" } }, ["id", "prop", "expr"]),
+    'Binds a prop of a part to an expression, read in the preview and the exported app: data.<source>.value.<field>, item.<field> inside a repeat over data, params.<name>, vars.<name>, form.<field>, auth.user… with helpers such as currency(item.price), relative(item.createdAt), plural(n, "# item", "# items"). null unbinds it. Words in a text prop may also hold {{expressions}}. frame: true binds it per frame instead (a HUD\'s health bar, damage number, cooldown): the expression reads only world (the snapshot of the world a world view hosts, as its contract describes it: world.score, world.byId.<entity id>.<field>, world.clock.now in ms of world time) with literals and arithmetic, no helper, and every host writes it on every frame without drawing the screen again; only text.text, stat-bar.value and @opacity (0-100) of any part can be bound so. A HUD shows the world; it never settles what is hit, scored or won.',
+  args: S.obj(
+    {
+      id: S.str("the part"),
+      prop: S.str("one of its props (describe_part lists them); with frame, text of a text, value of a stat-bar, or @opacity of any part"),
+      expr: { type: ["string", "null"], description: "the expression, without a leading =" },
+      frame: { type: "boolean", description: "bind it per frame: an expression over world only, written on every frame (default false)" },
+    },
+    ["id", "prop", "expr"],
+  ),
   label: () => "Bind",
   run(s, a, ctx) {
     const { item, group } = itemById(s, a.id);
     unlocked(group, "That part");
     const def = partBySlug(item.component);
-    if (!def?.props.some((d) => d.key === a.prop)) throw new OpError("invalid_value", `${item.component} has no prop ${JSON.stringify(a.prop)}. Its props are: ${(def?.props ?? []).map((d) => d.key).join(", ")}.`, a.prop);
+    const perFrame = a.frame === true;
+    if (perFrame && a.expr !== null && !frameTargetOf(item.component, a.prop)) throw new OpError("invalid_value", `${item.component}.${a.prop} cannot be bound per frame: a frame writes ${frameProps(item.component).join(", ")} of this part (and text.text, stat-bar.value). Bind it without frame to a data source or variable.`, a.prop);
+    if (!perFrame && a.prop !== FRAME_OPACITY && !def?.props.some((d) => d.key === a.prop)) throw new OpError("invalid_value", `${item.component} has no prop ${JSON.stringify(a.prop)}. Its props are: ${(def?.props ?? []).map((d) => d.key).join(", ")}.`, a.prop);
     const expr = a.expr === null ? null : a.expr.replace(/^\s*=/, "");
     if (expr !== null) {
-      if (ctx.strict) checkExpr(expr, shapeAt(s, group, ctx), "expr");
+      if (perFrame) {
+        const e = ctx.strict ? framePlaceError(expr, shapeAt(s, group, ctx)) : frameExprError(expr);
+        if (e) throw new OpError("invalid_value", `expr: ${e}.`, "expr");
+      } else if (ctx.strict) checkExpr(expr, shapeAt(s, group, ctx), "expr");
       else if (exprSyntaxError(expr)) throw new OpError("invalid_value", `expr: ${exprSyntaxError(expr)}.`, "expr");
     }
+    /* a prop has one binding: per frame, or through the app's state */
     const bind = { ...item.bind };
-    if (expr === null) delete bind[a.prop];
-    else bind[a.prop] = `=${expr}`;
-    return setItem.run(s, { id: a.id, patch: { bind: Object.keys(bind).length ? bind : undefined } }, { ...ctx, strict: false });
+    const frame = { ...item.frame };
+    delete bind[a.prop];
+    delete frame[a.prop];
+    if (expr !== null && perFrame) frame[a.prop] = expr;
+    else if (expr !== null) bind[a.prop] = `=${expr}`;
+    return setItem.run(s, { id: a.id, patch: { bind: Object.keys(bind).length ? bind : undefined, frame: Object.keys(frame).length ? frame : undefined } }, { ...ctx, strict: false });
   },
 });
 

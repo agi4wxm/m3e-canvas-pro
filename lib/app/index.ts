@@ -57,3 +57,9 @@ export { connectWorld, createExampleWorld, type ExampleWorld, type ExampleWorldO
 export { EXAMPLE_WORLD_CONTRACT, contractInputs, type WorldContract, type WorldSchema } from "../world/contract";
 export { WORLD_HOST_CONTRACT, WORLD_LIFECYCLE, type InputPriority, type OverlayPolicy, type PausePolicy, type WorldHostContract, type WorldLifecycleStep } from "../world/hostContract";
 export { WORLD_EVENTS, type Vec2, type World, type WorldChannel, type WorldClock, type WorldEntity, type WorldInputDecl, type WorldInputType, type WorldEventName, type WorldEvents, type WorldInput, type WorldListener, type WorldPointer, type WorldRect, type WorldSlotProps, type WorldState, type WorldStatus } from "../world/types";
+/* Bindings per frame (lib/bindings/frame.ts, docs/数据绑定.md “每帧绑定”): the `world` root a HUD reads, the loop that
+ * evaluates them on every frame and hands each value to the platform's writer, and the web's writer */
+export { createFrameLoop, type FrameLoop, type FrameLoopOptions, type FrameSpec } from "./frame";
+export { compileFrame, frameExprError, FRAME_LIMITS, type FrameBinding } from "../bindings/frame";
+export { readWorld, worldRootOf, worldRootSchema, WORLD_ROOT_KEYS, type WorldSource } from "../world/root";
+export { FRAME_OPACITY, FRAME_TARGETS, frameTargetOf, frameValueOf, writeFrameDom, type FrameKind, type FrameNode, type FrameTarget } from "../world/frameTargets";

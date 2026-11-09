@@ -63,6 +63,10 @@ export interface WorldChannel {
   listen(fn: WorldListener): () => void;
   /** what each input holds now: the direction last sent, whether a button is held down */
   held(): Record<string, WorldInput>;
+  /** Takes the world connected to the view (`connectWorld` hands it), whose snapshot and clock the HUD's bindings per
+   *  frame then read (the `world` root, lib/world/root.ts); gives back how to let it go. A channel no HUD reads through
+   *  leaves it out. */
+  attach?(world: { view(): unknown; clock?(): WorldClock }): () => void;
 }
 
 /** a rectangle of the view, in its own pixels */

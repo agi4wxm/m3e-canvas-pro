@@ -18,6 +18,8 @@ import { pictureError } from "../images";
 import { docIconId, docIconName, isDocIconName } from "../../docIcons";
 import type { CoreState } from "../state";
 import { exprSyntaxError } from "../../bindings/check";
+import { frameExprError } from "../../bindings/frame";
+import { frameProps, frameTargetOf } from "../../world/frameTargets";
 import { allCapabilities, argNamesOf as argNames, capabilityOf, requiredArgsOf as requiredArgs } from "../../capabilities/catalog";
 import { bindRule, conditionRule } from "../../rules";
 import { mapNestedBodies } from "../../refs";
@@ -202,6 +204,17 @@ const ITEM_FIELDS: Record<string, (v: unknown, s: CoreState, it: Item) => string
       if (shape) return `${prop}: ${shape}`;
       /* "=…" is an expression over the bindings */
       const e = exprSyntaxError((id as string).slice(1));
+      if (e) return `${prop}: ${e}`;
+    }
+    return null;
+  },
+  /* the props bound per frame: only those a frame can write, each to a cheap read of the world (lib/bindings/frame.ts) */
+  frame: (v, _s, it) => {
+    if (v === undefined) return null;
+    if (!isRecord(v)) return 'should be {prop: "a per-frame expression over world"}';
+    for (const [prop, expr] of Object.entries(v)) {
+      if (!frameTargetOf(it.component, prop)) return `${it.component} has no prop "${prop}" that can be bound per frame (it has ${frameProps(it.component).join(", ")})`;
+      const e = frameExprError(expr);
       if (e) return `${prop}: ${e}`;
     }
     return null;

@@ -13,7 +13,7 @@ import { generated, type ProductContext, type ProductTarget, type Workspace } fr
 /** the editor's files the runtime is made of: the bindings' pure pieces, the three of lib/api they read (body.ts: how a
  *  transport reads an answer, for the mini-program's), and lib/app */
 export const APP_RUNTIME_FILES = [
-  ...["expr", "format", "messages", "rules", "sources", "form", "channels"].map((n) => `lib/bindings/${n}.ts`),
+  ...["expr", "format", "messages", "rules", "sources", "form", "channels", "frame"].map((n) => `lib/bindings/${n}.ts`),
   ...["types", "transport", "body"].map((n) => `lib/api/${n}.ts`),
   /* what an invoke comes to (lib/app reads the types only) */
   "lib/capabilities/types.ts",
@@ -21,8 +21,9 @@ export const APP_RUNTIME_FILES = [
   "lib/screenMotion.ts",
   ...["model", "host", "run"].map((n) => `lib/actions/${n}.ts`),
   /* the world views' channels, their contract with an engine, and M3E's example engine */
-  ...["types", "contract", "hostContract", "channel", "example"].map((n) => `lib/world/${n}.ts`),
-  ...["store", "session", "sources", "channels", "forms", "scope", "runtime", "react", "actions", "index"].map((n) => `lib/app/${n}.ts`),
+  /* and the `world` root a binding per frame reads, what a frame can write and how the web writes it */
+  ...["types", "contract", "hostContract", "channel", "example", "root", "frameTargets"].map((n) => `lib/world/${n}.ts`),
+  ...["store", "session", "sources", "channels", "forms", "scope", "runtime", "react", "actions", "frame", "index"].map((n) => `lib/app/${n}.ts`),
 ];
 
 const INDEX = `${GENERATED}

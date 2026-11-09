@@ -130,10 +130,12 @@ export function createExampleWorld(start: WorldState = {}, o: ExampleWorldOption
 }
 
 /** Connects a world to the channel its view's inputs come in on and to the design's events: what it holds now first,
- *  then each input as it comes; every event it sends goes to `emit`. Gives back how to undo it. Any engine that
- *  implements `World` connects the same way. */
+ *  then each input as it comes; every event it sends goes to `emit`; the HUD's bindings per frame read it (the channel's
+ *  `attach`). Gives back how to undo it. Any engine that implements `World` connects the same way. */
 export function connectWorld(world: World, channel: WorldChannel, emit?: <K extends WorldEventName>(name: K, payload: WorldEvents[K]) => void): () => void {
   for (const [action, value] of Object.entries(channel.held())) world.input(action, value, 0);
-  const off = [channel.listen((action, value, at) => world.input(action, value, at)), ...(emit ? WORLD_EVENTS.map((name) => world.on(name, (payload) => emit(name, payload as never))) : [])];
+  /* the HUD's bindings per frame read this world's snapshot and clock while it is connected */
+  const detach = channel.attach?.(world);
+  const off = [channel.listen((action, value, at) => world.input(action, value, at)), ...(emit ? WORLD_EVENTS.map((name) => world.on(name, (payload) => emit(name, payload as never))) : []), ...(detach ? [detach] : [])];
   return () => off.forEach((fn) => fn());
 }

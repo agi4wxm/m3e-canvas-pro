@@ -8,6 +8,9 @@ import type { ApiSpec, JsonSchema } from "../api/types";
 import { heldBy, type Doc, type Frame, type Group } from "../tokens";
 import { endpointOf, formFields, listOf, responseSchema, schemaAt, stepsOf, type PathStep } from "./contract";
 import { HELPERS, parseExpr, pathsOf } from "./expr";
+import { partBySlug } from "../../parts/registry";
+import { worldContractOf, worldIdsOf } from "../world/design";
+import { worldRootSchema } from "../world/root";
 
 /** what the scope of one place holds, as far as the editor knows before anything runs */
 export type ScopeShape = {
@@ -27,6 +30,10 @@ export type ScopeShape = {
   error?: boolean;
   /** inside a collection's repeat: its fields, as `row.` */
   row?: string[];
+  /** The `world` root a binding per frame reads (lib/world/root.ts), as the world's contract describes its snapshot,
+   *  when the document has a world view; and the ids its entities start with, what `world.byId.` offers. */
+  world?: JsonSchema;
+  worldIds?: string[];
 };
 
 const SOURCE_FIELDS: PathStep[] = [
@@ -84,6 +91,12 @@ export function shapeFor(doc: Pick<Doc, "api" | "vars" | "groups" | "collections
     sources.push({ name: sub.name, operationId: `channel:${sub.channel}`, value: payload, item: payload, paged: false, channel: sub.channel });
   }
   const shape: ScopeShape = { sources, params: (frame?.params ?? []).map((p) => p.name), vars: (doc.vars ?? []).map((v) => ({ name: v.name || v.id, type: v.type })), inRepeat: false };
+  /* a world view anywhere: a HUD laid over it reads its world per frame */
+  const ids = worldIdsOf(doc);
+  if (ids.length || doc.groups.some((g) => g.items.some((it) => partBySlug(it.component)?.world))) {
+    shape.world = worldRootSchema(worldContractOf(doc).snapshot) as JsonSchema;
+    shape.worldIds = ids;
+  }
   const login = api.auth?.login ? endpointOf(api, api.auth.login) : undefined;
   if (login) {
     const r = responseSchema(api, login);
@@ -164,6 +177,13 @@ function schemaOfPath(api: ApiSpec, shape: ScopeShape, path: string[]): Reached 
       if ((rest[0] === "errors" || rest[0] === "values") && rest.length === 1) return { kind: "steps", steps: shape.form.map((n) => ({ name: n, type: rest[0] === "errors" ? "string" : "field" })) };
       if (rest[0] === "error" && rest.length === 1) return { kind: "steps", steps: PROBLEM_FIELDS };
       return { kind: "none" };
+    case "world": {
+      if (!shape.world) return { kind: "none" };
+      if (rest[0] !== "byId") return inSchema(shape.world, rest);
+      if (rest.length === 1) return { kind: "steps", steps: (shape.worldIds ?? []).map((id) => ({ name: id, type: "entity" })) };
+      const entity = (shape.world as { properties?: { byId?: { additionalProperties?: JsonSchema } } }).properties?.byId?.additionalProperties;
+      return inSchema(entity, rest.slice(2));
+    }
     case "auth":
       if (!rest.length) return { kind: "steps", steps: [{ name: "signedIn", type: "boolean" }, { name: "user", type: "object" }] };
       if (rest[0] === "user") return inSchema(shape.user, rest.slice(1));
@@ -199,6 +219,7 @@ export function suggest(api: ApiSpec, shape: ScopeShape, text: string, caret = t
       shape.response !== undefined ? { label: "response", insert: "response", detail: "the call's answer", kind: "root" } : null,
       shape.error ? { label: "error", insert: "error", detail: "status, title, detail, errors", kind: "root" } : null,
       shape.row?.length ? { label: "row", insert: "row", detail: shape.row.join(", "), kind: "root" } : null,
+      shape.world ? { label: "world", insert: "world", detail: "the world's snapshot, byId, clock (per frame only)", kind: "root" } : null,
     ].filter((x): x is Suggestion => !!x);
     const helpers: Suggestion[] = Object.keys(HELPERS).map((h) => ({ label: `${h}()`, insert: `${h}(`, detail: "helper", kind: "helper" }));
     return { from, items: [...roots, ...helpers].filter((s) => starts(s.label)).slice(0, 40) };
@@ -230,4 +251,31 @@ export function listPaths(api: ApiSpec, shape: ScopeShape): { path: string; deta
 /** the fields of the elements a repeat over `expr` draws, for binding a row's parts */
 export function itemFieldsOf(api: ApiSpec, shape: ScopeShape, expr: string): PathStep[] {
   return stepsOf(api, itemSchemaOf(api, expr, shape));
+}
+
+/** What a per-frame expression reads of `world` that the world's contract says is not there: a key of the snapshot (or
+ *  of an entity, of the clock) its schema does not have and allows no other. An id under `world.byId` is the world's
+ *  to say at run time, never a problem. Empty when the shape has no world, or nothing is known to be wrong. */
+export function worldReadProblems(source: string, shape: ScopeShape): string[] {
+  if (!shape.world) return [];
+  const p = parseExpr(source);
+  if (!p.ok) return [];
+  const out: string[] = [];
+  for (const path of pathsOf(p.expr)) {
+    if (path[0] !== "world") continue;
+    for (let i = 2; i <= path.length; i++) {
+      if (path[1] === "byId" && i === 3) continue;
+      const parent = schemaOfPath({}, shape, path.slice(0, i - 1));
+      const at = schemaOfPath({}, shape, path.slice(0, i));
+      if (at.kind !== "schema" || at.schema !== undefined) continue;
+      if (parent.kind !== "schema" || !parent.schema || typeof parent.schema !== "object") break;
+      const ps = parent.schema as { type?: unknown; properties?: Record<string, unknown>; additionalProperties?: unknown };
+      const step = path[i - 1];
+      /* a list's elements by their place, and its length */
+      if (ps.type === "array" && (/^-?\d+$/.test(step) || step === "length")) continue;
+      if (ps.properties && ps.additionalProperties === false) out.push(`the world's ${path.slice(1, i - 1).join(".") || "snapshot"} has no ${JSON.stringify(step)} (it has ${Object.keys(ps.properties).join(", ")}): the world's contract says what its snapshot holds`);
+      break;
+    }
+  }
+  return [...new Set(out)];
 }

@@ -63,6 +63,7 @@ import { Screen } from "./preview/Screen";
 import { PreviewStore, usePreviewState } from "./preview/store";
 import { useSwipe, type Peek } from "./preview/swipe";
 import { PreviewWorlds } from "./preview/worlds";
+import { PreviewFrames, createPreviewFrames } from "./preview/frames";
 import { createWorlds } from "@/lib/world/channel";
 
 /** room reserved for the wide preview controls: panel, right margin and breathing space */
@@ -326,6 +327,11 @@ export function Preview({
   nav.current = { go, back, returnAfterSignIn, afterSignOut, onShow, dark };
   /* the world views' channels: the input actions go there, the views listen (docs/交互规则.md “输入动作”) */
   const [worlds] = useState(() => createWorlds());
+  /* the bindings per frame of the screens on show: one loop for the session, over the views' worlds, never a render */
+  const langNow = useRef(lang);
+  langNow.current = lang;
+  /* it waits for a frame only while a screen drawn has a binding per frame, so it stops as the preview closes */
+  const [frameLoop] = useState(() => createPreviewFrames(worlds, () => langNow.current));
   const [host] = useState(() =>
     createPreviewHost({
       worldInput: (part, action, value) => worlds.send(part, action, value),
@@ -660,6 +666,7 @@ export function Preview({
   return (
     <PreviewMocksContext.Provider value={mocks}>
     <PreviewWorlds.Provider value={worlds}>
+    <PreviewFrames.Provider value={frameLoop}>
     <PreviewTheme dark={dark}>
     <motion.div
       initial={{ opacity: 0 }}
@@ -820,6 +827,7 @@ export function Preview({
       />
     </motion.div>
     </PreviewTheme>
+    </PreviewFrames.Provider>
     </PreviewWorlds.Provider>
     </PreviewMocksContext.Provider>
   );

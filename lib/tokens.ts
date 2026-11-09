@@ -740,6 +740,11 @@ export type Item = {
   /** which of the part's props follow a variable in the preview: prop key to `DocVar.id`, or to an expression written
    *  after "=" (`"=item.title"`, lib/bindings/expr.ts) that reads the screen's data, its params, variables, the row… */
   bind?: Record<string, string>;
+  /** The props bound per frame (lib/bindings/frame.ts, docs/数据绑定.md “每帧绑定”): prop key (or `@opacity`) to an
+   *  expression, without a leading "=", that reads only the `world` root (the world's snapshot, `world.byId`,
+   *  `world.clock`) and calls no helper. Each host evaluates it on every frame and writes it straight into the drawing,
+   *  never through a render; the canvas draws the design's value. Only the props lib/world/frameTargets.ts names. */
+  frame?: Record<string, string>;
   /** an input inside a form (`Group.form`): the property of the request body it fills, dotted for a nested one
    *  ("email", "address.city") */
   field?: string;
