@@ -23,6 +23,7 @@ import { frameOfPart, type Doc } from "../lib/tokens";
 import { silentLog } from "../mcp/src/log";
 import { findApp, HeadlessRenderer } from "../mcp/src/render";
 import { fixtureDoc } from "./fixtures";
+import type { MockModel, MockReport } from "./mock";
 import { previewsOf, productOf } from "./product";
 import type { CallRecord, EvalTask, Observed } from "./types";
 
@@ -119,7 +120,7 @@ export function metered(inner: Adapter, budget: { tokens: number; ms: number }, 
 /** Drawing as the editor draws, with the editor's settings, but no more than `allowed` times: the turn keeps the app's
  *  own allowance (and the prompt that names it), while the suite caps what it spends on the image model. A drawing
  *  past the cap is refused the way a spent allowance is. */
-export function cappedDrawing(local: GenerateEnv, allowed: number): { remote: RemoteDrawing; drew: () => number } {
+export function cappedDrawing(local: GenerateEnv, allowed: number, inner?: RemoteDrawing): { remote: RemoteDrawing; drew: () => number } {
   let left = allowed;
   let drew = 0;
   const take = () => {
@@ -132,11 +133,11 @@ export function cappedDrawing(local: GenerateEnv, allowed: number): { remote: Re
     remote: {
       async svg(args, signal) {
         take();
-        return drawSvg(args as never, local, signal);
+        return inner ? inner.svg(args, signal) : drawSvg(args as never, local, signal);
       },
       async image(a, signal) {
         take();
-        return paintPicture(local, a.prompt, a.box, signal);
+        return inner ? inner.image(a, signal) : paintPicture(local, a.prompt, a.box, signal);
       },
     },
   };
@@ -159,6 +160,9 @@ export type RunOptions = {
   destructive?: "allow" | "decline";
   /** false: do not export and type-check the product of a document with an API after the turn */
   product?: boolean;
+  /** A recorded run played back in place of the model (evals/mock.ts), made once the starting document is in the
+   *  task's store. Without `renderers` its stand-in pictures are used, and the likeness the recording measured. */
+  mock?: (store: DocStore) => MockModel;
   onEvent?: (e: TurnEvent) => void;
 };
 
@@ -169,6 +173,8 @@ export type RunOutput = {
   transcript: Message[];
   /** every picture seen or drawn, by file name */
   pictures: Record<string, string>;
+  /** with a mock model: how the playback went, and where the code now answered differently */
+  mock?: MockReport;
 };
 
 const clip = (v: unknown, n = 4000): unknown => {
@@ -225,7 +231,10 @@ export async function runTask(task: EvalTask, o: RunOptions): Promise<RunOutput>
   store.load(fixtureDoc(task.fixture), true);
   setDocStyles(store.get().doc.styles);
   const pictures: Record<string, string> = {};
-  const renderer = o.renderers?.forStore(store, task.lang);
+  const mock = o.mock?.(store);
+  /* a mock model without Chromium: blank pictures, the sizes the recorded run measured */
+  const standIn = !o.renderers && mock ? mock.renderer : undefined;
+  const renderer = o.renderers?.forStore(store, task.lang) ?? standIn;
 
   /* the canvas has measured what the author sees, and laid it out by those sizes, before they type */
   if (renderer) {
@@ -242,10 +251,12 @@ export async function runTask(task: EvalTask, o: RunOptions): Promise<RunOutput>
   const t0 = Date.now();
   const meter: Meter = { usage: emptyUsage(), calls: 0, each: [] };
   const settings = settingsOf(o.model);
-  const inner = o.adapter ? o.adapter(task) : createAdapter(settings, { effort: o.model.effort, ...(o.model.fetch ? { fetch: o.model.fetch } : {}) });
+  const inner = mock ? mock.adapter : o.adapter ? o.adapter(task) : createAdapter(settings, { effort: o.model.effort, ...(o.model.fetch ? { fetch: o.model.fetch } : {}) });
   const adapter = metered(inner, budget, t0, meter);
   const images = task.reference ? [attachmentOf(task.reference)] : [];
-  const capped = cappedDrawing({ settings, adapter, ...(o.model.fetch ? { fetch: o.model.fetch } : {}) }, Math.min(task.budget.drawings ?? 2, o.drawings.left));
+  /* the tools' own model calls: with a mock, answered with what they wrote in the recording */
+  const genAdapter = mock ? metered(mock.gen, budget, t0, meter) : adapter;
+  const capped = cappedDrawing({ settings, adapter: genAdapter, ...(o.model.fetch ? { fetch: o.model.fetch } : {}) }, Math.min(task.budget.drawings ?? 2, o.drawings.left), mock?.remote);
 
   /* a call that hangs is stopped well after the budget; that takes the turn back, as stopping does in the editor */
   const ac = new AbortController();
@@ -264,12 +275,13 @@ export async function runTask(task: EvalTask, o: RunOptions): Promise<RunOutput>
     attachments: images,
     lang: task.lang,
     ...(renderer ? { renderer } : {}),
-    gen: { settings, adapter, remote: capped.remote },
+    gen: { settings, adapter: genAdapter, remote: capped.remote },
     maxSteps: budget.steps,
     signal: ac.signal,
     confirm: () => o.destructive === "allow",
     onEvent: (e) => {
       if (e.type === "tool_start") {
+        mock?.callStarted(e.id);
         const batch = e.name === "apply_ops" && Array.isArray(e.args?.ops) ? (e.args.ops as { op?: unknown }[]).map((x) => String(x?.op ?? "")) : undefined;
         calls.set(e.id, { step: e.step, id: e.id, name: e.name, args: clip(e.args), ...(batch ? { ops: batch } : {}), ok: false, summary: "", ms: 0 });
       } else if (e.type === "tool_end") {
@@ -303,12 +315,14 @@ export async function runTask(task: EvalTask, o: RunOptions): Promise<RunOutput>
         const name = `after-${id}.png`;
         pictures[name] = png;
         if (shown.includes(id)) shots.push({ screen: id, file: name });
-        if (images[0] && shown.includes(id)) likeness.push({ screen: id, similarity: likenessOf(images[0].dataUrl, png) });
+        if (images[0] && shown.includes(id) && !standIn) likeness.push({ screen: id, similarity: likenessOf(images[0].dataUrl, png) });
       } catch {
         /* a screen that will not draw is graded on its outline alone */
       }
     }
   }
+  /* blank pictures are like nothing: the likeness is the one the recorded run measured */
+  if (standIn && images[0]) likeness.push(...(mock?.likeness ?? []).filter((l) => shots.some((x) => x.screen === l.screen)));
   const final = savedDoc(store.get());
   const widths = guessMeasurer.measure(store.get());
   /* the product layer, worked out once: the preview of the bound screens and the exported product */
@@ -354,5 +368,5 @@ export async function runTask(task: EvalTask, o: RunOptions): Promise<RunOutput>
     ...(preview ? { preview } : {}),
     ...(product ? { product } : {}),
   };
-  return { observed, transcript: transcriptOf(r.messages, pictures), pictures };
+  return { observed, transcript: transcriptOf(r.messages, pictures), pictures, ...(mock ? { mock: mock.report() } : {}) };
 }

@@ -5,6 +5,8 @@
  *   bun run eval -- --repeat 3 --record out/      three runs a task, each recorded
  *   bun run eval -- --replay out/                 grade recorded runs again, no model called
  *   bun run eval -- --replay out/ --judge         and have a model judge their screenshots
+ *   bun run eval -- --mock evals/recorded/mock/<name> --no-shots
+ *                                                 the agent run again on recorded model turns (evals/mock.ts), no model called
  *
  * The key comes from OPENAI_API_KEY (ANTHROPIC_API_KEY, GEMINI_API_KEY, DEEPSEEK_API_KEY for the others); with none,
  * OpenAI's requests carry a placeholder for a proxy that adds the key on the way out. A key is never printed. Bun's
@@ -20,6 +22,7 @@ import { proxyFetch } from "../mcp/src/generate";
 import { score } from "./graders";
 import { attachmentOf, DEFAULT_MODEL, Renderers, runTask, settingsOf, type ModelConfig } from "./harness";
 import { judge } from "./judge";
+import { mockModel, readRecordings, type MockReport } from "./mock";
 import { writeRun } from "./record";
 import { replay } from "./replay";
 import { PRICES, rowOf, summaryMarkdown, totalsOf, type Price, type RunRow } from "./report";
@@ -42,6 +45,8 @@ const HELP = `bun run eval [options]
   --record <dir>           write each run (transcript, calls, documents, screenshots, scores, usage) and a summary
   --artifacts <dir>        put the per-run folders here instead of in --record (keep big pictures out of git)
   --replay <dir>           grade recorded runs again without calling the agent
+  --mock <dir>             run the agent on the current code with a mock model that plays back recorded runs'
+                           model turns (evals/recorded/mock/<name>); reports where the tools now answer differently
   --judge                  also have a vision model score each run's screenshots 1–5
   --judge-model <id>       the judge's model (default: --model)
   --price <in,cached,out>  dollars per million tokens for the cost estimate
@@ -66,6 +71,7 @@ const { values: v } = parseArgs({
     record: { type: "string" },
     artifacts: { type: "string" },
     replay: { type: "string" },
+    mock: { type: "string" },
     judge: { type: "boolean" },
     "judge-model": { type: "string" },
     price: { type: "string" },
@@ -148,6 +154,68 @@ if (v.replay) {
   const md = write(v.record, rows, { title: v.title ?? "Replayed eval runs", model: used ?? model.model, effort: effort ?? model.effort, ...(replayPrice ? { price: replayPrice } : {}) });
   if (!v.record) console.log(`\n${md}`);
   process.exit(0);
+}
+
+/* ---------- mock runs: recorded model turns played through the current code ---------- */
+
+if (v.mock) {
+  if (v.judge) {
+    console.error("--judge asks a model; it does not go with --mock.");
+    process.exit(2);
+  }
+  /* nothing in a mock run may reach a provider: a request that tries fails loudly instead */
+  globalThis.fetch = (async (input: RequestInfo | URL) => {
+    throw new Error(`A mock run does not go online (asked for ${String(input instanceof Request ? input.url : input)}).`);
+  }) as typeof fetch;
+  const recordings = readRecordings(resolve(v.mock)).filter(({ recording }) => picked.some((t) => t.id === recording.task));
+  if (!recordings.length) {
+    console.error(`No recorded runs of the chosen tasks under ${v.mock}.`);
+    process.exit(2);
+  }
+  const order = (id: string) => TASKS.findIndex((t) => t.id === id);
+  recordings.sort((a, b) => order(a.recording.task) - order(b.recording.task) || a.name.localeCompare(b.name));
+  const renderers = v["no-shots"] ? null : new Renderers();
+  if (renderers && !renderers.available) console.warn("No app build found (bun run build): stand-in pictures instead of screenshots.");
+  const rows: RunRow[] = [];
+  const artifacts = v.artifacts ?? v.record;
+  let bad = 0;
+  try {
+    for (const { name, recording } of recordings) {
+      const task = picked.find((t) => t.id === recording.task)!;
+      let out: Awaited<ReturnType<typeof runTask>>;
+      try {
+        out = await runTask(task, {
+          model: { ...model, key: "" },
+          mock: (store) => mockModel(recording, store),
+          renderers: renderers?.available ? renderers : null,
+          drawings: { left: Infinity },
+          destructive: v.destructive === "allow" ? "allow" : "decline",
+        });
+      } catch (e) {
+        console.error(`  harness error in ${name}: ${e instanceof Error ? (e.stack ?? e.message) : String(e)}`);
+        bad++;
+        continue;
+      }
+      const s = score(task.checks, out.observed);
+      const result: TaskScore = { task: task.id, ability: task.ability, title: task.title, ...s };
+      const row: RunRow = { ...rowOf(name, result, out.observed), ...(out.mock ? { mock: out.mock } : {}) };
+      rows.push(row);
+      if (artifacts) writeRun(join(resolve(artifacts), name), out, result);
+      if (!row.pass || out.mock?.divergences.length) bad++;
+      console.log(`${line(row)}${mockLine(out.mock)}`);
+    }
+  } finally {
+    await renderers?.close();
+  }
+  const md = write(v.record ? resolve(v.record) : undefined, rows, { title: v.title ?? "Mock eval run", model: `mock of ${recordings[0].recording.model}`, effort: recordings[0].recording.effort });
+  if (!v.record) console.log(`\n${md}`);
+  process.exit(bad ? 1 : 0);
+}
+
+function mockLine(m: MockReport | undefined): string {
+  if (!m) return "";
+  const first = m.divergences[0];
+  return `  [mock ${m.played}/${m.turns} turns, ${m.mapped} ids mapped${m.divergences.length ? `, ${m.divergences.length} divergence(s); first at step ${first.step}: ${first.call ? `${first.call.name} ` : ""}${first.detail}` : ""}]`;
 }
 
 /* ---------- live runs ---------- */
