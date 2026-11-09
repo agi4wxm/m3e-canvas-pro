@@ -19,6 +19,7 @@ const FILES: Record<string, string[]> = {
   GameParts: ["SkillButton", "LevelMap", "DialogueBox", "GameBoard"],
   Scene: ["Scene"],
   Platform: ["MapView", "CameraView"],
+  World: ["WorldView"],
   Split: ["SplitView"],
 };
 

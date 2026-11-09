@@ -255,7 +255,7 @@ function cssToHex(css: string): string | undefined {
 
 /** A color: the theme's roles, any hex at any alpha, and the colors already in use on this screen. It opens in place
  *  under its row, so it scrolls with the panel and never covers what it changes. */
-export function ColorPick({ value, onChange, label, p, clearable }: { value?: ColorRef; onChange: (c: ColorRef | undefined) => void; label: string; p: Palette; clearable?: boolean }) {
+export function ColorPick({ value, onChange, label, p, clearable, roles }: { value?: ColorRef; onChange: (c: ColorRef | undefined) => void; label: string; p: Palette; clearable?: boolean; /** the roles a part was designed around (a part's color prop), offered first */ roles?: string[] }) {
   const lang = useLang();
   const behavior = useContext(BehaviorContext);
   const [open, setOpen] = useState(false);
@@ -313,6 +313,11 @@ export function ColorPick({ value, onChange, label, p, clearable }: { value?: Co
         <div style={{ marginTop: 6, padding: 8, borderRadius: 12, background: p.surfaceContainerLow, display: "flex", flexDirection: "column", gap: 8 }}>
           <Scope>
             <span ref={probe} aria-hidden style={{ display: "none", color: colorCss(value) ?? "transparent" }} />
+            {!!roles?.length && (
+              <div role="group" data-part-roles aria-label={t("lkColorPartRoles", lang)} style={{ display: "grid", gridTemplateColumns: "repeat(8, minmax(0, 1fr))", gap: 4, paddingBottom: 4, borderBottom: `1px solid ${p.outlineVariant}` }}>
+                {roles.filter((r) => parseColor(r)).map((r) => cell(r, roleName(r as ColorRole, lang), true))}
+              </div>
+            )}
             <div role="group" aria-label={t("lkColorRoles", lang)} style={{ display: "grid", gridTemplateColumns: "repeat(8, minmax(0, 1fr))", gap: 4 }}>
               {PICK_ROLES.map((r) => cell(r, roleName(r, lang), true))}
             </div>

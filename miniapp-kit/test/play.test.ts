@@ -176,6 +176,23 @@ describe("a movement pad", () => {
     expect(value).toHaveBeenLastCalledWith("0,0");
   });
 
+  it("sends each new direction as a push (`move`, what a world view's input action reads), and the middle as it lets go", () => {
+    tiny.reset();
+    const moved = mock((v: unknown) => void v);
+    const w = drawn(G.Joystick, { onValueChange: () => {}, onMove: moved });
+    const pad = () => w.role("slider", "Joystick")[0];
+    (pad().props.onTouchStart as (e: unknown) => void)({ touches: [{ clientX: 100, clientY: 50 }] });
+    w.draw();
+    expect(moved).toHaveBeenLastCalledWith({ x: 1, y: 0 });
+    /* the finger within the same direction is no new push */
+    (pad().props.onTouchMove as (e: unknown) => void)({ touches: [{ clientX: 100, clientY: 50 }] });
+    w.draw();
+    expect(moved).toHaveBeenCalledTimes(1);
+    (pad().props.onTouchEnd as (e: unknown) => void)({ changedTouches: [{ clientX: 100, clientY: 50 }] });
+    w.draw();
+    expect(moved).toHaveBeenLastCalledWith({ x: 0, y: 0 });
+  });
+
   it("rests where it is let go without going back to the middle, and as its value says", () => {
     expect(G.restingOf({ at: { x: 1, y: 0 }, given: "" }, "", false, 0)).toEqual({ x: 1, y: 0 });
     expect(G.restingOf({ at: { x: 1, y: 0 }, given: "" }, "0,-1", false, 0)).toEqual({ x: 0, y: -1 });
@@ -201,7 +218,7 @@ describe("a skill, a level map, a board", () => {
   it("a level map locks what is ahead and picks the level tapped", () => {
     tiny.reset();
     const second = mock(() => {});
-    const w = drawn(G.LevelMap, { levels: 6, current: 3, taps: { "tab:1": second } });
+    const w = drawn(G.LevelMap, { levels: 6, level: 2, taps: { "tab:1": second } });
     expect(w.role("button", "5")[0].props.onClick).toBeUndefined();
     press(w.role("button", "2")[0]);
     w.draw();

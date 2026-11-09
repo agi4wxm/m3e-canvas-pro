@@ -40,6 +40,8 @@ export const TABLE_COLUMNS: Record<string, TableColumn[]> = {
   "scene.hotspots": [text("label"), num("x"), num("y"), num("w"), num("h")],
   /* the map capability view's markers, as the catalog names them (lib/capabilities/catalog.ts): data of places binds here */
   "map.markers": [text("id"), text("title"), num("lat"), num("lng")],
+  /* a world view's entities, as lib/world names them: where each stands, 0 to 100 across and down the view */
+  "world-view.entities": [text("id"), text("kind"), num("x"), num("y"), text("label")],
   "region-picker.data": [text("province"), text("city"), text("district")],
   "funnel-chart.data": [text("step"), num("value")],
   "gantt-chart.data": [text("task"), num("start"), num("length"), num("done")],

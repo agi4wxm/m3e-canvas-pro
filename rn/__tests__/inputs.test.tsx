@@ -161,17 +161,17 @@ describe("the pickers", () => {
     expect(screen.queryByLabelText("nope")).toBeNull();
     await fireEvent.press(screen.getByRole("radio", { name: "#386A20" }));
     expect(swatch).toHaveBeenCalledWith(2, "#386A20");
-    await draw(<MultiSelect items={[{ label: "Email" }, { label: "Push" }, { label: "SMS" }]} selected="1" />);
+    await draw(<MultiSelect items={[{ label: "Email" }, { label: "Push" }, { label: "SMS" }]} picked="0" />);
     await fireEvent.press(screen.getByRole("checkbox", { name: "SMS" }));
     expect(accessibilityState(screen.getByRole("checkbox", { name: "SMS" })).checked).toBe(true);
     expect(accessibilityState(screen.getByRole("checkbox", { name: "Email" })).checked).toBe(true);
   });
 
   it("several choices start over from what they are given when that changes", async () => {
-    const view = await draw(<MultiSelect items={[{ label: "A" }, { label: "B" }]} selected="1" />);
+    const view = await draw(<MultiSelect items={[{ label: "A" }, { label: "B" }]} picked="0" />);
     await fireEvent.press(screen.getByRole("checkbox", { name: "B" }));
     expect(accessibilityState(screen.getByRole("checkbox", { name: "B" })).checked).toBe(true);
-    await view.rerender(<MultiSelect items={[{ label: "A" }, { label: "B" }]} selected="" />);
+    await view.rerender(<MultiSelect items={[{ label: "A" }, { label: "B" }]} picked="" />);
     expect(accessibilityState(screen.getByRole("checkbox", { name: "B" })).checked).toBe(false);
   });
 

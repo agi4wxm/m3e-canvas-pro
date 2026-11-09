@@ -3,5 +3,5 @@
  * host is checked against. */
 
 export * from "./model";
-export type { BackOptions, CallArgs, Change, FormRef, GoOptions, Host, InvokeOutcome, Outcome, Tap } from "./host";
-export { asBool, asNumber, chooseBranch, coerce, conditionHolds, fillCurrent, run, startOf, tapScope } from "./run";
+export type { BackOptions, CallArgs, Change, FormRef, GoOptions, Host, InvokeOutcome, Outcome, Tap, Vec2, WorldInput } from "./host";
+export { asBool, asNumber, chooseBranch, coerce, conditionHolds, fillCurrent, run, startOf, tapScope, vectorOf } from "./run";

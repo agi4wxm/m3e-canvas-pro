@@ -90,7 +90,7 @@ const NAME = {
 };
 
 /* a container in a layout has no words or paint of its own unless a template asks for them */
-const BARE = { label: "", fill: "none", border: "none", radius: 0, padX: 0, padY: 0 };
+const BARE = { label: "", fill: "", border: "none", radius: 0, padX: 0, padY: 0 };
 
 /** parts one under another, each as wide as the column; as tall as they add up to */
 export const col = (props: Props, kids: Node[], extra: Extra = {}): Node => ({ slug: "container", props: { ...BARE, layout: "column", gap: 12, align: "stretch", hugHeight: true, ...props }, name: NAME.column, ...extra, kids });

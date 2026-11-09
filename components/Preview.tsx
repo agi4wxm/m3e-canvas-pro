@@ -64,6 +64,8 @@ import { PreviewStore, usePreviewState } from "./preview/store";
 import { useSwipe, type Peek } from "./preview/swipe";
 import { startFocus, type DomLayer } from "@/lib/focus/dom";
 import { baseId, inputScope, type InputDevice, type PadKind } from "@/lib/focus/model";
+import { PreviewWorlds } from "./preview/worlds";
+import { createWorlds } from "@/lib/world/channel";
 
 /** room reserved for the wide preview controls: panel, right margin and breathing space */
 const WIDE_CONTROL_SPACE = 220;
@@ -330,8 +332,11 @@ export function Preview({
   const capabilitySession = useRef(0);
   const nav = useRef({ go, back, returnAfterSignIn, afterSignOut, onShow, dark });
   nav.current = { go, back, returnAfterSignIn, afterSignOut, onShow, dark };
+  /* the world views' channels: the input actions go there, the views listen (docs/交互规则.md “输入动作”) */
+  const [worlds] = useState(() => createWorlds());
   const [host] = useState(() =>
     createPreviewHost({
+      worldInput: (part, action, value) => worlds.send(part, action, value),
       doc: () => docRef.current,
       store,
       dark: () => nav.current.dark,
@@ -372,6 +377,8 @@ export function Preview({
     if (was && was.t === answering && was.session === mockSession) return;
     startedWith.current = { t: answering, session: mockSession };
     runtime.restart(presumed);
+    /* what the world views' inputs held belongs to the session before */
+    worlds.clear();
     // the scenario `presumed` reads comes with a session of its own
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [answering, mockSession, runtime]);
@@ -719,6 +726,7 @@ export function Preview({
 
   return (
     <PreviewMocksContext.Provider value={mocks}>
+    <PreviewWorlds.Provider value={worlds}>
     <PreviewTheme dark={dark}>
     <motion.div
       initial={{ opacity: 0 }}
@@ -879,6 +887,7 @@ export function Preview({
       />
     </motion.div>
     </PreviewTheme>
+    </PreviewWorlds.Provider>
     </PreviewMocksContext.Provider>
   );
 }

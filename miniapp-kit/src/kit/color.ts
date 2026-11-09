@@ -1,7 +1,12 @@
+import { MATERIAL } from "./theme.generated";
+
 /* Colors as the stylesheet has them: every M3 role is a CSS variable on the screen's root (`--md-sys-color-<role>`, and
  * its red, green and blue as `--md-sys-color-<role>-rgb` so an opacity can be laid over it), the style's own colors are
  * `--m3e-st-<name>`. A painted surface redefines the words' roles for what it holds (`inkVars`), the way the web's
  * parts redefine `--md-sys-color-on-surface` (parts/appearance.ts). */
+
+/** the roles a color may name: every theme defines them */
+const ROLES = new Set(Object.keys(MATERIAL.light.colors));
 
 const kebab = (s: string) => s.replace(/[A-Z]/g, (x) => `-${x.toLowerCase()}`);
 const round = (n: number) => Math.round(n * 1000) / 1000;
@@ -21,7 +26,8 @@ export function css(ref: string | undefined): string | undefined {
   if (!ref || typeof ref !== "string") return undefined;
   if (ref.startsWith("#")) return /^#[0-9a-f]{3,8}$/i.test(ref) ? ref : undefined;
   const [role, alpha] = ref.split("/");
-  if (!/^[a-z][a-z0-9-]*$/.test(role)) return undefined;
+  /* a role of the scheme (the one color value, the editor's parts/color.ts): words that name none are no color */
+  if (!ROLES.has(role) || (alpha !== undefined && !/^\d{1,3}$/.test(alpha))) return undefined;
   return alpha === undefined ? c(role) : ca(role, Number(alpha) / 100);
 }
 
@@ -56,4 +62,22 @@ export function inkVars(ref: string | undefined): Record<string, string> {
     out[`--md-sys-color-${r}-rgb`] = `var(--md-sys-color-${role}-rgb)`;
   }
   return out;
+}
+
+/** The color words read in over a fill of a color (the editor's parts/color.ts `onColorOf`), as a color the kit paints: a
+ *  role's own on-color, a surface's on-surface, black or white over a hex, whichever stands out more. */
+export function inkOver(ref: string | undefined): string {
+  if (!ref) return "on-surface";
+  if (ref.startsWith("#")) {
+    const rgb = rgbOf(ref);
+    if (!rgb) return "on-surface";
+    const lin = (x: number) => (x <= 0.03928 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4);
+    const [r, g, b] = rgb.split(", ").map((n) => lin(Number(n) / 255));
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b > 0.179 ? "#000000" : "#ffffff";
+  }
+  const role = ref.split("/")[0];
+  if (role === "inverse-surface") return "inverse-on-surface";
+  if (role.startsWith("on-") || role === "outline" || role === "shadow" || role === "scrim") return "surface";
+  if (role === "background" || role.startsWith("surface") || role === "outline-variant") return "on-surface";
+  return `on-${role}`;
 }

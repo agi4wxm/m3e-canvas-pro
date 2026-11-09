@@ -37,7 +37,7 @@ const backBar = (title: Say, link?: Link, trailing = ""): Node => part("app-bar"
 const line = (title: Say, kind: Say, price: string): Node =>
   row({ gap: 12 }, [
     part("image", { alt: title, width: 56, height: 56 }),
-    col({ gap: 2 }, [txt(title, "body"), txt(kind, "caption", { color: "muted" })], { fill: true }),
+    col({ gap: 2 }, [txt(title, "body"), txt(kind, "caption", { color: "on-surface-variant" })], { fill: true }),
     txt(price, "body", { align: "end", width: 72 }),
   ]);
 
@@ -93,10 +93,10 @@ export const productDetailScreen = (links: { cart?: Link; back?: Link } = {}): S
       part("image", { alt: TOTE, height: 240 }),
       part("price-tag", { currency: "$", amount: "24.00", original: "$32.00", discount: "-25%", size: "default" }),
       txt(TOTE, "title", { bold: true }),
-      row({ gap: 8 }, [part("rating", { value: 5, readOnly: true }), txt(say("4.6 · 128 reviews", "4.6 · 128 条评价", "4.6 · レビュー 128 件", "4.6 · 리뷰 128개"), "caption", { color: "muted" }, { fill: true })]),
-      txt(say("Heavy cotton canvas with a roomy inside pocket. Made to carry a laptop and a day's shopping.", "厚实的棉质帆布，内袋宽敞，放得下笔记本和一天的采购。", "厚手のコットンキャンバスに広い内ポケット。ノートパソコンと一日の買い物が入ります。", "두꺼운 면 캔버스에 넉넉한 안주머니. 노트북과 하루치 장보기가 들어갑니다."), "body", { color: "muted" }),
+      row({ gap: 8 }, [part("rating", { value: 5, readOnly: true }), txt(say("4.6 · 128 reviews", "4.6 · 128 条评价", "4.6 · レビュー 128 件", "4.6 · 리뷰 128개"), "caption", { color: "on-surface-variant" }, { fill: true })]),
+      txt(say("Heavy cotton canvas with a roomy inside pocket. Made to carry a laptop and a day's shopping.", "厚实的棉质帆布，内袋宽敞，放得下笔记本和一天的采购。", "厚手のコットンキャンバスに広い内ポケット。ノートパソコンと一日の買い物が入ります。", "두꺼운 면 캔버스에 넉넉한 안주머니. 노트북과 하루치 장보기가 들어갑니다."), "body", { color: "on-surface-variant" }),
       col({ gap: 8 }, [
-        txt(say("Color", "颜色", "カラー", "색상"), "label", { color: "muted" }),
+        txt(say("Color", "颜色", "カラー", "색상"), "label", { color: "on-surface-variant" }),
         part("chip", {
           kind: "filter",
           selected: 0,
@@ -194,7 +194,7 @@ export const placeOrder = (result: string): Action => ({
 
 /** a notice of the checkout's, shown while what went wrong last is this */
 const issue = (when: { expr: string }, icon: string, title: Say, words: Say): Node =>
-  row({ gap: 12, align: "start", padX: 16, padY: 12, fill: "surface-container-highest", radius: 12 }, [part("icon", { name: icon, size: 24, color: "error" }), col({ gap: 2 }, [txt(title, "label"), txt(words, "caption", { color: "muted" })], { fill: true })], { showWhen: when });
+  row({ gap: 12, align: "start", padX: 16, padY: 12, fill: "surface-container-highest", radius: 12 }, [part("icon", { name: icon, size: 24, color: "error" }), col({ gap: 2 }, [txt(title, "label"), txt(words, "caption", { color: "on-surface-variant" })], { fill: true })], { showWhen: when });
 
 export const checkoutScreen = (links: { place?: Link; back?: Link } = {}): ScreenSeed =>
   screen({
@@ -220,22 +220,22 @@ export const checkoutScreen = (links: { place?: Link; back?: Link } = {}): Scree
               issue({ expr: "vars.payIssue != '' && vars.payIssue != 'cancelled' && vars.payIssue != 'order'" }, "error", say("The payment did not go through", "支付没有成功", "支払いが完了しませんでした", "결제가 완료되지 않았습니다"), say("Try again, or pick another way to pay.", "请重试，或换一种支付方式。", "もう一度お試しいただくか、別の支払い方法を選んでください。", "다시 시도하거나 다른 결제 수단을 선택하세요.")),
             ]
           : []),
-        panel({ gap: 8 }, [txt(say("Deliver to", "配送至", "お届け先", "배송지"), "label", { color: "muted" }), deliverTo()]),
+        panel({ gap: 8 }, [txt(say("Deliver to", "配送至", "お届け先", "배송지"), "label", { color: "on-surface-variant" }), deliverTo()]),
         panel({}, [
           row({ gap: 8 }, [
             part("image", { alt: TOTE, width: 56, height: 56 }),
             part("image", { alt: MUG, width: 56, height: 56 }),
             part("image", { alt: BOTTLE, width: 56, height: 56 }),
-            txt(say("4 items", "共 4 件", "4 点", "4개"), "body", { align: "end", color: "muted" }, { fill: true }),
+            txt(say("4 items", "共 4 件", "4 点", "4개"), "body", { align: "end", color: "on-surface-variant" }, { fill: true }),
           ]),
         ]),
         panel({ gap: 8 }, [
-          txt(say("Pay with", "支付方式", "お支払い方法", "결제 수단"), "label", { color: "muted" }),
+          txt(say("Pay with", "支付方式", "お支払い方法", "결제 수단"), "label", { color: "on-surface-variant" }),
           part("radio-group", { selected: 0, items: [{ label: say("Card ending 4242", "尾号 4242 的卡", "下 4 桁 4242 のカード", "끝자리 4242 카드") }, { label: say("Bank transfer", "银行转账", "銀行振込", "계좌 이체") }, { label: say("Cash on delivery", "货到付款", "代金引換", "착불") }] }),
         ]),
         part("input-group", { placeholder: say("Promo code", "优惠码", "プロモーションコード", "프로모션 코드"), leadingIcon: "sell", leadingText: "", trailingText: "", button: say("Apply", "使用", "適用", "적용") }),
         panel({ gap: 8 }, [
-          txt(say("Summary", "订单摘要", "ご注文内容", "주문 요약"), "label", { color: "muted" }),
+          txt(say("Summary", "订单摘要", "ご注文内容", "주문 요약"), "label", { color: "on-surface-variant" }),
           part("description-list", {
             data: {
               columns: ["Name", "Value"],
@@ -266,7 +266,7 @@ export const orderSuccessScreen =(links: { more?: Link } = {}): ScreenSeed =>
         col({ gap: 12 }, [
           row({ justify: "center", hugHeight: false, height: 96 }, [part("icon", { name: "check_circle", size: 96, color: "primary", filled: true })]),
           txt(say("Payment received", "支付成功", "お支払いが完了しました", "결제가 완료되었습니다"), "headline", { align: "center" }),
-          txt(say("We will email you when it ships.", "发货后会给你发邮件。", "発送時にメールでお知らせします。", "배송이 시작되면 이메일로 알려 드립니다."), "body", { align: "center", color: "muted" }),
+          txt(say("We will email you when it ships.", "发货后会给你发邮件。", "発送時にメールでお知らせします。", "배송이 시작되면 이메일로 알려 드립니다."), "body", { align: "center", color: "on-surface-variant" }),
           panel({}, [
             part("description-list", {
               data: {
@@ -288,18 +288,18 @@ export const orderSuccessScreen =(links: { more?: Link } = {}): ScreenSeed =>
         col({ gap: 12 }, [
           row({ justify: "center", hugHeight: false, height: 72 }, [part("icon", { name: "hourglass_top", size: 72, color: "primary" })]),
           txt(say("Payment processing", "支付处理中", "お支払いを処理しています", "결제 처리 중"), "headline", { align: "center" }),
-          txt(say("This page shows the result as soon as the payment service confirms it.", "支付服务确认后，这里会显示结果。", "決済サービスの確認が取れしだい、ここに結果を表示します。", "결제 서비스가 확인하면 바로 결과가 표시됩니다."), "body", { align: "center", color: "muted" }),
+          txt(say("This page shows the result as soon as the payment service confirms it.", "支付服务确认后，这里会显示结果。", "決済サービスの確認が取れしだい、ここに結果を表示します。", "결제 서비스가 확인하면 바로 결과가 표시됩니다."), "body", { align: "center", color: "on-surface-variant" }),
           part("button", { label: say("Check again", "刷新状态", "もう一度確認", "다시 확인"), icon: "refresh", variant: "tonal" }, { action: { to: "none", effects: [{ do: "refresh", source: "order" }] } }),
         ], { showWhen: { expr: "data.order.value.status == 'pending' || data.order.value.status == 'processing'" } }),
         /* failed or cancelled, as the back end says */
         col({ gap: 12 }, [
           row({ justify: "center", hugHeight: false, height: 72 }, [part("icon", { name: "error", size: 72, color: "error" })]),
           txt(say("Payment failed", "支付失败", "お支払いに失敗しました", "결제 실패"), "headline", { align: "center" }),
-          txt(say("Nothing was taken for this order. Try again, or pick another way to pay.", "这笔订单没有扣款。请重试，或换一种支付方式。", "この注文の支払いは行われていません。もう一度お試しいただくか、別の支払い方法を選んでください。", "이 주문은 결제되지 않았습니다. 다시 시도하거나 다른 결제 수단을 선택하세요."), "body", { align: "center", color: "muted" }),
+          txt(say("Nothing was taken for this order. Try again, or pick another way to pay.", "这笔订单没有扣款。请重试，或换一种支付方式。", "この注文の支払いは行われていません。もう一度お試しいただくか、別の支払い方法を選んでください。", "이 주문은 결제되지 않았습니다. 다시 시도하거나 다른 결제 수단을 선택하세요."), "body", { align: "center", color: "on-surface-variant" }),
           part("button", { label: say("Back to checkout", "返回结算", "レジに戻る", "결제로 돌아가기") }, { action: { to: "back" } }),
         ], { showWhen: { expr: "data.order.value.status == 'failed' || data.order.value.status == 'cancelled'" } }),
         /* the order on its way, and one that could not be loaded */
-        col({ gap: 8, align: "center" }, [part("loading-indicator", {}), txt(say("Checking the payment…", "正在确认支付结果…", "支払いを確認しています…", "결제를 확인하는 중…"), "body", { color: "muted" })], { pane: 1 }),
+        col({ gap: 8, align: "center" }, [part("loading-indicator", {}), txt(say("Checking the payment…", "正在确认支付结果…", "支払いを確認しています…", "결제를 확인하는 중…"), "body", { color: "on-surface-variant" })], { pane: 1 }),
         col({ gap: 8, align: "center" }, [
           txt(say("The order could not be loaded", "订单加载失败", "注文を読み込めませんでした", "주문을 불러오지 못했습니다"), "label"),
           part("button", { label: say("Try again", "重试", "再試行", "다시 시도"), variant: "tonal" }, { action: { to: "none", effects: [{ do: "refresh", source: "order" }] } }),
@@ -370,7 +370,7 @@ export const paymentContract = (lang: Lang): TemplateContract => ({ api: { model
 
 const orderCard = (number: string, status: Say, title: Say, kind: Say, price: string, action: Say): Node =>
   panel({ gap: 8 }, [
-    row({ justify: "between" }, [txt(number, "label", { color: "muted", width: 160 }), txt(status, "label", { color: "primary", align: "end", width: 120 })]),
+    row({ justify: "between" }, [txt(number, "label", { color: "on-surface-variant", width: 160 }), txt(status, "label", { color: "primary", align: "end", width: 120 })]),
     line(title, kind, price),
     row({ justify: "end" }, [part("button", { label: action, size: "sm", variant: "tonal" })]),
   ]);
@@ -491,7 +491,7 @@ export const shop: Template[] = [
               },
             }),
           ]),
-          panel({ gap: 8 }, [txt(say("Deliver to", "配送至", "お届け先", "배송지"), "label", { color: "muted" }), deliverTo()]),
+          panel({ gap: 8 }, [txt(say("Deliver to", "配送至", "お届け先", "배송지"), "label", { color: "on-surface-variant" }), deliverTo()]),
           panel({}, [line(TOTE, TOTE_KIND, "$24.00")]),
           panel({}, [
             part("description-list", {
@@ -525,7 +525,7 @@ export const shop: Template[] = [
         body: [
           panel({}, [line(TOTE, TOTE_KIND, "$24.00")]),
           panel({ gap: 8 }, [
-            txt(say("What would you like?", "你希望如何处理", "ご希望の対応", "원하는 처리 방법"), "label", { color: "muted" }),
+            txt(say("What would you like?", "你希望如何处理", "ご希望の対応", "원하는 처리 방법"), "label", { color: "on-surface-variant" }),
             part("radio-group", { selected: 0, items: [{ label: say("Refund only", "仅退款", "返金のみ", "환불만") }, { label: say("Return and refund", "退货退款", "返品して返金", "반품 후 환불") }] }),
           ]),
           /* on a phone this is a row that opens a list of reasons */

@@ -141,6 +141,7 @@ export const LOOK_UI = {
   lkTextureBlend: { ja: "テクスチャの合成", en: "Texture blend", zh: "纹理混合" },
   /* colors */
   lkColorRoles: { ja: "テーマの色", en: "Theme roles", zh: "主题色" },
+  lkColorPartRoles: { ja: "この部品の色", en: "This part's colors", zh: "组件自带的颜色" },
   lkColorInUse: { ja: "使っている色", en: "In use", zh: "已用颜色" },
   lkColorHex: { ja: "16 進の色", en: "Hex color", zh: "十六进制颜色" },
   lkColorAlpha: { ja: "不透明度", en: "Alpha", zh: "不透明度" },
@@ -286,6 +287,7 @@ export const LOOK_KO: Record<keyof typeof LOOK_UI, string> = {
   lkTextureSize: "크기",
   lkTextureBlend: "질감 혼합",
   lkColorRoles: "테마 색",
+  lkColorPartRoles: "이 구성 요소의 색",
   lkColorInUse: "사용 중인 색",
   lkColorHex: "16진 색",
   lkColorAlpha: "불투명도",

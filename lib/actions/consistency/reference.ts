@@ -5,7 +5,8 @@
 import { endpointOf, formFields, paramsOf } from "../../bindings/contract";
 import { eventAction, eventsOf, payloadOf, slotAction } from "../../partContract";
 import { groupsInFrame, type Doc, type Frame, type Group, type Item } from "../../tokens";
-import type { BackOptions, CallArgs, Change, FormRef, GoOptions, Host, InvokeOutcome, Outcome, Tap } from "../host";
+import type { BackOptions, CallArgs, Change, FormRef, GoOptions, Host, InvokeOutcome, Outcome, Tap, WorldInput } from "../host";
+import { inputLog } from "../../world/channel";
 import type { FailureKind } from "../../capabilities/types";
 import type { VarValue } from "../model";
 import { run, startOf } from "../run";
@@ -38,6 +39,8 @@ export class ReferenceHost implements Host {
   signedIn = false;
   /** the last screen move */
   move: Move | undefined;
+  /** what each world view's stand-in lists of the inputs it heard, by its item id */
+  heard: Record<string, string[]> = {};
   private epoch = 0;
   private count = 0;
   private sending = new Set<string>();
@@ -75,6 +78,8 @@ export class ReferenceHost implements Host {
         const set = this.props[it.id];
         words.push(typeof set?.text === "string" ? set.text : typeof set?.label === "string" ? set.label : wordsOf(it));
         if (it.component === "dropdown-menu" && this.opened[it.id]) for (const row of ((it.props?.items as { label?: string }[] | undefined) ?? [])) words.push(row.label ?? "");
+        /* a world view's stand-in lists the inputs it heard */
+        words.push(...(this.heard[it.id] ?? []));
       }
     return { vars: { ...this.vars }, words, toast: this.snack, screen: this.top().id, calls: this.backend.calls, ...(this.move ? { move: this.move } : {}) };
   }
@@ -286,6 +291,11 @@ export class ReferenceHost implements Host {
 
   toast(text: string) {
     this.snack = text;
+  }
+
+  /** an input for a world view: its channel delivers it at once, and its stand-in lists it */
+  worldInput(part: string, action: string, value: WorldInput) {
+    this.heard = { ...this.heard, [part]: inputLog(this.heard[part] ?? [], action, value) };
   }
 
   go(to: string, o: Pick<GoOptions, "overlay" | "params" | "motion">) {

@@ -3,6 +3,7 @@ import { standIn } from "./instances";
 import { cleanLook } from "./look";
 import { cleanStyles } from "./styles";
 import { cleanDocIcons } from "./docIcons";
+import { ASSET_PATH } from "./assetManifest";
 import { cleanDocMaterials } from "./materials";
 import { cleanApi } from "./api/clean";
 import { cleanMocks } from "./mocks/clean";
@@ -10,13 +11,13 @@ import { cleanCapabilities } from "./capabilities/clean";
 import { fitsType, startValueOf } from "./variables";
 import { cleanMotion, cleanTrigger } from "./prototype";
 import { H_CONSTRAINTS, V_CONSTRAINTS } from "./constraints";
-import { COLOR_TOKENS, type Action, type ActionBody, Collection, ComponentDef, ComponentProp, ComponentSet, Condition, VarCollection, Doc, DocVar, Effect, Frame, Group, Item, Palette, VARIANTS, VarValue, isPlace, isTextToken } from "./tokens";
+import { COLOR_TOKENS, type Action, type ActionBody, Collection, ComponentDef, ComponentProp, ComponentSet, Condition, VarCollection, Doc, DocVar, Effect, ExternalFiles, Frame, Group, Item, Palette, VARIANTS, VarValue, isPlace, isTextToken } from "./tokens";
 import { cleanDataSources, cleanExpr, cleanExprMap, cleanForm, cleanRegion, cleanScreenParams, cleanSubscriptions } from "./bindings/clean";
 import { BARE_VERSION, PROJECT_VERSION, migrate, versionOf, type Migration } from "./migrations";
 import { fields, withUnknown } from "./keep";
 import { bindRule, conditionRule } from "./rules";
 /* how deep a call's `then` and `catch` may hold calls of their own: the interpreter's own limit */
-import { MAX_CALL_DEPTH } from "./actions/model";
+import { MAX_CALL_DEPTH, WORLD_ACTION } from "./actions/model";
 import { cleanFrameFocus, cleanItemFocus } from "./focus/clean";
 
 /* A project file is the Doc as JSON, nothing more. Reading one back only checks
@@ -101,6 +102,9 @@ const EFFECT_FIELDS: Record<string, ReadonlySet<string>> = {
   loadMore: fields("do", "source"),
   submit: fields("do", "form"),
   signOut: fields("do"),
+  move: fields("do", "part", "action", "vector"),
+  press: fields("do", "part", "action"),
+  release: fields("do", "part", "action"),
 };
 const OPTIMISTIC = fields("source", "remove", "patch");
 
@@ -160,6 +164,14 @@ function cleanKnownEffect(e: Record<string, unknown>, depth: number): Effect | u
       return { do: "submit", ...(typeof e.form === "string" && e.form ? { form: e.form } : {}) };
     case "signOut":
       return { do: "signOut" };
+    case "move": {
+      if (typeof e.part !== "string" || !e.part || (e.action !== undefined && !(typeof e.action === "string" && WORLD_ACTION.test(e.action)))) return undefined;
+      const vector = cleanExpr(e.vector);
+      return vector ? { do: "move", part: e.part, ...(typeof e.action === "string" ? { action: e.action } : {}), vector } : undefined;
+    }
+    case "press":
+    case "release":
+      return typeof e.part === "string" && e.part && typeof e.action === "string" && WORLD_ACTION.test(e.action) ? { do: e.do, part: e.part, action: e.action } : undefined;
     default:
       return undefined;
   }
@@ -456,6 +468,16 @@ export function cappedNesting(groups: Group[]): Group[] {
 }
 
 /** a document with what is wrong in its behaviour taken out; it always comes back whole */
+/** `Doc.external` as the format has it: each path one inside the project's folder (lib/assetManifest.ts `ASSET_PATH`) */
+function cleanExternal(v: unknown): ExternalFiles | undefined {
+  if (!isRecord(v)) return undefined;
+  const built: ExternalFiles = {};
+  if (typeof v.assetManifest === "string" && ASSET_PATH.test(v.assetManifest)) built.assetManifest = v.assetManifest;
+  const out = withUnknown(v, built, EXTERNAL_KEYS);
+  return Object.keys(out).length ? out : undefined;
+}
+const EXTERNAL_KEYS = new Set(["assetManifest"]);
+
 export function cleanBehavior(doc: Doc): Doc {
   const out: Doc = { ...doc, frames: doc.frames.map(cleanFrame), groups: cappedNesting(doc.groups.map(cleanGroup)) };
   if (out.customPalette !== undefined) {
@@ -523,6 +545,13 @@ export function cleanBehavior(doc: Doc): Doc {
     const capabilities = cleanCapabilities(out.capabilities);
     if (capabilities) out.capabilities = capabilities;
     else delete out.capabilities;
+  }
+  /* where the outside modules' files are read from: paths inside the project's folder; one that is not goes, and so
+     does the whole when nothing is left of it (what else it says, a later version's, stays) */
+  if (out.external !== undefined) {
+    const external = cleanExternal(out.external);
+    if (external) out.external = external;
+    else delete out.external;
   }
   const instances = (list: Group[]) => list.map((g) => cleanInstance(g, out.components)).filter((g): g is Group => g !== undefined && g.items.length > 0);
   out.groups = instances(out.groups);

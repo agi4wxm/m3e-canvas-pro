@@ -38,6 +38,12 @@ export type Tap = {
 
 export type { InvokeOutcome };
 
+/** a direction, x and y each from -1 to 1 (0,0 the middle, 0,-1 straight up): what a `move` sends a world */
+export type Vec2 = { x: number; y: number };
+
+/** what an input of a world holds: a direction, or whether a button of it is held down */
+export type WorldInput = Vec2 | boolean;
+
 /** what a call came to: its answer (2XX), or the problem; `unauthorized` when the refusal sent the app to sign in (no
  *  `catch` then), `dropped` when the host started over while it was out (another scenario, a restarted runtime) */
 export type Outcome = { ok: true; status: number; response: unknown } | { ok: false; status: number; error: unknown; unauthorized?: boolean; dropped?: boolean };
@@ -110,6 +116,10 @@ export interface Host {
   /** A call or a form answered 2XX: when it was the sign-in and a guard or a refusal had sent the app there, the host
    *  takes it back where it was and says so (the answer's `then` then runs without going anywhere itself). */
   afterSignIn(operationId: string): boolean;
+  /** Sends an input to the world view `part` (an item id): a direction for a `move`, true for a `press`, false for a
+   *  `release`. A host hands it to that view's channel at once, by no state of its own: what the input does is the
+   *  world's (its engine's) to decide. A host with no world views may leave it out; the input then goes nowhere. */
+  worldInput?(part: string, action: string, value: WorldInput, tap: Tap): void;
   /** How many times the visitor has gone somewhere (a screen opened, gone back from, laid over or closed, picked,
    *  swiped to), counted as each move is made. An answer compares it with the count its tap left. */
   moves(): number;

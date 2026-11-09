@@ -261,7 +261,7 @@ export const tests: E2ETest[] = [
       await projectMenu(page, "Save to file");
       await page.waitForSelector('[data-project-pill][data-file-status="saved"]', { timeout: 10_000 });
       let text = await fileText(page, "shop.json");
-      check(text.startsWith('{\n  "format": "m3e-project",\n  "version": 5,\n  "document": {\n'), "the project file's envelope, two spaces in");
+      check(text.startsWith('{\n  "format": "m3e-project",\n  "version": 6,\n  "document": {\n'), "the project file's envelope, two spaces in");
       const doc = await savedDoc(page);
       const file = JSON.parse(text) as { document: Doc };
       equal(file.document, doc, "the file holds the document");

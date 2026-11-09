@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { assetCatalog } from "@/lib/assetCatalog";
 import type { Doc, Palette } from "@/lib/tokens";
 import { t, UI, useLang, type UIKey } from "@/lib/i18n";
 import type { ExportPlan } from "@/lib/export/merge";
@@ -87,7 +88,7 @@ export function DownloadProject({ doc, widths, p, stacked = true }: { doc: Doc; 
     if (!begin()) return;
     try {
       const { buildProject, zipProject } = await import("@/lib/exportProject");
-      const project = await buildProject(doc, widths, { onlyFrameId: known === ALL ? undefined : known, lang, onProgress: (done, total) => setBusy({ done, total }) });
+      const project = await buildProject(doc, widths, { onlyFrameId: known === ALL ? undefined : known, lang, assets: assetCatalog()?.manifest ?? null, onProgress: (done, total) => setBusy({ done, total }) });
       save(zipProject(project.files), `${project.name}.zip`);
       setSaid(partial(project.warnings) ?? { text: t("downloadDone", lang), bad: false });
     } catch (e) {
@@ -99,7 +100,8 @@ export function DownloadProject({ doc, widths, p, stacked = true }: { doc: Doc; 
 
   const product = async () => {
     const { buildProduct } = await import("@/lib/export/product");
-    return buildProduct(doc, widths, { lang, onProgress: (done, total) => setBusy({ done, total }) });
+    /* the asset manifest the project's folder holds (lib/projects/assetLink.ts): the apps' lookups are made from it */
+    return buildProduct(doc, widths, { lang, assets: assetCatalog()?.manifest ?? null, onProgress: (done, total) => setBusy({ done, total }) });
   };
 
   const zipIt = async () => {

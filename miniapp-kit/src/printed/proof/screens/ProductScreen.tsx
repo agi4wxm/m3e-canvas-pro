@@ -34,7 +34,7 @@ export function ProductScreen() {
             text={"$32.00"}
             styleVariant="caption"
             fit="auto"
-            color="muted"
+            color="on-surface-variant"
             look={{ text: { decoration: "line-through" } }}
           />
           <Badge label="-25%" variant="destructive" />
@@ -46,7 +46,7 @@ export function ProductScreen() {
       <At x={16} y={432}>
         <Container
           label=""
-          ground="none"
+          ground=""
           border="none"
           radius={0}
           layout="row"
@@ -59,14 +59,20 @@ export function ProductScreen() {
         >
           <Rating value={5} readOnly testID="rating" />
           <Cell dir="row" grow>
-            <Text text={"4.6 · 128 reviews"} styleVariant="caption" color="muted" width={212} testID="text20" />
+            <Text
+              text={"4.6 · 128 reviews"}
+              styleVariant="caption"
+              color="on-surface-variant"
+              width={212}
+              testID="text20"
+            />
           </Cell>
         </Container>
       </At>
       <At x={16} y={488}>
         <Text
           text={"Heavy cotton canvas with a roomy inside pocket. Made to carry a laptop and a day's shopping."}
-          color="muted"
+          color="on-surface-variant"
           width={380}
           testID="text21"
         />
@@ -74,7 +80,7 @@ export function ProductScreen() {
       <At x={16} y={528}>
         <Container
           label=""
-          ground="none"
+          ground=""
           border="none"
           radius={0}
           layout="column"
@@ -86,7 +92,7 @@ export function ProductScreen() {
           testID="column2"
         >
           <Cell dir="column" fillWidth>
-            <Text text="Color" styleVariant="label" color="muted" width={380} testID="text22" />
+            <Text text="Color" styleVariant="label" color="on-surface-variant" width={380} testID="text22" />
           </Cell>
           <Cell dir="column" fillWidth>
             <Chip items={[{ label: "Sand" }, { label: "Navy" }, { label: "Olive" }]} kind="filter" testID="chip2" />
@@ -113,10 +119,10 @@ export function ProductScreen() {
           </Cell>
           <Box gap={0} padX={0} padY={0} align="end">
             <Box layout="row" gap={4} padX={0} padY={0} align="end">
-              <Text text="Price" styleVariant="caption" fit="auto" color="muted" />
+              <Text text="Price" styleVariant="caption" fit="auto" color="on-surface-variant" />
               <Text text={"$24.00"} styleVariant="title" fit="auto" color="primary" />
             </Box>
-            <Text text="Free delivery" styleVariant="tiny" fit="auto" color="muted" />
+            <Text text="Free delivery" styleVariant="tiny" fit="auto" color="on-surface-variant" />
           </Box>
           <Button label="Add to cart" onPress={() => s.run(A2, { $: $ })} />
         </Box>

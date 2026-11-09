@@ -52,13 +52,13 @@ const video = kit(
   "the picture over a row of the channel's avatar, two lines of title over the channel, views and age, and a more button; a row with the picture at the side and the length as a tag; or a tall short-video tile with two lines and the likes",
   [
     variant("stacked", "Picture over details", ["图片在上", "画像の下に詳細", "이미지 아래 세부"], () =>
-      vbox({ width: W, hugWidth: false, gap: 10 }, [image({ height: 214, alt: "" }), hbox({ gap: 12, align: "start" }, [avatar("WJ", { size: "sm" }), vbox({ gap: 2, hugWidth: false, width: 200 }, [para(VIDEO, "label", { bold: true, maxLines: 2 }), para(CHANNEL, "caption", { color: "muted", maxLines: 1 })], { grow: true }), iconButton("more_vert", say("More", "更多", "その他", "더보기"), { size: "xs" })])]),
+      vbox({ width: W, hugWidth: false, gap: 10 }, [image({ height: 214, alt: "" }), hbox({ gap: 12, align: "start" }, [avatar("WJ", { size: "sm" }), vbox({ gap: 2, hugWidth: false, width: 200 }, [para(VIDEO, "label", { bold: true, maxLines: 2 }), para(CHANNEL, "caption", { color: "on-surface-variant", maxLines: 1 })], { grow: true }), iconButton("more_vert", say("More", "更多", "その他", "더보기"), { size: "xs" })])]),
     ),
     variant("row", "Picture at the side", ["图片在侧", "画像が横", "이미지 옆"], () =>
-      hbox({ width: W, hugWidth: false, gap: 12, align: "start" }, [image({ width: 160, height: 90, alt: "" }), vbox({ gap: 4, hugWidth: false, width: 160, align: "stretch" }, [para(VIDEO, "label", { bold: true, maxLines: 2 }), para(say("Walk Japan", "漫步日本", "Walk Japan", "Walk Japan"), "caption", { color: "muted", maxLines: 1 }), hbox({ gap: 0 }, [tag("12:48", "secondary")])], { grow: true })]),
+      hbox({ width: W, hugWidth: false, gap: 12, align: "start" }, [image({ width: 160, height: 90, alt: "" }), vbox({ gap: 4, hugWidth: false, width: 160, align: "stretch" }, [para(VIDEO, "label", { bold: true, maxLines: 2 }), para(say("Walk Japan", "漫步日本", "Walk Japan", "Walk Japan"), "caption", { color: "on-surface-variant", maxLines: 1 }), hbox({ gap: 0 }, [tag("12:48", "secondary")])], { grow: true })]),
     ),
     variant("short", "Short-video tile", ["短视频卡片", "ショート動画タイル", "숏폼 타일"], () =>
-      vbox({ width: 180, hugWidth: false, gap: 6 }, [image({ height: 300, alt: "" }), para(VIDEO, "label", { maxLines: 2 }), hbox({ gap: 6 }, [avatar("WJ", { size: "sm" }), para(say("Walk Japan", "漫步日本", "Walk Japan", "Walk Japan"), "caption", { color: "muted", maxLines: 1 }, { grow: true }), icon("favorite", { size: 16, color: "muted" }), muted("12k", "caption")])]),
+      vbox({ width: 180, hugWidth: false, gap: 6 }, [image({ height: 300, alt: "" }), para(VIDEO, "label", { maxLines: 2 }), hbox({ gap: 6 }, [avatar("WJ", { size: "sm" }), para(say("Walk Japan", "漫步日本", "Walk Japan", "Walk Japan"), "caption", { color: "on-surface-variant", maxLines: 1 }, { grow: true }), icon("favorite", { size: 16, color: "on-surface-variant" }), muted("12k", "caption")])]),
     ),
   ],
 );
@@ -80,13 +80,13 @@ const settings = kit(
     variant("columns", "Two columns", ["两栏", "二列", "두 열"], () =>
       vbox({ width: 640, hugWidth: false, gap: 0 }, [
         hbox({ padY: 8 }, [text(say("Appearance", "外观", "外観", "모양"), "title", { bold: true })]),
-        ...SETTINGS.flatMap(([name, about, control], i) => [...(i ? [rule(640)] : []), hbox({ padX: 0, padY: 14, gap: 24 }, [vbox({ gap: 2, hugWidth: false, width: 300 }, [text(name, "label", { bold: true }), para(about, "caption", { color: "muted" })], { grow: true }), control])]),
+        ...SETTINGS.flatMap(([name, about, control], i) => [...(i ? [rule(640)] : []), hbox({ padX: 0, padY: 14, gap: 24 }, [vbox({ gap: 2, hugWidth: false, width: 300 }, [text(name, "label", { bold: true }), para(about, "caption", { color: "on-surface-variant" })], { grow: true }), control])]),
       ]),
     ),
     variant("stacked", "Stacked", ["上下排列", "縦並び", "세로"], () =>
       vbox({ width: 560, hugWidth: false, gap: 18 }, [
         text(say("Editor", "编辑器", "エディタ", "편집기"), "title", { bold: true }),
-        vbox({ gap: 6 }, [text(say("Editor: Font Size", "编辑器：字号", "エディタ：フォントサイズ", "편집기: 글꼴 크기"), "label", { bold: true }), para(say("Controls the font size in pixels.", "控制字号（像素）。", "フォントサイズをピクセルで指定します。", "글꼴 크기를 픽셀로 지정합니다."), "caption", { color: "muted" }), hbox({ gap: 0 }, [atom("input", { placeholder: "14", value: "14", variant: "outlined", size: "sm", width: 200 })])]),
+        vbox({ gap: 6 }, [text(say("Editor: Font Size", "编辑器：字号", "エディタ：フォントサイズ", "편집기: 글꼴 크기"), "label", { bold: true }), para(say("Controls the font size in pixels.", "控制字号（像素）。", "フォントサイズをピクセルで指定します。", "글꼴 크기를 픽셀로 지정합니다."), "caption", { color: "on-surface-variant" }), hbox({ gap: 0 }, [atom("input", { placeholder: "14", value: "14", variant: "outlined", size: "sm", width: 200 })])]),
         vbox({ gap: 6 }, [text(say("Editor: Word Wrap", "编辑器：自动换行", "エディタ：折り返し", "편집기: 줄 바꿈"), "label", { bold: true }), hbox({ gap: 0 }, [atom("checkbox", { label: say("Wrap lines at the viewport width", "在视口宽度处换行", "表示幅で折り返す", "화면 너비에서 줄 바꿈"), checked: true })])]),
       ]),
     ),

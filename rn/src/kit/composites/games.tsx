@@ -462,6 +462,8 @@ export type JoystickProps = PartBase & {
   onValueChange?: (value: string) => void;
   /** the finger let go, where it was */
   onRelease?: (at: Vec) => void;
+  /** each direction handed out, as the part's `move` event: what a world view's input action reads (docs/交互规则.md) */
+  onMove?: (at: Vec) => void;
 };
 
 export function Joystick(props: JoystickProps) {
@@ -485,6 +487,8 @@ export function Joystick(props: JoystickProps) {
   const push = (at: Vec) => {
     setHeld(at);
     p.onValueChange?.(wordsOfVec(at));
+    /* a finger moving within the same direction is no new push */
+    if (!held || held.x !== at.x || held.y !== at.y) p.onMove?.({ x: at.x, y: at.y });
   };
   const letGo = (at: Vec) => {
     const rest = p.autoCenter !== false ? { x: 0, y: 0 } : at;
@@ -492,6 +496,7 @@ export function Joystick(props: JoystickProps) {
     setHeld(null);
     setLeft({ at: rest, given: p.value ?? "" });
     p.onValueChange?.(wordsOfVec(rest));
+    p.onMove?.({ x: rest.x, y: rest.y });
   };
   const pan = PanResponder.create({
     onStartShouldSetPanResponder: () => !p.disabled,
@@ -607,7 +612,8 @@ export const starsOf = (stars: string | undefined) => (stars ?? "").split(/[\s,�
 
 export type LevelMapProps = PartBase & {
   levels?: number;
-  current?: number;
+  /** the level reached, counted from 0 as every place is; the map shows it counted from 1 */
+  level?: number;
   /** the level picked (-1: none): the visitor's, starting at the design's */
   selected?: number;
   stars?: string;
@@ -622,7 +628,7 @@ export function LevelMap(props: LevelMapProps) {
   const kit = useKit();
   const fill = useFill();
   const levels = Math.max(0, Math.round(p.levels ?? 12));
-  const current = Math.round(p.current ?? 5);
+  const current = Math.round(p.level ?? 4) + 1;
   const columns = Math.max(2, Math.round(p.perRow ?? 4));
   const [measured, setMeasured] = useState(0);
   const width = measured || Math.round(p.width ?? 380);

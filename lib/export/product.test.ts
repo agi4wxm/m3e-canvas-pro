@@ -50,7 +50,16 @@ describe("the prototype export", () => {
   /* The single-app export stays as it was, to the byte, beside the product. These digests were taken from the export
      before the product existed; one that changes on purpose is written again here (last: the expressions copied beside the app,
      lib/bindings/expr.ts, can read `input`, the input device in use and the hint for each UI action on it, lib/focus;
-     before that the time the parts' countdowns read comes from the app's
+     before that format version 6, lib/converge.ts: parts/types.ts, which
+     ships, has the color prop kind, a palette's rows of colors, the row model's `P.rows` and places among rows (`of`), the widgets paint a color only when it is one
+     (parts/widgets/look.ts `PAINTABLE`, the item cell's rarity and the palette's swatches), and a multiple choice's
+     picks are its rows' places from 0 (`picked`); with it the icon component draws an asset of the asset pipeline's,
+     `asset:<id>`, from the collection its lookup registers, components/m3e/icon.tsx and asset-icon-name.ts, copied
+     beside it, and parts/icons.ts draws again what names one whose picture changed; with it the world view and its input
+     actions, batch 5 K2: the interpreter copied into src/lib/actions runs move, press and release (model.ts, host.ts,
+     run.ts), the widgets' host contract hands a world view its channel (parts/widgets/host.ts), parts/types.ts says
+     what `world` is, the joystick sends `move` with each push, and the every-parts document draws a world view
+     (parts/widgets/World.tsx with lib/world copied beside it, the world's clock the app's), on top of K1's clock; before that the time the parts' countdowns read comes from the app's
      clock, parts/widgets/host.ts `setDomainClock` and seed.ts `clockNow` (the device's in a prototype, which hands in
      none), and the interpreter copied beside the app reads `now` off its host at each step, lib/actions/run.ts
      `tapScope`; before that version 4 of the format,
@@ -84,11 +93,11 @@ describe("the prototype export", () => {
      icons asking again and the ripple under reduced motion; in parts, form fields keyed by their item and resizable
      sizes as percentages). */
   const DIGESTS: Record<string, [number, string]> = {
-    proof: [90, "bb7f67dc9ba40e730b7b33174f1b90cbcb68e6ef4c3f3bc7c009968ee79a066d"],
-    systems: [47, "c4c7c5aa1daaa1d51a0f19e21dbae99d010276e28d70b8317ce7e3d073d860e4"],
-    reuse: [38, "38bcd1fec841474053a3e13dfb9835e98fa2ffdd0cb7e37d7147a03f02c069f8"],
-    sweep: [100, "48e875a827e3f70249205a729e180f6023c1b2f06f3b04a09d711f67d7354b6c"],
-    parts: [140, "00934ae65d36a7983ca350acf533d793c2ef65b8e8124b283fef5f7fbe71d8bb"],
+    proof: [91, "01b1746b7611844b045a5ebacd1482e85a07438cd51cd5a1453d230fa18cbe87"],
+    systems: [48, "2e3591575bf49752e4b4b36f82e699097c43b397203f6ba70b35b1e8014b13d0"],
+    reuse: [38, "937839c015e4daa73a602887e3d3af66179b677f7d96367d8ba0f0425d680e60"],
+    sweep: [101, "3bc3e8d040fed6d501b0a508615fec01dc075ba84b91b98269965341ee424184"],
+    parts: [151, "2b4d3d5bc553a3e556f110f25efcc790e22fe88e997a724809452860dbd5ef65"],
   };
   const DOCS: Record<string, () => { doc: Doc; widths: Record<string, number> }> = { proof: proofDoc, systems: systemsDoc, reuse: reuseDoc, sweep: sweepDoc, parts: () => ({ doc: allPartsDoc(), widths: {} }) };
   it.each(Object.keys(DIGESTS))("is byte for byte what it was: %s", async (name) => {

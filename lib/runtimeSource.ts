@@ -57,6 +57,8 @@ export function runtimeFlags(spec: RuntimeSpec): Record<string, boolean> {
     families: !!spec.families,
     /* a keyboard's and a gamepad's focus over the screens (src/lib/focus) */
     focus: !!spec.focus,
+    /* the world views' channels, which the taps' input actions are sent on (lib/world) */
+    worlds: !!spec.worlds,
   };
 }
 

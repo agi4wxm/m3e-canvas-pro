@@ -720,7 +720,7 @@ const INPUT_TYPE: Partial<Record<FieldSpec["kind"], string>> = { email: "email",
 const helperNode = (f: FieldSpec, lang: string): TreeNode => ({
   part: "text",
   name: `${f.title} help`,
-  props: { text: helperOf(f, lang), style: "caption", color: "muted" },
+  props: { text: helperOf(f, lang), style: "caption", color: "on-surface-variant" },
   bind: { text: `=form.errors.${f.name} ?? ${JSON.stringify(helperOf(f, lang))}`, color: `=form.errors.${f.name} ? "error" : "muted"` },
 });
 
@@ -907,7 +907,7 @@ function rowTree(api: ApiSpec, item: JsonSchema | undefined, width: number, tap:
   if (f.image) kids.push({ part: "image", props: { width: 48, height: 48, radius: 8 }, bind: { src: `=item.${f.image}` } });
   const lines: TreeNode[] = [];
   if (f.title) lines.push({ part: "text", props: { text: f.label(f.title), style: "lead", maxLines: 1, fit: "fixed" }, bind: { text: `=item.${f.title}` } });
-  if (f.subtitle) lines.push({ part: "text", props: { text: f.label(f.subtitle), style: "caption", color: "muted", maxLines: 2, fit: "fixed" }, bind: { text: `=item.${f.subtitle}` } });
+  if (f.subtitle) lines.push({ part: "text", props: { text: f.label(f.subtitle), style: "caption", color: "on-surface-variant", maxLines: 2, fit: "fixed" }, bind: { text: `=item.${f.subtitle}` } });
   if (!lines.length) lines.push({ part: "text", props: { text: "Item", style: "lead" }, bind: { text: f.id ? `=item.${f.id}` : "=item" } });
   kids.push({ part: "box", props: { layout: "column", gap: 2, padX: 0, padY: 0, align: "stretch", hugWidth: true }, grow: true, children: lines });
   if (f.trailing) kids.push({ part: "text", props: { text: f.label(f.trailing.name), style: "label" }, bind: { text: `=${formatted(`item.${f.trailing.name}`, f.trailing.how)}` } });
@@ -922,13 +922,13 @@ function detailTree(api: ApiSpec, schema: JsonSchema | undefined, source: string
   if (f.image) out.push({ part: "image", props: { width, height: 200 }, bind: { src: `=${v(f.image)}` } });
   if (f.title) out.push({ part: "text", props: { text: f.label(f.title), style: "headline", fit: "fixed" }, bind: { text: `=${v(f.title)}` } });
   if (f.trailing) out.push({ part: "text", props: { text: f.label(f.trailing.name), style: "title", color: "primary" }, bind: { text: `=${formatted(v(f.trailing.name), f.trailing.how)}` } });
-  if (f.subtitle) out.push({ part: "text", props: { text: f.label(f.subtitle), style: "body", color: "muted", fit: "fixed" }, bind: { text: `=${v(f.subtitle)}` } });
+  if (f.subtitle) out.push({ part: "text", props: { text: f.label(f.subtitle), style: "body", color: "on-surface-variant", fit: "fixed" }, bind: { text: `=${v(f.subtitle)}` } });
   for (const r of f.rest.slice(0, 8))
     out.push({
       part: "box",
       props: { layout: "row", gap: 8, padX: 0, padY: 4, justify: "between", align: "center", hugWidth: false, width },
       children: [
-        { part: "text", props: { text: f.label(r.name), style: "body", color: "muted" } },
+        { part: "text", props: { text: f.label(r.name), style: "body", color: "on-surface-variant" } },
         { part: "text", props: { text: f.label(r.name), style: "body" }, bind: { text: r.how === "bool" ? `=${v(r.name)} ? "✓" : "—"` : `=${formatted(v(r.name), r.how)}` } },
       ],
     });

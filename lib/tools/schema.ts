@@ -17,7 +17,7 @@ export function propSchema(d: PropDef): Schema {
   const description = d.label;
   switch (d.kind) {
     case "text":
-      return { type: "string", description };
+      return { type: "string", description: d.of ? `${description}: the rows of ${d.of} picked, their places from 0 with commas between` : description };
     case "icon":
       return { type: "string", description: `${description}: a Material Symbols name in snake_case ("" for none)` };
     case "enum":
@@ -25,13 +25,16 @@ export function propSchema(d: PropDef): Schema {
     case "bool":
       return { type: "boolean", description };
     case "number":
-      return { type: "number", minimum: d.min, maximum: d.max, description: d.unit ? `${description} (${d.unit})` : description };
+      return { type: "number", minimum: d.min, maximum: d.max, description: `${d.unit ? `${description} (${d.unit})` : description}${d.of ? `: a row of ${d.of}, counted from 0` : ""}` };
+    case "color":
+      return { type: "string", description: `${description}: a color, a role of the scheme (${(d.roles ?? ["primary", "on-surface"]).join(", ")}, or any other role), a role at a share of itself ("primary/40") or a hex ("#7BAE7A"); "" for ${d.none === "none" ? "none" : "the part's own"}` };
     case "image":
       return { type: "string", description: `${description}: a picture drawn into the document, a data:image URL (generate_image paints one; outside https: addresses are refused), or "" for none` };
     case "list": {
       const row: Record<string, Schema> = { label: { type: "string" } };
       if (d.icons) row.icon = { type: "string", description: "a Material Symbols name" };
       if (d.images) row.image = { type: "string" };
+      if (d.colors) row.color = { type: "string", description: 'a color: a role ("primary"), a role at a share ("primary/40") or a hex ("#6750A4")' };
       for (const f of d.fields ?? []) row[f.key] = { type: "string" };
       return { type: "array", items: { type: "object", properties: row, required: ["label"] }, ...(d.min !== undefined ? { minItems: d.min } : {}), ...(d.max !== undefined ? { maxItems: d.max } : {}), description };
     }
@@ -84,8 +87,8 @@ const ACTION: Schema = {
     effects: {
       type: "array",
       description:
-        "{do: show|hide|toggle|open|close, part} | {do: setVar, var, value, expr?} | {do: toggleVar, var} | {do: addVar, var, by} | {do: setProp, part, prop, value} | {do: snackbar, message ({{expressions}} allowed)} | {do: call, operationId, args?: {name: expression} (a body field or a param each), body?: one expression for the whole body (form.values), never an object, then?: {to, effects} run on any 2XX (reads response; when?: {expr} over response, with else?: {...}, branches on the answer), catch?: the same on a failure (reads error, status), optimistic?: {source, remove: true}} | {do: invoke, capability (list_capabilities: payment.pay, auth.oauth, location.current, scan.code, share.open, clipboard.write, link.open, file.pick…), args?: {name: expression}, then?: the same, on success (reads result), catch?: the same, on a failure (reads error.type: cancelled, failed, unavailable, not-implemented, denied, timeout)} | {do: refresh, source} | {do: loadMore, source} | {do: submit, form?} | {do: signOut}",
-      items: { type: "object", properties: { do: { type: "string", enum: ["show", "hide", "toggle", "open", "close", "setVar", "toggleVar", "addVar", "setProp", "snackbar", "call", "invoke", "refresh", "loadMore", "submit", "signOut"] } }, required: ["do"] },
+        "{do: show|hide|toggle|open|close, part} | {do: setVar, var, value, expr?} | {do: toggleVar, var} | {do: addVar, var, by} | {do: setProp, part, prop, value} | {do: snackbar, message ({{expressions}} allowed)} | {do: call, operationId, args?: {name: expression} (a body field or a param each), body?: one expression for the whole body (form.values), never an object, then?: {to, effects} run on any 2XX (reads response; when?: {expr} over response, with else?: {...}, branches on the answer), catch?: the same on a failure (reads error, status), optimistic?: {source, remove: true}} | {do: invoke, capability (list_capabilities: payment.pay, auth.oauth, location.current, scan.code, share.open, clipboard.write, link.open, file.pick…), args?: {name: expression}, then?: the same, on success (reads result), catch?: the same, on a failure (reads error.type: cancelled, failed, unavailable, not-implemented, denied, timeout)} | {do: refresh, source} | {do: loadMore, source} | {do: submit, form?} | {do: signOut} | input actions for a world-view part (its picture is an engine's; the actions are among its inputs prop, \"move: vec2, attack: bool\": move to a vec2 one, press and release to a bool one): {do: move, part: the world-view's id, action?: move (default), vector: an expression giving x,y from -1 to 1 (\"event\" on a joystick's on:move, or a fixed \"1,0\")} | {do: press|release, part, action: \"attack\"} (a tap that presses and lets go says both)",
+      items: { type: "object", properties: { do: { type: "string", enum: ["show", "hide", "toggle", "open", "close", "setVar", "toggleVar", "addVar", "setProp", "snackbar", "call", "invoke", "refresh", "loadMore", "submit", "signOut", "move", "press", "release"] } }, required: ["do"] },
     },
     params: { type: "object", description: "what the screen it opens is given, by its params' names: each an expression (\"item.id\")" },
     when: { type: "object", description: '{expr: an expression} ({expr: "vars.count == 3"}, {expr: "row.price != \'0\'"} in a repeated row) or {filled: a text field\'s part id}' },

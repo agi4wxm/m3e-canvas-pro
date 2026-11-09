@@ -13,6 +13,7 @@ export { Placeholder } from "./Placeholder";
 export { At, NavProvider, OnShowProvider, OverlayFrame, Pin, Screen, ScreenStack, moved, movesSoFar, screenShown, useNav, useOnShow, type BackOptions, type GoOptions, type Nav, type ScreenComponent } from "./runtime";
 export { AppProvider, SnackHost, eventOf, optionOf, rowsOf, slotTaps, useAct, useAfter, useApp, type Action, type ActionBody, type AppState, type AppVar, type Condition, type Effect, type EventFields, type Here, type Interpreter, type KitHost, type Reader, type Scope, type ScreenParts, type VarValue } from "./app";
 export { Repeat, type RepeatProps } from "./list";
+export { WorldStandIn, createWorldChannels, entitiesOf, inputLog, inputWords, vectorOf, type WorldChannel, type WorldChannels, type WorldEntity, type WorldInput, type WorldStandInProps } from "./world";
 export { SplitView, type SplitViewProps } from "./split";
 export { dateOfValue, dayOf, timeOf, usePicker } from "./picker";
 export { Glyph, glyphFor, hasGlyph, registerIcons, type IconData } from "./icons/Icon";
@@ -27,7 +28,7 @@ export { BY_NAME, COMPONENTS } from "./registry";
 export { TreeView, type TreeNode } from "./tree";
 export { PARTS, type PartInfo } from "./parts.generated";
 /* D3: pickers and entry parts */
-export { Calendar, ColorField, ColorPalette, Combobox, ItemPicker, MultiSelect, NativeSelect, NumberPicker, RegionPicker, SeatMap, TransferList, WheelPicker, daysOf, hexOf, keysOf, levelsOf, pickDay, placesOf, seatsOf, toggleSeat, useEntry, weeksOf, wordsOfPlaces, type TableData } from "./composites/pickers";
+export { Calendar, ColorField, ColorPalette, Combobox, ItemPicker, MultiSelect, NativeSelect, NumberPicker, RegionPicker, SeatMap, TransferList, WheelPicker, daysOf, hexOf, keysOf, levelsOf, pickDay, picksOf, placesOf, seatsOf, toggleSeat, useEntry, weeksOf, wordsOfPicks, wordsOfPlaces, type TableData } from "./composites/pickers";
 export { CopyRow, Field, Form, InputOtp, MARKS, NumberPad, PhoneInput, QuantityStepper, RichTextEditor, SignaturePad, TagInput, markNext, padNext, padReady, tagsOf } from "./composites/entry";
 /* D4: the game parts, and actions, menus and search */
 export { BrandButton, CascadingMenu, Command, ContextMenu, FabMenu, FilterBar, SplitButton, brandCapability, brandWords, commandMatches, toggled, type BrandButtonProps, type CascadingMenuProps, type CommandProps, type ContextMenuProps, type FabMenuProps, type FilterBarProps, type SplitButtonProps } from "./composites/actions";

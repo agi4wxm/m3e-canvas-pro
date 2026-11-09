@@ -10,6 +10,7 @@ import { Accordion, CodeBlock, FileUpload, IconGrid, InputGroup, RadioGroup, Sce
 import { ActionSheet, AlertDialog, Dialog, Sheet } from "./composites/overlays";
 import { NATIVE, type NativeName, type NativeSlug } from "./coverage";
 import { SplitView } from "./split";
+import { WorldStandIn } from "./world";
 /* D3: pickers and entry parts */
 import { CopyRow, Field, Form, InputOtp, NumberPad, PhoneInput, QuantityStepper, RichTextEditor, SignaturePad, TagInput } from "./composites/entry";
 import { Calendar, ColorField, ColorPalette, Combobox, ItemPicker, MultiSelect, NativeSelect, NumberPicker, RegionPicker, SeatMap, TransferList, WheelPicker } from "./composites/pickers";
@@ -31,6 +32,7 @@ import { Animation, AudioPlayer, CameraStandIn, ExpressiveCarousel, ImageCropper
 
 export const BY_NAME = {
   Box,
+  WorldStandIn,
   Container,
   SplitView,
   Text,

@@ -12,6 +12,7 @@ export { DatePicker, FileUpload, Menu, RadioGroup, SegmentedButton, Select, Text
 export { ActionSheet, AlertDialog, Dialog, Sheet } from "./composites/overlays";
 export { Placeholder } from "./Placeholder";
 export { SplitView, type SplitViewProps } from "./split";
+export { WORLDS, WorldStandIn, entitiesOf, type WorldStandInProps } from "./world";
 export { At, Layer, Pin, Screen, ThemeRoot, chrome, useChrome, type Chrome } from "./screen";
 export { Glyph, base64, glyphFor, hasGlyph, registerIcons, svgUrl, type IconData } from "./icons";
 export { Surface, tagOf } from "./Surface";
@@ -32,7 +33,7 @@ export { KIT_ICONS } from "./iconNames";
 export { createTaroTransport, queryString, readAsDataUrl, taroSocket, taroStorage, withFileData, type PlatformFile, type TaroTransportOptions } from "./app/transport";
 export type { Action, ActionBody, AppSpec, CallFn, Condition, Effect, ScreenSpec, VarSpec } from "./app/spec";
 /* D3: pickers and entry parts */
-export { Calendar, ColorField, ColorPalette, Combobox, ItemPicker, MultiSelect, NativeSelect, NumberPicker, RegionPicker, SeatMap, TransferList, WheelPicker, daysOf, hexOf, keysOf, levelsOf, pickDay, placesOf, seatsOf, toggleSeat, useEntry, weeksOf, wordsOfPlaces, type TableData } from "./composites/pickers";
+export { Calendar, ColorField, ColorPalette, Combobox, ItemPicker, MultiSelect, NativeSelect, NumberPicker, RegionPicker, SeatMap, TransferList, WheelPicker, daysOf, hexOf, keysOf, levelsOf, pickDay, picksOf, placesOf, seatsOf, toggleSeat, useEntry, weeksOf, wordsOfPicks, wordsOfPlaces, type TableData } from "./composites/pickers";
 export { CopyRow, Field, Form, InputGroup, InputOtp, MARKS, NumberPad, PhoneInput, QuantityStepper, RichTextEditor, SignaturePad, TagInput, markNext, padNext, padReady, tagsOf } from "./composites/entry";
 /* D4: the game parts, and a group of buttons, actions, menus and search */
 export { BrandButton, ButtonGroup, CascadingMenu, Command, ContextMenu, FabMenu, FilterBar, SHEET_ROWS, SplitButton, brandCapability, brandLook, brandWords, cascadeSheet, commandMatches, toggled, type BrandButtonProps, type ButtonGroupProps, type CascadingMenuProps, type CommandProps, type ContextMenuProps, type FabMenuProps, type FilterBarProps, type SplitButtonProps } from "./composites/actions";

@@ -9,7 +9,7 @@ import { Words } from "../atoms/words";
 import { c, ca } from "../color";
 import { Glyph, svgUrl } from "../icons";
 import { FillWidth, NoFill, useFill } from "../layout";
-import { clampInt, withDefaults, type ListRow } from "../parts";
+import { clampInt, recordsOf, withDefaults, type ListRow } from "../parts";
 import { accentText } from "../recipes";
 import { Surface, tagOf } from "../Surface";
 import { merge, sx, ROW, COL, type CSS } from "../styles";
@@ -1051,7 +1051,8 @@ export function Scene(props: SceneProps) {
   const p = withDefaults<SceneProps>("scene", props);
   const fill = useFill();
   const pic = pictureOf(p.image);
-  const spots = rowsOfTable(p.hotspots);
+  /* the places to tap, read by key as the editor's row model reads them: label, x, y, w, h (parts/tableColumns.ts) */
+  const spots = recordsOf("scene", "hotspots", p.hotspots);
   const scrim = SCRIMS[p.scrim ?? "none"];
   return (
     <Surface base={merge({ position: "relative", width: Math.round(p.width ?? 412), height: Math.round(p.height ?? 892), overflow: "hidden", flexShrink: 0 }, fill)} appearance={p} testID={p.testID}>
@@ -1066,7 +1067,7 @@ export function Scene(props: SceneProps) {
       )}
       {scrim ? <View style={sx(FULL, { backgroundImage: scrim, pointerEvents: "none" })} /> : null}
       {spots.map((r, i) => (
-        <View key={i} ariaRole="button" ariaLabel={r[0] || `${i + 1}`} onClick={(e) => (e.stopPropagation(), tapOf(p, `tab:${i}`)?.())} style={sx({ position: "absolute", left: `${percentOf(r[1])}%`, top: `${percentOf(r[2])}%`, width: `${percentOf(r[3])}%`, height: `${percentOf(r[4])}%` })} />
+        <View key={i} ariaRole="button" ariaLabel={r.label || `${i + 1}`} onClick={(e) => (e.stopPropagation(), tapOf(p, `tab:${i}`)?.())} style={sx({ position: "absolute", left: `${percentOf(r.x)}%`, top: `${percentOf(r.y)}%`, width: `${percentOf(r.w)}%`, height: `${percentOf(r.h)}%` })} />
       ))}
       <NoFill>{p.children}</NoFill>
     </Surface>

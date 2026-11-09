@@ -1,6 +1,7 @@
 import { flowOf } from "./flow";
 import { fillTemplate } from "./bindings/expr";
 import { type Collection, type Group, type Item, type ItemScope, heldBy, retarget } from "./tokens";
+import type { Row as RowOfModel, RowColumn, Rows } from "../parts/rows";
 
 /* Data-bound repeat. A layout container with `Group.repeat` draws its first child once per row of a
  * collection. The rows are real groups in the expanded document, placed by the same `arrangeFlows`
@@ -9,7 +10,8 @@ import { type Collection, type Group, type Item, type ItemScope, heldBy, retarge
  * rows are `host#2/itemId` and exist only in the expansion. */
 
 type Widths = Record<string, number>;
-export type Row = Record<string, string>;
+/** a row of a collection: its cells by its fields, the row model's row (parts/rows.ts) */
+export type Row = RowOfModel;
 
 /** far more than a sketch needs, and few enough that a hand-written file cannot stall the editor */
 const MAX_ROWS = 200;
@@ -21,6 +23,20 @@ const MAX_GROUPS = 6000;
 const TOKEN = /\{\{([^{}]*)\}\}/g;
 
 export const rowOf = (c: Collection, at: number): Row => Object.fromEntries(c.fields.map((f, i) => [f, c.rows[at]?.[i] ?? ""]));
+
+/* A collection is rows of the row model (parts/rows.ts) as a table is: its fields are its columns' keys, a row is its
+ * cells by them. What is drawn once per row (a repeat here; later a part spawned for each event, docs/游戏阶段整改计划.md
+ * H4) and what a collection is linked to (a data module's table, J4) read and write its rows as records, never by place. */
+
+/** a collection's rows as the row model has them: its fields as columns, each row a record by them */
+export const collectionRows = (c: Pick<Collection, "fields" | "rows">): Rows => ({
+  columns: c.fields.map((key): RowColumn => ({ key, type: "text" })),
+  rows: c.rows.map((cells) => Object.fromEntries(c.fields.map((f, i) => [f, cells[i] ?? ""]))),
+});
+
+/** A collection with these rows, each a record by its fields (a field a row does not give is ""; one the collection does
+ *  not have is no cell of it), its fields and everything else it says as they were. */
+export const withCollectionRows = <C extends Pick<Collection, "fields" | "rows">>(c: C, rows: Row[]): C => ({ ...c, rows: rows.map((r) => c.fields.map((f) => r[f] ?? "")) });
 
 /** the rows a repeat draws, with its limit taken into account */
 export const rowsOfRepeat = (c: Collection, limit?: number): Row[] => {

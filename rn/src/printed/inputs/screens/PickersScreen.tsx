@@ -30,7 +30,7 @@ export function PickersScreen() {
         />
       </At>
       <At x={16} y={1024}>
-        <MultiSelect selected="1,3" />
+        <MultiSelect picked="0,2" />
       </At>
       <At x={16} y={1128}>
         <ColorPalette

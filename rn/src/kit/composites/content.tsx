@@ -7,7 +7,7 @@ import type { PartBase } from "../atoms/basics";
 import { Button, RadioMark, Slider, Switch, Checkbox } from "../atoms/controls";
 import { Glyph } from "../icons/Icon";
 import { useFill } from "../layout";
-import { withAlpha } from "../look";
+import { colorOf, inkOver, withAlpha } from "../look";
 import { clampInt, sourceOf, withDefaults, type ListRow, type Picture } from "../parts";
 import { accentText, cardStyle, extra } from "../recipes";
 import { Surface } from "../Surface";
@@ -27,7 +27,7 @@ const DISCS: Record<string, [string, string]> = {
   "secondary-container": ["secondary-container", "on-secondary-container"],
   "tertiary-container": ["tertiary-container", "on-tertiary-container"],
   primary: ["primary", "on-primary"],
-  surface: ["surface-container-highest", "on-surface-variant"],
+  "surface-container-highest": ["surface-container-highest", "on-surface-variant"],
 };
 
 export type ListItemProps = PartBase & {
@@ -56,13 +56,16 @@ export function ListItem(props: ListItemProps) {
   const min = typeof extra(kit, "rowMin") === "number" ? (extra(kit, "rowMin") as number) : list === "inset" || rowRecipe === "chevron" ? 44 : rowRecipe === "dense" || list === "hairline" ? 40 : p.size === "xs" ? 40 : p.size === "sm" ? 48 : p.description ? 72 : 56;
   const pad = list === "inset" || list === "flush" ? 16 : 16;
   const showsArrow = (rowRecipe === "chevron" || rowRecipe === "arrow") && (p.trailing === "none" || p.trailing === "text");
-  const disc = DISCS[p.iconFill ?? "none"];
+  /* a disc of a color it was not designed around is that color, the glyph in what reads over it */
+  const own = DISCS[p.iconFill ?? ""];
+  const custom = !own && p.iconFill ? colorOf(kit, p.iconFill) : undefined;
+  const disc = own ?? (custom ? (["", ""] as [string, string]) : undefined);
   const iconBox = (name: string) => {
     if (iconRecipe === "tile") return <View style={{ width: 29, height: 29, borderRadius: 7, backgroundColor: c(kit, "primary"), alignItems: "center", justifyContent: "center" }}><Glyph name={name} size={18} color={c(kit, "on-primary")} /></View>;
     if (iconRecipe === "disc" || disc) {
       const [bg, ink] = disc ?? ["secondary-container", "on-secondary-container"];
       const s = p.size === "xs" ? 24 : p.size === "sm" ? 32 : 40;
-      return <View style={{ width: s, height: s, borderRadius: s / 2, backgroundColor: c(kit, bg), alignItems: "center", justifyContent: "center" }}><Glyph name={name} size={s >= 40 ? 24 : 18} color={c(kit, ink)} /></View>;
+      return <View style={{ width: s, height: s, borderRadius: s / 2, backgroundColor: custom ?? c(kit, bg), alignItems: "center", justifyContent: "center" }}><Glyph name={name} size={s >= 40 ? 24 : 18} color={custom ? inkOver(kit, p.iconFill) : c(kit, ink)} /></View>;
     }
     return <Glyph name={name} size={24} color={iconRecipe === "muted" ? c(kit, "outline") : c(kit, "on-surface-variant")} />;
   };

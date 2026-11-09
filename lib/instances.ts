@@ -16,7 +16,7 @@ import type { PropDef } from "../parts/types";
 type Widths = Record<string, number>;
 
 /** the empty container standing in for an instance */
-const BOX = (w: number, h: number) => ({ label: "", note: "", fill: "none", border: "none", radius: 0, width: Math.round(w), height: Math.round(h) });
+const BOX = (w: number, h: number) => ({ label: "", note: "", fill: "", border: "none", radius: 0, width: Math.round(w), height: Math.round(h) });
 
 export const standIn = (def: ComponentDef, x: number, y: number, id = uid()): Group => ({ id, x: Math.round(x), y: Math.round(y), axis: "x", instanceOf: def.id, items: [{ ...makeItem("container"), label: def.name, props: BOX(def.w, def.h) }] });
 
