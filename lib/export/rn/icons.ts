@@ -34,7 +34,7 @@ function glyphOf(set: IconifyJSON, name: string): [string, number, number] | und
 /** Every glyph that draws these names in these families, with each family's table. A name no set draws is left out:
  *  the kit draws an empty square of the icon's size for it. */
 export async function rnIconData(families: Iterable<string>, names: Iterable<string>): Promise<RnIconData> {
-  const list = [...new Set([...names].filter((n) => typeof n === "string" && n && !n.startsWith("svg:")).map(iconBase))].sort();
+  const list = [...new Set([...names].filter((n) => typeof n === "string" && n && !n.startsWith("svg:") && !n.startsWith("asset:")).map(iconBase))].sort();
   const sets = new Set<IconSetKey>();
   for (const f of families) for (const s of setsOf(f as IconFamily)) sets.add(s);
   const out: RnIconData = { maps: {}, glyphs: {} };

@@ -132,7 +132,7 @@ export function inputsDoc(): { doc: Doc; widths: Record<string, number> } {
   add(pickers, "color-field", 56, {}, { value: "color" });
   add(pickers, "wheel-picker", 180);
   add(pickers, "item-picker", 168, {}, { selected: "trip" });
-  add(pickers, "multi-select", 80, { selected: "1,3" });
+  add(pickers, "multi-select", 80, { picked: "0,2" });
   add(pickers, "color-palette", 96, {}, { selected: "swatch" });
   add(pickers, "number-picker", 200, { unit: "kg" });
   add(pickers, "transfer-list", 220);
@@ -179,7 +179,7 @@ export function dataDoc(): { doc: Doc; widths: Record<string, number> } {
     place(0, 1320, item("battery", "gauge", { value: 40, label: "Fuel" })),
     place(0, 1460, item("trend", "sparkline", { values: "3,5,2,8", kind: "bar", width: 380 })),
     place(0, 1620, item("funnel", "funnel-chart", { width: 380 })),
-    place(1, 24, item("invoices", "table", { data: { columns: ["Invoice", "Amount", "Paid"], rows: [["INV-1", "250", "yes"], ["INV-2", "1200.5", "no"]], spec: [{ key: "invoice", width: 120 }, { key: "amount", type: "currency", format: "EUR" }, { key: "paid", type: "bool" }] }, caption: "Q3", selected: 1, width: 380 })),
+    place(1, 24, item("invoices", "table", { data: { columns: ["Invoice", "Amount", "Paid"], rows: [["INV-1", "250", "yes"], ["INV-2", "1200.5", "no"]], spec: [{ key: "invoice", width: 120 }, { key: "amount", type: "currency", format: "EUR" }, { key: "paid", type: "bool" }] }, caption: "Q3", selectedRow: 0, width: 380 })),
     place(1, 280, item("orders", "data-table", { pageSize: 3, width: 380 }, { actions: { "row:0": go("d-lists") } })),
     place(1, 760, item("sources", "bar-list", { selected: 1, width: 380 })),
     place(1, 1000, item("notes", "markdown", { text: "## Notes\n\nShip **today**, run `deploy`.\n\n- Check\n- Ship", width: 380 })),

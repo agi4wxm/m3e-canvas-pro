@@ -32,8 +32,17 @@ const ENTERED: unknown[] = ["Kiwi", "", "2", 2, 0, true, false, [{ label: "a" },
  *  is where nothing was renamed. */
 export type AsBefore = (slug: string | undefined, read: Record<string, unknown>) => Record<string, unknown>;
 
+/** What a visitor's entry into an input is under the version that reads a file now, where the version that wrote it
+ *  took the same act as another value (lib/converge.ts `enteredNow`: a multiple choice's picks, counted from 1 then and
+ *  from 0 now). The value as it is where nothing changed. */
+export type Entered = (slug: string | undefined, value: unknown) => unknown;
+
+/** What a part's tree is under the version that wrote a file, where a later version draws the same with a widget's
+ *  value in another form (lib/converge.ts `treeAsWrittenAt5`). */
+export type TreeBefore = (tree: unknown) => unknown;
+
 /** the drawing of every part, at the start, after each tap and after each input is used, each state as a digest of `of` */
-function statesOf(source: Doc, of: (it: Item, s: PreviewState) => unknown): Record<string, string> {
+function statesOf(source: Doc, of: (it: Item, s: PreviewState) => unknown, entered?: Entered): Record<string, string> {
   const doc = expandDoc(source, {});
   const s0 = startState(doc.vars, doc.collections);
   const all = doc.groups.flatMap((g) => g.items);
@@ -52,28 +61,37 @@ function statesOf(source: Doc, of: (it: Item, s: PreviewState) => unknown): Reco
     }
   for (const it of all) {
     if (INPUT_PROP[it.component ?? ""] === undefined) continue;
-    for (const v of ENTERED) out[`input ${it.id} ${JSON.stringify(v)}`] = digest(drawn(writeField(s0, it, v as never, doc)));
+    for (const v of ENTERED) out[`input ${it.id} ${JSON.stringify(v)}`] = digest(drawn(writeField(s0, it, (entered ? entered(it.component, v) : v) as never, doc)));
   }
   return out;
 }
 
 /** every prop each part reads and its design fields as bound, in every state (`drawn.json`); `asBefore` says a reading
  *  under the names of the version that wrote the file */
-export const drawnStates = (source: Doc, asBefore?: AsBefore): Record<string, string> =>
-  statesOf(source, (it, s) => {
-    const live = boundItem(liveItem(it, s), s.vars);
-    const read = readAll(live);
-    return [it.id, asBefore && read && typeof read === "object" ? asBefore(live.component, read as Record<string, unknown>) : read, live.look ?? null, live.corners ?? null];
-  });
+export const drawnStates = (source: Doc, asBefore?: AsBefore, entered?: Entered): Record<string, string> =>
+  statesOf(
+    source,
+    (it, s) => {
+      const live = boundItem(liveItem(it, s), s.vars);
+      const read = readAll(live);
+      return [it.id, asBefore && read && typeof read === "object" ? asBefore(live.component, read as Record<string, unknown>) : read, live.look ?? null, live.corners ?? null];
+    },
+    entered,
+  );
 
 /** The tree each part draws in every state (`trees.json`): on the canvas, in the preview and as the code printed for
  *  the web (`viewOf`, `viewOf` live, `treeOf`), painted with its appearance. The trees are what the canvas, the preview
  *  and the web exports draw, so a step that renames a part's props keeps them as they were. */
-export const drawnTrees = (source: Doc): Record<string, string> =>
-  statesOf(source, (it, s) => {
-    const live = boundItem(liveItem(it, s), s.vars);
-    const def = partBySlug(live.component);
-    if (!def) return [it.id, null];
-    const look = appearanceOf(live);
-    return [it.id, viewOf(def, live.props, look, undefined, false, it.id), viewOf(def, live.props, look, undefined, true, it.id), treeOf(def, live.props, look, it.id)];
-  });
+export const drawnTrees = (source: Doc, before?: TreeBefore, entered?: Entered): Record<string, string> =>
+  statesOf(
+    source,
+    (it, s) => {
+      const live = boundItem(liveItem(it, s), s.vars);
+      const def = partBySlug(live.component);
+      if (!def) return [it.id, null];
+      const look = appearanceOf(live);
+      const trees = [viewOf(def, live.props, look, undefined, false, it.id), viewOf(def, live.props, look, undefined, true, it.id), treeOf(def, live.props, look, it.id)];
+      return [it.id, ...(before ? trees.map(before) : trees)];
+    },
+    entered,
+  );

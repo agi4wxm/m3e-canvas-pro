@@ -17,6 +17,8 @@ import { iconifySetOf } from "./docIcons";
 import { materialOpacities, usedMaterials } from "./materials";
 import { fadedFile, materialSheet, type PictureUrl } from "./materialCss";
 import { VERSIONS } from "./versions.generated";
+import type { AssetManifest } from "./assetManifest";
+import { namedAssets, webAssetsFile } from "./export/assets";
 
 /* A document as a project someone can install and run: its screens, the runtime their taps call, its
  * theme, and a copy of only the source files those reach, found by walking their imports. Nothing here
@@ -42,6 +44,9 @@ export type ExportOptions = {
   binds?: BindPrintOptions;
   /** the capability views drawn by the product's slots, their components by item id (lib/export/appCapabilities.ts) */
   slots?: Record<string, string>;
+  /** the project's asset manifest (lib/assetManifest.ts), which the lookup of the assets the screens name is made
+   *  from (src/assets.ts, lib/export/assets.ts); left out, an asset they name is a gap and draws its placeholder */
+  assets?: AssetManifest | null;
 };
 
 export type Project = {
@@ -526,7 +531,7 @@ const data: IconifyJSON = ${json(iconifySetOf(doc.icons))}
 export default data
 `;
 
-function themeSource(doc: Doc, name: string): string {
+function themeSource(doc: Doc, name: string, assetIcons = false): string {
   const styles = styleContext(doc.styles);
   const theme = normalizeTheme(doc.theme, styles);
   const asked = seedOf(doc.paletteKey, doc.customPalette, theme, styles);
@@ -540,7 +545,7 @@ function themeSource(doc: Doc, name: string): string {
   return `import type { ReactNode } from "react"
 import { ColorModeProvider } from "@/components/m3e/color-mode-provider"
 import { M3ThemeProvider, type M3Theme } from "@/components/m3e/m3-theme-provider"
-${icons ? `import { registerIconMap, registerIcons, setIconFamily } from "@/components/m3e/icon"\nimport styleIcons, { map as styleIconMap } from "@/style-icons"\n\nstyleIcons.forEach(registerIcons)\nregisterIconMap(${str(icons)}, styleIconMap)\nsetIconFamily(${str(icons)})\n` : ""}${hasDocIcons(doc) ? `import { registerIcons as registerDocIcons } from "@/components/m3e/icon"\nimport docIcons from "@/doc-icons"\n\nregisterDocIcons(docIcons)\n` : ""}
+${icons ? `import { registerIconMap, registerIcons, setIconFamily } from "@/components/m3e/icon"\nimport styleIcons, { map as styleIconMap } from "@/style-icons"\n\nstyleIcons.forEach(registerIcons)\nregisterIconMap(${str(icons)}, styleIconMap)\nsetIconFamily(${str(icons)})\n` : ""}${hasDocIcons(doc) ? `import { registerIcons as registerDocIcons } from "@/components/m3e/icon"\nimport docIcons from "@/doc-icons"\n\nregisterDocIcons(docIcons)\n` : ""}${assetIcons ? `/* the asset pipeline's assets named as icons, registered by their lookup */\nimport "@/assets"\n` : ""}
 /* The look the document was drawn in. Every color role is generated from the source color,
  * so changing it here is enough; corners and motion follow the other two.${styleCssOf(doc, getLang()) ? " The rest of its style, and the colors it names itself, are in style.css." : ""} */
 const THEME: Partial<M3Theme> = {
@@ -693,7 +698,7 @@ bun run typecheck
 - \`src/runtime.tsx\`: what the running app remembers. \`useApp()\` holds the current screen and its history, the variables and what is shown; \`go("cart")\`, \`back()\`, \`setVar(…)\`, \`show(…)\` and the rest are plain calls on it.${runtime.acts ? " What a tap does is data at the top of each screen (`…Actions`), which `useActions` runs with the editor's own interpreter (`src/lib/actions/`), the rules the preview follows." : ""}
 - \`src/App.tsx\`: draws the current screen, with the transition between screens.${runtime.proto ? "\n- `src/lib/screenMotion.ts`: how one screen gives way to another, the same moves the editor's preview plays. What starts when the pointer comes over a part, or some time after its screen shows, is in `Pressable` (`src/runtime.tsx`); a screen laid over another opens with `openOverlay(…)`." : ""}${runtime.modes ? "\n- Variables with modes: `src/runtime.tsx` lists the mode each screen shows and each variable's value in every mode. A design field bound to a variable (a fill, a stroke, the words' color, the opacity, a radius, the rotation) reads a CSS variable `--m3e-v-…` that each screen defines, so setting the variable changes it wherever it is bound." : ""}
 - \`src/theme.tsx\` and \`src/index.css\`: the palette, corners, type and motion.
-- \`public/images/\`: the pictures picked in the editor.
+- \`public/images/\`: the pictures picked in the editor.${namedAssets(doc).size ? "\n- `src/assets.ts`: the asset pipeline's assets the screens name (`asset:<id>` in the design), each id's file from the pipeline's manifest. The files are the pipeline's, not copied here: serve its output at `VITE_ASSET_BASE` (`/assets/` by default)." : ""}
 - Copied from the editor, only what these screens use: ${dirs.map((d) => `\`${d}/\``).join(", ")}.
 ${unreached.length ? `\n## Not in this prototype\n\nThis prototype has no API. These taps reach for one, and are not run: each says so once in the browser's console. Export the full product to run them.\n\n${[...new Set(unreached)].join("\n")}\n` : ""}${flows.length ? `\n## Flows\n\nThe app starts where the first flow does. Add one of these to the address to start at another:\n\n${flowList}\n` : ""}${missing.length ? `\n## Before you ship\n\nThese icons could not be fetched when this was exported, so they draw blank: ${missing.join(", ")}. Add their Iconify data to \`src/components/m3e/icon-data.app.ts\`.\n` : ""}
 Icons a widget only knows while running are fetched from Iconify, as they are in the editor. The fonts come from Google Fonts, and a face Google does not have (the pixel face with Chinese) from jsDelivr: see \`index.html\`. When the document wears a style, that style's own icon set is bundled in \`src/style-icons.ts\`, so it draws offline.
@@ -770,7 +775,10 @@ export async function buildProject(doc: Doc, widths: Record<string, number>, o: 
       .map((family) => family.flatMap((f) => keyOf.get(f.id) ?? []))
       .filter((family) => family.length > 1);
     const appSrc = appSource(screens, theme.motion, usesToast, families, runtime);
-    const themeSrc = themeSource(doc, name);
+    /* the asset pipeline's assets the screens name, read from a lookup made from the manifest (lib/export/assets.ts) */
+    const assetsSrc = webAssetsFile(doc, o.assets);
+    if (assetsSrc) files["src/assets.ts"] = assetsSrc;
+    const themeSrc = themeSource(doc, name, !!assetsSrc?.includes("registerIcons("));
     files["src/App.tsx"] = appSrc;
     files["src/main.tsx"] = MAIN;
     files["src/runtime.tsx"] = runtimeSource(runtime, runtimeCode);
@@ -790,7 +798,7 @@ export async function buildProject(doc: Doc, widths: Record<string, number>, o: 
   /* the walk starts from what was just written, so it copies what they reach and nothing else */
   const written = Object.keys(files).filter((p) => p.endsWith(".tsx")).map((p) => files[p] as string);
   const roots = new Set<string>(["@/styles/m3e.css", "@/react-css.d.ts"]);
-  const here = new Set(["@/runtime", "@/theme", "@/style-icons", "@/doc-icons", "@/api", "@/platform", "@/DataScroll", "@/slots"]);
+  const here = new Set(["@/runtime", "@/theme", "@/style-icons", "@/doc-icons", "@/assets", "@/api", "@/platform", "@/DataScroll", "@/slots"]);
   /* the product's own packages (its runtime, its client) are its workspaces, not this project's to copy or pin */
   const own = (spec: string) => !!o.binds && spec.startsWith(`${o.binds.runtime.split("/")[0]}/`);
   for (const source of written) for (const spec of importsIn(source)) if (!spec.startsWith(".") && !here.has(spec) && !own(spec)) roots.add(spec);

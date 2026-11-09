@@ -17,7 +17,7 @@ export function AroundScreen() {
         <NavigationMenu menus={[{ label: "Guides" }]} pages={[{ label: "Start here" }]} testID="navigationMenu" />
       </At>
       <At x={16} y={240}>
-        <Pagination pages={8} current={3} width={380} taps={{ "tab:3": () => s.run(A1, { $: $ }) }} testID="pagination" />
+        <Pagination pages={8} page={2} width={380} taps={{ "tab:3": () => s.run(A1, { $: $ }) }} testID="pagination" />
       </At>
       <At x={16} y={300}>
         <TableOfContents

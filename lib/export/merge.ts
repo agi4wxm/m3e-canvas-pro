@@ -22,6 +22,7 @@
 
 import { assertSafePaths, isSafePath } from "./paths";
 import { sha256 } from "./sha256";
+import { GAPS_PATH } from "./gaps";
 import type { FileKind, ProductFiles } from "./types";
 
 export const MANIFEST_PATH = ".m3e/manifest.json";
@@ -148,7 +149,8 @@ export function planExport({ product, next, disk, texts = {}, previous, generato
   const paths = Object.keys(next).sort();
   assertSafePaths([...paths, MANIFEST_PATH]);
   for (const path of paths) {
-    if (path.startsWith(".m3e/")) throw new Error(`refusing to write ${path}: .m3e/ is the manifest's`);
+    /* .m3e/ is the export's own: the manifest, and the gap file it writes for the hub (lib/export/gaps.ts) */
+    if (path.startsWith(".m3e/") && path !== GAPS_PATH) throw new Error(`refusing to write ${path}: .m3e/ is the manifest's`);
     if (path.endsWith(CONFLICT_SUFFIX)) throw new Error(`refusing to write ${path}: ${CONFLICT_SUFFIX} names the copies of conflicts`);
   }
   const plan: ExportPlan = { writes: [], deletes: [], unchanged: [], merged: [], kept: [], conflicts: [], removed: [], orphaned: [], customOrphans: [], notes: [], manifest: { format: MANIFEST_FORMAT, version: 1, generator, product, files: {}, pending: {} } };

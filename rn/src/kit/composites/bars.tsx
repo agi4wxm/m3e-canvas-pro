@@ -4,7 +4,7 @@ import { ActivityIndicator, Pressable, Text as RNText, TextInput, View, type Vie
 import type { PartBase } from "../atoms/basics";
 import { Glyph } from "../icons/Icon";
 import { useFill } from "../layout";
-import { withAlpha } from "../look";
+import { colorOf, inkOver, withAlpha } from "../look";
 import { clampInt, withDefaults, type ListRow } from "../parts";
 import { accentText, barStyle, extra, extraColor } from "../recipes";
 import { Surface } from "../Surface";
@@ -342,14 +342,19 @@ export function Fab(props: FabProps) {
   const s = FAB[p.size ?? "default"] ?? FAB.default;
   const recipe = recipeOf(kit, "fab");
   const forced = extra(kit, "fabColor");
-  const [bg, ink] = typeof forced === "string" ? [forced, `on-${forced}`] : (FAB_COLORS[p.color ?? "primary-container"] ?? FAB_COLORS["primary-container"]);
+  /* a color the FAB was not designed around (the one color value) is painted, its icon and words in what reads over it */
+  const own = FAB_COLORS[p.color || "primary-container"];
+  const custom = typeof forced !== "string" && !own ? colorOf(kit, p.color) : undefined;
+  const [bg, ink] = typeof forced === "string" ? [forced, `on-${forced}`] : (own ?? FAB_COLORS["primary-container"]);
+  const bgColor = custom ?? c(kit, bg);
+  const inkColor = custom ? inkOver(kit, p.color) : c(kit, ink);
   const label = p.toggle && on && p.onLabel ? p.onLabel : p.label;
   const icon = p.toggle && on && p.onIcon ? p.onIcon : p.icon;
   const extended = !!label && !p.collapsed;
   const radius = recipe === "round" ? s.side / 2 : recipe === "square" ? corner(kit, "md") : recipe === "flat" ? corner(kit, "lg") : corner(kit, s.radius) || controlRadius(kit, s.side);
   return (
     <Surface
-      base={{ height: s.side, minWidth: s.side, paddingHorizontal: extended ? 16 : 0, flexDirection: "row", alignItems: "center", justifyContent: "center", columnGap: 12, borderRadius: radius, backgroundColor: c(kit, bg), boxShadow: recipe === "flat" ? undefined : p.lowered ? "0px 1px 2px 0px #0000004D, 0px 1px 3px 1px #00000026" : "0px 1px 3px 0px #0000004D, 0px 4px 8px 3px #00000026", alignSelf: "flex-start", opacity: p.disabled ? 0.38 : 1 }}
+      base={{ height: s.side, minWidth: s.side, paddingHorizontal: extended ? 16 : 0, flexDirection: "row", alignItems: "center", justifyContent: "center", columnGap: 12, borderRadius: radius, backgroundColor: bgColor, boxShadow: recipe === "flat" ? undefined : p.lowered ? "0px 1px 2px 0px #0000004D, 0px 1px 3px 1px #00000026" : "0px 1px 3px 0px #0000004D, 0px 4px 8px 3px #00000026", alignSelf: "flex-start", opacity: p.disabled ? 0.38 : 1 }}
       appearance={p}
       onPress={() => {
         if (held) return;
@@ -359,8 +364,8 @@ export function Fab(props: FabProps) {
       testID={p.testID}
       accessibilityLabel={label || p.ariaLabel || icon}
     >
-      {p.loading ? <ActivityIndicator size="small" color={c(kit, ink)} /> : icon ? <Glyph name={icon} size={s.icon} color={c(kit, ink)} /> : null}
-      {extended ? <RNText style={{ ...typeStyle(kit, "title-medium"), color: c(kit, ink) }}>{label}</RNText> : null}
+      {p.loading ? <ActivityIndicator size="small" color={inkColor} /> : icon ? <Glyph name={icon} size={s.icon} color={inkColor} /> : null}
+      {extended ? <RNText style={{ ...typeStyle(kit, "title-medium"), color: inkColor }}>{label}</RNText> : null}
     </Surface>
   );
 }

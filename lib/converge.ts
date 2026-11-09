@@ -495,6 +495,9 @@ export type PropRename = {
   wrapped?: (source: string) => boolean;
   /** a value as the part reads it now, back in the old unit or form: for the tests of old files (`asWrittenAt4`) */
   down?: (v: unknown) => unknown;
+  /** what a tap that sets the prop sets it to now, where that is not `value` (a tap sets words, a number or yes or no,
+   *  never rows: a palette's colors set by a tap stay the words the palette reads its colors from) */
+  set?: (v: unknown) => unknown;
 };
 
 const PRICE_SIZES: Record<string, string> = { small: "sm", medium: "default", large: "lg" };
@@ -533,15 +536,17 @@ export const PROP_RENAMES_5: readonly PropRename[] = [
   { slug: "price-tag", from: "size", to: "size", value: choiceIn(PRICE_SIZES), expr: priceSizeExpr, wrapped: (s) => PRICE_SIZE_WRAPPED.test(s), down: choiceIn(PRICE_SIZES_BACK) },
 ];
 
-const renamesOf = (slug: unknown): PropRename[] => PROP_RENAMES_5.filter((r) => r.slug === slug);
-const renameOf = (slug: unknown, key: string): PropRename | undefined => PROP_RENAMES_5.find((r) => r.slug === slug && r.from === key);
+/** a table of renames, read by part (version 5's, and version 6's after it) */
+type Renames = readonly PropRename[];
+const renamesIn = (table: Renames, slug: unknown): PropRename[] => table.filter((r) => r.slug === slug);
+const renameIn = (table: Renames, slug: unknown, key: string): PropRename | undefined => table.find((r) => r.slug === slug && r.from === key);
+const renamesOf = (slug: unknown): PropRename[] => renamesIn(PROP_RENAMES_5, slug);
 const convert = (r: PropRename, v: unknown) => (r.value ? r.value(v) : v);
 
 /** A part's props (or bindings) under the new names, each value as `move` writes it; one already in the new form comes
  *  back as it was. Where a new key is written beside the old one, the old key's value wins: it is what version 4 read,
  *  and the new key was a field no reader of the time knew. */
-function renamedKeys(slug: unknown, o: Record<string, unknown>, move: (r: PropRename, v: unknown) => unknown): Record<string, unknown> {
-  const rs = renamesOf(slug);
+function renamedKeys(rs: PropRename[], o: Record<string, unknown>, move: (r: PropRename, v: unknown) => unknown): Record<string, unknown> {
   if (!rs.some((r) => r.from in o)) return o;
   const out: Record<string, unknown> = {};
   let changed = false;
@@ -565,12 +570,16 @@ function boundTo(r: PropRename, b: unknown): unknown {
   return `=${r.expr(source)}`;
 }
 
-function renamedItem(it: Record<string, unknown>): Record<string, unknown> {
-  let out = it;
-  if (isRecord(it.props)) out = withKey(out, "props", renamedKeys(it.component, it.props, convert));
-  if (isRecord(it.bind)) out = withKey(out, "bind", renamedKeys(it.component, it.bind, boundTo));
-  return out;
-}
+const renamedItem =
+  (table: Renames, bound: (r: PropRename, b: unknown) => unknown = boundTo) =>
+  (it: Record<string, unknown>): Record<string, unknown> => {
+    let out = it;
+    const rs = renamesIn(table, it.component);
+    if (!rs.length) return it;
+    if (isRecord(it.props)) out = withKey(out, "props", renamedKeys(rs, it.props, convert));
+    if (isRecord(it.bind)) out = withKey(out, "bind", renamedKeys(rs, it.bind, bound));
+    return out;
+  };
 
 /** every part's id, on the canvas and in each component, with the part it is (one id that is two parts is left out) */
 function partsById(doc: MigrationDoc): Map<string, unknown> {
@@ -597,31 +606,31 @@ const partAt = (parts: Map<string, unknown>, path: unknown) => (typeof path === 
 
 /** a tap's effects that set a renamed prop, setting it under its new name to the value in the new unit */
 const renamedSets =
-  (parts: Map<string, unknown>) =>
+  (table: Renames, parts: Map<string, unknown>) =>
   (b: Record<string, unknown>): Record<string, unknown> => {
     if (!Array.isArray(b.effects)) return b;
     const effects = same(
       b.effects,
       b.effects.map((e) => {
         if (!isRecord(e) || e.do !== "setProp" || typeof e.prop !== "string") return e;
-        const r = renameOf(partAt(parts, e.part), e.prop);
+        const r = renameIn(table, partAt(parts, e.part), e.prop);
         if (!r) return e;
-        return withKey(withKey(e, "prop", r.to), "value", convert(r, e.value));
+        return withKey(withKey(e, "prop", r.to), "value", r.set ? r.set(e.value) : convert(r, e.value));
       }),
     );
     return withKey(b, "effects", effects);
   };
 
 /** an override key (`path/itemId/key`) and its value under the new name and unit, or undefined where it is none */
-function renamedKey(parts: Map<string, unknown>, key: string): PropRename | undefined {
+function renamedKey(table: Renames, parts: Map<string, unknown>, key: string): PropRename | undefined {
   const at = key.lastIndexOf("/");
   if (at <= 0) return undefined;
-  return renameOf(partAt(parts, key.slice(0, at)), key.slice(at + 1));
+  return renameIn(table, partAt(parts, key.slice(0, at)), key.slice(at + 1));
 }
 const keyTo = (key: string, r: PropRename) => `${key.slice(0, key.lastIndexOf("/") + 1)}${r.to}`;
 
 /** what instances override and what component properties write, under the new names */
-function renamedOverrides(doc: MigrationDoc, parts: Map<string, unknown>): MigrationDoc {
+function renamedOverrides(table: Renames, doc: MigrationDoc, parts: Map<string, unknown>): MigrationDoc {
   /* a component property that shows its words in a renamed prop: its targets, and what it and each instance give it */
   const converted = new Map<string, PropRename>();
   const components = !Array.isArray(doc.components)
@@ -634,7 +643,7 @@ function renamedOverrides(doc: MigrationDoc, parts: Map<string, unknown>): Migra
             c.props,
             c.props.map((p) => {
               if (!isRecord(p) || !Array.isArray(p.targets)) return p;
-              const rs = p.targets.map((t) => (typeof t === "string" ? renamedKey(parts, t) : undefined));
+              const rs = p.targets.map((t) => (typeof t === "string" ? renamedKey(table, parts, t) : undefined));
               if (!rs.some(Boolean)) return p;
               const conv = rs.find((r) => r?.value);
               if (conv && typeof p.id === "string" && typeof c.id === "string") converted.set(`${c.id}\u0000${p.id}`, conv);
@@ -652,7 +661,7 @@ function renamedOverrides(doc: MigrationDoc, parts: Map<string, unknown>): Migra
     if (isRecord(g.overrides)) {
       const entries = Object.entries(g.overrides);
       const next = entries.map(([k, v]) => {
-        const r = renamedKey(parts, k);
+        const r = renamedKey(table, parts, k);
         return r ? ([keyTo(k, r), convert(r, v)] as const) : ([k, v] as const);
       });
       if (next.some(([k, v], i) => k !== entries[i][0] || v !== entries[i][1])) out = { ...out, overrides: Object.fromEntries(next) };
@@ -674,14 +683,21 @@ function renamedOverrides(doc: MigrationDoc, parts: Map<string, unknown>): Migra
   return out;
 }
 
-export function convergeNames(doc: MigrationDoc): MigrationDoc {
+/** A document with a table's props renamed wherever it says them: a part's props and bindings, what a tap sets, what an
+ *  instance overrides and what a component property writes. */
+function renamedProps(table: Renames, doc: MigrationDoc, bound?: (r: PropRename, b: unknown) => unknown): MigrationDoc {
   const parts = partsById(doc);
-  return renamedOverrides(walkDoc(doc, { item: renamedItem, body: renamedSets(parts) }), parts);
+  return renamedOverrides(table, walkDoc(doc, { item: renamedItem(table, bound), body: renamedSets(table, parts) }), parts);
 }
+
+export const convergeNames = (doc: MigrationDoc): MigrationDoc => renamedProps(PROP_RENAMES_5, doc);
 
 /** What a part reads now (every prop, by its key), as version 4 read it: under the old names, in the old units, in
  *  the order its props came in. For the tests of old files, which hold the readings the versions that wrote them made. */
 export function asWrittenAt4(slug: string | undefined, read: Record<string, unknown>): Record<string, unknown> {
+  return asWrittenAt4From5(slug, asWrittenAt5(slug, read));
+}
+function asWrittenAt4From5(slug: string | undefined, read: Record<string, unknown>): Record<string, unknown> {
   const rs = renamesOf(slug);
   if (!rs.length) return read;
   return Object.fromEntries(
@@ -696,4 +712,178 @@ export const CONVERGE_5: Migration = {
   to: 5,
   name: "one name and one unit for each idea a part's props hold: a field's help and message, a variant, a dialog's buttons, a close button, a duration in seconds, a size from a few",
   up: convergeNames,
+};
+
+/* ---------- version 6: the row model and the one color value ----------
+ *
+ * Two models the parts lacked (docs/组件规范.md "行模型" and "颜色"), and the props moved onto them:
+ *
+ * - Colors. Every color prop holds one color value (parts/color.ts): a role, a role at a share of itself, a hex, or ""
+ *   for none set. The words some parts had of their own for a color are written as the color they drew: `muted` is
+ *   `on-surface-variant`, `inverse` is `inverse-on-surface`, a dot's and a list row's `surface` is
+ *   `surface-container-highest`; `default`, `current` and `none` are "" (the part's own color, or no paint), except a
+ *   vector's `default`, which drew `on-surface`. A rarity's color written as free words holds a color now: what was no
+ *   hex (and so was never painted) is "". A palette's colors, words with commas between them, are rows of the row model,
+ *   each a color and the name it is read out by (its color, as it was read out).
+ * - Places from 0. Which row a table has picked, which page a pagination is on, which level a level map has reached and
+ *   which rows a multiple choice has picked were counted from 1; they are counted from 0 now, as every other `selected`
+ *   is (a table that picked none is -1). A value can only be moved once if its key moves with it, so each takes a key of
+ *   its own: `selectedRow`, `page`, `level`, `picked`. An expression bound to one of the numbers is wrapped to come to
+ *   the same row. A multiple choice's picks are words (`"1,3"`), which no expression can count down: one bound to a
+ *   variable stays bound to it, two ways, and the variable's own value is written from 0 too; one bound to any other
+ *   expression is left as it is, and reads its words as places from 0 from now on.
+ *
+ * Like the steps before it, the step knows only its own tables, keeps every field it does not know and is idempotent;
+ * it is written against the format as it was at version 5. */
+
+/** Words that hold rows counted from 1 ("1,3"), as places from 0 ("0,2"): each number one less, everything else as it
+ *  was (what was no row before is none now either, and reads back the same). */
+export const placesFrom0 = (v: unknown): unknown => (typeof v === "string" ? v.replace(/-?\d+/g, (n) => String(Number(n) - 1)) : v);
+const placesFrom1 = (v: unknown): unknown => (typeof v === "string" ? v.replace(/-?\d+/g, (n) => String(Number(n) + 1)) : v);
+
+/** The words parts had of their own for a color, by `<slug>.<prop>`, and the color each drew (parts/color.ts). */
+export const COLOR_WORDS_6: Record<string, Record<string, string>> = {
+  "svg.color": { current: "", default: "on-surface", muted: "on-surface-variant" },
+  "dot.color": { muted: "on-surface-variant", surface: "surface-container-highest" },
+  "item.iconFill": { none: "", surface: "surface-container-highest" },
+  "separator.color": { default: "" },
+  "icon.color": { default: "", muted: "on-surface-variant", inverse: "inverse-on-surface" },
+  "container.fill": { none: "" },
+  "text.color": { default: "", muted: "on-surface-variant", inverse: "inverse-on-surface" },
+};
+
+/** the roles a color may name, as parts/color.ts had them at version 6 */
+const ROLES_6 = new Set(
+  "primary on-primary primary-container on-primary-container inverse-primary primary-fixed primary-fixed-dim on-primary-fixed on-primary-fixed-variant secondary on-secondary secondary-container on-secondary-container secondary-fixed secondary-fixed-dim on-secondary-fixed on-secondary-fixed-variant tertiary on-tertiary tertiary-container on-tertiary-container tertiary-fixed tertiary-fixed-dim on-tertiary-fixed on-tertiary-fixed-variant error on-error error-container on-error-container background on-background surface on-surface surface-variant on-surface-variant surface-dim surface-bright surface-container-lowest surface-container-low surface-container surface-container-high surface-container-highest inverse-surface inverse-on-surface surface-tint outline outline-variant shadow scrim".split(" "),
+);
+/** whether words are a color as version 6 reads one: a hex, a role, a role at a share of itself */
+function isColor6(v: string): boolean {
+  if (/^#([0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/i.test(v)) return true;
+  const m = /^([a-z]+(?:-[a-z]+)*)(?:\/(\d{1,3}))?$/.exec(v);
+  return !!m && ROLES_6.has(m[1]) && (m[2] === undefined || Number(m[2]) <= 100);
+}
+
+/** an expression's source that comes to the color its words drew: each word as its color, anything else as it came */
+const colorWordsExpr = (words: Record<string, string>) => (source: string) => {
+  const x = `(${source})`;
+  return `${Object.entries(words)
+    .map(([from, to]) => `${x} == ${quoted(from)} ? ${quoted(to)} : `)
+    .join("")}${x}`;
+};
+const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const colorWordsWrapped = (words: Record<string, string>) => {
+  const re = new RegExp(`^\\(([\\s\\S]*)\\) == ${escapeRe(quoted(Object.keys(words)[0]))} \\? `);
+  return (source: string) => re.test(source);
+};
+const backOf = (words: Record<string, string>) => {
+  const back: Record<string, string> = {};
+  for (const [from, to] of Object.entries(words)) back[to] ??= from;
+  return back;
+};
+
+/** a palette's colors, words with commas between them, as rows: each a color and the name it is read out by */
+const colorRows = (v: unknown): unknown => (typeof v === "string" ? v.split(",").map((w) => ({ label: w.trim(), color: w.trim() })) : v);
+const colorWords = (v: unknown): unknown => (Array.isArray(v) ? v.map((r) => (isRecord(r) && typeof r.color === "string" ? r.color : "")).join(",") : v);
+
+/** The props version 6 moves onto the row model and the one color value (see above). */
+export const PROP_CHANGES_6: readonly PropRename[] = [
+  ...Object.entries(COLOR_WORDS_6).map(([at, words]): PropRename => {
+    const [slug, key] = at.split(".");
+    return { slug, from: key, to: key, value: choiceIn(words), expr: colorWordsExpr(words), wrapped: colorWordsWrapped(words), down: choiceIn(backOf(words)) };
+  }),
+  /* a rarity's color is a color; words that were none were never painted */
+  { slug: "item-cell", from: "rarityColor", to: "rarityColor", value: (v) => (typeof v !== "string" ? v : isColor6(v.trim()) ? v.trim() : "") },
+  { slug: "color-palette", from: "colors", to: "colors", value: colorRows, down: colorWords, set: (v) => v },
+  /* places from 0, each under a key of its own */
+  { slug: "table", from: "selected", to: "selectedRow", value: numberIn((n) => n - 1), expr: (s) => `(${s}) - 1`, down: numberIn((n) => n + 1) },
+  { slug: "pagination", from: "current", to: "page", value: numberIn((n) => n - 1), expr: (s) => `(${s}) - 1`, down: numberIn((n) => n + 1) },
+  { slug: "level-map", from: "current", to: "level", value: numberIn((n) => n - 1), expr: (s) => `(${s}) - 1`, down: numberIn((n) => n + 1) },
+  { slug: "multi-select", from: "selected", to: "picked", value: placesFrom0, down: placesFrom1 },
+];
+
+/** the variable a binding reads plainly (`=vars.name`, `=vars["key"]`), as every runtime builds `vars` */
+function plainVarOf(vars: VarRef[], b: unknown): string | undefined {
+  if (typeof b !== "string") return undefined;
+  const dot = /^=vars\.([\p{L}_$][\p{L}\p{N}_$]*)$/u.exec(b);
+  if (dot) return readBy(vars, dot[1]);
+  const key = /^=vars\[("(?:[^"\\]|\\.)*")\]$/.exec(b);
+  if (!key) return undefined;
+  try {
+    return readBy(vars, JSON.parse(key[1]) as string);
+  } catch {
+    return undefined;
+  }
+}
+
+/** A multiple choice bound two ways to a variable writes its picks from 0 into it from now on: the variable's own value
+ *  (and its value in each mode) is written from 0 too, so the choice starts on the rows it started on. */
+function picksVars(doc: MigrationDoc): MigrationDoc {
+  if (!Array.isArray(doc.vars)) return doc;
+  const list = varList(doc.vars);
+  const ids = new Set<string>();
+  const scan = (gs: unknown) => {
+    if (!Array.isArray(gs)) return;
+    for (const g of gs)
+      if (isRecord(g) && Array.isArray(g.items))
+        for (const it of g.items) {
+          if (!isRecord(it) || it.component !== "multi-select" || !isRecord(it.bind) || !("selected" in it.bind)) continue;
+          const id = plainVarOf(list, it.bind.selected);
+          if (id) ids.add(id);
+        }
+  };
+  scan(doc.groups);
+  if (Array.isArray(doc.components)) for (const c of doc.components) if (isRecord(c)) scan(c.groups);
+  if (!ids.size) return doc;
+  const vars = same(
+    doc.vars,
+    doc.vars.map((v) => {
+      if (!isRecord(v) || typeof v.id !== "string" || !ids.has(v.id) || v.type !== "text") return v;
+      let out = withKey(v, "value", placesFrom0(v.value));
+      if (isRecord(v.modes)) {
+        const modes = Object.fromEntries(Object.entries(v.modes).map(([k, x]) => [k, placesFrom0(x)]));
+        if (Object.entries(modes).some(([k, x]) => x !== (v.modes as Record<string, unknown>)[k])) out = withKey(out, "modes", modes);
+      }
+      return out;
+    }),
+  );
+  return withKey(doc, "vars", vars);
+}
+
+export function convergeRowsAndColors(doc: MigrationDoc): MigrationDoc {
+  return renamedProps(PROP_CHANGES_6, picksVars(doc));
+}
+
+/** What a part reads now as version 5 read it: under its old keys, its colors in its own words, its places from 1. */
+export function asWrittenAt5(slug: string | undefined, read: Record<string, unknown>): Record<string, unknown> {
+  const rs = renamesIn(PROP_CHANGES_6, slug);
+  if (!rs.length) return read;
+  return Object.fromEntries(
+    Object.entries(read).map(([k, v]) => {
+      const r = rs.find((x) => x.to === k);
+      return r ? [r.from, r.down ? r.down(v) : v] : [k, v];
+    }),
+  );
+}
+
+/** What a visitor enters into an input is, now, where version 5 took the same act as another value: picks of a
+ *  multiple choice, counted from 1 then (for the tests of old files: lib/fixtures/history/drawn.ts) */
+export function enteredNow(slug: string | undefined, value: unknown): unknown {
+  return slug === "multi-select" ? placesFrom0(value) : value;
+}
+
+/** A part's tree as version 5 drew it, where version 6 draws the same with a widget's value in another form: a multiple
+ *  choice hands its widget the rows picked from 0 (`picked`), as it hands them out; version 5 counted them from 1
+ *  (`selected`). For the tests of old files. */
+export function treeAsWrittenAt5(tree: unknown): unknown {
+  if (Array.isArray(tree)) return tree.map(treeAsWrittenAt5);
+  if (!isRecord(tree)) return tree;
+  const props = isRecord(tree.props) && tree.type === "MultiSelect" && "picked" in tree.props ? Object.fromEntries(Object.entries(tree.props).map(([k, v]) => (k === "picked" ? ["selected", placesFrom1(v)] : [k, v]))) : tree.props;
+  const children = Array.isArray(tree.children) ? tree.children.map(treeAsWrittenAt5) : tree.children;
+  return props === tree.props && children === tree.children ? tree : { ...tree, props, children };
+}
+
+export const CONVERGE_6: Migration = {
+  to: 6,
+  name: "the row model and the one color value: every color prop holds a role, a share of one or a hex, a palette's colors are rows, and a table's row, a page, a level and a multiple choice's picks are counted from 0 under keys of their own",
+  up: convergeRowsAndColors,
 };

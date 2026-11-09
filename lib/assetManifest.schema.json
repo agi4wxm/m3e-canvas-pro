@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://m3e.dev/schemas/asset-manifest.v1.json",
+  "title": "Asset manifest, version 1",
+  "description": "Written by the asset pipeline, read by M3E Canvas Pro: a stable asset id to the file that holds it, its type, its size, its variant for each platform, where it came from and its licence. M3E never writes it.",
+  "type": "object",
+  "required": ["format", "version", "assets"],
+  "properties": {
+    "format": { "const": "asset-manifest" },
+    "version": { "const": 1 },
+    "generator": { "type": "string", "maxLength": 2000, "description": "what wrote it: the pipeline's name and version" },
+    "assets": {
+      "type": "object",
+      "maxProperties": 5000,
+      "propertyNames": { "pattern": "^(?=.{1,128}$)[A-Za-z0-9]+(?:[-_./][A-Za-z0-9]+)*$" },
+      "additionalProperties": { "$ref": "#/$defs/asset" }
+    }
+  },
+  "$defs": {
+    "file": {
+      "type": "object",
+      "required": ["file"],
+      "properties": {
+        "file": { "type": "string", "pattern": "^(?=.{1,512}$)(?!.*(?:^|\\/)\\.{1,2}(?:\\/|$))[^/\\\\:*?\"<>|\\u0000-\\u001f]+(?:\\/[^/\\\\:*?\"<>|\\u0000-\\u001f]+)*$", "description": "the file, from the manifest's folder, names joined by /" },
+        "mime": { "type": "string", "pattern": "^[a-z]+\\/[a-z0-9.+-]{1,100}$", "description": "its media type; left out, the one its extension stands for" },
+        "width": { "type": "integer", "minimum": 1, "maximum": 65536 },
+        "height": { "type": "integer", "minimum": 1, "maximum": 65536 },
+        "hash": { "type": "string", "pattern": "^[a-z0-9]+:[A-Za-z0-9+/=_-]{8,256}$", "description": "<algorithm>:<digest> of what the file holds" }
+      }
+    },
+    "asset": {
+      "allOf": [{ "$ref": "#/$defs/file" }],
+      "type": "object",
+      "required": ["type", "file"],
+      "properties": {
+        "type": { "enum": ["image", "icon", "video", "audio", "model", "animation"] },
+        "variants": {
+          "type": "object",
+          "propertyNames": { "pattern": "^[a-z][a-z0-9-]{0,31}$" },
+          "additionalProperties": { "$ref": "#/$defs/file" },
+          "description": "the same asset as the pipeline built it for a platform (web, ios, android, wechat, douyin, cocos, godot…)"
+        },
+        "source": { "type": "string", "maxLength": 2000, "description": "where it came from" },
+        "license": { "type": "string", "maxLength": 2000, "description": "an SPDX id, or the licence's words" },
+        "title": { "type": "string", "maxLength": 2000, "description": "what it shows" }
+      }
+    }
+  }
+}

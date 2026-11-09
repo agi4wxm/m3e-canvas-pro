@@ -211,7 +211,7 @@ npx playwright install chromium
 
 <!-- tools:start (bun run mcp:docs) -->
 
-共 179 个工具：服务器环境里没有 OPENAI_API_KEY 时不含“生成”组，只读会话只列出“只读”一栏为“是”的，`undo`、`redo`、`export_product` 只在文件模式里有。说明取自工具给模型看的描述。
+共 182 个工具：服务器环境里没有 OPENAI_API_KEY 时不含“生成”组，只读会话只列出“只读”一栏为“是”的，`undo`、`redo`、`export_product` 只在文件模式里有。说明取自工具给模型看的描述。
 
 | 工具 | 组 | 只读 | 需作者确认 | 说明 |
 | --- | --- | --- | --- | --- |
@@ -239,6 +239,7 @@ npx playwright install chromium
 | `list_mock_records` | 读取 | 是 |  | The records the mocks have for a model, pinned ones first, as the app would get them (files shortened). |
 | `try_mock` | 读取 | 是 |  | Calls the API the way the app would, answered by the mocks on a fresh session (what one call makes, the next sees: create then list), with no waiting: each call by operationId wit… |
 | `list_capabilities` | 读取 | 是 |  | The platform capabilities (payment, sign-in with another service, location, scanning, push, share, clipboard, links, files, analytics, biometrics, calls; the views of a map, a cam… |
+| `list_assets` | 读取 | 是 |  | The asset pipeline's assets this project can use, from its asset manifest (read from the project's folder): each one's id, type (image, icon, video, audio, model, animation), size… |
 | `get_game_contract` | 读取 | 是 |  | The document's gameplay contract, the game loop's (read-only): each command as the call a design makes (operationId game.&lt;command>, its args and response) with every refusal an… |
 | `describe_bindings` | 读取 | 是 |  | How a screen is bound to the API: its params and sign-in, each data source (endpoint, params, paging, and the paths it offers: data.&lt;name>.items[], value fields), its regions w… |
 | `sample_colors` | 读取 | 是 |  | Measures the colors of a picture: an attached reference (ref1…) or a screen or part of the canvas. |
@@ -253,6 +254,8 @@ npx playwright install chromium
 | `add_custom_style` | 风格 |  |  | Adds a custom style to the document's own styles, or replaces the one with its key, validated like a style file: roles as #RRGGBB with contrast checked, faces, icon families, shap… |
 | `set_icon` | 搭建 |  |  | Keeps an SVG drawing as one of the document's own icons, named svg:&lt;id>: it then goes wherever a part takes an icon name (an icon atom's name, a button's or a list row's icon, … |
 | `remove_icon` | 搭建 |  | 是 | Takes one of the document's own icons away. |
+| `set_asset` | 搭建 |  |  | Puts one of the asset pipeline's assets on a part, by its id in the project's asset manifest (list_assets lists them): the part names it as asset:&lt;id> and draws it from the man… |
+| `set_asset_manifest` | 搭建 |  |  | Says where the project's asset manifest (the asset pipeline's file of asset ids, files, sizes, platform variants, sources and licences) is: a path inside the project's folder, fro… |
 | `set_style_rules` | 风格 |  |  | Holds the document to its style's rules (on), or lets its colors, shapes and looks be the author's (off). |
 | `set_style_layout` | 风格 |  |  | Changes one of the style's layout settings, and lays the screens out by it. |
 | `set_palette` | 风格 |  |  | Picks one of the editor's color schemes by key (purple, blue, green…), or "custom" for the document's own. |
@@ -280,7 +283,7 @@ npx playwright install chromium
 | `duplicate_nodes` | 搭建 |  |  | Duplicates parts (a container with what it holds) a step aside and selects the copies. |
 | `set_item` | 搭建 |  |  | Changes a part's own fields: props, fill, textColor, corners, look, note, action/actions, bind, slot (true or a component name such as "BuyButton": the exported apps draw the part… |
 | `set_props` | 搭建 |  |  | Sets prop values of a part (checked against its PropDefs); null resets one to its default. |
-| `set_rows` | 搭建 |  |  | Gives a list prop of a part its rows (a navigation bar's tabs, a menu's entries…), in order: each {label, icon?…}. |
+| `set_rows` | 搭建 |  |  | Gives a list or table prop of a part its rows (a navigation bar's tabs, a menu's entries, a chart's points, a leaderboard's players…), in order. |
 | `set_group` | 搭建 |  |  | Sets a group's fields (by the group's or one of its parts' id): name, hidden (at the start of the preview), locked, showWhen (a condition), pane. |
 | `toggle_lock` | 搭建 |  |  | Locks the groups of the given parts, or unlocks them when all already are. |
 | `nudge` | 搭建 |  |  | Moves parts (or a screen with everything on it) by dx, dy. |

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import type { Look } from "./look";
+import { PAINTABLE, type Look } from "./look";
 import { cn } from "@/lib/m3e/cn";
 import { Button } from "@/components/m3e/button";
 import { Tap } from "./Tap";
@@ -9,9 +9,7 @@ import { keysOf, secondsLeft, usePicked, useSeeded } from "./seed";
 
 /* The game panels, after 17722797729/m3e-canvas game-ui (MIT). What is claimed, checked in or picked is the game's to
  * say and comes in as props; a press only asks, and only a prototype's demo marks things done by itself. A rarity's
- * color is the author's data, not a theme role, so it is written as given. */
-
-const HEX = /^#[0-9a-f]{3,8}$/i;
+ * color is one color value (parts/color.ts), worked out to CSS by the part: painted only when it is one (`PAINTABLE`). */
 
 export function Inventory({ columns = 5, rows = 4, filled = 7, width = 380, className, style }: { columns?: number; rows?: number; filled?: number; width?: number } & Look) {
   const [on, setOn] = useState(-1);
@@ -35,7 +33,7 @@ export function ItemCell({ icon = "", count = "", name = "", rarity = "", rarity
         {badge && <span data-slot="item-cell-badge" className="bg-error text-on-error text-label-small absolute -top-1 -right-1 rounded-full px-1">{badge}</span>}
         {count && <span data-slot="item-cell-value" className="text-label-small text-on-surface absolute right-1 bottom-0">{count}</span>}
         {rarity && (
-          <span data-slot="item-cell-tag" className="text-label-small absolute top-0 left-0 rounded-br-md rounded-tl-lg px-1 text-on-primary" style={{ background: HEX.test(rarityColor) ? rarityColor : "var(--md-sys-color-outline)" }}>
+          <span data-slot="item-cell-tag" className="text-label-small absolute top-0 left-0 rounded-br-md rounded-tl-lg px-1 text-on-primary" style={{ background: PAINTABLE.test(rarityColor) ? rarityColor : "var(--md-sys-color-outline)" }}>
             {rarity}
           </span>
         )}

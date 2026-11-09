@@ -6,6 +6,7 @@ import { Button } from "../atoms/controls";
 import { starred, withField, type FieldProps } from "../field";
 import { Glyph } from "../icons/Icon";
 import { useFill } from "../layout";
+import { colorOf } from "../look";
 import { clampInt, withDefaults, type ListRow } from "../parts";
 import { Popup } from "../picker";
 import { fieldStyle } from "../recipes";
@@ -61,8 +62,15 @@ export function placesOf(words: string | number[] | undefined, count = Infinity)
 /** places as the words that hold them: counted from 1, in order */
 export const wordsOfPlaces = (at: number[]) => [...at].sort((a, b) => a - b).map((n) => n + 1).join(",");
 
-/** a color the author wrote: a hex, or nothing drawn */
-const HEX = /^#[0-9a-f]{3,8}$/i;
+/** the rows a multiple choice picked, by their places from 0 in words like "0,2" (format version 6), within `count` */
+export function picksOf(words: string | number[] | undefined, count = Infinity): number[] {
+  const raw = Array.isArray(words) ? words : String(words ?? "").split(/[\s,，]+/).filter(Boolean).map(Number);
+  return raw.filter((n, i, all) => Number.isInteger(n) && n >= 0 && n < count && all.indexOf(n) === i);
+}
+
+/** places from 0 as the words that hold them, in order */
+export const wordsOfPicks = (at: number[]) => [...at].sort((a, b) => a - b).join(",");
+
 
 /** one option in a list that floats over the screen */
 function OptionRow({ label, chosen, onPress }: { label: string; chosen: boolean; onPress: () => void }) {
@@ -480,13 +488,13 @@ export function ItemPicker(props: ItemPickerProps) {
 export type MultiSelectProps = PartBase &
   FieldProps & {
     items?: ListRow[];
-    /** the rows picked, counted from 1 ("1,3") */
-    selected?: string;
+    /** the rows picked, by their places from 0 ("0,2") */
+    picked?: string;
     width?: number;
     disabled?: boolean;
     error?: boolean;
-    /** told of the rows picked, as `selected` holds them */
-    onChangeText?: (selected: string) => void;
+    /** told of the rows picked, as `picked` holds them */
+    onChangeText?: (picked: string) => void;
   };
 
 /** A choice of several: a filter chip for each option, the ones picked ticked. */
@@ -495,8 +503,8 @@ export function MultiSelect(props: MultiSelectProps) {
   const kit = useKit();
   const fill = useFill();
   const items = p.items ?? [];
-  const [value, setValue] = useEntry(String(p.selected ?? ""), p.onChangeText);
-  const on = placesOf(value, items.length);
+  const [value, setValue] = useEntry(String(p.picked ?? ""), p.onChangeText);
+  const on = picksOf(value, items.length);
   return withField(
     p,
     <Surface base={{ width: Math.round(p.width ?? 320), opacity: p.disabled ? 0.38 : 1 }} style={fill} appearance={p} testID={p.testID}>
@@ -510,7 +518,7 @@ export function MultiSelect(props: MultiSelectProps) {
               accessibilityLabel={it.label}
               accessibilityState={{ checked: picked, disabled: !!p.disabled }}
               disabled={heldBy(p)}
-              onPress={() => setValue(wordsOfPlaces(picked ? on.filter((x) => x !== i) : [...on, i]))}
+              onPress={() => setValue(wordsOfPicks(picked ? on.filter((x) => x !== i) : [...on, i]))}
               style={{ height: 32, flexDirection: "row", alignItems: "center", columnGap: 8, paddingLeft: picked ? 8 : 16, paddingRight: 16, borderRadius: corner(kit, "sm"), borderWidth: picked ? 0 : 1, borderColor: c(kit, p.error ? "error" : "outline-variant"), backgroundColor: picked ? c(kit, "secondary-container") : "transparent" }}
             >
               {picked ? <Glyph name="check" size={18} color={c(kit, "on-secondary-container")} /> : null}
@@ -527,8 +535,9 @@ export function MultiSelect(props: MultiSelectProps) {
 
 export type ColorPaletteProps = PartBase &
   FieldProps & {
-    /** the colors, hex, joined with commas (or a list) */
-    colors?: string | string[];
+    /** the colors: the part's rows (each a color of the one color value, a role, a share of one or a hex, and the name
+     *  it is read out by), or words with commas between them */
+    colors?: string | (string | ListRow)[];
     /** the place of the color chosen among all those given, an unreadable one included (it is only not drawn) */
     selected?: number;
     width?: number;
@@ -538,20 +547,21 @@ export type ColorPaletteProps = PartBase &
     onSelect?: (index: number, color: string) => void;
   };
 
-/** A choice of one color among swatches, the chosen one ringed and ticked. An author's colors are data: drawn as given. */
+/** A choice of one color among swatches, the chosen one ringed and ticked. */
 export function ColorPalette(props: ColorPaletteProps) {
   const p = withDefaults<ColorPaletteProps>("color-palette", props);
   const kit = useKit();
   const fill = useFill();
-  const colors = (Array.isArray(p.colors) ? p.colors : String(p.colors ?? "").split(",")).map((x) => String(x).trim());
+  const rows = (Array.isArray(p.colors) ? p.colors : String(p.colors ?? "").split(",")).map((x) => (typeof x === "string" ? { label: x.trim(), color: x.trim() } : { label: x.label, color: x.color ?? x.label }));
+  const colors = rows.map((r) => r.color);
   const [chosen, setChosen] = useEntry(Math.round(p.selected ?? 0), p.onSelect ? (i) => p.onSelect?.(i, colors[i] ?? "") : undefined);
   return withField(
     p,
     <Surface base={{ width: Math.round(p.width ?? 320), opacity: p.disabled ? 0.38 : 1 }} style={fill} appearance={p} testID={p.testID}>
       <View accessibilityRole="radiogroup" accessibilityLabel={starred(p.ariaLabel, p.required)} style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
-        {colors.map((color, i) =>
-          HEX.test(color) ? (
-            <Pressable key={`${color}-${i}`} accessibilityRole="radio" accessibilityLabel={color} accessibilityState={{ checked: i === chosen, disabled: !!p.disabled }} disabled={heldBy(p)} onPress={() => setChosen(i)} style={{ width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center", backgroundColor: color, borderWidth: i === chosen ? 2 : 1, borderColor: c(kit, i === chosen ? "on-surface" : p.error ? "error" : "outline-variant") }}>
+        {rows.map(({ label, color }, i) =>
+          colorOf(kit, color) ? (
+            <Pressable key={`${color}-${i}`} accessibilityRole="radio" accessibilityLabel={label || color} accessibilityState={{ checked: i === chosen, disabled: !!p.disabled }} disabled={heldBy(p)} onPress={() => setChosen(i)} style={{ width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center", backgroundColor: colorOf(kit, color), borderWidth: i === chosen ? 2 : 1, borderColor: c(kit, i === chosen ? "on-surface" : p.error ? "error" : "outline-variant") }}>
               {i === chosen ? <Glyph name="check" size={20} color={c(kit, "on-primary")} /> : null}
             </Pressable>
           ) : null,
