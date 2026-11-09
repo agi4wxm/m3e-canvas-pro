@@ -379,7 +379,7 @@ export function Gauge(props: GaugeProps) {
 
 /* ---------- a table ---------- */
 
-export type TableProps = PartBase & { title?: string; data?: TableData; caption?: string; selected?: number; alignLast?: boolean; width?: number };
+export type TableProps = PartBase & { title?: string; data?: TableData; caption?: string; /** the row picked, from 0 (-1: none) */ selectedRow?: number; alignLast?: boolean; width?: number };
 
 const TEXT_ALIGN = { start: "left", center: "center", end: "right" } as const;
 
@@ -406,7 +406,8 @@ export function Table(props: TableProps) {
   const sizes = columnWidths(t, spec);
   const cellBox = (i: number): ViewStyle => ({ paddingHorizontal: 16, justifyContent: "center", ...(sizes[i].width ? { width: sizes[i].width } : { flexGrow: sizes[i].grow, flexShrink: 1, flexBasis: 0, minWidth: 0 }) });
   const line = c(kit, "outline-variant");
-  const chosen = Math.round(p.selected ?? 0);
+  /* the row picked, counted from 0 (-1: none) */
+  const chosen = Math.round(p.selectedRow ?? -1);
   return (
     <Surface base={{ width: Math.round(p.width ?? 420), ...fill }} appearance={p} testID={p.testID}>
       {p.title ? <RNText style={{ ...typeStyle(kit, "title-medium"), color: c(kit, "on-surface"), paddingHorizontal: 16, paddingVertical: 8 }}>{p.title}</RNText> : null}
@@ -419,7 +420,7 @@ export function Table(props: TableProps) {
           ))}
         </View>
         {t.rows.map((row, r) => {
-          const on = chosen === r + 1;
+          const on = chosen === r;
           return (
             <View key={r} accessibilityState={{ selected: on }} style={{ flexDirection: "row", height: 52, borderBottomWidth: r === t.rows.length - 1 ? 0 : 1, borderBottomColor: line, backgroundColor: on ? c(kit, "secondary-container") : undefined }}>
               {t.columns.map((_, i) => (

@@ -299,6 +299,8 @@ export default function Editor({ initialLang, onReady, persist = editorProjects(
   const projectFileRef = useRef<HTMLInputElement>(null);
   /* a material pack picked to be added to the document's library (lib/materials.ts): it never replaces the project */
   const materialFileRef = useRef<HTMLInputElement>(null);
+  /* the game loop's gameplay contract picked to be linked (lib/game): read-only, in place of the one before */
+  const gameFileRef = useRef<HTMLInputElement>(null);
 
   const p = useMemo(() => paletteOf(paletteKey, customPalette, theme), [paletteKey, customPalette, theme]);
   /* corner helpers read the shape scale outside React; keep it current before anything renders */
@@ -992,6 +994,13 @@ export default function Editor({ initialLang, onReady, persist = editorProjects(
     importPack: () => materialFileRef.current?.click(),
     remove: (id) => void runOp(ops.removeMaterial, { id }),
     uses: (id) => materialUseCounts(savedDoc(core)).get(id) ?? 0,
+  };
+  const importGameFile = async (file: File) => {
+    const text = await file.text().catch(() => "");
+    const done = runOp(ops.importGameContract, { text, path: file.name }, { refused: () => showToast(t("gcInvalid", lang), 3000, "error") });
+    if (!done) return;
+    if (done.gaps.length) showToast(t("gcBroke", lang).replace("{version}", done.contractVersion).replace("{n}", String(done.gaps.length)), 5000, "error");
+    else showToast(t("gcImported", lang).replace("{version}", done.contractVersion), 2000, "check");
   };
   const importMaterialFile = async (file: File) => {
     let parsed: unknown = null;
@@ -1916,6 +1925,7 @@ export default function Editor({ initialLang, onReady, persist = editorProjects(
                   onOpenFolder: project.canPickFolder ? () => void project.openFolder() : undefined,
                   onDownload: project.downloadCopy,
                   onImportMaterials: () => materialFileRef.current?.click(),
+                  onImportGameContract: () => gameFileRef.current?.click(),
                   onStopSaving: project.link ? project.stopSaving : undefined,
                   onSaveState: project.projects ? project.openSaveState : undefined,
                   canSync: project.canSyncFile && !!project.projects,
@@ -2316,6 +2326,19 @@ export default function Editor({ initialLang, onReady, persist = editorProjects(
             const file = e.target.files?.[0];
             e.target.value = "";
             if (file) void importMaterialFile(file);
+          }}
+        />
+
+        <input
+          ref={gameFileRef}
+          type="file"
+          accept=".m3e-game.json,.json,application/json"
+          hidden
+          data-game-contract-input
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            e.target.value = "";
+            if (file) void importGameFile(file);
           }}
         />
 

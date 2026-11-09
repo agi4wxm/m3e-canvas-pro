@@ -13,6 +13,8 @@ import { CORE_REGISTRY, createRegistry, executeTool, isDestructiveCall, toolDefs
 import { GENERATE_TOOLS, stripBackdrop, toCurrentColor } from "./generate";
 import { iconSource } from "../../scripts/gen-tool-icons";
 import { makeItem } from "../tokens";
+import { setAssetCatalog } from "../assetCatalog";
+import { parseAssetManifest } from "../assetManifest";
 
 beforeAll(() => setGlobalLang("en"));
 
@@ -200,6 +202,9 @@ function opCalls(): [string, Record<string, unknown>][] {
     ["add_custom_style", { style: { name: "Paper", extends: "ios", light: { primary: "#1F4E79" } }, wear: false }],
     ["set_icon", { id: "leaf", svg: '<svg viewBox="0 0 24 24"><path d="M4 20C4 9 11 4 20 4c0 9-5 16-16 16z"/></svg>' }],
     ["set_icon", { id: "gone", svg: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/></svg>' }],
+    /* the asset pipeline's: the manifest in reach is the test fixtures' example (set before the calls) */
+    ["set_asset_manifest", { path: "art/asset-manifest.json" }],
+    ["set_asset", { id: "go", asset: "ui/coin" }],
     ["remove_icon", { id: "gone" }],
     ["resize_screen", { id: "detail", preset: "tablet" }],
     ["set_phone_model", { w: 390, h: 844 }],
@@ -247,6 +252,9 @@ function opCalls(): [string, Record<string, unknown>][] {
     ["set_mock_capability", { capability: "payment.pay", fail: "cancelled" }],
     ["set_mock_capability", { capability: "payment.pay", clear: true }],
     ["remove_capability", { name: "acme.ticket.scan" }],
+    /* the gameplay contract (lib/core/ops/game.ts): the game loop's file linked, then unlinked */
+    ["import_game_contract", { text: readFileSync(new URL("../game/fixtures/example.m3e-game.json", import.meta.url), "utf8"), path: "game-loop/contract.m3e-game.json" }],
+    ["remove_game_contract", {}],
     ["clear_mocks", {}],
     ["remove_channel", { id: "chat" }],
     /* screens bound to the contract (lib/core/ops/bindings.ts) */
@@ -287,6 +295,7 @@ function opCalls(): [string, Record<string, unknown>][] {
 describe("every tool, headless", () => {
   it("runs every operation as a tool, each one undoable", async () => {
     const store = fresh();
+    setAssetCatalog({ path: "art/asset-manifest.json", manifest: parseAssetManifest(readFileSync(new URL("../fixtures/assets/asset-manifest.json", import.meta.url), "utf8")).manifest, urls: {}, problems: [], stamp: "" });
     const called = new Set<string>();
     for (const [name, args] of opCalls()) {
       if (name === "old_part") {

@@ -3,6 +3,7 @@ import { h, ic, listSlots } from "../node";
 import type { ListItem, P, PartDef, TableData } from "../types";
 import { BUTTON_FIELD, FIELD, fieldFrame, fieldValues, HELPER_TEXT } from "../fieldState";
 import { ariaLabelProp, iconMeaning, nameFor } from "../a11y";
+import { cssColor, paintOf } from "../color";
 
 /* The parts that complete the set: what the source libraries have that nothing else here covered
  * (docs/组件盘点.md says which source each answers). Each is drawn on shadcn M3E components and
@@ -40,16 +41,17 @@ const TEXT_STYLES: Record<string, string> = {
 };
 /** the size and the line height of each style, for a guess at how much room the words take */
 const TEXT_METRICS: Record<string, [size: number, line: number]> = { display: [36, 44], headline: [24, 32], title: [22, 28], heading: [16, 24], subtitle: [14, 20], lead: [16, 24], body: [14, 20], label: [14, 20], caption: [12, 16], tiny: [11, 16] };
+/* by the one color value (parts/color.ts): "" is the text's own on-surface */
 const TEXT_COLORS: Record<string, string> = {
-  default: "text-on-surface",
-  muted: "text-on-surface-variant",
+  "": "text-on-surface",
+  "on-surface-variant": "text-on-surface-variant",
   primary: "text-primary",
   secondary: "text-secondary",
   tertiary: "text-tertiary",
   error: "text-error",
   outline: "text-outline",
   "on-primary": "text-on-primary",
-  inverse: "text-inverse-on-surface",
+  "inverse-on-surface": "text-inverse-on-surface",
 };
 /* literal class names: Tailwind only sees what is written out */
 const CLAMP: Record<number, string> = { 1: "line-clamp-1", 2: "line-clamp-2", 3: "line-clamp-3", 4: "line-clamp-4", 5: "line-clamp-5", 6: "line-clamp-6" };
@@ -94,7 +96,7 @@ export const additions: PartDef[] = [
     props: [
       { key: "text", label: "Text", labels: { ja: "テキスト", zh: "文字", ko: "텍스트" }, kind: "text", default: "Text", defaults: { zh: "文字" }, multiline: true },
       { key: "style", label: "Style", labels: { ja: "種類", zh: "样式", ko: "유형" }, kind: "enum", default: "body", options: Object.keys(TEXT_STYLES) },
-      { key: "color", label: "Color", kind: "enum", default: "default", options: Object.keys(TEXT_COLORS) },
+      { key: "color", label: "Color", kind: "color", default: "", roles: Object.keys(TEXT_COLORS).filter(Boolean), none: "default" },
       { key: "align", label: "Align", labels: { ja: "揃え", zh: "对齐", ko: "정렬" }, kind: "enum", default: "start", options: Object.keys(TEXT_ALIGN) },
       { key: "bold", label: "Bold", labels: { ja: "太字", zh: "粗体", ko: "굵게" }, kind: "bool", default: false },
       {
@@ -115,8 +117,10 @@ export const additions: PartDef[] = [
      *  fixed, it wraps in its width, which a stretching column sets for it */
     tree: (p) => {
       const auto = p.s("fit") === "auto";
-      const className = [TEXT_STYLES[p.s("style")], TEXT_COLORS[p.s("color")], TEXT_ALIGN[p.s("align")], auto ? "w-max whitespace-pre" : "whitespace-pre-wrap", !auto && CLAMP[Math.round(p.n("maxLines"))], p.b("bold") && "font-bold"].filter(Boolean).join(" ");
-      return h("div", { "data-slot": "text", className, style: auto ? undefined : { width: px(p) } }, p.s("text"));
+      const paint = paintOf(p.s("color"), TEXT_COLORS, "color");
+      const className = [TEXT_STYLES[p.s("style")], paint.className, TEXT_ALIGN[p.s("align")], auto ? "w-max whitespace-pre" : "whitespace-pre-wrap", !auto && CLAMP[Math.round(p.n("maxLines"))], p.b("bold") && "font-bold"].filter(Boolean).join(" ");
+      const style = auto ? paint.style : { width: px(p), ...paint.style };
+      return h("div", { "data-slot": "text", className, style }, p.s("text"));
     },
     guess: textGuess,
     seed: { fit: "auto" },
@@ -343,13 +347,13 @@ export const additions: PartDef[] = [
     h: 80,
     props: [
       { key: "items", label: "Options", labels: { zh: "选项" }, kind: "list", default: [{ label: "Email" }, { label: "Push" }, { label: "SMS" }], min: 1, max: 24 },
-      { key: "selected", label: "Selected rows (1,3)", labels: { ja: "選択中の行（1,3）", zh: "选中第几项（如 1,3）", ko: "선택한 행 (1,3)" }, kind: "text", default: "1" },
+      { key: "picked", label: "Picked rows, from 0 (0,2)", labels: { ja: "選んだ行（0 から、例 0,2）", zh: "选中的行（从 0 数，如 0,2）", ko: "선택한 행 (0부터, 예: 0,2)" }, kind: "text", default: "0", of: "items" },
       WIDTH(320, 120, 800),
       ariaLabelProp(),
     ],
-    /* the rows picked, counted from 1: the words a variable or a form field holds */
-    input: { prop: "selected", kind: "choices" },
-    tree: (p) => fieldFrame(fieldValues(p), h("MultiSelect", { items: words(p.list("items")), selected: p.s("selected"), width: px(p) })),
+    /* the rows picked, by their places from 0 as every place is counted ("0,2"): the words a variable or a form field holds */
+    input: { prop: "picked", kind: "choices" },
+    tree: (p) => fieldFrame(fieldValues(p), h("MultiSelect", { items: words(p.list("items")), picked: p.s("picked"), width: px(p) })),
   },
   {
     slug: "color-palette",
@@ -362,14 +366,21 @@ export const additions: PartDef[] = [
     w: 320,
     h: 96,
     props: [
-      { key: "colors", label: "Colors (comma separated)", labels: { ja: "色（カンマ区切り）", zh: "颜色（逗号分隔）", ko: "색상 (쉼표로 구분)" }, kind: "text", default: "#6750A4,#625B71,#7D5260,#B3261E,#386A20,#006A6A" },
+      /* rows of the row model, each a color of the one color value (parts/color.ts) and the name it is read out by */
+      { key: "colors", label: "Colors", labels: { ja: "色", zh: "颜色", ko: "색상" }, kind: "list", colors: true, default: ["#6750A4", "#625B71", "#7D5260", "#B3261E", "#386A20", "#006A6A"].map((c) => ({ label: c, color: c })), min: 1, max: 64 },
       { key: "selected", label: "Selected", labels: { ja: "選択中", zh: "选中项", ko: "선택" }, kind: "number", default: 0, min: 0, max: 63, step: 1 },
       WIDTH(320, 120, 800),
       ariaLabelProp(),
     ],
     /* the color picked: its place among the colors (a variable or a form field holds the color itself) */
     input: { prop: "selected", kind: "choice", options: "colors" },
-    tree: (p) => fieldFrame(fieldValues(p), h("ColorPalette", { colors: p.s("colors").split(",").map((x) => x.trim()), selected: Math.round(p.n("selected")), width: px(p) })),
+    tree: (p) => {
+      const rows = p.list("colors");
+      /* each swatch as CSS (a hex as written, a role as its custom property); what is no color stays, and is not drawn */
+      const colors = rows.map((r) => cssColor(r.color ?? "") ?? r.color ?? "");
+      const named = rows.some((r) => r.label !== (r.color ?? ""));
+      return fieldFrame(fieldValues(p), h("ColorPalette", { colors, ...(named ? { names: rows.map((r) => r.label) } : {}), selected: Math.round(p.n("selected")), width: px(p) }));
+    },
   },
   {
     slug: "number-picker",

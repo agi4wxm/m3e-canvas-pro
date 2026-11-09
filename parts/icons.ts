@@ -66,13 +66,33 @@ export function useDocIcons(): Readonly<Record<string, string>> {
 
 const isDoc = (name: string) => name.startsWith(DOC_ICON_PREFIX);
 
+/* ---------- the asset pipeline's ---------- */
+
+/* A part names an asset of the asset pipeline's manifest `asset:<id>` (lib/assetRefs.ts) where it takes an icon; whoever
+ * holds the manifest registers each one as an Iconify icon drawing its picture (src/editor/assetIcons.ts in the editor,
+ * the generated lookup in an exported app), never fetched. */
+const ASSET_PREFIX = "asset:";
+const isAsset = (name: string) => name.startsWith(ASSET_PREFIX);
+
+/** what each asset is drawn with now, by id: what tells one that changed */
+let assetDrawn: Readonly<Record<string, string>> = {};
+
+/** The assets drawn as icons from now on: `set` holds them as Iconify icons (lib/assetCatalog.ts `assetIconSet`), and
+ *  every tree that names one whose drawing changed is drawn again. One no longer there draws nothing. */
+export function registerAssetIcons(drawn: Readonly<Record<string, string>>, set: IconifyJSON | null) {
+  const changedSome = Object.keys(drawn).some((id) => drawn[id] !== assetDrawn[id]) || Object.keys(assetDrawn).some((id) => !(id in drawn));
+  assetDrawn = drawn;
+  if (set && Object.keys(set.icons).length) registerIcons(set);
+  if (changedSome) changed();
+}
+
 const base = (name: string) => name.replaceAll("_", "-");
 const rounded = (name: string) => [`material-symbols:${base(name)}-outline-rounded`, `material-symbols:${base(name)}-rounded`];
 /* Both glyphs, outlined and filled: a part draws either, and the components' own icons (icon-data.ts) carry only
  * some names' filled glyph -- a name with one of the two is still to be fetched, from its shard or Iconify. */
 const whole = (name: string) => rounded(name).every(isKnownIcon);
 /** the glyphs a name is drawn with now, outlined and filled: the family's once they are here, else Rounded's once they are, else none */
-const drawnWith = (name: string, of: IconFamily) => (isDoc(name) ? `doc:${hashOf(docDrawn[name.slice(DOC_ICON_PREFIX.length)] ?? "")}` : [false, true].map((filled) => familyGlyph(name, filled, of) ?? (isKnownIcon(rounded(name)[filled ? 1 : 0]) ? "r" : "")).join("|"));
+const drawnWith = (name: string, of: IconFamily) => (isAsset(name) ? `asset:${hashOf(assetDrawn[name.slice(ASSET_PREFIX.length)] ?? "")}` : isDoc(name) ? `doc:${hashOf(docDrawn[name.slice(DOC_ICON_PREFIX.length)] ?? "")}` : [false, true].map((filled) => familyGlyph(name, filled, of) ?? (isKnownIcon(rounded(name)[filled ? 1 : 0]) ? "r" : "")).join("|"));
 /** a short hash of a drawing, so a tree draws again when one of its document icons is drawn anew */
 function hashOf(s: string) {
   let h = 0;
@@ -165,8 +185,8 @@ export function ensureIcons(names: Iterable<string>, of: IconFamily = family) {
     void loadIcons(of, INNER).then(changed);
   }
   for (const name of names) {
-    /* the document's own are registered with the document, never fetched */
-    if (!name || isDoc(name)) continue;
+    /* the document's own are registered with the document, and the pipeline's assets with its manifest: never fetched */
+    if (!name || isDoc(name) || isAsset(name)) continue;
     named.add(name);
     const key = `${of}:${base(name)}`;
     if (asked.has(key)) continue;

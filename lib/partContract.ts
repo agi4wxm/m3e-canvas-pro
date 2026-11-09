@@ -36,7 +36,8 @@ export function optionsOf(it: Pick<Item, "component" | "props">): string[] {
   const d = def?.props.find((p) => p.key === key);
   if (!def || !d) return [];
   const p = reader(def, it.props);
-  return d.kind === "list" ? p.list(key).map((r) => r.label) : d.kind === "text" ? p.s(key).split(",").map((w) => w.trim()) : [];
+  /* a palette's swatches are picked as their colors, which a variable or a form field holds */
+  return d.kind === "list" ? p.list(key).map((r) => (d.colors ? (r.color ?? "") : r.label)) : d.kind === "text" ? p.s(key).split(",").map((w) => w.trim()) : [];
 }
 
 /** Every key the part's `actions` may hold: its slots, then its families, then its events. */

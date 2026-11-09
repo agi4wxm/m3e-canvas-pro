@@ -21,6 +21,10 @@ import { failure, listeners, serial, type Backend, type CallContext, type CallOu
 import { FileConflict, NotAProject, ProjectFileStore, type ProjectFormat } from "./fileStore";
 import type { Log } from "./log";
 import { readEditorSource } from "./sources";
+import { DiskAssets } from "./assets";
+import { refreshGame } from "../../lib/game/folder";
+import type { Doc } from "../../lib/tokens";
+import { readFile } from "node:fs/promises";
 
 export type FileBackendOptions = {
   path: string;
@@ -45,6 +49,8 @@ export class FileBackend implements Backend {
   private readonly renderer?: Renderer;
   private opened = false;
   private writes = 0;
+  /** the asset manifest beside the project, read again as it changes (assets.ts) */
+  private readonly assets = new DiskAssets();
 
   constructor(private readonly o: FileBackendOptions) {
     this.store = new DocStore(stateOf({ groups: [], frames: [] }), { measurer: guessMeasurer, lang: () => o.lang });
@@ -55,7 +61,7 @@ export class FileBackend implements Backend {
   /** Reads the file (none yet is an empty document, written on the first change). Throws when it is not a project. */
   async open(): Promise<void> {
     const doc = await this.file.read();
-    if (doc) this.store.load(doc, true);
+    if (doc) this.store.load(await this.withGame(doc), true);
     this.opened = true;
     this.o.log.info(doc ? `Opened ${this.o.path}: ${doc.frames.length} screen(s), ${doc.groups.length} group(s).` : `${this.o.path} does not exist yet: it is written on the first change.`);
     const newer = this.store.readOnlyVersion();
@@ -74,16 +80,45 @@ export class FileBackend implements Backend {
 
   status() {
     const newer = this.store.readOnlyVersion();
-    return { mode: "file", file: this.o.path, ...(newer !== null ? { newerFormat: newer } : {}), layout: this.file.layout === "folder" ? "folder (m3e-project.json, pictures in m3e-assets/)" : "one file", access: this.access(), writes: this.writes, screenshots: this.renderer ? "headless Chromium, when Playwright is installed" : "off" };
+    const catalog = this.assets.catalog;
+    const assets = catalog ? { assetManifest: catalog.manifest ? `${catalog.path}: ${Object.keys(catalog.manifest.assets).length} asset(s)${catalog.problems.length ? `, ${catalog.problems.length} problem(s)` : ""}` : `none (${catalog.path} not read)` } : {};
+    return { mode: "file", file: this.o.path, ...(newer !== null ? { newerFormat: newer } : {}), ...assets, layout: this.file.layout === "folder" ? "folder (m3e-project.json, pictures in m3e-assets/)" : "one file", access: this.access(), writes: this.writes, screenshots: this.renderer ? "headless Chromium, when Playwright is installed" : "off" };
+  }
+
+  /** The document with the gameplay contract beside the project read again (lib/game/folder.ts), as a folder project
+   *  opened in the editor reads it: a changed one is linked in its place (and written with the next change), one that is
+   *  gone or no contract any more leaves the last one read, and either is said in the log. */
+  private async withGame(doc: Doc): Promise<Doc> {
+    const dir = this.file.projectDir;
+    const out = await refreshGame(doc as Doc & Record<string, unknown>, (p) => readFile(resolve(dir, p), "utf8").catch(() => null));
+    const r = out.refresh;
+    if (r.status === "updated") this.o.log.info(`The gameplay contract was read again: ${r.report.namespace} ${r.report.contractVersion}${r.report.gaps.length ? `, ${r.report.gaps.length} reference(s) in the design no longer match it (get_game_contract lists them)` : ""}.`);
+    else if (r.status === "missing" || r.status === "invalid") this.o.log.warn(`The gameplay contract ${r.path} ${r.status === "missing" ? "is not beside the project" : `cannot be read (${r.problems.slice(0, 3).join("; ")})`}: the one read last is kept.`);
+    return out.doc;
+  }
+
+  /** the asset manifest beside the project, read again when it changed; a failure leaves the last one read */
+  private async readAssets() {
+    try {
+      await this.assets.refresh(this.file.projectDir, this.store.get().doc);
+    } catch (e) {
+      this.o.log.warn(`The asset manifest could not be read: ${e instanceof Error ? e.message : String(e)}`);
+    }
   }
 
   /** the file read again when it changed on disk; what that means for the call, or null when it had not changed */
   private async refresh(): Promise<string | null> {
+    const notice = await this.refreshFile();
+    await this.readAssets();
+    return notice;
+  }
+
+  private async refreshFile(): Promise<string | null> {
     if (!this.opened) await this.open();
     else if (!(await this.file.changed())) return null;
     else {
       const doc = await this.file.read();
-      if (doc) this.store.load(doc, true);
+      if (doc) this.store.load(await this.withGame(doc), true);
       /* the states the session could go back to are not the file's any more: undo starts again from here */
       this.store.clearHistory();
       this.changes.emit("document");
@@ -190,7 +225,7 @@ export class FileBackend implements Backend {
       const target = isAbsolute(dir) ? dir : resolve(dirname(resolve(this.o.path)), dir);
       try {
         const state = this.store.get();
-        const product = await buildProduct(savedDoc(state), state.session.widths, { lang: this.o.lang, read: readEditorSource });
+        const product = await buildProduct(savedDoc(state), state.session.widths, { lang: this.o.lang, read: readEditorSource, assets: this.assets.catalog?.manifest ?? null });
         const done = await exportToFolder(target, product, { force: o.force });
         const written = done.writes.filter((w) => w.why !== "conflict" && w.why !== "manifest").map((w) => w.path);
         this.o.log.info(`Exported ${product.name} to ${done.dir}: ${written.length} written, ${done.conflicts.length} conflicts.`);

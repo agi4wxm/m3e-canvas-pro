@@ -103,6 +103,7 @@ export function readOf(kind: PropDef["kind"]): BoundRead | null {
     case "number":
       return "num";
     case "enum":
+    case "color":
       return "pick";
     case "list":
       return "rows";

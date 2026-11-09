@@ -1,0 +1,100 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:m3e:schema:m3e-game:1",
+  "title": "M3E game contract (m3e-game, version 1)",
+  "description": "What a game loop says it is, for M3E to read: the commands it takes (their parameters, what each answers, the codes it refuses with), the events it sends, its snapshot, its clock, and the facts it takes from systems other than the player's app. The game loop writes it; M3E reads it and never writes it (docs/玩法契约.md).",
+  "type": "object",
+  "properties": {
+    "format": { "const": "m3e-game" },
+    "version": { "const": 1 },
+    "namespace": { "type": "string", "pattern": "^[a-z][a-zA-Z0-9]{0,31}$", "description": "The prefix of the interface operations the commands become: game.pull." },
+    "contractVersion": { "type": "string", "minLength": 1, "maxLength": 64, "description": "The game loop's own version of the contract, as it numbers it (1.4.0)." },
+    "summary": { "type": "string", "maxLength": 2000 },
+    "problemBase": { "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9+.-]*:", "maxLength": 500, "description": "What a rejection's problem type starts with, its code after it; urn:<namespace>:problem: when left out." },
+    "clock": {
+      "type": "object",
+      "description": "The game's time: ms of world time, which may stand still and run at a rate against the app's domain clock.",
+      "properties": {
+        "unit": { "const": "ms" },
+        "pausable": { "type": "boolean" },
+        "rates": { "type": "array", "items": { "type": "number", "exclusiveMinimum": 0, "maximum": 100 }, "minItems": 1, "maxItems": 16 }
+      },
+      "required": ["unit", "pausable", "rates"],
+      "additionalProperties": false
+    },
+    "snapshot": { "type": ["object", "boolean"], "description": "A JSON Schema 2020-12 of what the game's view() gives: the small snapshot a HUD reads." },
+    "events": {
+      "type": "object",
+      "propertyNames": { "pattern": "^[a-z][a-zA-Z0-9]{0,31}$" },
+      "maxProperties": 200,
+      "additionalProperties": {
+        "type": "object",
+        "properties": { "summary": { "type": "string", "maxLength": 2000 }, "payload": { "type": ["object", "boolean"] } },
+        "required": ["payload"],
+        "additionalProperties": false
+      }
+    },
+    "commands": {
+      "type": "object",
+      "propertyNames": { "pattern": "^[a-z][a-zA-Z0-9]{0,31}$" },
+      "maxProperties": 200,
+      "additionalProperties": {
+        "oneOf": [
+          {
+            "type": "object",
+            "description": "A command the app sends as an interface operation (<namespace>.<name>), answered once: what it came to, or a rejection.",
+            "properties": {
+              "via": { "const": "api" },
+              "summary": { "type": "string", "maxLength": 2000 },
+              "params": { "type": "object", "description": "A JSON Schema of the parameters, an object." },
+              "result": { "type": ["object", "boolean"], "description": "A JSON Schema of what it answers when it goes through." },
+              "rejections": {
+                "type": "object",
+                "propertyNames": { "pattern": "^[a-z][a-z0-9-]{0,47}$" },
+                "maxProperties": 50,
+                "additionalProperties": {
+                  "type": "object",
+                  "properties": {
+                    "status": { "type": "integer", "minimum": 400, "maximum": 499 },
+                    "title": { "type": "string", "minLength": 1, "maxLength": 300 },
+                    "summary": { "type": "string", "maxLength": 2000 },
+                    "type": { "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9+.-]*:", "maxLength": 500 }
+                  },
+                  "required": ["title"],
+                  "additionalProperties": false
+                }
+              }
+            },
+            "required": ["via"],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "description": "A command the app sends as an input action on the world's own channel, many a second, never answered: a direction (vec2) or a button held or not (bool).",
+            "properties": {
+              "via": { "const": "input" },
+              "summary": { "type": "string", "maxLength": 2000 },
+              "input": { "enum": ["vec2", "bool"] }
+            },
+            "required": ["via", "input"],
+            "additionalProperties": false
+          }
+        ]
+      }
+    },
+    "facts": {
+      "type": "object",
+      "description": "The commands the game loop takes from systems other than the player's app (a payment settled, a reward granted by an operator): the app never sends them.",
+      "propertyNames": { "pattern": "^[a-z][a-zA-Z0-9]{0,31}$" },
+      "maxProperties": 200,
+      "additionalProperties": {
+        "type": "object",
+        "properties": { "summary": { "type": "string", "maxLength": 2000 }, "from": { "type": "string", "minLength": 1, "maxLength": 100 }, "params": { "type": "object" } },
+        "required": ["from"],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": ["format", "version", "namespace", "contractVersion", "clock", "snapshot", "events", "commands"],
+  "additionalProperties": false
+}

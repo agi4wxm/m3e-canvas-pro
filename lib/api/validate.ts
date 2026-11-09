@@ -185,7 +185,8 @@ export function apiProblems(api: ApiSpec | undefined, o: { collections?: { id: s
   for (const e of api.endpoints ?? []) {
     if (ids.has(e.operationId)) out.push({ level: "error", at: `endpoints.${e.operationId}`, message: `two endpoints have the operationId ${JSON.stringify(e.operationId)}` });
     ids.add(e.operationId);
-    if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(e.operationId)) out.push({ level: "warning", at: `endpoints.${e.operationId}`, message: "an operationId that is an identifier (getUser) names the generated function as it is; this one is made into one" });
+    /* a gameplay contract's operations are named in its namespace (game.pull, lib/game): that is their name, not a slip */
+    if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(e.operationId) && !e.extra?.["x-m3e-game"]) out.push({ level: "warning", at: `endpoints.${e.operationId}`, message: "an operationId that is an identifier (getUser) names the generated function as it is; this one is made into one" });
     const route = `${e.method} ${e.path.replace(/\{[^}]*\}/g, "{}")}`;
     if (routes.has(route)) out.push({ level: "error", at: `endpoints.${e.operationId}`, message: `${e.method.toUpperCase()} ${e.path} is the same route as ${routes.get(route)}` });
     routes.set(route, e.operationId);

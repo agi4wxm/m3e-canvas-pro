@@ -12,7 +12,7 @@ export function PaymentResultScreen() {
       <At x={16} y={18}>
         <Container
           label=""
-          ground="none"
+          ground=""
           border="none"
           radius={0}
           layout="column"
@@ -27,7 +27,7 @@ export function PaymentResultScreen() {
             <Cell dir="column" fillWidth>
               <Container
                 label=""
-                ground="none"
+                ground=""
                 border="none"
                 radius={0}
                 layout="column"
@@ -41,7 +41,7 @@ export function PaymentResultScreen() {
                 <Cell dir="column" fillWidth>
                   <Container
                     label=""
-                    ground="none"
+                    ground=""
                     border="none"
                     radius={0}
                     layout="row"
@@ -58,7 +58,7 @@ export function PaymentResultScreen() {
                   <Text text="Payment received" styleVariant="headline" align="center" width={380} />
                 </Cell>
                 <Cell dir="column" fillWidth>
-                  <Text text="We will email you when it ships." color="muted" align="center" width={380} />
+                  <Text text="We will email you when it ships." color="on-surface-variant" align="center" width={380} />
                 </Cell>
                 <Cell dir="column" fillWidth>
                   <Container
@@ -76,7 +76,7 @@ export function PaymentResultScreen() {
                         <Cell dir="column" fillWidth>
                           <Box layout="row" gap={16} padX={0} padY={0} hugWidth={false}>
                             <Box layout="row" gap={0} padX={0} padY={0} align="center" hugWidth={false} width={58}>
-                              <Text text="Order" styleVariant="label" fit="auto" color="muted" />
+                              <Text text="Order" styleVariant="label" fit="auto" color="on-surface-variant" />
                             </Box>
                             <Cell dir="row" grow>
                               <Text text="A-1042" />
@@ -86,7 +86,7 @@ export function PaymentResultScreen() {
                         <Cell dir="column" fillWidth>
                           <Box layout="row" gap={16} padX={0} padY={0} hugWidth={false}>
                             <Box layout="row" gap={0} padX={0} padY={0} align="center" hugWidth={false} width={58}>
-                              <Text text="Arrives" styleVariant="label" fit="auto" color="muted" />
+                              <Text text="Arrives" styleVariant="label" fit="auto" color="on-surface-variant" />
                             </Box>
                             <Cell dir="row" grow>
                               <Text text="Friday" />
@@ -96,7 +96,7 @@ export function PaymentResultScreen() {
                         <Cell dir="column" fillWidth>
                           <Box layout="row" gap={16} padX={0} padY={0} hugWidth={false}>
                             <Box layout="row" gap={0} padX={0} padY={0} align="center" hugWidth={false} width={58}>
-                              <Text text="Total" styleVariant="label" fit="auto" color="muted" />
+                              <Text text="Total" styleVariant="label" fit="auto" color="on-surface-variant" />
                             </Box>
                             <Cell dir="row" grow>
                               <Text text={"$68.00"} />
@@ -110,7 +110,7 @@ export function PaymentResultScreen() {
                 <Cell dir="column" fillWidth>
                   <Container
                     label=""
-                    ground="none"
+                    ground=""
                     border="none"
                     radius={0}
                     layout="column"
@@ -135,7 +135,7 @@ export function PaymentResultScreen() {
             <Cell dir="column" fillWidth>
               <Container
                 label=""
-                ground="none"
+                ground=""
                 border="none"
                 radius={0}
                 layout="column"
@@ -149,7 +149,7 @@ export function PaymentResultScreen() {
                 <Cell dir="column" fillWidth>
                   <Container
                     label=""
-                    ground="none"
+                    ground=""
                     border="none"
                     radius={0}
                     layout="row"
@@ -168,7 +168,7 @@ export function PaymentResultScreen() {
                 <Cell dir="column" fillWidth>
                   <Text
                     text="This page shows the result as soon as the payment service confirms it."
-                    color="muted"
+                    color="on-surface-variant"
                     align="center"
                     width={380}
                   />
@@ -183,7 +183,7 @@ export function PaymentResultScreen() {
             <Cell dir="column" fillWidth>
               <Container
                 label=""
-                ground="none"
+                ground=""
                 border="none"
                 radius={0}
                 layout="column"
@@ -197,7 +197,7 @@ export function PaymentResultScreen() {
                 <Cell dir="column" fillWidth>
                   <Container
                     label=""
-                    ground="none"
+                    ground=""
                     border="none"
                     radius={0}
                     layout="row"
@@ -216,7 +216,7 @@ export function PaymentResultScreen() {
                 <Cell dir="column" fillWidth>
                   <Text
                     text="Nothing was taken for this order. Try again, or pick another way to pay."
-                    color="muted"
+                    color="on-surface-variant"
                     align="center"
                     width={380}
                   />

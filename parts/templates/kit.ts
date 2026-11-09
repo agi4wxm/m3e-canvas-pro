@@ -1,3 +1,4 @@
+import type { GameContract } from "../../lib/game/format";
 import { arrangeFlows } from "../../lib/flow";
 import type { Lang } from "../../lib/i18n";
 import { MATERIAL_METRICS, fillRest, lengthToHold, tidyFrame } from "../../lib/tidy";
@@ -33,7 +34,14 @@ export const back = (): Link => ({ to: BACK_TARGET });
 /** The contract a template's screens lean on, added to the document with them where it has none of its own: the
  *  endpoints and models they call and load, the mock scenarios that show each outcome, the variables their states read.
  *  What the document has already (an endpoint, a model, a scenario or a variable of the same name) stays. */
-export type TemplateContract = { api?: ApiSpec; mocks?: MockSpec; vars?: DocVar[] };
+export type TemplateContract = {
+  api?: ApiSpec;
+  mocks?: MockSpec;
+  vars?: DocVar[];
+  /** The gameplay contract its screens are written to (lib/game): M3E's example one, linked only when the document has
+   *  none, standing in for a game loop's until the author links the real one (whose commands then answer them). */
+  game?: GameContract;
+};
 
 /** where a part stands on a picture, by its distance from the edges; with neither edge of an axis it is centered on it,
  *  with both it spans between them */
@@ -85,7 +93,7 @@ const NAME = {
 };
 
 /* a container in a layout has no words or paint of its own unless a template asks for them */
-const BARE = { label: "", fill: "none", border: "none", radius: 0, padX: 0, padY: 0 };
+const BARE = { label: "", fill: "", border: "none", radius: 0, padX: 0, padY: 0 };
 
 /** parts one under another, each as wide as the column; as tall as they add up to */
 export const col = (props: Props, kids: Node[], extra: Extra = {}): Node => ({ slug: "container", props: { ...BARE, layout: "column", gap: 12, align: "stretch", hugHeight: true, ...props }, name: NAME.column, ...extra, kids });

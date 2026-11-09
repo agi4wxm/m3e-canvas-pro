@@ -22,7 +22,7 @@ export function CartScreen() {
       <At x={16} y={80}>
         <Container
           label=""
-          ground="none"
+          ground=""
           border="none"
           radius={0}
           layout="column"
@@ -74,7 +74,7 @@ export function CartScreen() {
                         <Text
                           text="Sand / Large"
                           styleVariant="caption"
-                          color="muted"
+                          color="on-surface-variant"
                           width={250}
                           maxLines={1}
                           testID="text24"
@@ -154,7 +154,7 @@ export function CartScreen() {
                         <Text
                           text="Glazed white"
                           styleVariant="caption"
-                          color="muted"
+                          color="on-surface-variant"
                           width={250}
                           maxLines={1}
                           testID="text29"
@@ -234,7 +234,7 @@ export function CartScreen() {
                         <Text
                           text="Steel / 500 ml"
                           styleVariant="caption"
-                          color="muted"
+                          color="on-surface-variant"
                           width={250}
                           maxLines={1}
                           testID="text34"
@@ -317,7 +317,7 @@ export function CartScreen() {
                     />
                   </Cell>
                   <Box gap={0} padX={0} padY={0} align="end" width={56} height={40} testID="box18">
-                    <Text text="Total" styleVariant="tiny" color="muted" fit="auto" testID="text38" />
+                    <Text text="Total" styleVariant="tiny" color="on-surface-variant" fit="auto" testID="text38" />
                     <Text text={"$68.00"} styleVariant="heading" color="primary" fit="auto" testID="text39" />
                   </Box>
                   <Button label="Checkout (4)" onPress={() => s.run(A2, { $: $ })} testID="button20" />
@@ -339,7 +339,7 @@ export function CartScreen() {
           <Cell dir="column" fillWidth>
             <Container
               label=""
-              ground="none"
+              ground=""
               border="none"
               radius={0}
               layout="grid"

@@ -34,7 +34,7 @@ export function HomeScreen() {
                 <Text
                   text={$form1.text("form.errors.text ?? \"Optional\"")}
                   styleVariant="caption"
-                  color={$form1.pick("form.errors.text ? \"error\" : \"muted\"", ["default", "muted", "primary", "secondary", "tertiary", "error", "outline", "on-primary", "inverse"], "muted")}
+                  color={$form1.pick("form.errors.text ? \"error\" : \"muted\"", ["", "on-surface-variant", "primary", "secondary", "tertiary", "error", "outline", "on-primary", "inverse-on-surface"], "on-surface-variant")}
                   fit="auto"
                 />
               </Box>

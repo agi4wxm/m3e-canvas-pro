@@ -147,9 +147,9 @@ function PropValueField({ def, value, onChange, p }: { def: PropDef; value: VarV
 }
 
 /** the props an effect can change: the ones with a value that fits on one line */
-const settableProps = (it: Item | undefined) => (partBySlug(it?.component)?.props ?? []).filter((d) => d.kind === "text" || d.kind === "number" || d.kind === "bool" || d.kind === "enum");
+const settableProps = (it: Item | undefined) => (partBySlug(it?.component)?.props ?? []).filter((d) => d.kind === "text" || d.kind === "number" || d.kind === "bool" || d.kind === "enum" || d.kind === "color");
 
-const startOfProp = (d: PropDef | undefined): VarValue => (d && (d.kind === "text" || d.kind === "number" || d.kind === "bool" || d.kind === "enum") ? d.default : "");
+const startOfProp = (d: PropDef | undefined): VarValue => (d && (d.kind === "text" || d.kind === "number" || d.kind === "bool" || d.kind === "enum" || d.kind === "color") ? d.default : "");
 
 const KINDS: { key: Effect["do"]; text: UIKey; icon: string }[] = [
   { key: "show", text: "effShow", icon: "visibility" },
@@ -647,13 +647,13 @@ export function VisibilitySection({ p }: { p: Palette }) {
 }
 
 /** the props that can follow a variable: a part's measure is the layout's to set */
-const bindable = (d: PropDef) => (d.kind === "text" || d.kind === "number" || d.kind === "bool") && d.key !== "width" && d.key !== "height" && !(d.kind === "number" && d.axis);
+const bindable = (d: PropDef) => (d.kind === "text" || d.kind === "number" || d.kind === "bool" || d.kind === "color") && d.key !== "width" && d.key !== "height" && !(d.kind === "number" && d.axis);
 
-const typeOfProp = (d: PropDef): VarType => (d.kind === "bool" ? "bool" : d.kind === "number" ? "number" : "text");
+const typeOfProp = (d: PropDef): VarType => (d.kind === "bool" ? "bool" : d.kind === "number" ? "number" : d.kind === "color" ? "color" : "text");
 
-/** whether a variable of a type can stand for a prop: a number for a number, yes or no for a switch, and words (or a
- *  number, a yes or no read as words) for words and choices */
-const fitsProp = (type: VarType, d: PropDef): boolean => (d.kind === "bool" ? type === "bool" : d.kind === "number" ? type === "number" : type !== "color" || d.kind === "text");
+/** whether a variable of a type can stand for a prop: a number for a number, yes or no for a switch, a color (or words
+ *  that hold one) for a color, and words (or a number, a yes or no read as words) for words and choices */
+const fitsProp = (type: VarType, d: PropDef): boolean => (d.kind === "bool" ? type === "bool" : d.kind === "number" ? type === "number" : d.kind === "color" ? type === "color" || type === "text" : type !== "color" || d.kind === "text");
 
 /** A prop's row with a small control beside it that ties the prop to a variable. Quiet until it is
  *  used: the row stays what it was for anyone who never touches it. */

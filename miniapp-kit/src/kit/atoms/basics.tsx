@@ -52,7 +52,8 @@ export function wordsColor(color: string | undefined): string {
     case undefined:
       return c("on-surface");
     default:
-      return /^[a-z-]+$/.test(color) ? c(color) : c("on-surface");
+      /* any color of the one color value: a role, a share of one, a hex */
+      return css(color) ?? c("on-surface");
   }
 }
 
@@ -102,15 +103,17 @@ export function Text(props: TextProps) {
 
 /* ---------- an icon ---------- */
 
-const ICON_COLORS: Record<string, string | undefined> = { default: undefined, primary: "st:primaryText", secondary: "secondary", tertiary: "tertiary", error: "error", muted: "on-surface-variant", "on-surface": "on-surface", "on-primary": "on-primary", inverse: "inverse-on-surface" };
+/* by the one color value: "" is the words' own color */
+const ICON_COLORS: Record<string, string | undefined> = { "": undefined, primary: "st:primaryText", secondary: "secondary", tertiary: "tertiary", error: "error", "on-surface-variant": "on-surface-variant", "on-surface": "on-surface", "on-primary": "on-primary", "inverse-on-surface": "inverse-on-surface" };
 
 export type IconAtomProps = PartBase & { name?: string; size?: number; filled?: boolean; color?: string };
 
 export function Icon(props: IconAtomProps) {
   const p = withDefaults<IconAtomProps>("icon", props);
   const painted = useMemo(() => paint(p), [p]);
-  const role = ICON_COLORS[p.color ?? "default"];
-  const color = p.textColor ? painted.ink : (role ?? "on-surface");
+  const role = ICON_COLORS[p.color ?? ""];
+  /* a color it was not designed around (the one color value) is drawn as it is */
+  const color = p.textColor ? painted.ink : (role ?? (p.color && css(p.color) ? p.color : "on-surface"));
   const glyph = <Glyph name={p.name || "favorite"} size={Math.round(p.size ?? 24)} filled={!!p.filled} color={color} label={p.name || "favorite"} />;
   return (
     <Surface appearance={p} onPress={p.onPress} testID={p.testID} base={{ display: "flex", flexShrink: 0, alignSelf: "flex-start" }} role="img">
@@ -121,10 +124,11 @@ export function Icon(props: IconAtomProps) {
 
 /* ---------- a vector drawing ---------- */
 
+/* by the one color value: "" is the words' own color; a color it was not designed around is drawn as it is */
 const INK: Record<string, string> = {
-  current: "on-surface",
-  default: "on-surface",
-  muted: "on-surface-variant",
+  "": "on-surface",
+  "on-surface": "on-surface",
+  "on-surface-variant": "on-surface-variant",
   primary: "primary",
   secondary: "secondary",
   tertiary: "tertiary",
@@ -160,7 +164,7 @@ const attr = (s: string) => s.replace(/&/g, "&amp;").replace(/"/g, "&quot;").rep
 export function Svg(props: SvgProps) {
   const p = withDefaults<SvgProps>("svg", props);
   const kit = useKit();
-  const color = kit.paint(INK[p.color ?? "current"] ?? "on-surface");
+  const color = kit.paint(INK[p.color ?? ""] ?? (p.color && css(p.color) ? p.color : "on-surface"));
   const w = Math.round(p.width ?? 48);
   const h = Math.round(p.height ?? 48);
   const aspect = p.stretch ? "none" : "xMidYMid meet";
@@ -217,12 +221,12 @@ export function Separator(props: SeparatorProps) {
   const vertical = p.orientation === "vertical";
   const length = Math.round(p.length ?? 240);
   const t = Math.round(p.thickness ?? 1);
-  const colored = !!p.color && p.color !== "default";
+  const colored = !!p.color && !!css(p.color);
   /* the style's divider (the editor's recipe): iOS's and WeChat's barely-there line, the games' fading rim, dashes */
   const recipe = colored ? "m3" : recipeOf(kit, "divider");
   const fade = recipe === "fade" || recipe === "ornament";
   const thick = recipe === "hairline" ? 0.5 : recipe === "bold" ? kit.theme.edge : t;
-  const ground = colored && /^[a-z-]+$/.test(p.color!) ? c(p.color!) : recipe === "hairline" ? ca("on-surface", 0.12) : recipe === "bold" ? c("outline") : c("outline-variant");
+  const ground = colored ? css(p.color)! : recipe === "hairline" ? ca("on-surface", 0.12) : recipe === "bold" ? c("outline") : c("outline-variant");
   const base: CSS = {
     backgroundColor: fade || recipe === "dashed" ? "transparent" : ground,
     ...(fade ? { backgroundImage: `linear-gradient(${vertical ? 180 : 90}deg, transparent, ${st("rim")} ${recipe === "ornament" ? "30%" : "50%"}, ${recipe === "ornament" ? `${st("rim")} 70%, ` : ""}transparent)` } : null),
@@ -259,7 +263,7 @@ export function Shape(props: ShapeProps) {
   const d = SHAPE_PATHS[p.name ?? "sunny"] ?? SHAPE_PATHS.circle;
   const w = Math.round(p.width ?? 96);
   const h = Math.round(p.height ?? 96);
-  const src = svgUrl(`<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 100 100" preserveAspectRatio="none"><path d="${attr(d)}" fill="currentColor"/></svg>`, kit.paint(SHAPE_COLORS[p.color ?? "primary"] ?? "primary"));
+  const src = svgUrl(`<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 100 100" preserveAspectRatio="none"><path d="${attr(d)}" fill="currentColor"/></svg>`, kit.paint(SHAPE_COLORS[p.color || "primary"] ?? (p.color && css(p.color) ? p.color : "primary")));
   return (
     <Surface appearance={p} onPress={p.onPress} testID={p.testID} role="img" base={{ width: w, height: h, flexShrink: 0 }}>
       <TaroImage src={src} style={sx({ width: w, height: h, display: "block" })} mode="scaleToFill" />
@@ -324,8 +328,8 @@ export function Container(props: ContainerProps) {
   const base: CSS = {
     ...BORDER[p.border ?? "dashed"],
     borderColor: c("outline-variant"),
-    backgroundColor: ground === "none" ? undefined : css(ground),
-    borderRadius: ground === "none" && p.border === "none" ? 0 : p.radius === 12 || p.radius === undefined ? corner(kit, "md") : p.radius,
+    backgroundColor: ground === "" || ground === "none" ? undefined : css(ground),
+    borderRadius: (ground === "" || ground === "none") && p.border === "none" ? 0 : p.radius === 12 || p.radius === undefined ? corner(kit, "md") : p.radius,
     overflow: "hidden",
     ...heldLayout(free ? { ...p, layout: "column", padX: 16, padY: 16, align: p.place === "start" ? "start" : "center", justify: p.place === "start" ? "start" : "center" } : p, fillStyle),
   };

@@ -26,7 +26,7 @@ export const SET_ABOUT: Record<ToolSet, string> = {
   mocks: "the mock library answering the API while it is designed: made-up data (hints per field, counts, pinned records), scenarios (empty, errors, slow, signed out, retries), mock files, realtime scripts, mock sign-in; reading records, trying endpoints",
   bindings:
     "screens bound to the API: data sources, params, sign-in, props bound to expressions, lists repeated from data, regions with state designs, forms for request bodies, taps that call endpoints; wire_screen does it in one step",
-  generate: "drawing with a model: SVG, pictures, custom styles written from words or a picture; the document's own icons (svg:<id>)",
+  generate: "drawing with a model: SVG, pictures, custom styles written from words or a picture; the document's own icons (svg:<id>); the asset pipeline's assets (asset:<id>) from the project's asset manifest",
   reference: "measuring an attached reference picture and comparing a screen with it",
 };
 
@@ -45,12 +45,14 @@ const COMPONENTS = new Set([
 ]);
 const REFERENCE = new Set(["sample_colors", "compare_to_reference"]);
 const STYLE_READS = new Set(["list_styles", "get_style", "look_reference"]);
-/** the document's own icons go with drawing */
-const DRAWING = new Set(["set_icon", "remove_icon"]);
+/** the document's own icons go with drawing, and so do the asset pipeline's pictures and icons */
+const DRAWING = new Set(["set_icon", "remove_icon", "list_assets", "set_asset", "set_asset_manifest"]);
 /** the API section: its operations and the tools that read it */
 const API = new Set([
   "get_api", "describe_endpoint", "describe_model", "get_spec",
   "add_model", "update_model", "rename_model", "remove_model", "add_endpoint", "update_endpoint", "remove_endpoint", "set_auth", "add_channel", "update_channel", "remove_channel", "set_servers", "set_api_info", "import_openapi", "import_asyncapi",
+  /* the gameplay contract: the game loop's operations in the API, read and linked */
+  "get_game_contract", "import_game_contract", "remove_game_contract",
 ]);
 
 /** the mock library: its operations and the tools that read and try it */
@@ -158,10 +160,10 @@ const CUES: [ToolSet, Cue][] = [
     "generate",
     {
       yes: any(
-        /\b(?:draw|draws|drawing|drawn|sketch(?:es|ed|ing)?|svg|illustrat\w*|logos?|ornaments?|ornamental|artwork|paint(?:s|ed|ing)?|wallpapers?|backdrops?|mascot|emblem|(?:hero|background|cover|header|splash) (?:image|picture|art|illustration|photo|scene)s?|custom (?:icons?|glyphs?|graphics?|art)|(?:photo|picture|image)s? (?:of|showing) (?:a|an|the|some)?|generat\w*(?:\W+\w+){0,4}?\W+(?:styles?|themes?|icons?|logos?|svg|images?|pictures?|illustrations?|art|artwork|backdrops?|backgrounds?|photos?|graphics?))\b/,
-        /(?<![动漫计规策刻])画(?![布面板廊质幅])|绘(?!制图层)|插图|插画|配图|壁纸|背景(?:图|画|插画|照片|场景)|吉祥物|标志|logo|自定义图标|(?:设计|生成|创作)[^，。,.]{0,14}(?:图标|插画|插图|图案|logo|标志|图片|背景图|照片|风格|主题)|装饰(?:图|花纹|纹样|图案)/,
-        /描(?:い|く|け|こ)|イラスト|ロゴ|壁紙|背景(?:画像|イラスト|写真)|カスタムアイコン|アイコンを?(?:描|作成|生成|デザイン)|(?:画像|イラスト|写真|スタイル|テーマ|アイコン|ロゴ)を?(?:生成|描)|生成(?:して|する)?[^、。,.]{0,10}(?:画像|イラスト|スタイル|テーマ|アイコン|ロゴ)|装飾/,
-        /그려|그림|일러스트|로고|배경 ?(?:이미지|그림|사진)|배경화면|커스텀 아이콘|아이콘을? ?(?:그려|생성|디자인)|(?:이미지|그림|사진|스타일|테마|아이콘|로고)를? ?생성|생성[^,.]{0,10}(?:이미지|그림|스타일|테마|아이콘|로고)|장식/,
+        /\b(?:assets? (?:manifest|pipeline|ids?)|asset:|(?:game|art|pipeline) assets?|draw|draws|drawing|drawn|sketch(?:es|ed|ing)?|svg|illustrat\w*|logos?|ornaments?|ornamental|artwork|paint(?:s|ed|ing)?|wallpapers?|backdrops?|mascot|emblem|(?:hero|background|cover|header|splash) (?:image|picture|art|illustration|photo|scene)s?|custom (?:icons?|glyphs?|graphics?|art)|(?:photo|picture|image)s? (?:of|showing) (?:a|an|the|some)?|generat\w*(?:\W+\w+){0,4}?\W+(?:styles?|themes?|icons?|logos?|svg|images?|pictures?|illustrations?|art|artwork|backdrops?|backgrounds?|photos?|graphics?))\b/,
+        /资产(?:清单|管线|ID|id)|美术资源|(?<![动漫计规策刻])画(?![布面板廊质幅])|绘(?!制图层)|插图|插画|配图|壁纸|背景(?:图|画|插画|照片|场景)|吉祥物|标志|logo|自定义图标|(?:设计|生成|创作)[^，。,.]{0,14}(?:图标|插画|插图|图案|logo|标志|图片|背景图|照片|风格|主题)|装饰(?:图|花纹|纹样|图案)/,
+        /アセット|描(?:い|く|け|こ)|イラスト|ロゴ|壁紙|背景(?:画像|イラスト|写真)|カスタムアイコン|アイコンを?(?:描|作成|生成|デザイン)|(?:画像|イラスト|写真|スタイル|テーマ|アイコン|ロゴ)を?(?:生成|描)|生成(?:して|する)?[^、。,.]{0,10}(?:画像|イラスト|スタイル|テーマ|アイコン|ロゴ)|装飾/,
+        /에셋|그려|그림|일러스트|로고|배경 ?(?:이미지|그림|사진)|배경화면|커스텀 아이콘|아이콘을? ?(?:그려|생성|디자인)|(?:이미지|그림|사진|스타일|테마|아이콘|로고)를? ?생성|생성[^,.]{0,10}(?:이미지|그림|스타일|테마|아이콘|로고)|장식/,
       ),
     },
   ],

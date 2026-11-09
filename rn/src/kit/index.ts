@@ -29,7 +29,7 @@ export { BY_NAME, COMPONENTS } from "./registry";
 export { TreeView, type TreeNode } from "./tree";
 export { PARTS, type PartInfo } from "./parts.generated";
 /* D3: pickers and entry parts */
-export { Calendar, ColorField, ColorPalette, Combobox, ItemPicker, MultiSelect, NativeSelect, NumberPicker, RegionPicker, SeatMap, TransferList, WheelPicker, daysOf, hexOf, keysOf, levelsOf, pickDay, placesOf, seatsOf, toggleSeat, useEntry, weeksOf, wordsOfPlaces, type TableData } from "./composites/pickers";
+export { Calendar, ColorField, ColorPalette, Combobox, ItemPicker, MultiSelect, NativeSelect, NumberPicker, RegionPicker, SeatMap, TransferList, WheelPicker, daysOf, hexOf, keysOf, levelsOf, pickDay, picksOf, placesOf, seatsOf, toggleSeat, useEntry, weeksOf, wordsOfPicks, wordsOfPlaces, type TableData } from "./composites/pickers";
 export { CopyRow, Field, Form, InputOtp, MARKS, NumberPad, PhoneInput, QuantityStepper, RichTextEditor, SignaturePad, TagInput, markNext, padNext, padReady, tagsOf } from "./composites/entry";
 /* D4: the game parts, and actions, menus and search */
 export { BrandButton, CascadingMenu, Command, ContextMenu, FabMenu, FilterBar, SplitButton, brandCapability, brandWords, commandMatches, toggled, type BrandButtonProps, type CascadingMenuProps, type CommandProps, type ContextMenuProps, type FabMenuProps, type FilterBarProps, type SplitButtonProps } from "./composites/actions";

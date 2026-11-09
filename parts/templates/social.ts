@@ -40,7 +40,7 @@ const homeFeedScreen = (): ScreenSeed =>
       panel({ gap: 8 }, [
         row({ gap: 12 }, [
           part("avatar", { initials: say("NB", "陈", "鈴", "이") }),
-          col({ gap: 0 }, [txt(PEOPLE.grace, "label", { bold: true }), txt(say("5 hours ago", "5 小时前", "5 時間前", "5시간 전"), "caption", { color: "muted" })], { fill: true }),
+          col({ gap: 0 }, [txt(PEOPLE.grace, "label", { bold: true }), txt(say("5 hours ago", "5 小时前", "5 時間前", "5시간 전"), "caption", { color: "on-surface-variant" })], { fill: true }),
         ]),
         txt(say("Finished the first draft. Tell me what to cut.", "初稿写完了，看看哪里该删。", "初稿が書けました。削るべき所を教えてください。", "초고를 끝냈어요. 뺄 부분을 알려 주세요."), "body"),
         row({ gap: 4 }, [...tally("favorite", 42), ...tally("chat_bubble", 7), ...tally("share", 2)]),
@@ -63,7 +63,7 @@ export const social: Template[] = [
         top: [part("app-bar", { title: say("Me", "我的", "マイページ", "마이페이지"), leading: "", trailing: "settings" })],
         bottom: [homeNav(3)],
         body: [
-          row({ gap: 12 }, [part("avatar", { initials: say("MC", "小雨", "葵", "하늘"), size: "lg" }), col({ gap: 2 }, [txt(PEOPLE.ada, "title"), txt(say("View and edit your profile", "查看并编辑个人资料", "プロフィールを表示・編集", "프로필 보기 및 수정"), "caption", { color: "muted" })], { fill: true })]),
+          row({ gap: 12 }, [part("avatar", { initials: say("MC", "小雨", "葵", "하늘"), size: "lg" }), col({ gap: 2 }, [txt(PEOPLE.ada, "title"), txt(say("View and edit your profile", "查看并编辑个人资料", "プロフィールを表示・編集", "프로필 보기 및 수정"), "caption", { color: "on-surface-variant" })], { fill: true })]),
           part("icon-grid", { columns: 4, badge: "", items: [{ label: say("Orders", "订单", "注文", "주문"), icon: "receipt_long" }, { label: say("Saved", "收藏", "保存", "저장"), icon: "bookmark" }, { label: say("History", "足迹", "履歴", "기록"), icon: "history" }, { label: say("Coupons", "优惠券", "クーポン", "쿠폰"), icon: "sell" }] }),
           part("item", {
             description: "",
@@ -331,7 +331,7 @@ export const social: Template[] = [
             said(PEOPLE.grace, say("G", "陈", "鈴", "이"), say("Morning, everyone. Is ten still good?", "大家早，十点还可以吗？", "皆さんおはよう。10 時で大丈夫ですか？", "다들 안녕하세요. 10시 괜찮아요?")),
             said(PEOPLE.alan, say("A", "王", "高", "박"), say("Works for me.", "我可以。", "大丈夫です。", "저는 좋아요.")),
             iSaid(say("I will be there.", "我会到。", "行きます。", "저도 갈게요.")),
-            row({ justify: "center" }, [txt(say("A new member joined", "有新成员加入", "新しいメンバーが参加しました", "새 멤버가 참여했어요"), "caption", { color: "muted", width: 240, align: "center" })]),
+            row({ justify: "center" }, [txt(say("A new member joined", "有新成员加入", "新しいメンバーが参加しました", "새 멤버가 참여했어요"), "caption", { color: "on-surface-variant", width: 240, align: "center" })]),
             said(PEOPLE.katherine, say("K", "赵", "田", "최"), say("Hello! Thanks for adding me.", "大家好，谢谢拉我进群。", "こんにちは。追加ありがとうございます。", "안녕하세요! 초대해 주셔서 고마워요.")),
             said(PEOPLE.grace, say("G", "陈", "鈴", "이"), say("Welcome. The details are in the pinned note.", "欢迎。详情看置顶消息。", "ようこそ。詳細はピン留めをご覧ください。", "환영해요. 자세한 내용은 고정 메시지를 보세요.")),
             iSaid(say("See you all at ten.", "十点见。", "では 10 時に。", "10시에 봬요.")),
@@ -380,7 +380,7 @@ export const social: Template[] = [
               ],
             },
           }),
-          row({ justify: "center" }, [txt(say("You are all caught up", "没有更多了", "すべて確認しました", "모두 확인했습니다"), "caption", { color: "muted", width: 240, align: "center" })]),
+          row({ justify: "center" }, [txt(say("You are all caught up", "没有更多了", "すべて確認しました", "모두 확인했습니다"), "caption", { color: "on-surface-variant", width: 240, align: "center" })]),
         ],
       }),
     ],

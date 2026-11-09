@@ -23,9 +23,11 @@ function propOf(d: PropDef): string {
       /* an outside address is refused (lib/core/images.ts): a picture is painted into the document */
       return `\`${d.key}\` a data:image picture (generate_image paints one; outside addresses are refused)`;
     case "list":
-      return `\`${d.key}\` rows of \`{ "label"${d.icons ? `, "icon"` : ""} }\``;
+      return `\`${d.key}\` rows of \`{ "label"${d.icons ? `, "icon"` : ""}${d.colors ? `, "color"` : ""} }\``;
     case "table":
       return `\`${d.key}\` \`{ "columns": [${d.default.columns.map((c) => JSON.stringify(c)).join(", ")}], "rows": [[…]] }\``;
+    case "color":
+      return `\`${d.key}\` color (${(d.roles ?? []).slice(0, 3).join(" / ")}${(d.roles?.length ?? 0) > 3 ? "…" : ""}${d.roles?.length ? ", or " : ""}any role, \`role/40\`, \`#hex\`; "" ${d.none === "none" ? "none" : "its own"})`;
   }
 }
 

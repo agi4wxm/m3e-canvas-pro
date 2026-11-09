@@ -3,14 +3,16 @@ import { standIn } from "./instances";
 import { cleanLook } from "./look";
 import { cleanStyles } from "./styles";
 import { cleanDocIcons } from "./docIcons";
+import { ASSET_PATH } from "./assetManifest";
 import { cleanDocMaterials } from "./materials";
+import { cleanGameLink } from "./game/link";
 import { cleanApi } from "./api/clean";
 import { cleanMocks } from "./mocks/clean";
 import { cleanCapabilities } from "./capabilities/clean";
 import { fitsType, startValueOf } from "./variables";
 import { cleanMotion, cleanTrigger } from "./prototype";
 import { H_CONSTRAINTS, V_CONSTRAINTS } from "./constraints";
-import { COLOR_TOKENS, type Action, type ActionBody, Collection, ComponentDef, ComponentProp, ComponentSet, Condition, VarCollection, Doc, DocVar, Effect, Frame, Group, Item, Palette, VARIANTS, VarValue, isPlace, isTextToken } from "./tokens";
+import { COLOR_TOKENS, type Action, type ActionBody, Collection, ComponentDef, ComponentProp, ComponentSet, Condition, VarCollection, Doc, DocVar, Effect, ExternalFiles, Frame, Group, Item, Palette, VARIANTS, VarValue, isPlace, isTextToken } from "./tokens";
 import { cleanDataSources, cleanExpr, cleanExprMap, cleanForm, cleanRegion, cleanScreenParams, cleanSubscriptions } from "./bindings/clean";
 import { BARE_VERSION, PROJECT_VERSION, migrate, versionOf, type Migration } from "./migrations";
 import { fields, withUnknown } from "./keep";
@@ -473,6 +475,17 @@ export function cappedNesting(groups: Group[]): Group[] {
 }
 
 /** a document with what is wrong in its behaviour taken out; it always comes back whole */
+/** `Doc.external` as the format has it: each path one inside the project's folder (lib/assetManifest.ts `ASSET_PATH`) */
+function cleanExternal(v: unknown): ExternalFiles | undefined {
+  if (!isRecord(v)) return undefined;
+  const built: ExternalFiles = {};
+  if (typeof v.assetManifest === "string" && ASSET_PATH.test(v.assetManifest)) built.assetManifest = v.assetManifest;
+  if (typeof v.gameContract === "string" && ASSET_PATH.test(v.gameContract)) built.gameContract = v.gameContract;
+  const out = withUnknown(v, built, EXTERNAL_KEYS);
+  return Object.keys(out).length ? out : undefined;
+}
+const EXTERNAL_KEYS = new Set(["assetManifest", "gameContract"]);
+
 export function cleanBehavior(doc: Doc): Doc {
   const out: Doc = { ...doc, frames: doc.frames.map(cleanFrame), groups: cappedNesting(doc.groups.map(cleanGroup)) };
   if (out.customPalette !== undefined) {
@@ -522,6 +535,13 @@ export function cleanBehavior(doc: Doc): Doc {
     if (materials) out.materials = materials;
     else delete out.materials;
   }
+  /* the link to the gameplay contract (lib/game): its contract is the game loop's, read again as its format allows and
+     never mended; one that is not a contract any more is no link (where its file is, is `external.gameContract`) */
+  if (out.game !== undefined) {
+    const game = cleanGameLink(out.game);
+    if (game) out.game = game;
+    else delete out.game;
+  }
   /* the API section is held to its shape and its bounds (lib/api/clean.ts); what is merely wrong in it stays, for the
      author to see and fix */
   if (out.api !== undefined) {
@@ -540,6 +560,13 @@ export function cleanBehavior(doc: Doc): Doc {
     const capabilities = cleanCapabilities(out.capabilities);
     if (capabilities) out.capabilities = capabilities;
     else delete out.capabilities;
+  }
+  /* where the outside modules' files are read from: paths inside the project's folder; one that is not goes, and so
+     does the whole when nothing is left of it (what else it says, a later version's, stays) */
+  if (out.external !== undefined) {
+    const external = cleanExternal(out.external);
+    if (external) out.external = external;
+    else delete out.external;
   }
   const instances = (list: Group[]) => list.map((g) => cleanInstance(g, out.components)).filter((g): g is Group => g !== undefined && g.items.length > 0);
   out.groups = instances(out.groups);

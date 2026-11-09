@@ -14,6 +14,7 @@ import { cn } from "@/lib/m3e/cn"
 
 import { familyIcon, registerIconMap, type IconFamily } from "./icon-family"
 import { isKnownIcon, registerIcons, warnIfMissing } from "./icon-registry"
+import { ASSET_SET, assetIconName } from "./asset-icon-name"
 
 /* The family icons are drawn in: the app's (setIconFamily), or, under an
  * IconFamilyProvider, that root's own, so two roots on one page can each draw
@@ -91,6 +92,9 @@ export function symbolName(
 const DOC_ICON = "svg:"
 const DOC_SET = "m3e-doc"
 
+/** an asset of the asset pipeline's ("asset:<id>"), drawn as its picture whatever the family (asset-icon-name.ts) */
+const ASSET_ICON = "asset:"
+
 /** the id that draws a name, and the family it comes from (nothing when Rounded draws it) */
 function drawing(
   name: string,
@@ -98,6 +102,7 @@ function drawing(
   of: IconFamily
 ): { icon: string; family?: IconFamily } {
   if (name.startsWith(DOC_ICON)) return { icon: `${DOC_SET}:${name.slice(DOC_ICON.length)}` }
+  if (name.startsWith(ASSET_ICON)) return { icon: `${ASSET_SET}:${assetIconName(name.slice(ASSET_ICON.length))}` }
   const styled = familyGlyph(name, filled, of)
   if (styled) return { icon: styled, family: of }
   const base = name.replaceAll("_", "-")

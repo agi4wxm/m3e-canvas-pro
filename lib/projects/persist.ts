@@ -20,7 +20,9 @@ import { asPersistError, localPersist, PersistError, type PersistAdapter, type S
 import { isProject, loadDocument, loadStored, PROJECT_VERSION } from "../project";
 import type { Doc } from "../tokens";
 import { DocConflict, getAssets, getFileRecord, getProject, listProjects, patchProject, pruneAssets, putFileRecord, deleteFileRecord, readProjectRecords, writeBeforeRecord, writeDocRecord, type FileRecord, type ProjectMeta } from "./db";
-import { FileLink, type LinkState } from "./fileLink";
+import { FileLink, type DirHandle, type LinkState } from "./fileLink";
+import { AssetWatch, folderReader } from "./assetLink";
+import { assetManifestPathOf, setAssetCatalog } from "../assetCatalog";
 import { migrateLegacy } from "./migrate";
 import { setOutsideBlocked } from "../outsidePolicy";
 import { createProject, lockName, mostRecent, newProjectId, onProjectsChanged, PROJECT_PARAM, purgeTrashed, storedForm, summaryOf, tellProjectsChanged } from "./projects";
@@ -223,6 +225,8 @@ export class ProjectsPersist implements PersistAdapter {
   lastDoc: Doc | null = null;
   link: FileLink | null = null;
   private linkListeners = new Set<(s: LinkState | null) => void>();
+  /** the asset manifest beside a project bound to a folder, read again as it changes (lib/projects/assetLink.ts) */
+  private assetWatch: AssetWatch | null = null;
 
   constructor(opening: Promise<Opening>, o: PersistOptions = {}) {
     this.opening = opening;
@@ -236,7 +240,7 @@ export class ProjectsPersist implements PersistAdapter {
       /* before anyone is handed the document: its outside pictures must not be fetched by the first draw */
       setOutsideBlocked(o.meta.outside === "blocked");
       this.lastJson = o.stored.doc ? storedForm(o.stored.doc).json : null;
-      if (o.file) this.attach(o.file, false);
+      if (o.file) this.attach(o.file, false, o.stored.doc);
       if (typeof window === "undefined") return;
       /* renamed from the projects home, here or in another tab: the chrome follows */
       onProjectsChanged(() => {
@@ -331,6 +335,8 @@ export class ProjectsPersist implements PersistAdapter {
     if (this.ready?.mode === "legacy") return localPersist.write(doc);
     this.pending = { doc, rev: ++this.handed };
     this.link?.schedule(doc);
+    /* the project's configuration may name another place for its asset manifest */
+    void this.assetWatch?.setPath(assetManifestPathOf(doc)).catch(() => {});
     if (this.conflict) {
       /* written nowhere now: noted for the next tab, and the person is told (read-only) */
       this.note();
@@ -591,8 +597,23 @@ export class ProjectsPersist implements PersistAdapter {
     tellProjectsChanged();
   }
 
-  private attach(rec: FileRecord, fresh: boolean) {
+  /** Reads the asset manifest of a project bound to a folder, from where its configuration says, and keeps reading it
+   *  as it changes; the parts draw what it holds (lib/assetCatalog.ts). Bound to a file, or to nothing, it has none. */
+  private watchAssets(rec: FileRecord | null, doc: Partial<Doc> | null) {
+    this.assetWatch?.close();
+    this.assetWatch = null;
+    setAssetCatalog(null);
+    if (rec?.kind !== "folder" || typeof window === "undefined") return;
+    const watch = new AssetWatch(folderReader(rec.handle as DirHandle), assetManifestPathOf(doc as Doc | null), (c) => {
+      if (this.assetWatch === watch) setAssetCatalog(c);
+    });
+    this.assetWatch = watch;
+    void watch.start().catch(() => {});
+  }
+
+  private attach(rec: FileRecord, fresh: boolean, opened?: Partial<Doc> | null) {
     this.link?.close();
+    this.watchAssets(rec, this.lastDoc ?? opened ?? null);
     const link = new FileLink(rec, {
       resolve: async (doc) => {
         const refs = assetRefsIn(doc);
@@ -624,6 +645,7 @@ export class ProjectsPersist implements PersistAdapter {
     if (!id) return;
     this.link?.close();
     this.link = null;
+    this.watchAssets(null, null);
     this.tellLink();
     await deleteFileRecord(id);
     if (this.metaNow) {

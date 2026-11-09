@@ -21,8 +21,8 @@ const T = {
 
 const field = (placeholder: ReturnType<typeof say>, more: Record<string, unknown> = {}): Node => atom("input", { placeholder, variant: "outlined", ...more });
 
-const head = (): Node[] => [text(T.title, "headline", { bold: true }), para(T.sub, "body", { color: "muted" })];
-const foot = (): Node => hbox({ justify: "center", gap: 4 }, [text(T.none, "body", { color: "muted" }), button(T.signUp, { variant: "text", size: "xs" })]);
+const head = (): Node[] => [text(T.title, "headline", { bold: true }), para(T.sub, "body", { color: "on-surface-variant" })];
+const foot = (): Node => hbox({ justify: "center", gap: 4 }, [text(T.none, "body", { color: "on-surface-variant" }), button(T.signUp, { variant: "text", size: "xs" })]);
 
 const emailForm = (): Node[] => [
   ...head(),

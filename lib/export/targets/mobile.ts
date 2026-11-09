@@ -6,7 +6,7 @@
  * app.json; in development the mocks (packages/mocks) answer it, a scenario chosen in a dev menu. Everything here is
  * generated but src/custom/, written once. docs/手机端.md says how it fits together. */
 
-import { capabilityFiles, slotFiles, slotNames, slotsOf } from "../appCapabilities";
+import { capabilityFiles, docWorldContract, slotFiles, slotNames, slotsOf } from "../appCapabilities";
 import rnPackage from "../../../rn/package.json";
 import { KIT_FILES } from "../rn/kitFiles.generated";
 import { RnPictures, iconsModule, rnDependencies, themeModule } from "../rn/app";
@@ -20,6 +20,7 @@ import { darkVarOf } from "../../tokens";
 import { GENERATED, jsonCode, jsonFile, propKey, sortedObject, str } from "../code";
 import { kebab } from "../paths";
 import { boundaryDifferences } from "../boundary";
+import { rnAssetsFile } from "../assets";
 import { EXPO_PINS, MOBILE_PACKAGES } from "../../exportPackages";
 import { MOBILE_CUSTOM_DIR, MOBILE_FILES_DIR, copiedFile, filledFile, seededFile } from "../copy";
 import { generated, seeded, type ProductContext, type ProductFiles, type ProductTarget, type Workspace } from "../types";
@@ -367,7 +368,7 @@ export const mobileTarget: ProductTarget = {
     /* the capability views are drawn by slots the product writes once (lib/export/appCapabilities.ts) */
     const slots = slotsOf(doc, ctx.widths);
     const capabilities = capabilityFiles(ctx, "mobile");
-    const screens = printRnScreens(doc, ctx.widths, { kitImport: "../../kit", runtime: { bind: "../bind" }, images: { from: "../images", name: pictures.name }, ...(slots.length ? { slots: { from: "../slots", names: slotNames(slots) } } : {}) });
+    const screens = printRnScreens(doc, ctx.widths, { kitImport: "../../kit", runtime: { bind: "../bind" }, images: { from: "../images", name: pictures.name }, assets: { from: "../assets" }, ...(slots.length ? { slots: { from: "../slots", names: slotNames(slots) } } : {}) });
     const theme = rnThemeOf(doc);
     const iconData = await rnIconData([theme.icons], [...screens.icons, ...KIT_ICONS]);
     for (const [id, markup] of Object.entries(doc.icons ?? {})) {
@@ -381,10 +382,13 @@ export const mobileTarget: ProductTarget = {
     files["src/generated/icons.ts"] = generated(iconsModule(iconData, "../kit"));
     for (const s of screens.screens) files[`src/generated/screens/${s.component}.tsx`] = generated(s.source);
     if (pictures.any) files["src/generated/images.ts"] = generated(pictures.module({ requireRule: true }));
+    /* the asset pipeline's assets the design names: a lookup from the manifest, never the files (lib/export/assets.ts) */
+    const assets = rnAssetsFile(doc, ctx.assets);
+    if (assets) files["src/generated/assets.ts"] = generated(assets);
     for (const [path, bytes] of Object.entries(pictures.files)) files[path] = generated(bytes);
     /* what the app does not do as the design says (a part drawn as its atoms or as a placeholder, a binding the kit
        keeps at the design's value): listed beside the screens for the author, as the mini-program lists its own */
-    const warnings = [...screens.warnings, ...boundaryDifferences(doc, "mobile", ctx.widths).map(({ app: _app, ...w }) => w)];
+    const warnings = [...screens.warnings, ...boundaryDifferences(doc, "mobile", ctx.widths, ctx.assets).map(({ app: _app, ...w }) => w)];
     files["src/generated/warnings.json"] = generated(`${JSON.stringify(warnings, null, 1)}\n`);
     ctx.differences.push(...warnings.map((w) => ({ app: "mobile" as const, ...w })));
 
@@ -413,7 +417,7 @@ export const mobileTarget: ProductTarget = {
       }),
     );
     files["src/generated/runtime.ts"] = generated(await filledFile(ctx, app("runtime.ts"), { capabilities: !!capabilities, realtime: !!ctx.doc.api?.channels?.length }, { storageKey: str(`${ctx.name.replace(/[^A-Za-z0-9]/g, "_")}.session`), lang: str(ctx.lang) }));
-    Object.assign(files, capabilities?.files ?? {}, slotFiles(scope, slots, "mobile"));
+    Object.assign(files, capabilities?.files ?? {}, slotFiles(scope, slots, "mobile", undefined, { world: docWorldContract(ctx.doc) }));
     files["src/generated/api.ts"] = generated(await copiedFile(ctx, app("api.ts")));
     files["src/generated/contract.ts"] = generated(await filledFile(ctx, app("contract.ts"), {}, { operations: jsonCode(operationsOf(doc.api)), auth: authSource(doc.api ?? {}), forms: jsonCode(formRulesOf(doc)) }));
     files["src/generated/bind.ts"] = generated(await filledFile(ctx, app("bind.ts"), { copies: !!screens.copies }));

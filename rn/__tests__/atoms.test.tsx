@@ -133,7 +133,7 @@ describe("box", () => {
 
 describe("words", () => {
   it("sets its type role, color, alignment and line limit", async () => {
-    await draw(<Text text="Hello" styleVariant="title" color="muted" align="center" maxLines={2} bold />);
+    await draw(<Text text="Hello" styleVariant="title" color="on-surface-variant" align="center" maxLines={2} bold />);
     const t = screen.getByText("Hello");
     expect(styleOf(t)).toMatchObject({ fontSize: 22, lineHeight: 28, fontWeight: "700", color: colors["on-surface-variant"], textAlign: "center", width: 280 });
     expect(t.props.numberOfLines).toBe(2);

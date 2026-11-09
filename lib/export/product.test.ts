@@ -52,7 +52,13 @@ describe("the prototype export", () => {
      the expression evaluator copied into src/lib/bindings knows the `world` root, and the world channels copied into
      src/lib/world take the world a view connects, which a HUD's bindings per frame read (types.ts `attach`,
      channel.ts `attached`, example.ts `connectWorld`); nothing of a screen or the runtime changes for a document bound
-     to nothing per frame. Before that the world view and its input actions, batch 5 K2: the interpreter copied into src/lib/actions runs move, press and release (model.ts, host.ts,
+     to nothing per frame. Before that format version 6, lib/converge.ts: parts/types.ts, which
+     ships, has the color prop kind, a palette's rows of colors, the row model's `P.rows` and places among rows (`of`), the widgets paint a color only when it is one
+     (parts/widgets/look.ts `PAINTABLE`, the item cell's rarity and the palette's swatches), and a multiple choice's
+     picks are its rows' places from 0 (`picked`); with it the icon component draws an asset of the asset pipeline's,
+     `asset:<id>`, from the collection its lookup registers, components/m3e/icon.tsx and asset-icon-name.ts, copied
+     beside it, and parts/icons.ts draws again what names one whose picture changed; with it the world view and its input
+     actions, batch 5 K2: the interpreter copied into src/lib/actions runs move, press and release (model.ts, host.ts,
      run.ts), the widgets' host contract hands a world view its channel (parts/widgets/host.ts), parts/types.ts says
      what `world` is, the joystick sends `move` with each push, and the every-parts document draws a world view
      (parts/widgets/World.tsx with lib/world copied beside it, the world's clock the app's), on top of K1's clock; before that the time the parts' countdowns read comes from the app's
@@ -89,11 +95,11 @@ describe("the prototype export", () => {
      icons asking again and the ripple under reduced motion; in parts, form fields keyed by their item and resizable
      sizes as percentages). */
   const DIGESTS: Record<string, [number, string]> = {
-    proof: [90, "a45ed7711ff347e42457bdca5144e77ff2665c9f1789a63b81cc99280b554b55"],
-    systems: [47, "1d30ea210a9d9124c6391cfcbcd22cd1fff68494acdc609e085b57fba2e06318"],
+    proof: [91, "15389f58421416525f814eff21f9faf46068cdf598b5ade220af300e7e8dc3fb"],
+    systems: [48, "cc73e24d1d94dff813449b7589a5390ec98fb08e2807a9e96b169909de0f929a"],
     reuse: [38, "d865227fef00dbbed101d77065d0466defcd67870fef0ae0d0981d7a79b71735"],
-    sweep: [100, "e43b1e9ca33b23346dafd31e4e391c8368f1af8b48c526a9fef213edfcd2f49a"],
-    parts: [150, "e34cb355ce68f20e6a8301841ff6943762200e208c7a1ce28bb07a34ba8e5fdc"],
+    sweep: [101, "5e85fa3ca589ee4c5302fa25a8b05916f2b156152512ae6d4902d33cba47502e"],
+    parts: [151, "7f2029cc976447a61099fa2cd16b38cb3c1f386c4405e2bfb2149ea22ef2d2c5"],
   };
   const DOCS: Record<string, () => { doc: Doc; widths: Record<string, number> }> = { proof: proofDoc, systems: systemsDoc, reuse: reuseDoc, sweep: sweepDoc, parts: () => ({ doc: allPartsDoc(), widths: {} }) };
   it.each(Object.keys(DIGESTS))("is byte for byte what it was: %s", async (name) => {

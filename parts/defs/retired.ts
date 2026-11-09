@@ -70,13 +70,13 @@ export const RETIRED_SPLITS: Record<string, (p: P) => Node> = {
     const width = px(p);
     const side = Math.max(8, Math.round((width - 24 - 8 * (columns - 1)) / columns));
     const cell = (i: number) =>
-      box({ layout: "row", align: "center", justify: "center", padX: 0, padY: 0, gap: 0, width: side, height: side, hugWidth: false, hugHeight: false }, some(i < filled && icon("inventory_2", { size: 20, color: "muted" })), { fill: "surfaceContainerLow", corners: round(16) });
+      box({ layout: "row", align: "center", justify: "center", padX: 0, padY: 0, gap: 0, width: side, height: side, hugWidth: false, hugHeight: false }, some(i < filled && icon("inventory_2", { size: 20, color: "on-surface-variant" })), { fill: "surfaceContainerLow", corners: round(16) });
     return box({ layout: "grid", columns, gap: 8, padX: 12, padY: 12, align: "stretch", width, hugWidth: false }, Array.from({ length: count }, (_, i) => cell(i)), { fill: "surfaceContainer", corners: round(28) });
   },
 
   /* the hint on the lowest container, as tall as the part; the pull itself is the data source's */
   "pull-to-refresh": (p) =>
-    vbox({ width: px(p), height: px(p, "height"), hugWidth: false, hugHeight: false, padX: 0, padY: 0, gap: 0, align: "center" }, [hbox({ padX: 12, padY: 12 }, [text(p.s("hint"), "caption", { color: "muted" })])], { fill: "surfaceContainerLow", corners: round(20), note: PULL_NOTE }),
+    vbox({ width: px(p), height: px(p, "height"), hugWidth: false, hugHeight: false, padX: 0, padY: 0, gap: 0, align: "center" }, [hbox({ padX: 12, padY: 12 }, [text(p.s("hint"), "caption", { color: "on-surface-variant" })])], { fill: "surfaceContainerLow", corners: round(20), note: PULL_NOTE }),
 
   /* each line: its check, a picture, its name and variant over its price and its stepper; the foot: select all, the
    * total and the checkout button. The total and the count are the words the part showed: no longer worked out */
@@ -88,7 +88,7 @@ export const RETIRED_SPLITS: Record<string, (p: P) => Node> = {
       hbox({ padX: 12, padY: 12, gap: 12, hugWidth: false, width }, [
         atom("checkbox", { label: "", checked: true }),
         image({ alt: name, width: 64, height: 64, radius: 12 }),
-        vbox({ gap: 2, hugWidth: false, width: 160 }, some(para(name, "body", { maxLines: 1 }), spec && para(spec, "caption", { color: "muted", maxLines: 1 }), hbox({ justify: "between", gap: 4, padX: 0, padY: 0 }, [hbox({ gap: 0 }, [text(currency, "subtitle", { color: "primary" }), text(price, "subtitle", { color: "primary" })]), hbox({ gap: 0 }, [iconButton("remove", "Decrease", { size: "xs" }), text(count, "label"), iconButton("add", "Increase", { size: "xs" }), iconButton("delete", "Remove", { size: "xs" })])])), { grow: true }),
+        vbox({ gap: 2, hugWidth: false, width: 160 }, some(para(name, "body", { maxLines: 1 }), spec && para(spec, "caption", { color: "on-surface-variant", maxLines: 1 }), hbox({ justify: "between", gap: 4, padX: 0, padY: 0 }, [hbox({ gap: 0 }, [text(currency, "subtitle", { color: "primary" }), text(price, "subtitle", { color: "primary" })]), hbox({ gap: 0 }, [iconButton("remove", "Decrease", { size: "xs" }), text(count, "label"), iconButton("add", "Increase", { size: "xs" }), iconButton("delete", "Remove", { size: "xs" })])])), { grow: true }),
       ]),
     );
     const amounts = rows.map(([, , price = "", count = ""]) => ({ price: figure(price), count: count.trim() ? figure(count) : 1 }));
@@ -98,10 +98,10 @@ export const RETIRED_SPLITS: Record<string, (p: P) => Node> = {
     const foot = hbox({ padX: 12, padY: 12, gap: 12, hugWidth: false, width }, some(
       atom("checkbox", { label: p.s("selectAll"), checked: rows.length > 0 }),
       rest(),
-      vbox({ gap: 0, align: "end" }, some(p.s("total") && text(p.s("total"), "tiny", { color: "muted" }), text(known ? `${currency}${sum.toFixed(2)}` : currency, "heading", { color: "primary" }))),
+      vbox({ gap: 0, align: "end" }, some(p.s("total") && text(p.s("total"), "tiny", { color: "on-surface-variant" }), text(known ? `${currency}${sum.toFixed(2)}` : currency, "heading", { color: "primary" }))),
       p.s("action") && button(known ? `${p.s("action")} (${pieces})` : p.s("action"), { variant: "filled", size: "sm" }),
     ), { fill: "surfaceContainer" });
-    const empty = hbox({ justify: "center", padX: 24, padY: 24, hugWidth: false, width }, [text(p.s("empty"), "body", { color: "muted", align: "center" })]);
+    const empty = hbox({ justify: "center", padX: 24, padY: 24, hugWidth: false, width }, [text(p.s("empty"), "body", { color: "on-surface-variant", align: "center" })]);
     return vbox({ width, hugWidth: false, padX: 0, padY: 0, gap: 0 }, [...(rows.length ? lines : [empty]), foot], { fill: "surfaceContainerLow", corners: round(20) });
   },
 
@@ -110,9 +110,9 @@ export const RETIRED_SPLITS: Record<string, (p: P) => Node> = {
     const tasks = p.list("items");
     const done = tasks.filter((t) => t.variant === "done").length;
     return vbox({ width: px(p), hugWidth: false, padX: 12, padY: 12, gap: 4 }, [
-      ...some(p.s("title") && hbox({ justify: "between", padX: 4, padY: 0, gap: 8 }, [text(p.s("title"), "heading"), text(`${done} / ${tasks.length}`, "caption", { color: "muted" })])),
+      ...some(p.s("title") && hbox({ justify: "between", padX: 4, padY: 0, gap: 8 }, [text(p.s("title"), "heading"), text(`${done} / ${tasks.length}`, "caption", { color: "on-surface-variant" })])),
       ...tasks.map((t) =>
-        hbox({ padLeft: 12, padRight: 0, padY: 0, gap: 12 }, [atom("checkbox", { label: "", checked: t.variant === "done" }), hbox({ padX: 4, padY: 8, gap: 0, hugWidth: false, width: 160 }, [para(t.label, "body", { color: t.variant === "done" ? "muted" : "default" })], { grow: true }), iconButton("close", "Remove", { size: "xs" })]),
+        hbox({ padLeft: 12, padRight: 0, padY: 0, gap: 12 }, [atom("checkbox", { label: "", checked: t.variant === "done" }), hbox({ padX: 4, padY: 8, gap: 0, hugWidth: false, width: 160 }, [para(t.label, "body", { color: t.variant === "done" ? "on-surface-variant" : "" })], { grow: true }), iconButton("close", "Remove", { size: "xs" })]),
       ),
       hbox({ padX: 0, padTop: 4, padBottom: 0, gap: 4 }, [atom("input", { placeholder: p.s("placeholder"), size: "sm", variant: "outlined" }, { grow: true }), iconButton("add", "Add", { variant: "tonal", size: "sm" })]),
     ], { fill: "surfaceContainerLow", corners: round(20) });
@@ -125,7 +125,7 @@ export const RETIRED_SPLITS: Record<string, (p: P) => Node> = {
     const password = hbox({ surface: "chip", padLeft: 0, padRight: 8, padY: 0, gap: 0, hugWidth: false, width: 240, hugHeight: false, height: 56 }, [entry(p.s("passwordLabel"), { type: "password" }), iconButton("visibility", "Show password", { size: "sm" })], { corners: round(4) });
     const link = up ? p.s("toIn") : p.s("toUp");
     return vbox({ width: px(p), hugWidth: false, padX: 20, padY: 20, gap: 12 }, [
-      vbox({ gap: 0, padX: 0, padY: 0 }, some(para(up ? p.s("upTitle") : p.s("title"), "headline"), !up && p.s("subtitle") && para(p.s("subtitle"), "body", { color: "muted" }))),
+      vbox({ gap: 0, padX: 0, padY: 0 }, some(para(up ? p.s("upTitle") : p.s("title"), "headline"), !up && p.s("subtitle") && para(p.s("subtitle"), "body", { color: "on-surface-variant" }))),
       ...some(up && field(p.s("nameLabel"), "text")),
       field(p.s("emailLabel"), "email"),
       password,
