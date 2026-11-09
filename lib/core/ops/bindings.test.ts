@@ -505,3 +505,13 @@ describe("subscriptions to realtime channels", () => {
     expect(back.frames.find((f) => f.id === "detail")!.subscriptions).toEqual([{ name: "ok", channel: "c", messages: ["a"], actions: { "on:a": { to: "none", effects: [{ do: "snackbar", message: "x" }] } }, extra: 1 }]);
   });
 });
+
+describe("a channel renamed", () => {
+  it("takes the screens that subscribe to it along", () => {
+    const { run, frame } = shop();
+    run(ops.addChannel, { id: "feed", address: "/feed", messages: [{ name: "post", payload: { type: "object" } }], operations: [{ id: "pushed", action: "send" }] });
+    run(ops.setSubscription, { screen: "detail", name: "feed", channel: "feed" });
+    run(ops.updateChannel, { id: "feed", rename: "news" });
+    expect(frame("detail").subscriptions?.[0].channel).toBe("news");
+  });
+});

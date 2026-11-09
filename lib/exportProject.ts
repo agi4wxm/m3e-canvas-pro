@@ -641,6 +641,8 @@ function readmeSource(doc: Doc, screens: ScreenCode[], copied: string[], missing
     const [kind, what] = [u.slice(0, u.indexOf(":") < 0 ? u.length : u.indexOf(":")), u.includes(":") ? oneLine(u.slice(u.indexOf(":") + 1)) : ""];
     return `- ${kind === "call" ? `the call of \`${what}\`` : kind === "refresh" ? `loading \`${what}\` again` : kind === "loadMore" ? `loading more of \`${what}\`` : kind === "submit" ? "sending a form" : "signing out"}`;
   });
+  /* what the screens listen to over the API's realtime channels: never opened in a prototype */
+  for (const f of doc.frames) for (const sub of f.subscriptions ?? []) unreached.push(`- the subscription to the realtime channel \`${oneLine(sub.channel)}\` on ${oneLine(f.name) || "a screen"}, and its actions on messages (never opened)`);
   return `# ${title}
 
 Exported from M3E Canvas: ${screens.length} ${screens.length === 1 ? "screen" : "screens"}, working as they did in the preview.
