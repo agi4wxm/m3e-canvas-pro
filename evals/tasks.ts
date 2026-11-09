@@ -197,6 +197,16 @@ export const TASKS: EvalTask[] = [
     ],
   },
   {
+    id: "game-damage",
+    ability: "game",
+    title: "Damage numbers spawned on the world's hits, floating and gone after a second",
+    lang: "en",
+    fixture: "game-world-en",
+    request: "Each time the world reports a hit, show a damage number over what was hit that floats up and is gone after about a second. At most 8 at once.",
+    budget: SMALL,
+    checks: [...basics(), spawnOnHit(), keepsWork()],
+  },
+  {
     id: "profile-ja",
     ability: "multilingual",
     title: "A profile screen asked for in Japanese",
@@ -288,6 +298,26 @@ export const taskById = (id: string) => TASKS.find((t) => t.id === id);
 /* ---------- edit-definition: the change is made on the component, not on each card ---------- */
 
 type Def = NonNullable<Doc["components"]>[number];
+/** A template spawned on the world's hits (docs/交互规则.md “按事件生成”): a group that is one, with a life of a few
+ *  seconds at most and a cap, which the world view's on:hit spawns, its words reading the event. */
+function spawnOnHit(): Check {
+  return custom(
+    "spawn-on-hit",
+    "a template spawned on each hit, reading the event",
+    (g) => {
+      const world = g.doc.groups.flatMap((x) => x.items).find((it) => it.component === "world-view");
+      const spawned = (world?.actions?.["on:hit"]?.effects ?? []).flatMap((e) => (e.do === "spawn" ? [e.group] : []));
+      const template = g.doc.groups.find((x) => x.spawn && spawned.includes(x.id));
+      if (!template?.spawn) return { pass: false, detail: spawned.length ? `on:hit spawns ${spawned.join(", ")}, which is no template` : "on:hit spawns nothing" };
+      const words = JSON.stringify(g.doc.groups.filter((x) => x.id === template.id || x.inFlow === template.id).map((x) => x.items.map((it) => it.props)));
+      const reads = /\{\{[^}]*event\./.test(words) || /event\./.test(template.spawn.at ?? "");
+      const life = template.spawn.life <= 3;
+      return { pass: reads && life, detail: `template ${template.id}: life ${template.spawn.life}s, max ${template.spawn.max}${reads ? ", reads the event" : ", reads nothing of the event"}` };
+    },
+    { critical: true },
+  );
+}
+
 const productDef = (doc: Doc): Def | undefined => doc.components?.find((c) => c.id === "product");
 const defItems = (d: Def | undefined) => (d?.groups ?? []).flatMap((g) => g.items);
 /** red as the canvas can say it: the error role, or a hex colour whose red clearly leads */

@@ -257,6 +257,18 @@ export const FIXTURES: Record<string, Fixture> = {
       }),
   },
 
+  /** a battle screen whose world view hosts an engine (the enemies it reports hits on), in English */
+  "game-world-en": {
+    lang: "en",
+    doc: () =>
+      made("en", (tx) => {
+        tx.run(ops.setTitle, { title: "Ember Fields" });
+        tx.run(ops.addScreen, { id: "battle", name: "Battle", w: 892, h: 412 });
+        const entities = { columns: ["Id", "Kind", "X", "Y", "Label"], rows: [["hero", "player", "20", "50", "Hero"], ["slime", "enemy", "60", "40", "Slime"], ["bat", "enemy", "75", "60", "Bat"]] };
+        tx.run(ops.addPart, { slug: "world-view", id: "world", screen: "battle", at: { x: 16, y: 16 }, props: { label: "Arena", scene: "a grassy arena at dusk", entities, inputs: "move: vec2, attack: bool", width: 860, height: 380 } });
+      }),
+  },
+
   /** a home screen in Japanese */
   "home-ja": {
     lang: "ja",

@@ -107,6 +107,19 @@ describe("the graders", () => {
     expect(bad.verdicts.filter((v) => !v.pass).map((v) => v.id)).toEqual(["dark-var", "dark-control"]);
   });
 
+  it("pass damage numbers spawned on the world's hits, and fail one number drawn for good", () => {
+    const good = observe("game-damage", (tx) => {
+      tx.run(ops.addPart, { slug: "text", id: "dmg", screen: "battle", at: { x: 420, y: 160 }, props: { text: "-{{event.id}}" } });
+      tx.run(ops.setSpawn, { id: "dmg", spawn: { life: 1, max: 8, motion: "float", at: "event.id" }, on: { part: "world", event: "hit" } });
+    });
+    const s = score(taskById("game-damage")!.checks, good);
+    expect(s.verdicts.filter((v) => !v.pass)).toEqual([]);
+    const still = observe("game-damage", (tx) => {
+      tx.run(ops.addPart, { slug: "text", id: "dmg", screen: "battle", at: { x: 420, y: 160 }, props: { text: "-12" } });
+    });
+    expect(verdict(still, "spawn-on-hit").pass).toBe(false);
+  });
+
   it("find parts that overlap and parts out of the screen", () => {
     const o = observe("login-material", (tx) => {
       tx.run(ops.addScreen, { id: "login", name: "登录" });

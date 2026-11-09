@@ -173,6 +173,8 @@ function opCalls(): [string, Record<string, unknown>][] {
     ["add_part", { slug: "box", id: "rows", screen: "detail", at: { x: 16, y: 800 }, props: { layout: "column" } }],
     ["add_part", { slug: "text", id: "row", into: { container: "rows" }, props: { text: "{{name}}" } }],
     ["set_repeat", { id: "rows", repeat: { collection: "fruit" } }],
+    ["add_part", { slug: "text", id: "dmg", screen: "home", at: { x: 16, y: 700 }, props: { text: "-{{event.value}}" } }],
+    ["set_spawn", { id: "dmg", spawn: { life: 1, max: 4, motion: "float" } }],
     ["add_var", { id: "who", name: "who", type: "text", value: "Ann" }],
     ["update_var", { id: "who", value: "Bo" }],
     ["add_var", { id: "flag", name: "flag", type: "bool", value: false }],

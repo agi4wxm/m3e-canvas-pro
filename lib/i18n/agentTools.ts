@@ -108,6 +108,7 @@ const L: Record<string, Four> = {
   update_collection: ["Change data", "修改数据集", "データを変更", "데이터 변경"],
   remove_collection: ["Remove data", "删除数据集", "データを削除", "데이터 삭제"],
   set_repeat: ["Repeat over data", "按数据重复", "データで繰り返す", "데이터로 반복"],
+  set_spawn: ["Spawn per event", "按事件生成", "イベントごとに生成", "이벤트마다 생성"],
   add_var: ["Add a variable", "添加变量", "変数を追加", "변수 추가"],
   update_var: ["Change a variable", "修改变量", "変数を変更", "변수 변경"],
   remove_var: ["Remove a variable", "删除变量", "変数を削除", "변수 삭제"],
