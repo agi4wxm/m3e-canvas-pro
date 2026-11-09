@@ -89,8 +89,8 @@ export const tools: Template[] = [
           col({ gap: 16 }, [
             part("chip", { kind: "filter", selected: 0, items: [{ label: say("Problem", "问题", "不具合", "문제") }, { label: say("Idea", "建议", "提案", "제안") }, { label: say("Other", "其他", "その他", "기타") }] }),
             part("textarea", { placeholder: say("Tell us what happened", "请描述你遇到的情况", "状況を教えてください", "어떤 일이 있었는지 알려 주세요"), rows: 5 }),
-            part("file-upload", { title: say("Add a screenshot", "添加截图", "スクリーンショットを追加", "스크린샷 추가"), hint: say("PNG or JPG, up to 5 MB", "PNG 或 JPG，不超过 5 MB", "PNG または JPG、5 MB まで", "PNG 또는 JPG, 최대 5 MB"), action: say("Choose a file", "选择文件", "ファイルを選択", "파일 선택") }),
-            part("text-field", { label: say("Email (optional)", "邮箱（选填）", "メールアドレス（任意）", "이메일(선택)"), value: "", supporting: "" }),
+            part("file-upload", { title: say("Add a screenshot", "添加截图", "スクリーンショットを追加", "스크린샷 추가"), helperText: say("PNG or JPG, up to 5 MB", "PNG 或 JPG，不超过 5 MB", "PNG または JPG、5 MB まで", "PNG 또는 JPG, 최대 5 MB"), action: say("Choose a file", "选择文件", "ファイルを選択", "파일 선택") }),
+            part("text-field", { label: say("Email (optional)", "邮箱（选填）", "メールアドレス（任意）", "이메일(선택)"), value: "", helperText: "" }),
             part("button", { label: say("Send", "提交", "送信", "보내기"), size: "md" }),
           ]),
         ],
@@ -178,17 +178,17 @@ export const tools: Template[] = [
         top: [part("app-bar", { title: say("New", "新建", "新規作成", "새로 만들기"), leading: "close", trailing: "" })],
         body: [
           col({ gap: 12 }, [
-            part("text-field", { label: say("Title", "标题", "タイトル", "제목"), value: "", supporting: "" }),
+            part("text-field", { label: say("Title", "标题", "タイトル", "제목"), value: "", helperText: "" }),
             /* a date picker and a select are drawn open on the canvas and would cover the rest of the form */
             col({ gap: 8 }, [
               txt(say("Category", "分类", "カテゴリ", "분류"), "label", { color: "muted" }),
               part("native-select", { selected: 0, items: [{ label: say("General", "通用", "一般", "일반") }, { label: say("Work", "工作", "仕事", "업무") }, { label: say("Personal", "个人", "個人", "개인") }] }),
             ]),
-            part("text-field", { label: say("Date", "日期", "日付", "날짜"), value: say("Nov 12, 2026", "2026 年 11 月 12 日", "2026 年 11 月 12 日", "2026년 11월 12일"), supporting: "", trailingIcon: "calendar_today" }),
+            part("text-field", { label: say("Date", "日期", "日付", "날짜"), value: say("Nov 12, 2026", "2026 年 11 月 12 日", "2026 年 11 月 12 日", "2026년 11월 12일"), helperText: "", trailingIcon: "calendar_today" }),
             part("textarea", { placeholder: say("Description", "描述", "説明", "설명"), rows: 3 }),
             part("file-upload", {
               title: say("Add an attachment", "添加附件", "添付ファイルを追加", "첨부 파일 추가"),
-              hint: say("PNG or PDF, up to 5 MB", "PNG 或 PDF，不超过 5 MB", "PNG または PDF、5 MB まで", "PNG 또는 PDF, 최대 5 MB"),
+              helperText: say("PNG or PDF, up to 5 MB", "PNG 或 PDF，不超过 5 MB", "PNG または PDF、5 MB まで", "PNG 또는 PDF, 최대 5 MB"),
               action: say("Choose a file", "选择文件", "ファイルを選択", "파일 선택"),
             }),
             part("switch", { label: say("Notify me", "通知我", "通知する", "알림 받기"), checked: true }),

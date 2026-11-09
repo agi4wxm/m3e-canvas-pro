@@ -91,9 +91,10 @@ export type FieldPartProps = PartBase & {
   label?: string;
   control?: "input" | "textarea" | "checkbox" | "switch";
   placeholder?: string;
-  description?: string;
+  /** the words under it saying what it is for */
+  helperText?: string;
   /** its error's message: saying one puts it in error */
-  error?: string;
+  errorText?: string;
   disabled?: boolean;
   readOnly?: boolean;
   required?: boolean;
@@ -115,13 +116,13 @@ export function Field(props: FieldPartProps) {
   const kit = useKit();
   const fill = useFill();
   const width = Math.round(p.width ?? 320);
-  const invalid = !!p.error;
+  const invalid = !!p.errorText;
   const side = p.control === "checkbox" || p.control === "switch";
   const label = p.label ? <RNText style={{ ...typeStyle(kit, "title-small"), color: c(kit, "on-surface") }}>{starred(p.label, p.required)}</RNText> : null;
   const words = (
     <>
-      {p.description ? <RNText style={{ ...typeStyle(kit, "body-small"), color: c(kit, "on-surface-variant") }}>{p.description}</RNText> : null}
-      {invalid ? <RNText accessibilityRole="alert" style={{ ...typeStyle(kit, "body-small"), color: c(kit, "error") }}>{p.error}</RNText> : null}
+      {p.helperText ? <RNText style={{ ...typeStyle(kit, "body-small"), color: c(kit, "on-surface-variant") }}>{p.helperText}</RNText> : null}
+      {invalid ? <RNText accessibilityRole="alert" style={{ ...typeStyle(kit, "body-small"), color: c(kit, "error") }}>{p.errorText}</RNText> : null}
     </>
   );
   const shared = { disabled: p.disabled, readOnly: p.readOnly, error: invalid };

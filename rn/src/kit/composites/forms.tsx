@@ -38,7 +38,6 @@ function MenuRow({ label, icon, danger, chosen, onPress }: { label: string; icon
 export type TextFieldProps = PartBase & {
   label?: string;
   value?: string;
-  supporting?: string;
   variant?: "outlined" | "filled";
   leadingIcon?: string;
   trailingIcon?: string;
@@ -74,8 +73,8 @@ export function TextField(props: TextFieldProps) {
   const up = focused || !!text;
   const tint = p.error ? c(kit, "error") : focused ? c(kit, "primary") : c(kit, "on-surface-variant");
   const outlinedLabel = p.variant !== "filled" && !own && up;
-  /* the message of its error stands where its supporting words were */
-  const supporting = p.error && p.errorText ? p.errorText : p.supporting;
+  /* the message of its error stands where its line of help was */
+  const supporting = p.error && p.errorText ? p.errorText : p.helperText;
   return withField(
     { loading: p.loading },
     <View testID={p.testID} style={[{ width: Math.round(p.width ?? 280), rowGap: 4, opacity: p.disabled ? 0.38 : 1 }, fill]}>
@@ -117,7 +116,6 @@ export type SelectProps = PartBase & {
   variant?: "outlined" | "filled";
   label?: string;
   placeholder?: string;
-  supporting?: string;
   size?: "default" | "sm";
   disabled?: boolean;
   width?: number;
@@ -141,7 +139,7 @@ export function Select(props: SelectProps) {
   /* Material's outlined field carries its label in a notch of its outline, as the web's select does; a style's own
      field (and the filled one) has it above */
   const notched = !!p.label && p.variant !== "filled" && recipeOf(kit, "field") === "m3" && recipeOf(kit, "input") === "m3" && !kit.theme.extras?.fieldFill;
-  const supporting = p.error && p.errorText ? p.errorText : p.supporting;
+  const supporting = p.error && p.errorText ? p.errorText : p.helperText;
   return withField(
     { loading: p.loading },
     <View testID={p.testID} style={[{ width: Math.round(p.width ?? 224), rowGap: 4 }, fill]}>

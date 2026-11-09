@@ -15,7 +15,7 @@ const WORDS: Record<string, Labels> = {
   "How it is drawn": { ja: "画風", zh: "画风", ko: "화풍" },
   Motion: { ja: "動き", zh: "动态", ko: "움직임" },
   Frames: { ja: "フレーム数", zh: "帧数", ko: "프레임 수" },
-  "Milliseconds per frame": { ja: "1 フレームのミリ秒", zh: "每帧毫秒数", ko: "프레임당 밀리초" },
+  "Seconds per frame": { ja: "1 フレームの秒数", zh: "每帧秒数", ko: "프레임당 초" },
   "Darken for reading": { ja: "文字を読みやすく暗くする", zh: "压暗以便看清文字", ko: "읽기 쉽게 어둡게" },
   "Places to tap: label, x, y, w, h (%)": { ja: "タップ領域：名前、x、y、幅、高さ（%）", zh: "点击热区：名称、x、y、宽、高（%）", ko: "탭 영역: 이름, x, y, 너비, 높이 (%)" },
   Price: { ja: "価格", zh: "价格", ko: "가격" },
@@ -104,7 +104,7 @@ const EVERY_ENTRY = { prefix: "tab", label: "Every entry", labels: { ja: "すべ
 type Seed = Labels["zh"];
 const say = (label: string) => (WORDS[label] ? { labels: WORDS[label] } : {});
 const text = (key: string, label: string, value: string, zh?: Seed, multiline?: boolean): PropDef => ({ key, label, ...say(label), kind: "text", default: value, ...(zh ? { defaults: { zh } } : {}), ...(multiline ? { multiline } : {}) });
-const num = (key: string, label: string, value: number, min: number, max: number, step = 1): PropDef => ({ key, label, ...say(label), kind: "number", default: value, min, max, step });
+const num = (key: string, label: string, value: number, min: number, max: number, step = 1, unit?: string): PropDef => ({ key, label, ...say(label), kind: "number", default: value, min, max, step, ...(unit ? { unit } : {}) });
 const flag = (key: string, label: string, value: boolean): PropDef => ({ key, label, ...say(label), kind: "bool", default: value });
 const pick = (key: string, label: string, value: string, options: string[]): PropDef => ({ key, label, ...say(label), kind: "enum", default: value, options });
 const icon = (key: string, label: string, value: string): PropDef => ({ key, label, ...say(label), kind: "icon", default: value });
@@ -143,7 +143,7 @@ export const more: PartDef[] = [
       text("style", "How it is drawn", "", undefined, true),
       pick("motion", "Motion", "still", ["still", "animated"]),
       { ...num("frames", "Frames", 9, 2, 64), when: (p) => p.s("motion") === "animated" },
-      { ...num("frameMs", "Milliseconds per frame", 200, 20, 2000, 10), when: (p) => p.s("motion") === "animated" },
+      { ...num("frameSeconds", "Seconds per frame", 0.2, 0.02, 2, 0.01, "s"), when: (p) => p.s("motion") === "animated" },
       image("image", "Picture"),
       pick("scrim", "Darken for reading", "none", ["none", "top", "bottom", "both", "full"]),
       table("hotspots", "Places to tap: label, x, y, w, h (%)", { columns: ["Label", "x", "y", "w", "h"], rows: [] }),
@@ -204,7 +204,7 @@ export const more: PartDef[] = [
       text("reset", "Reset button", "Reset", "重置"),
       text("doneText", "When done", "Cropped", "已裁剪"),
       text("crop", "Crop (x,y,w,h from 0 to 1)", ""),
-      num("turn", "Turn (degrees)", 0, 0, 270, 90),
+      num("turn", "Turn (degrees)", 0, 0, 270, 90, "°"),
       flag("cropped", "Cropped", false),
       HEIGHT(300),
       WIDTH(380, 200),
@@ -368,7 +368,7 @@ export const more: PartDef[] = [
     w: 240,
     h: 72,
     props: [
-      num("seconds", "Seconds", 12, 1, 600),
+      num("seconds", "Seconds", 12, 1, 600, 1, "s"),
       flag("mine", "Sent by me", false),
       text("transcript", "Transcript", "See you at the station at six.", "六点在车站见。", true),
       text("transcribe", "Transcribe button", "Show text", "转文字"),
@@ -470,11 +470,11 @@ export const more: PartDef[] = [
     props: [
       icon("icon", "Icon", "bolt"),
       text("label", "Label", "Dash", "冲刺"),
-      num("cooldown", "Cooldown seconds", 5, 0, 600),
-      num("endsAt", "Cooldown ends at (ms, 0: ready)", 0, 0, 1e14),
-      num("clockSkew", "Clock ahead of the device (ms)", 0, -1e10, 1e10),
+      num("cooldown", "Cooldown seconds", 5, 0, 600, 1, "s"),
+      num("endsAt", "Cooldown ends at (ms, 0: ready)", 0, 0, 1e14, 1, "ms"),
+      num("clockSkew", "Clock ahead of the device (ms)", 0, -1e10, 1e10, 1, "ms"),
       flag("disabled", "Disabled", false),
-      num("size", "Size in px", 72, 40, 160, 4),
+      num("size", "Size in px", 72, 40, 160, 4, "px"),
     ],
     /* a press asks to use the skill; when it can be used again is the game's to say (`endsAt`) */
     slots: (p) => [{ key: "action", label: p.s("label") || "Skill" }],

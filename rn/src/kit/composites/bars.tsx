@@ -240,7 +240,7 @@ export function Tabs(props: TabsProps) {
 
 /* ---------- search ---------- */
 
-export type SearchProps = PartBase & { kind?: "view" | "bar"; styleVariant?: "elevated" | "outlined"; placeholder?: string; leading?: string; trailing?: string; size?: "default" | "sm"; results?: ListRow[]; width?: number };
+export type SearchProps = PartBase & { kind?: "view" | "bar"; variant?: "elevated" | "outlined"; placeholder?: string; leading?: string; trailing?: string; size?: "default" | "sm"; results?: ListRow[]; width?: number };
 
 /** Search: Material's floating bar (or its open view with suggestions), the style's grey box, iOS's Cancel beside it */
 export function Search(props: SearchProps) {
@@ -264,9 +264,9 @@ export function Search(props: SearchProps) {
     backgroundColor: ground,
     borderRadius: ios ? 10 : recipe === "filled" ? corner(kit, "sm") : recipe === "boxed" ? corner(kit, "xs") : h / 2,
     ...(recipe === "pill" || recipe === "boxed" ? { borderWidth: 1, borderColor: c(kit, "outline-variant") } : null),
-    ...(!own && p.styleVariant === "outlined" ? { borderWidth: 1, borderColor: c(kit, "outline-variant"), backgroundColor: c(kit, "surface") } : null),
+    ...(!own && p.variant === "outlined" ? { borderWidth: 1, borderColor: c(kit, "outline-variant"), backgroundColor: c(kit, "surface") } : null),
     /* Material's search bar floats; its search view, closed, is a header ruled off from the suggestions under it */
-    ...(!own && p.styleVariant !== "outlined" && p.kind === "bar" ? { boxShadow: "0px 1px 2px 0px #0000004D, 0px 1px 3px 1px #00000026" } : null),
+    ...(!own && p.variant !== "outlined" && p.kind === "bar" ? { boxShadow: "0px 1px 2px 0px #0000004D, 0px 1px 3px 1px #00000026" } : null),
     ...(!own && p.kind === "view" ? { borderBottomLeftRadius: 0, borderBottomRightRadius: 0, borderBottomWidth: 1, borderBottomColor: c(kit, "outline") } : null),
   };
   const ink = c(kit, "on-surface-variant");

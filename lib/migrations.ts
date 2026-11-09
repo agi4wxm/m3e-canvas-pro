@@ -16,11 +16,13 @@
  * document, and neither changed the document itself. Version 3 is the first real step (lib/converge.ts): what a tap's
  * transition, a condition's value and a binding say is written one way, in forms every reader reads the same. Version
  * 4 (the same file) leaves one form of each with every reader moved onto it: a tap's move is its motion, a binding and
- * a condition are expressions, a repeated part's words read its row as `row.<field>`. The
+ * a condition are expressions, a repeated part's words read its row as `row.<field>`. Version 5 (the same file) gives
+ * each idea a part's props hold one name and one unit across the parts (a field's help is `helperText` on every input,
+ * a duration is in seconds). The
  * retired whole-screen parts are no step: they still draw, and are split into atoms only when someone asks
  * (lib/retire.ts), an undoable operation rather than a rewrite on opening. */
 
-import { CONVERGE, CONVERGE_4 } from "./converge";
+import { CONVERGE, CONVERGE_4, CONVERGE_5 } from "./converge";
 
 export type MigrationDoc = Record<string, unknown>;
 
@@ -34,14 +36,14 @@ export type Migration = {
 };
 
 /** the version of the format this app reads and writes */
-export const PROJECT_VERSION = 4;
+export const PROJECT_VERSION = 5;
 
 /** The version a document that says none is read as. Fixed for good: everything written before every store carried a
  *  version is of this shape, and everything written since says its own. */
 export const BARE_VERSION = 2;
 
 /** The steps, in order, each to the version after the one before; the last brings a document to PROJECT_VERSION. */
-export const MIGRATIONS: readonly Migration[] = [CONVERGE, CONVERGE_4];
+export const MIGRATIONS: readonly Migration[] = [CONVERGE, CONVERGE_4, CONVERGE_5];
 
 /** What is wrong with a list of steps: they must run from BARE_VERSION + 1 up to `target` with no version skipped,
  *  repeated or out of order. Empty when nothing is. */

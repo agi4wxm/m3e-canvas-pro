@@ -1,7 +1,7 @@
 import { FLOW_PROPS } from "../flow";
 import { h, ic, listSlots } from "../node";
 import type { ListItem, P, PartDef, TableData } from "../types";
-import { BUTTON_FIELD, FIELD, fieldFrame, fieldValues } from "../fieldState";
+import { BUTTON_FIELD, FIELD, fieldFrame, fieldValues, HELPER_TEXT } from "../fieldState";
 import { ariaLabelProp, iconMeaning, nameFor } from "../a11y";
 
 /* The parts that complete the set: what the source libraries have that nothing else here covered
@@ -291,8 +291,7 @@ export const additions: PartDef[] = [
   },
   {
     slug: "file-upload",
-    /* its line of help is the hint it has always shown */
-    field: { ...FIELD, helperText: "hint" },
+    field: FIELD,
     appearance: { target: "FileUpload", radius: 16 },
     name: "File upload",
     labels: { ja: "ファイルアップロード", zh: "文件上传", ko: "파일 업로드" },
@@ -302,7 +301,7 @@ export const additions: PartDef[] = [
     h: 176,
     props: [
       { key: "title", label: "Title", kind: "text", default: "Drop files here", defaults: { zh: "把文件拖到这里" } },
-      { key: "hint", label: "Hint", labels: { ja: "ヒント", zh: "提示", ko: "힌트" }, kind: "text", default: "Up to 10 MB each", defaults: { zh: "每个不超过 10 MB" } },
+      { ...HELPER_TEXT, default: "Up to 10 MB each", defaults: { zh: "每个不超过 10 MB" } },
       { key: "action", label: "Button", labels: { ja: "ボタン", zh: "按钮文字", ko: "버튼" }, kind: "text", default: "Choose files", defaults: { zh: "选择文件" } },
       { key: "multiple", label: "Several files", labels: { ja: "複数ファイル", zh: "可选多个", ko: "여러 파일" }, kind: "bool", default: true },
       { key: "accept", label: "File types", labels: { ja: "ファイル形式", zh: "文件类型", ko: "파일 형식" }, kind: "text", default: "" },
@@ -310,7 +309,7 @@ export const additions: PartDef[] = [
     ],
     /* the button that opens the file picker, the place both apps' kits answer to */
     slots: (p) => (p.s("action") ? [{ key: "action", label: p.s("action") }] : []),
-    tree: (p) => fieldFrame(fieldValues(p), h("FileUpload", { title: p.s("title"), hint: p.s("hint"), action: p.s("action"), multiple: p.b("multiple"), accept: p.s("accept"), width: px(p) })),
+    tree: (p) => fieldFrame(fieldValues(p), h("FileUpload", { title: p.s("title"), hint: p.s("helperText"), action: p.s("action"), multiple: p.b("multiple"), accept: p.s("accept"), width: px(p) }), { showsHelper: true }),
   },
   {
     slug: "item-picker",
@@ -565,9 +564,9 @@ export const additions: PartDef[] = [
       { key: "value", label: "Value", labels: { ja: "値", zh: "数值", ko: "값" }, kind: "number", default: 1280, min: -1000000000, max: 1000000000, step: 1 },
       { key: "prefix", label: "Before", labels: { ja: "前", zh: "前缀", ko: "앞" }, kind: "text", default: "" },
       { key: "suffix", label: "After", labels: { ja: "後", zh: "后缀", ko: "뒤" }, kind: "text", default: "" },
-      { key: "size", label: "Size", labels: { zh: "尺寸" }, kind: "enum", default: "headline", options: ["title", "headline", "display"] },
+      { key: "style", label: "Style", kind: "enum", default: "headline", options: ["title", "headline", "display"] },
     ],
-    tree: (p) => h("NumberTicker", { value: Math.round(p.n("value")), prefix: p.s("prefix"), suffix: p.s("suffix"), size: p.s("size") }),
+    tree: (p) => h("NumberTicker", { value: Math.round(p.n("value")), prefix: p.s("prefix"), suffix: p.s("suffix"), size: p.s("style") }),
   },
   {
     slug: "timer",
@@ -579,12 +578,12 @@ export const additions: PartDef[] = [
     w: 200,
     h: 64,
     props: [
-      { key: "seconds", label: "Seconds", labels: { ja: "秒", zh: "秒数", ko: "초" }, kind: "number", default: 60, min: 1, max: 86400, step: 1 },
+      { key: "seconds", label: "Seconds", labels: { ja: "秒", zh: "秒数", ko: "초" }, kind: "number", unit: "s", default: 60, min: 1, max: 86400, step: 1 },
       { key: "countdown", label: "Count down", labels: { ja: "カウントダウン", zh: "倒计时", ko: "카운트다운" }, kind: "bool", default: true },
       { key: "running", label: "Running", labels: { ja: "動作中", zh: "正在计时", ko: "작동 중" }, kind: "bool", default: false },
-      { key: "endsAt", label: "Ends at (ms, 0: none)", labels: { ja: "終了時刻（ミリ秒、0: なし）", zh: "结束时刻（毫秒，0 为无）", ko: "종료 시각 (밀리초, 0: 없음)" }, kind: "number", default: 0, min: 0, max: 1e14, step: 1 },
-      { key: "startedAt", label: "Started at (ms, 0: none)", labels: { ja: "開始時刻（ミリ秒、0: なし）", zh: "开始时刻（毫秒，0 为无）", ko: "시작 시각 (밀리초, 0: 없음)" }, kind: "number", default: 0, min: 0, max: 1e14, step: 1 },
-      { key: "clockSkew", label: "Clock ahead of the device (ms)", labels: { ja: "端末より進んでいる時計（ミリ秒）", zh: "时钟比设备快多少（毫秒）", ko: "기기보다 앞선 시계 (밀리초)" }, kind: "number", default: 0, min: -1e10, max: 1e10, step: 1 },
+      { key: "endsAt", label: "Ends at (ms, 0: none)", labels: { ja: "終了時刻（ミリ秒、0: なし）", zh: "结束时刻（毫秒，0 为无）", ko: "종료 시각 (밀리초, 0: 없음)" }, kind: "number", unit: "ms", default: 0, min: 0, max: 1e14, step: 1 },
+      { key: "startedAt", label: "Started at (ms, 0: none)", labels: { ja: "開始時刻（ミリ秒、0: なし）", zh: "开始时刻（毫秒，0 为无）", ko: "시작 시각 (밀리초, 0: 없음)" }, kind: "number", unit: "ms", default: 0, min: 0, max: 1e14, step: 1 },
+      { key: "clockSkew", label: "Clock ahead of the device (ms)", labels: { ja: "端末より進んでいる時計（ミリ秒）", zh: "时钟比设备快多少（毫秒）", ko: "기기보다 앞선 시계 (밀리초)" }, kind: "number", unit: "ms", default: 0, min: -1e10, max: 1e10, step: 1 },
       WIDTH(200, 160, 480),
     ],
     /* its buttons ask to start, stop or reset it; when it ends is the clock's the other side keeps */
@@ -771,9 +770,9 @@ export const additions: PartDef[] = [
       { key: "title", label: "Title", kind: "text", default: "Song title", defaults: { zh: "歌曲名" } },
       { key: "artist", label: "Artist", labels: { ja: "アーティスト", zh: "艺术家", ko: "아티스트" }, kind: "text", default: "Artist", defaults: { zh: "艺术家" } },
       { key: "src", label: "Audio address", labels: { ja: "音声のアドレス", zh: "音频地址", ko: "오디오 주소" }, kind: "text", default: "" },
-      { key: "seconds", label: "Length in seconds", labels: { ja: "長さ（秒）", zh: "时长（秒）", ko: "길이(초)" }, kind: "number", default: 180, min: 1, max: 36000, step: 1 },
+      { key: "seconds", label: "Length in seconds", labels: { ja: "長さ（秒）", zh: "时长（秒）", ko: "길이(초)" }, kind: "number", unit: "s", default: 180, min: 1, max: 36000, step: 1 },
       { key: "playing", label: "Playing", labels: { ja: "再生中", zh: "正在播放", ko: "재생 중" }, kind: "bool", default: false },
-      { key: "position", label: "Position in seconds", labels: { ja: "再生位置（秒）", zh: "播放位置（秒）", ko: "재생 위치(초)" }, kind: "number", default: 0, min: 0, max: 36000, step: 1 },
+      { key: "position", label: "Position in seconds", labels: { ja: "再生位置（秒）", zh: "播放位置（秒）", ko: "재생 위치(초)" }, kind: "number", unit: "s", default: 0, min: 0, max: 36000, step: 1 },
       WIDTH(360, 200, 800),
     ],
     /* whether it plays is the visitor's; each start and stop and the end are also sent */
@@ -807,7 +806,7 @@ export const additions: PartDef[] = [
     h: 24,
     props: [
       { key: "text", label: "Text", labels: { ja: "テキスト", zh: "文字", ko: "텍스트" }, kind: "text", default: "A line that keeps moving past.", defaults: { zh: "一行不断滚动的文字。" } },
-      { key: "seconds", label: "Seconds per pass", labels: { ja: "一周の秒数", zh: "每轮秒数", ko: "한 바퀴 초" }, kind: "number", default: 12, min: 2, max: 120, step: 1 },
+      { key: "seconds", label: "Seconds per pass", labels: { ja: "一周の秒数", zh: "每轮秒数", ko: "한 바퀴 초" }, kind: "number", unit: "s", default: 12, min: 2, max: 120, step: 1 },
       WIDTH(320, 80, 1600),
     ],
     tree: (p) => h("Marquee", { text: p.s("text"), seconds: Math.round(p.n("seconds")), width: px(p) }),

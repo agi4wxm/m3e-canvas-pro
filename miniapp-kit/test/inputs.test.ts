@@ -205,7 +205,7 @@ describe("the entry parts", () => {
   });
 
   it("a field stars its label while required and shows its error's message", () => {
-    draw(E.Field, { label: "Email", required: true, error: "Not an address" });
+    draw(E.Field, { label: "Email", required: true, errorText: "Not an address" });
     expect(words()).toEqual(expect.arrayContaining(["Email *", "Not an address"]));
   });
 

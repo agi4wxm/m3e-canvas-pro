@@ -43,6 +43,10 @@ function template(state: FieldState, errorKey: string | undefined): PropDef {
   }
 }
 
+/** The line of help as a prop, for a part that places it among its own props rather than after them (where the
+ *  registry would add it): the same key, label and kind as every other input's. */
+export const HELPER_TEXT = template("helperText", undefined) as Extract<PropDef, { kind: "text" }>;
+
 /** The props a part's declaration adds to what its definition writes: one for each state it shows under the
  *  package's own name and does not hold itself. */
 export function fieldProps(def: Pick<PartDef, "props" | "field">): PropDef[] {

@@ -308,7 +308,7 @@ const shopScreen = (): ScreenSeed =>
       purse(),
       tabsOf(say("Featured", "推荐", "おすすめ", "추천"), GEM_WORD, say("Packs", "礼包", "パック", "패키지")),
       panel({ gap: 8, fill: "primary-container" }, [
-        row({ gap: 12 }, [cell("redeem", "", "×1"), col({ gap: 4 }, [txt(say("Starter pack", "新手礼包", "初心者パック", "초보자 패키지"), "title"), part("price-tag", { currency: "$", amount: "4.99", original: "$19.99", discount: "-75%", size: "small" })], { fill: true }), part("button", { label: say("Buy", "购买", "購入", "구매"), size: "sm" })]),
+        row({ gap: 12 }, [cell("redeem", "", "×1"), col({ gap: 4 }, [txt(say("Starter pack", "新手礼包", "初心者パック", "초보자 패키지"), "title"), part("price-tag", { currency: "$", amount: "4.99", original: "$19.99", discount: "-75%", size: "sm" })], { fill: true }), part("button", { label: say("Buy", "购买", "購入", "구매"), size: "sm" })]),
       ]),
       grid(3, { gap: 8 }, [offer("paid", COIN_WORD, "×1,000", "$0.99"), offer("paid", COIN_WORD, "×6,000", "$4.99"), offer("paid", COIN_WORD, "×20,000", "$14.99"), offer("diamond", GEM_WORD, "×60", "$0.99"), offer("diamond", GEM_WORD, "×330", "$4.99"), offer("diamond", GEM_WORD, "×1,090", "$14.99"), offer("bolt", ENERGY_WORD, "×60", "$0.99"), offer("bolt", ENERGY_WORD, "×180", "$1.99"), offer("workspace_premium", say("Monthly pass", "月卡", "マンスリー", "월정액"), "30d", "$4.99")]),
     ],

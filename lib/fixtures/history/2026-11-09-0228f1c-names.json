@@ -1,0 +1,71 @@
+{
+  "format": "m3e-project",
+  "version": 4,
+  "document": {
+    "brief": "Every prop version 5 renames or rescales, set, bound, changed by a tap and overridden.",
+    "components": [
+      {
+        "groups": [
+          {"axis":"x","id":"cg-tf","items":[{"component":"text-field","icon":null,"id":"c-tf","kind":"component","label":"text-field","props":{"label":"Inside","supporting":"Help inside"},"variant":"filled"}],"x":0,"y":0},
+          {"axis":"x","id":"cg-up","items":[{"component":"file-upload","icon":null,"id":"c-up","kind":"component","label":"file-upload","props":{"hint":"Hint inside","title":"Inside"},"variant":"filled"}],"x":0,"y":80},
+          {"axis":"x","id":"cg-banner","items":[{"component":"banner","icon":null,"id":"c-banner","kind":"component","label":"banner","props":{"closable":true,"text":"Inside"},"variant":"filled"}],"x":0,"y":200},
+          {"axis":"x","id":"cg-table","items":[{"component":"table","icon":null,"id":"c-table","kind":"component","label":"table","props":{"selected":2},"variant":"filled"}],"x":0,"y":280},
+          {"axis":"x","id":"cg-btn","items":[{"action":{"effects":[{"do":"setProp","part":"c-table","prop":"selected","value":0},{"do":"setProp","part":"c-banner","prop":"closable","value":false}],"to":"none"},"component":"button","icon":null,"id":"c-btn","kind":"component","label":"button","props":{"label":"Inside"},"variant":"filled"}],"x":0,"y":360}
+        ],
+        "h": 400,
+        "id": "c-card",
+        "name": "Card of renamed props",
+        "props": [
+          {"id":"p-hint","name":"Hint","targets":["c-up/hint"],"type":"text","value":"Hint inside"}
+        ],
+        "w": 300
+      }
+    ],
+    "frame": "phone",
+    "frames": [
+      {"id":"s-fields","name":"Fields","x":0,"y":0},
+      {"id":"s-overlays","name":"Overlays","x":454,"y":0},
+      {"id":"s-numbers","name":"Numbers","x":908,"y":0},
+      {"id":"s-more","name":"More","x":1362,"y":0}
+    ],
+    "groups": [
+      {"axis":"x","id":"g-tf","items":[{"bind":{"supporting":"=vars.help"},"component":"text-field","icon":null,"id":"tf","kind":"component","label":"text-field","props":{"label":"Email","supporting":"We will never share it","value":""},"variant":"filled"}],"x":16,"y":40},
+      {"axis":"x","id":"g-tf2","items":[{"component":"text-field","icon":null,"id":"tf2","kind":"component","label":"text-field","props":{"error":true,"errorText":"Required","label":"Name","supporting":"Your full name"},"variant":"filled"}],"x":16,"y":120},
+      {"axis":"x","id":"g-sel","items":[{"component":"select","icon":null,"id":"sel","kind":"component","label":"select","props":{"label":"Fruit","selected":1,"supporting":"Pick one"},"variant":"filled"}],"x":16,"y":200},
+      {"axis":"x","id":"g-field","items":[{"component":"field","icon":null,"id":"field","kind":"component","label":"field","props":{"description":"Work address","error":"Not an address","label":"Email"},"variant":"filled"}],"x":16,"y":290},
+      {"axis":"x","id":"g-field2","items":[{"bind":{"error":"=vars.err"},"component":"field","icon":null,"id":"field2","kind":"component","label":"field","props":{"description":"","label":"Phone"},"variant":"filled"}],"x":16,"y":400},
+      {"axis":"x","id":"g-up","items":[{"component":"file-upload","icon":null,"id":"up","kind":"component","label":"file-upload","props":{"hint":"PNG only","title":"Upload"},"variant":"filled"}],"x":16,"y":510},
+      {"axis":"x","id":"g-btn","items":[{"action":{"effects":[{"do":"setProp","part":"tf","prop":"supporting","value":"Changed"},{"do":"setProp","part":"field","prop":"error","value":""},{"do":"setProp","part":"up","prop":"hint","value":"Any file"},{"do":"setVar","value":"Bad","var":"v-err"}],"to":"none"},"component":"button","icon":null,"id":"b-help","kind":"component","label":"button","props":{"label":"Change help"},"variant":"filled"}],"x":16,"y":640},
+      {"axis":"x","id":"g-dlg","items":[{"component":"dialog","icon":null,"id":"dlg","kind":"component","label":"dialog","props":{"confirm":"Save","dismiss":"Back","style":"fullscreen","title":"Edit"},"variant":"filled"}],"x":470,"y":40},
+      {"axis":"x","id":"g-alert","items":[{"bind":{"action":"=vars.help"},"component":"alert-dialog","icon":null,"id":"alert","kind":"component","label":"alert-dialog","props":{"action":"Delete it","cancel":"Keep","title":"Delete?"},"variant":"filled"}],"x":470,"y":200},
+      {"axis":"x","id":"g-search","items":[{"component":"search","icon":null,"id":"search","kind":"component","label":"search","props":{"kind":"bar","placeholder":"Find","style":"outlined"},"variant":"filled"}],"x":470,"y":360},
+      {"axis":"x","id":"g-banner","items":[{"bind":{"closable":"=vars.close"},"component":"banner","icon":null,"id":"banner","kind":"component","label":"banner","props":{"closable":true,"text":"Offline"},"variant":"filled"}],"x":470,"y":440},
+      {"axis":"x","id":"g-notice","items":[{"component":"notice-bar","icon":null,"id":"notice","kind":"component","label":"notice-bar","props":{"closable":false},"variant":"filled"}],"x":470,"y":560},
+      {"axis":"x","id":"g-btn2","items":[{"action":{"effects":[{"do":"setProp","part":"dlg","prop":"style","value":"basic"},{"do":"setProp","part":"search","prop":"style","value":"elevated"},{"do":"setProp","part":"banner","prop":"closable","value":false},{"do":"setProp","part":"notice","prop":"closable","value":true},{"do":"setProp","part":"alert","prop":"cancel","value":"Not now"},{"do":"toggleVar","var":"v-close"}],"to":"none"},"component":"button","icon":null,"id":"b-dlg","kind":"component","label":"button","props":{"label":"Change dialogs"},"variant":"filled"}],"x":470,"y":640},
+      {"axis":"x","id":"g-table","items":[{"bind":{"selected":"=vars.row"},"component":"table","icon":null,"id":"table","kind":"component","label":"table","props":{"selected":2},"variant":"filled"}],"x":924,"y":40},
+      {"axis":"x","id":"g-table2","items":[{"component":"table","icon":null,"id":"table2","kind":"component","label":"table","props":{"selected":0,"title":"None picked"},"variant":"filled"}],"x":924,"y":260},
+      {"axis":"x","id":"g-table3","items":[{"component":"table","icon":null,"id":"table3","kind":"component","label":"table","props":{"selected":1,"title":"First"},"variant":"filled"}],"x":924,"y":480},
+      {"axis":"x","id":"g-scene","items":[{"component":"scene","icon":null,"id":"scene","kind":"component","label":"scene","props":{"frameMs":350,"frames":4,"height":200,"motion":"animated","width":300},"variant":"filled"}],"x":924,"y":700},
+      {"axis":"x","id":"g-scene2","items":[{"bind":{"frameMs":"=vars.ms"},"component":"scene","icon":null,"id":"scene2","kind":"component","label":"scene","props":{"frames":6,"height":200,"motion":"animated","width":300},"variant":"filled"}],"x":924,"y":920},
+      {"axis":"x","id":"g-price","items":[{"component":"price-tag","icon":null,"id":"price","kind":"component","label":"price-tag","props":{"amount":"9.90","size":"large"},"variant":"filled"}],"x":1380,"y":40},
+      {"axis":"x","id":"g-price2","items":[{"bind":{"size":"=vars.size"},"component":"price-tag","icon":null,"id":"price2","kind":"component","label":"price-tag","props":{"amount":"4.20","size":"small"},"variant":"filled"}],"x":1380,"y":120},
+      {"axis":"x","id":"g-price3","items":[{"component":"price-tag","icon":null,"id":"price3","kind":"component","label":"price-tag","props":{"amount":"1.00"},"variant":"filled"}],"x":1380,"y":200},
+      {"axis":"x","id":"g-ticker","items":[{"component":"number-ticker","icon":null,"id":"ticker","kind":"component","label":"number-ticker","props":{"size":"display","value":42},"variant":"filled"}],"x":1380,"y":280},
+      {"axis":"x","id":"g-cell","items":[{"component":"item-cell","icon":null,"id":"cell","kind":"component","label":"item-cell","props":{"name":"Gem","selected":true},"variant":"filled"}],"x":1380,"y":400},
+      {"axis":"x","id":"g-cell2","items":[{"bind":{"selected":"=vars.pick"},"component":"item-cell","icon":null,"id":"cell2","kind":"component","label":"item-cell","props":{"name":"Leaf"},"variant":"filled"}],"x":1380,"y":500},
+      {"axis":"x","id":"g-btn3","items":[{"action":{"effects":[{"do":"setProp","part":"table2","prop":"selected","value":3},{"do":"setProp","part":"scene","prop":"frameMs","value":90},{"do":"setProp","part":"price3","prop":"size","value":"small"},{"do":"setProp","part":"ticker","prop":"size","value":"title"},{"do":"setProp","part":"cell","prop":"selected","value":false},{"by":1,"do":"addVar","var":"v-row"},{"do":"setVar","value":600,"var":"v-ms"},{"do":"setVar","value":"medium","var":"v-size"},{"do":"toggleVar","var":"v-pick"}],"to":"none"},"component":"button","icon":null,"id":"b-num","kind":"component","label":"button","props":{"label":"Change numbers"},"variant":"filled"}],"x":1380,"y":640},
+      {"axis":"x","id":"i-card","instanceOf":"c-card","items":[{"component":"container","icon":null,"id":"i-card-part","kind":"component","label":"Card of renamed props","props":{"border":"none","fill":"none","height":400,"label":"","note":"","radius":0,"width":300},"variant":"filled"}],"overrides":{"c-banner/closable":false,"c-table/selected":1,"c-tf/supporting":"Overridden help"},"properties":{"p-hint":"From the property"},"x":1380,"y":760}
+    ],
+    "paletteKey": "baseline",
+    "title": "Renamed props",
+    "vars": [
+      {"id":"v-row","name":"row","type":"number","value":3},
+      {"id":"v-ms","name":"ms","type":"number","value":120},
+      {"id":"v-help","name":"help","type":"text","value":"Shown under the field"},
+      {"id":"v-err","name":"err","type":"text","value":""},
+      {"id":"v-close","name":"close","type":"bool","value":true},
+      {"id":"v-size","name":"size","type":"text","value":"large"},
+      {"id":"v-pick","name":"pick","type":"bool","value":false}
+    ]
+  }
+}

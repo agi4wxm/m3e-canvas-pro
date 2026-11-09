@@ -463,3 +463,237 @@ export const CONVERGE_4: Migration = {
   name: "one form each, every reader on it: a tap's move is its motion, a binding and a condition are expressions, a repeat's words read row.<field>",
   up: (doc) => CONVERGE_4_PARTS.reduce((d, p) => p.up(d), doc),
 };
+
+/* ---------- version 5: one name and one unit for each idea a part's props hold ----------
+ *
+ * The props of the parts said the same thing under different names (a field's line of help was `supporting`,
+ * `description` or `hint`; a variant was `style` on two parts; a close button `closable` on two) and in different units
+ * (one duration in milliseconds where every other is in seconds; one part's sizes small/medium/large where every other
+ * says sm/default/lg). Version 5 renames them to the one scheme docs/组件规范.md "属性的名字和单位" sets out, and every
+ * reader (the parts, both apps' kits, the printers, the panels, the AI's tools) reads only the new names. What a part
+ * draws does not change: an old file's parts read, under the new names and in the new units, what they read before.
+ *
+ * Wherever a document says a prop by its key, the key moves and the value is written in the new unit: the part's own
+ * props, what it is bound to (an expression is wrapped so it comes to the same in the new unit), a tap that sets it
+ * (`setProp`), what an instance overrides of it (`itemId/key`), a component property that shows words in it (its
+ * target). Like the steps before it, the step knows only its own table: it depends on no reader and no registry. */
+
+/** a value of the kind given, else what came */
+const numberIn = (f: (n: number) => number) => (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? f(v) : v);
+const choiceIn = (map: Record<string, string>) => (v: unknown) => (typeof v === "string" && Object.prototype.hasOwnProperty.call(map, v) ? map[v] : v);
+
+/** One prop of a part that version 5 renames, rescales or whose choices it renames. */
+export type PropRename = {
+  slug: string;
+  from: string;
+  to: string;
+  /** a value as written now, in the new unit or form; anything not of the kind it converts is left as it is */
+  value?: (v: unknown) => unknown;
+  /** a bound expression's source that comes to the same in the new unit (what `value` does to what it came to) */
+  expr?: (source: string) => string;
+  /** whether a source is one `expr` wrote, so that a prop that keeps its key is never wrapped twice */
+  wrapped?: (source: string) => boolean;
+  /** a value as the part reads it now, back in the old unit or form: for the tests of old files (`asWrittenAt4`) */
+  down?: (v: unknown) => unknown;
+};
+
+const PRICE_SIZES: Record<string, string> = { small: "sm", medium: "default", large: "lg" };
+const PRICE_SIZES_BACK: Record<string, string> = { sm: "small", default: "medium", lg: "large" };
+/** a size of a price as an expression came to it at version 4 (one of the old words, else nothing), in the new words */
+const priceSizeExpr = (source: string) => {
+  const x = `(${source})`;
+  return `${x} == "small" ? "sm" : ${x} == "medium" ? "default" : ${x} == "large" ? "lg" : null`;
+};
+const PRICE_SIZE_WRAPPED = /^\(([\s\S]*)\) == "small" \? "sm" : \(\1\) == "medium" \? "default" : \(\1\) == "large" \? "lg" : null$/;
+
+/** The props version 5 renames, by part: the inventory of docs/组件规范.md "属性的名字和单位" says why each. */
+export const PROP_RENAMES_5: readonly PropRename[] = [
+  /* a field's line of help is `helperText` and its message `errorText`, the field state package's own names */
+  { slug: "text-field", from: "supporting", to: "helperText" },
+  { slug: "select", from: "supporting", to: "helperText" },
+  { slug: "field", from: "description", to: "helperText" },
+  { slug: "field", from: "error", to: "errorText" },
+  { slug: "file-upload", from: "hint", to: "helperText" },
+  /* the look a part comes in is its `variant` */
+  { slug: "dialog", from: "style", to: "variant" },
+  { slug: "search", from: "style", to: "variant" },
+  /* an overlay's two buttons are `dismiss` and `confirm`, as its places to tap always were */
+  { slug: "alert-dialog", from: "cancel", to: "dismiss" },
+  { slug: "alert-dialog", from: "action", to: "confirm" },
+  /* a close button the author turns on is `closeButton` */
+  { slug: "banner", from: "closable", to: "closeButton" },
+  { slug: "notice-bar", from: "closable", to: "closeButton" },
+  /* `selected` is which one is picked, a number, on every part; a cell picked on its own is `pressed`, as a toggle is */
+  { slug: "item-cell", from: "selected", to: "pressed" },
+  /* a type style is a `style`, as the text's is */
+  { slug: "number-ticker", from: "size", to: "style" },
+  /* a time a person sets is in seconds */
+  { slug: "scene", from: "frameMs", to: "frameSeconds", value: numberIn((ms) => ms / 1000), expr: (s) => `(${s}) / 1000`, down: numberIn((s) => Math.round(s * 1e6) / 1e3) },
+  /* a size from a few is sm, default or lg */
+  { slug: "price-tag", from: "size", to: "size", value: choiceIn(PRICE_SIZES), expr: priceSizeExpr, wrapped: (s) => PRICE_SIZE_WRAPPED.test(s), down: choiceIn(PRICE_SIZES_BACK) },
+];
+
+const renamesOf = (slug: unknown): PropRename[] => PROP_RENAMES_5.filter((r) => r.slug === slug);
+const renameOf = (slug: unknown, key: string): PropRename | undefined => PROP_RENAMES_5.find((r) => r.slug === slug && r.from === key);
+const convert = (r: PropRename, v: unknown) => (r.value ? r.value(v) : v);
+
+/** A part's props (or bindings) under the new names, each value as `move` writes it; one already in the new form comes
+ *  back as it was. Where a new key is written beside the old one, the old key's value wins: it is what version 4 read,
+ *  and the new key was a field no reader of the time knew. */
+function renamedKeys(slug: unknown, o: Record<string, unknown>, move: (r: PropRename, v: unknown) => unknown): Record<string, unknown> {
+  const rs = renamesOf(slug);
+  if (!rs.some((r) => r.from in o)) return o;
+  const out: Record<string, unknown> = {};
+  let changed = false;
+  for (const [k, v] of Object.entries(o)) {
+    const r = rs.find((x) => x.from === k);
+    if (r) {
+      const next = move(r, v);
+      if (next !== v || r.to !== k) changed = true;
+      out[r.to] = next;
+    } else if (rs.some((x) => x.to === k && x.from !== k && x.from in o)) changed = true;
+    else out[k] = v;
+  }
+  return changed ? out : o;
+}
+
+/** a bound expression that comes to the same in the new unit: wrapped once, and never again where the key stays */
+function boundTo(r: PropRename, b: unknown): unknown {
+  if (typeof b !== "string" || !b.startsWith("=") || !r.expr) return b;
+  const source = b.slice(1);
+  if (r.from === r.to && r.wrapped?.(source)) return b;
+  return `=${r.expr(source)}`;
+}
+
+function renamedItem(it: Record<string, unknown>): Record<string, unknown> {
+  let out = it;
+  if (isRecord(it.props)) out = withKey(out, "props", renamedKeys(it.component, it.props, convert));
+  if (isRecord(it.bind)) out = withKey(out, "bind", renamedKeys(it.component, it.bind, boundTo));
+  return out;
+}
+
+/** every part's id, on the canvas and in each component, with the part it is (one id that is two parts is left out) */
+function partsById(doc: MigrationDoc): Map<string, unknown> {
+  const out = new Map<string, unknown>();
+  const clash = new Set<string>();
+  const groups = (gs: unknown) => {
+    if (!Array.isArray(gs)) return;
+    for (const g of gs)
+      if (isRecord(g) && Array.isArray(g.items))
+        for (const it of g.items) {
+          if (!isRecord(it) || typeof it.id !== "string") continue;
+          if (out.has(it.id) && out.get(it.id) !== it.component) clash.add(it.id);
+          out.set(it.id, it.component);
+        }
+  };
+  groups(doc.groups);
+  if (Array.isArray(doc.components)) for (const c of doc.components) if (isRecord(c)) groups(c.groups);
+  for (const id of clash) out.delete(id);
+  return out;
+}
+
+/** the part a reference names: an id, or the path to one inside instances (`instance/part`), whose last step it is */
+const partAt = (parts: Map<string, unknown>, path: unknown) => (typeof path === "string" ? parts.get(path.slice(path.lastIndexOf("/") + 1)) : undefined);
+
+/** a tap's effects that set a renamed prop, setting it under its new name to the value in the new unit */
+const renamedSets =
+  (parts: Map<string, unknown>) =>
+  (b: Record<string, unknown>): Record<string, unknown> => {
+    if (!Array.isArray(b.effects)) return b;
+    const effects = same(
+      b.effects,
+      b.effects.map((e) => {
+        if (!isRecord(e) || e.do !== "setProp" || typeof e.prop !== "string") return e;
+        const r = renameOf(partAt(parts, e.part), e.prop);
+        if (!r) return e;
+        return withKey(withKey(e, "prop", r.to), "value", convert(r, e.value));
+      }),
+    );
+    return withKey(b, "effects", effects);
+  };
+
+/** an override key (`path/itemId/key`) and its value under the new name and unit, or undefined where it is none */
+function renamedKey(parts: Map<string, unknown>, key: string): PropRename | undefined {
+  const at = key.lastIndexOf("/");
+  if (at <= 0) return undefined;
+  return renameOf(partAt(parts, key.slice(0, at)), key.slice(at + 1));
+}
+const keyTo = (key: string, r: PropRename) => `${key.slice(0, key.lastIndexOf("/") + 1)}${r.to}`;
+
+/** what instances override and what component properties write, under the new names */
+function renamedOverrides(doc: MigrationDoc, parts: Map<string, unknown>): MigrationDoc {
+  /* a component property that shows its words in a renamed prop: its targets, and what it and each instance give it */
+  const converted = new Map<string, PropRename>();
+  const components = !Array.isArray(doc.components)
+    ? doc.components
+    : same(
+        doc.components,
+        doc.components.map((c) => {
+          if (!isRecord(c) || !Array.isArray(c.props)) return c;
+          const props = same(
+            c.props,
+            c.props.map((p) => {
+              if (!isRecord(p) || !Array.isArray(p.targets)) return p;
+              const rs = p.targets.map((t) => (typeof t === "string" ? renamedKey(parts, t) : undefined));
+              if (!rs.some(Boolean)) return p;
+              const conv = rs.find((r) => r?.value);
+              if (conv && typeof p.id === "string" && typeof c.id === "string") converted.set(`${c.id}\u0000${p.id}`, conv);
+              let out = withKey(p, "targets", p.targets.map((t, i) => (rs[i] ? keyTo(t as string, rs[i]!) : t)));
+              if (conv) out = withKey(out, "value", convert(conv, p.value));
+              return out;
+            }),
+          );
+          return withKey(c, "props", props);
+        }),
+      );
+  const group = (g: unknown): unknown => {
+    if (!isRecord(g)) return g;
+    let out = g;
+    if (isRecord(g.overrides)) {
+      const entries = Object.entries(g.overrides);
+      const next = entries.map(([k, v]) => {
+        const r = renamedKey(parts, k);
+        return r ? ([keyTo(k, r), convert(r, v)] as const) : ([k, v] as const);
+      });
+      if (next.some(([k, v], i) => k !== entries[i][0] || v !== entries[i][1])) out = { ...out, overrides: Object.fromEntries(next) };
+    }
+    if (isRecord(g.properties) && typeof g.instanceOf === "string") {
+      const entries = Object.entries(g.properties);
+      const next = entries.map(([k, v]) => {
+        const r = converted.get(`${g.instanceOf}\u0000${k}`);
+        return [k, r ? convert(r, v) : v] as const;
+      });
+      if (next.some(([, v], i) => v !== entries[i][1])) out = { ...out, properties: Object.fromEntries(next) };
+    }
+    return out;
+  };
+  let out = withKey(doc, "components", components);
+  if (Array.isArray(out.groups)) out = withKey(out, "groups", same(out.groups, out.groups.map(group)));
+  if (Array.isArray(out.components))
+    out = withKey(out, "components", same(out.components, out.components.map((c) => (isRecord(c) && Array.isArray(c.groups) ? withKey(c, "groups", same(c.groups, c.groups.map(group))) : c))));
+  return out;
+}
+
+export function convergeNames(doc: MigrationDoc): MigrationDoc {
+  const parts = partsById(doc);
+  return renamedOverrides(walkDoc(doc, { item: renamedItem, body: renamedSets(parts) }), parts);
+}
+
+/** What a part reads now (every prop, by its key), as version 4 read it: under the old names, in the old units, in
+ *  the order its props came in. For the tests of old files, which hold the readings the versions that wrote them made. */
+export function asWrittenAt4(slug: string | undefined, read: Record<string, unknown>): Record<string, unknown> {
+  const rs = renamesOf(slug);
+  if (!rs.length) return read;
+  return Object.fromEntries(
+    Object.entries(read).map(([k, v]) => {
+      const r = rs.find((x) => x.to === k);
+      return r ? [r.from, r.down ? r.down(v) : v] : [k, v];
+    }),
+  );
+}
+
+export const CONVERGE_5: Migration = {
+  to: 5,
+  name: "one name and one unit for each idea a part's props hold: a field's help and message, a variant, a dialog's buttons, a close button, a duration in seconds, a size from a few",
+  up: convergeNames,
+};

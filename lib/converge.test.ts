@@ -7,7 +7,7 @@
 import { readFileSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { beforeAll, describe, expect, it } from "vitest";
-import { bodyMotion, bodyTransition, CONVERGE, CONVERGE_4, conditionExpr, conditionValue, convergeBindings, convergeConditions, convergeMotions, convergeRows, convergeTransitions, itemBind, itemBindExpr } from "./converge";
+import { asWrittenAt4, bodyMotion, bodyTransition, CONVERGE, CONVERGE_4, CONVERGE_5, conditionExpr, conditionValue, convergeBindings, convergeConditions, convergeMotions, convergeRows, convergeTransitions, itemBind, itemBindExpr } from "./converge";
 import { DEFAULT_MOTION, TRANSITION_MOTIONS } from "./screenMotion";
 import { boundVarOf, comparisonExpr, comparisonOf, fieldVarOf } from "./bindings/bind";
 import { fillRow } from "./collections";
@@ -151,38 +151,41 @@ describe("bindings", () => {
 });
 
 describe("the steps", () => {
-  it("are versions 3 and 4, and saving writes 4", () => {
-    expect(PROJECT_VERSION).toBe(4);
-    expect(MIGRATIONS).toEqual([CONVERGE, CONVERGE_4]);
+  it("are versions 3, 4 and 5, and saving writes 5", () => {
+    expect(PROJECT_VERSION).toBe(5);
+    expect(MIGRATIONS).toEqual([CONVERGE, CONVERGE_4, CONVERGE_5]);
     const loaded = loadDocument({ format: PROJECT_FORMAT, version: 2, document: doc([group("g", [item("b", { bind: {}, action: { to: "a", transition: "fade", motion: { kind: "instant" } } })])]) })!;
-    expect(loaded.migrated).toEqual([CONVERGE.name, CONVERGE_4.name]);
+    expect(loaded.migrated).toEqual([CONVERGE.name, CONVERGE_4.name, CONVERGE_5.name]);
     const saved = JSON.parse(serializeProject(loaded.doc).text);
-    expect(saved.version).toBe(4);
+    expect(saved.version).toBe(5);
     expect(saved.document.groups[0].items[0]).not.toHaveProperty("bind");
     expect(saved.document.groups[0].items[0].action).toEqual({ to: "a", motion: { kind: "instant" } });
   });
 
   it("run only what comes after a file's own version, and a file of a later one opens as it came, read-only", () => {
     const v3 = { format: PROJECT_FORMAT, version: 3, document: doc([group("g", [item("b", { action: { to: "a", transition: "fade" } })])]) };
-    expect(loadDocument(v3)!.migrated).toEqual([CONVERGE_4.name]);
+    expect(loadDocument(v3)!.migrated).toEqual([CONVERGE_4.name, CONVERGE_5.name]);
     expect(loadDocument(v3)!.doc.groups[0].items[0].action).toEqual({ to: "a", motion: { kind: "dissolve", easing: "emphasized", ms: 300 } });
-    const own = { ...v3, version: 4 };
+    expect(loadDocument({ ...v3, version: 4 })!.migrated).toEqual([CONVERGE_5.name]);
+    const own = { ...v3, version: 5 };
     expect(loadDocument(own)!.migrated).toEqual([]);
-    const later = loadDocument({ ...v3, version: 5 })!;
-    expect(later.newer).toBe(5);
+    const later = loadDocument({ ...v3, version: 6 })!;
+    expect(later.newer).toBe(6);
     expect((later.doc.groups[0].items[0].action as unknown as { transition: string }).transition).toBe("fade");
   });
 });
 
 describe("old files in the preview", () => {
   const dir = new URL("./fixtures/history/", import.meta.url);
-  const files = ["2026-11-04-bf2463d-all-parts", "2026-11-05-65278cb-proof", "2026-11-06-55ab801-systems", "2026-11-06-79ec9e7-reuse", "2026-11-06-cf3fa45-bound-shop"];
-  /* what the preview of version 3, which read the older forms, drew of each (written there by lib/fixtures/history/drawn.ts) */
+  const files = ["2026-11-04-bf2463d-all-parts", "2026-11-05-65278cb-proof", "2026-11-06-55ab801-systems", "2026-11-06-79ec9e7-reuse", "2026-11-06-cf3fa45-bound-shop", "2026-11-09-0228f1c-names"];
+  /* what the preview of the version that wrote each drew of it (version 3 for the older files, version 4 for the one of
+     the props version 5 renames; written by lib/fixtures/history/drawn.ts), each part's props read under the names of
+     version 4 */
   const golden = JSON.parse(readFileSync(new URL("drawn.json", dir), "utf8")) as Record<string, Record<string, string>>;
 
-  it.each(files)("draw every part as version 3 drew them, at the start, after each tap and after each input is used: %s", (name) => {
+  it.each(files)("draw every part as the version that wrote them drew them, at the start, after each tap and after each input is used: %s", (name) => {
     const file = JSON.parse(readFileSync(new URL(`${name}.json`, dir), "utf8")) as { document: Doc };
-    const now = drawnStates(loadDocument(file)!.doc);
+    const now = drawnStates(loadDocument(file)!.doc, asWrittenAt4);
     expect(Object.keys(now).sort()).toEqual(Object.keys(golden[name]).sort());
     expect(Object.entries(now).filter(([k, v]) => golden[name][k] !== v).map(([k]) => k)).toEqual([]);
   });
