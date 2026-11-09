@@ -7,7 +7,7 @@
 import { readFileSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { beforeAll, describe, expect, it } from "vitest";
-import { asWrittenAt4, bodyMotion, bodyTransition, CONVERGE, CONVERGE_4, CONVERGE_5, conditionExpr, conditionValue, convergeBindings, convergeConditions, convergeMotions, convergeRows, convergeTransitions, itemBind, itemBindExpr } from "./converge";
+import { asWrittenAt4, bodyMotion, bodyTransition, CONVERGE, CONVERGE_4, CONVERGE_5, CONVERGE_6, enteredNow, conditionExpr, conditionValue, convergeBindings, convergeConditions, convergeMotions, convergeRows, convergeTransitions, itemBind, itemBindExpr } from "./converge";
 import { DEFAULT_MOTION, TRANSITION_MOTIONS } from "./screenMotion";
 import { boundVarOf, comparisonExpr, comparisonOf, fieldVarOf } from "./bindings/bind";
 import { fillRow } from "./collections";
@@ -151,26 +151,27 @@ describe("bindings", () => {
 });
 
 describe("the steps", () => {
-  it("are versions 3, 4 and 5, and saving writes 5", () => {
-    expect(PROJECT_VERSION).toBe(5);
-    expect(MIGRATIONS).toEqual([CONVERGE, CONVERGE_4, CONVERGE_5]);
+  it("are versions 3, 4, 5 and 6, and saving writes 6", () => {
+    expect(PROJECT_VERSION).toBe(6);
+    expect(MIGRATIONS).toEqual([CONVERGE, CONVERGE_4, CONVERGE_5, CONVERGE_6]);
     const loaded = loadDocument({ format: PROJECT_FORMAT, version: 2, document: doc([group("g", [item("b", { bind: {}, action: { to: "a", transition: "fade", motion: { kind: "instant" } } })])]) })!;
-    expect(loaded.migrated).toEqual([CONVERGE.name, CONVERGE_4.name, CONVERGE_5.name]);
+    expect(loaded.migrated).toEqual([CONVERGE.name, CONVERGE_4.name, CONVERGE_5.name, CONVERGE_6.name]);
     const saved = JSON.parse(serializeProject(loaded.doc).text);
-    expect(saved.version).toBe(5);
+    expect(saved.version).toBe(6);
     expect(saved.document.groups[0].items[0]).not.toHaveProperty("bind");
     expect(saved.document.groups[0].items[0].action).toEqual({ to: "a", motion: { kind: "instant" } });
   });
 
   it("run only what comes after a file's own version, and a file of a later one opens as it came, read-only", () => {
     const v3 = { format: PROJECT_FORMAT, version: 3, document: doc([group("g", [item("b", { action: { to: "a", transition: "fade" } })])]) };
-    expect(loadDocument(v3)!.migrated).toEqual([CONVERGE_4.name, CONVERGE_5.name]);
+    expect(loadDocument(v3)!.migrated).toEqual([CONVERGE_4.name, CONVERGE_5.name, CONVERGE_6.name]);
     expect(loadDocument(v3)!.doc.groups[0].items[0].action).toEqual({ to: "a", motion: { kind: "dissolve", easing: "emphasized", ms: 300 } });
-    expect(loadDocument({ ...v3, version: 4 })!.migrated).toEqual([CONVERGE_5.name]);
-    const own = { ...v3, version: 5 };
+    expect(loadDocument({ ...v3, version: 4 })!.migrated).toEqual([CONVERGE_5.name, CONVERGE_6.name]);
+    expect(loadDocument({ ...v3, version: 5 })!.migrated).toEqual([CONVERGE_6.name]);
+    const own = { ...v3, version: 6 };
     expect(loadDocument(own)!.migrated).toEqual([]);
-    const later = loadDocument({ ...v3, version: 6 })!;
-    expect(later.newer).toBe(6);
+    const later = loadDocument({ ...v3, version: 7 })!;
+    expect(later.newer).toBe(7);
     expect((later.doc.groups[0].items[0].action as unknown as { transition: string }).transition).toBe("fade");
   });
 });
@@ -185,7 +186,7 @@ describe("old files in the preview", () => {
 
   it.each(files)("draw every part as the version that wrote them drew them, at the start, after each tap and after each input is used: %s", (name) => {
     const file = JSON.parse(readFileSync(new URL(`${name}.json`, dir), "utf8")) as { document: Doc };
-    const now = drawnStates(loadDocument(file)!.doc, asWrittenAt4);
+    const now = drawnStates(loadDocument(file)!.doc, asWrittenAt4, enteredNow);
     expect(Object.keys(now).sort()).toEqual(Object.keys(golden[name]).sort());
     expect(Object.entries(now).filter(([k, v]) => golden[name][k] !== v).map(([k]) => k)).toEqual([]);
   });

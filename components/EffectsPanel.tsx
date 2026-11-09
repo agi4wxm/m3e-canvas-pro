@@ -146,9 +146,9 @@ function PropValueField({ def, value, onChange, p }: { def: PropDef; value: VarV
 }
 
 /** the props an effect can change: the ones with a value that fits on one line */
-const settableProps = (it: Item | undefined) => (partBySlug(it?.component)?.props ?? []).filter((d) => d.kind === "text" || d.kind === "number" || d.kind === "bool" || d.kind === "enum");
+const settableProps = (it: Item | undefined) => (partBySlug(it?.component)?.props ?? []).filter((d) => d.kind === "text" || d.kind === "number" || d.kind === "bool" || d.kind === "enum" || d.kind === "color");
 
-const startOfProp = (d: PropDef | undefined): VarValue => (d && (d.kind === "text" || d.kind === "number" || d.kind === "bool" || d.kind === "enum") ? d.default : "");
+const startOfProp = (d: PropDef | undefined): VarValue => (d && (d.kind === "text" || d.kind === "number" || d.kind === "bool" || d.kind === "enum" || d.kind === "color") ? d.default : "");
 
 const KINDS: { key: Effect["do"]; text: UIKey; icon: string }[] = [
   { key: "show", text: "effShow", icon: "visibility" },

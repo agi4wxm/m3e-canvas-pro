@@ -27,101 +27,10 @@ import { fields, withUnknown } from "./keep";
 
 /* ---------- colors ---------- */
 
-/** The roles a color may name. Every theme defines them as `--md-sys-color-<role>` (lib/m3e/color.ts), and a style
- *  repaints the ones it has its own colors for, so a role follows the style and the mode. */
-export const COLOR_ROLES = [
-  "primary",
-  "on-primary",
-  "primary-container",
-  "on-primary-container",
-  "inverse-primary",
-  "primary-fixed",
-  "primary-fixed-dim",
-  "on-primary-fixed",
-  "on-primary-fixed-variant",
-  "secondary",
-  "on-secondary",
-  "secondary-container",
-  "on-secondary-container",
-  "secondary-fixed",
-  "secondary-fixed-dim",
-  "on-secondary-fixed",
-  "on-secondary-fixed-variant",
-  "tertiary",
-  "on-tertiary",
-  "tertiary-container",
-  "on-tertiary-container",
-  "tertiary-fixed",
-  "tertiary-fixed-dim",
-  "on-tertiary-fixed",
-  "on-tertiary-fixed-variant",
-  "error",
-  "on-error",
-  "error-container",
-  "on-error-container",
-  "background",
-  "on-background",
-  "surface",
-  "on-surface",
-  "surface-variant",
-  "on-surface-variant",
-  "surface-dim",
-  "surface-bright",
-  "surface-container-lowest",
-  "surface-container-low",
-  "surface-container",
-  "surface-container-high",
-  "surface-container-highest",
-  "inverse-surface",
-  "inverse-on-surface",
-  "surface-tint",
-  "outline",
-  "outline-variant",
-  "shadow",
-  "scrim",
-] as const;
-export type ColorRole = (typeof COLOR_ROLES)[number];
-const ROLES = new Set<string>(COLOR_ROLES);
-
-const HEX = /^#([0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/i;
-const ROLE_REF = /^([a-z]+(?:-[a-z]+)*)(?:\/(\d{1,3}))?$/;
-
-/** a color reference taken apart: a role, or six hex digits, with how much of it shows (0 to 100) */
-export type ParsedColor = { role: ColorRole; alpha: number } | { hex: string; alpha: number };
-
-/** reads a color reference, or nothing when it is not one */
-export function parseColor(v: unknown): ParsedColor | undefined {
-  if (typeof v !== "string" || v.length > 40) return undefined;
-  const hex = HEX.exec(v);
-  if (hex) {
-    const d = hex[1].toLowerCase();
-    const full = d.length <= 4 ? [...d].map((c) => c + c).join("") : d;
-    /* kept exact, so a hex reads back to the same digits */
-    const alpha = full.length === 8 ? (parseInt(full.slice(6), 16) / 255) * 100 : 100;
-    return { hex: `#${full.slice(0, 6)}`, alpha };
-  }
-  const role = ROLE_REF.exec(v);
-  if (!role || !ROLES.has(role[1])) return undefined;
-  const alpha = role[2] === undefined ? 100 : Number(role[2]);
-  return alpha <= 100 ? { role: role[1] as ColorRole, alpha } : undefined;
-}
-
-export const isColorRef = (v: unknown): v is ColorRef => parseColor(v) !== undefined;
-
-const alphaHex = (alpha: number) =>
-  Math.round((Math.max(0, Math.min(100, alpha)) / 100) * 255)
-    .toString(16)
-    .padStart(2, "0");
-
-/** a parsed color written back as a reference, the shortest way it can be said */
-export function formatColor(c: ParsedColor): ColorRef {
-  if ("role" in c) {
-    const alpha = Math.max(0, Math.min(100, Math.round(c.alpha)));
-    return alpha === 100 ? c.role : `${c.role}/${alpha}`;
-  }
-  const byte = alphaHex(c.alpha);
-  return byte === "ff" ? c.hex : `${c.hex}${byte}`;
-}
+/* The roles, the reader and the writer of a color are parts/color.ts's: the one color value type every color a document
+ * holds (a look's, a part's color prop) is read by, so a color is validated in one place. */
+export { COLOR_ROLES, formatColor, isColorRef, parseColor, type ColorRole, type ParsedColor } from "../parts/color";
+import { formatColor, isColorRef, parseColor, type ColorRole } from "../parts/color";
 
 /** the same color with another share of it showing */
 export function withAlpha(ref: ColorRef, alpha: number): ColorRef {

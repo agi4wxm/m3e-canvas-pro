@@ -4,7 +4,7 @@ import { useState } from "react";
 import type { PartBase } from "../atoms/basics";
 import { Button } from "../atoms/controls";
 import { Words } from "../atoms/words";
-import { c } from "../color";
+import { c, css } from "../color";
 import { starred, withField, type FieldProps } from "../field";
 import { Glyph } from "../icons";
 import { useFill } from "../layout";
@@ -64,7 +64,15 @@ export function placesOf(words: string | number[] | undefined, count = Infinity)
 /** places as the words that hold them: counted from 1, in order */
 export const wordsOfPlaces = (at: number[]) => [...at].sort((a, b) => a - b).map((n) => n + 1).join(",");
 
-const HEX = /^#[0-9a-f]{3,8}$/i;
+/** the rows a multiple choice picked, by their places from 0 in words like "0,2" (format version 6), within `count` */
+export function picksOf(words: string | number[] | undefined, count = Infinity): number[] {
+  const raw = Array.isArray(words) ? words : String(words ?? "").split(/[\s,，]+/).filter(Boolean).map(Number);
+  return raw.filter((n, i, all) => Number.isInteger(n) && n >= 0 && n < count && all.indexOf(n) === i);
+}
+
+/** places from 0 as the words that hold them, in order */
+export const wordsOfPicks = (at: number[]) => [...at].sort((a, b) => a - b).join(",");
+
 
 /** the outlined box a field-like picker stands in, in error's color when it is in error */
 const boxOf = (kit: Kit, error?: boolean): CSS => merge({ ...ROW, position: "relative", boxSizing: "border-box" }, fieldStyle(kit, "outlined").box, error ? { borderColor: c("error"), boxShadow: `inset 0 0 0 1px ${c("error")}` } : null);
@@ -352,24 +360,24 @@ export function ItemPicker(props: ItemPickerProps) {
 
 /* ---------- several choices ---------- */
 
-export type MultiSelectProps = PartBase & FieldProps & { items?: ListRow[]; selected?: string; width?: number; disabled?: boolean; error?: boolean; onChange?: (selected: string) => void };
+export type MultiSelectProps = PartBase & FieldProps & { items?: ListRow[]; picked?: string; width?: number; disabled?: boolean; error?: boolean; onChange?: (picked: string) => void };
 
-/** A choice of several: a filter chip for each option, the ones picked ticked; the value is the rows picked, counted
- *  from 1 ("1,3"). */
+/** A choice of several: a filter chip for each option, the ones picked ticked; the value is the rows picked, by their
+ *  places from 0 ("0,2"). */
 export function MultiSelect(props: MultiSelectProps) {
   const p = withDefaults<MultiSelectProps>("multi-select", props);
   const kit = useKit();
   const fill = useFill();
   const items = p.items ?? [];
-  const [value, setValue] = useEntry(String(p.selected ?? ""), p.onChange);
-  const on = placesOf(value, items.length);
+  const [value, setValue] = useEntry(String(p.picked ?? ""), p.onChange);
+  const on = picksOf(value, items.length);
   return withField(
     p,
     <Surface base={merge({ ...ROW, flexWrap: "wrap", gap: 8, width: Math.round(p.width ?? 320), flexShrink: 0, opacity: p.disabled ? 0.38 : 1 }, fill)} appearance={p} testID={p.testID} label={starred(p.ariaLabel, p.required)}>
       {items.map((it, i) => {
         const picked = on.includes(i);
         return (
-          <View key={i} ariaRole="checkbox" ariaChecked={picked} ariaLabel={it.label} onClick={pressOf(() => setValue(wordsOfPlaces(picked ? on.filter((x) => x !== i) : [...on, i])), heldBy(p))} style={sx(ROW, { boxSizing: "border-box", height: 32, columnGap: 8, paddingLeft: picked ? 8 : 16, paddingRight: 16, borderRadius: corner(kit, "sm"), border: picked ? "none" : `1px solid ${c(p.error ? "error" : "outline-variant")}`, backgroundColor: picked ? c("secondary-container") : "transparent" })}>
+          <View key={i} ariaRole="checkbox" ariaChecked={picked} ariaLabel={it.label} onClick={pressOf(() => setValue(wordsOfPicks(picked ? on.filter((x) => x !== i) : [...on, i])), heldBy(p))} style={sx(ROW, { boxSizing: "border-box", height: 32, columnGap: 8, paddingLeft: picked ? 8 : 16, paddingRight: 16, borderRadius: corner(kit, "sm"), border: picked ? "none" : `1px solid ${c(p.error ? "error" : "outline-variant")}`, backgroundColor: picked ? c("secondary-container") : "transparent" })}>
             {picked ? <Glyph name="check" size={18} color="on-secondary-container" /> : null}
             <Words text={it.label} lines={1} style={{ ...typeStyle(kit, "label-large"), color: c(picked ? "on-secondary-container" : "on-surface-variant") }} />
           </View>
@@ -381,21 +389,22 @@ export function MultiSelect(props: MultiSelectProps) {
 
 /* ---------- a palette ---------- */
 
-export type ColorPaletteProps = PartBase & FieldProps & { colors?: string | string[]; selected?: number; width?: number; disabled?: boolean; error?: boolean; onChange?: (i: number) => void };
+export type ColorPaletteProps = PartBase & FieldProps & { colors?: string | (string | ListRow)[]; selected?: number; width?: number; disabled?: boolean; error?: boolean; onChange?: (i: number) => void };
 
 /** A choice of one color among swatches, the chosen one ringed and ticked: its place among all the colors given, an
- *  unreadable one included (it is only not drawn). An author's colors are data: drawn as given. */
+ *  unreadable one included (it is only not drawn). The colors are rows of the part (each a color of the one color
+ *  value, a role, a share of one or a hex, and the name it is read out by), or words with commas between them. */
 export function ColorPalette(props: ColorPaletteProps) {
   const p = withDefaults<ColorPaletteProps>("color-palette", props);
   const fill = useFill();
-  const colors = (Array.isArray(p.colors) ? p.colors : String(p.colors ?? "").split(",")).map((x) => String(x).trim());
+  const rows = (Array.isArray(p.colors) ? p.colors : String(p.colors ?? "").split(",")).map((x) => (typeof x === "string" ? { label: x.trim(), color: x.trim() } : { label: x.label, color: x.color ?? x.label }));
   const [chosen, setChosen] = useEntry(Math.round(p.selected ?? 0), p.onChange);
   return withField(
     p,
     <Surface base={merge({ ...ROW, flexWrap: "wrap", gap: 8, width: Math.round(p.width ?? 320), flexShrink: 0, opacity: p.disabled ? 0.38 : 1 }, fill)} appearance={p} testID={p.testID} role="radiogroup" label={starred(p.ariaLabel, p.required)}>
-      {colors.map((color, i) =>
-        HEX.test(color) ? (
-          <View key={`${color}-${i}`} ariaRole="radio" ariaChecked={i === chosen} ariaLabel={color} onClick={pressOf(() => setChosen(i), heldBy(p))} style={sx(ROW, { boxSizing: "border-box", width: 40, height: 40, borderRadius: 20, justifyContent: "center", backgroundColor: color, border: i === chosen ? `2px solid ${c("on-surface")}` : `1px solid ${c(p.error ? "error" : "outline-variant")}` })}>
+      {rows.map(({ label, color }, i) =>
+        css(color) ? (
+          <View key={`${color}-${i}`} ariaRole="radio" ariaChecked={i === chosen} ariaLabel={label || color} onClick={pressOf(() => setChosen(i), heldBy(p))} style={sx(ROW, { boxSizing: "border-box", width: 40, height: 40, borderRadius: 20, justifyContent: "center", backgroundColor: css(color), border: i === chosen ? `2px solid ${c("on-surface")}` : `1px solid ${c(p.error ? "error" : "outline-variant")}` })}>
             {i === chosen ? <Glyph name="check" size={20} color="on-primary" /> : null}
           </View>
         ) : null,

@@ -136,7 +136,8 @@ const CASES: InputCase[] = [
   { name: "quantity stepper", W: QuantityStepper as Widget, slot: "quantity-stepper", attr: "data-value", prop: "value", a: 2, b: 9, act: (m) => (m.tap("data-tap", "inc"), 3) },
   { name: "item picker", W: Inputs.ItemPicker as Widget, slot: "item-picker", attr: "data-selected", prop: "selected", a: 0, b: 2, base: { items: [{ label: "A" }, { label: "B" }, { label: "C" }] }, act: (m) => (m.press(m.all().filter((e) => e.props.role === "radio")[1]), 1) },
   { name: "color palette", W: Inputs.ColorPalette as Widget, slot: "color-palette", attr: "data-selected", prop: "selected", a: 0, b: 2, shown: (v) => ["#111111", "#222222", "#333333"][v as number], base: { colors: ["#111111", "#222222", "#333333"] }, act: (m) => (m.press(m.all().filter((e) => e.props.role === "radio")[1]), 1) },
-  { name: "multiple choice", W: Inputs.MultiSelect as Widget, slot: "multi-select", attr: "data-selected", prop: "selected", a: "1", b: "2,3", shown: (v) => String(v).split(",").map((n) => Number(n) - 1).join(","), base: { items: ["A", "B", "C"] }, act: (m) => (m.press(m.all().filter((e) => e.type === "FilterChip")[2], "onPressedChange", true), "1,3") },
+  /* the rows picked by their places from 0, as every place is counted (format version 6) */
+  { name: "multiple choice", W: Inputs.MultiSelect as Widget, slot: "multi-select", attr: "data-selected", prop: "picked", a: "0", b: "1,2", shown: (v) => v, base: { items: ["A", "B", "C"] }, act: (m) => (m.press(m.all().filter((e) => e.type === "FilterChip")[2], "onPressedChange", true), "0,2") },
   { name: "tag input", W: Inputs.TagInput as Widget, slot: "tag-input", attr: "data-count", prop: "items", a: ["x", "y"], b: ["x"], shown: (v) => (v as string[]).length, act: (m) => (m.press(m.all().filter((e) => e.type === "InputChip")[0], "onRemove", undefined), ["y"]) },
   { name: "sortable list", W: SortableList as Widget, slot: "sortable-list", attr: "data-order", prop: "items", a: ["a", "b", "c"], b: ["c", "a", "b"], shown: (v) => (v as string[]).join("|"), act: (m) => (m.press(m.all().filter((e) => e.props["data-slot"] === "sortable-list-row")[0], "onKeyDown", { altKey: true, key: "ArrowDown", preventDefault() {}, currentTarget: { parentElement: null } }), ["b", "a", "c"]) },
   { name: "color field", W: ColorField as Widget, slot: "color-field", attr: "data-color", prop: "value", a: "#112233", b: "#445566", shown: (v) => v, act: (m) => (m.press(m.one((e) => e.type === "input", "the color well"), "onChange", { target: { value: "#abcdef" } }), "#abcdef") },
@@ -541,7 +542,8 @@ describe("what report 3.5 found", () => {
   it("a level map starts at the level its definition says", async () => {
     const { partBySlug, defaultValues } = await import("../registry");
     const def = partBySlug("level-map")!;
-    expect(defaultValues(def).current).toBe(5);
+    /* `level` counts from 0 (format version 6); the map shows it counted from 1 */
+    expect(defaultValues(def).level).toBe(4);
     const m = mount(Game.LevelMap as Widget, {});
     expect(m.all().filter((e) => e.props["data-current"]).length).toBe(1);
     expect(m.all().findIndex((e) => e.props["data-current"])).toBe(m.all().findIndex((e) => e.props["aria-label"] === "5"));
@@ -662,7 +664,7 @@ describe("in the preview", () => {
     const { startState, writeField } = await import("../../lib/interact");
     const { makeItem } = await import("../../lib/tokens");
     const doc = { groups: [], vars: [{ id: "c", name: "c", type: "text" as const, value: "" }] };
-    const palette = { ...makeItem("color-palette"), id: "p", bind: { selected: "=vars.c" }, props: { colors: "#111111,#222222" } };
+    const palette = { ...makeItem("color-palette"), id: "p", bind: { selected: "=vars.c" }, props: { colors: [{ label: "#111111", color: "#111111" }, { label: "Two", color: "#222222" }] } };
     expect(writeField(startState(doc.vars), palette, 1, doc).vars.c).toBe("#222222");
   });
 });

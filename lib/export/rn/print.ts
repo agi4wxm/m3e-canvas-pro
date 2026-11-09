@@ -1,3 +1,4 @@
+import { colorChoicesOf } from "../../../parts/color";
 import { bindExpr, boundVar } from "../../bindings/bind";
 import { COLOR_TOKENS, BACK_TARGET, LINK_TARGET, GAP, linkUrlOf, normalizeTheme, type Action, type ActionBody, type Condition, type DataSource, type Doc, type Effect, type Frame, type Group, type Item, type ScreenParam } from "../../tokens";
 import type { Answer } from "../../actions/model";
@@ -516,8 +517,8 @@ class ScreenPrinter {
         ? [expr(!!design)]
         : d.kind === "number"
           ? [expr(typeof design === "number" ? design : 0), expr(d.min), expr(d.max)]
-          : d.kind === "enum"
-            ? [expr(d.options.map((o) => (typeof o === "string" ? o : o.value))), expr(String(design ?? ""))]
+          : d.kind === "enum" || d.kind === "color"
+            ? [expr(d.kind === "color" ? colorChoicesOf(d) : d.options.map((o) => (typeof o === "string" ? o : o.value))), expr(String(design ?? ""))]
             : d.kind === "list"
               ? [expr(design), expr(d.max ?? 50)]
               : [];

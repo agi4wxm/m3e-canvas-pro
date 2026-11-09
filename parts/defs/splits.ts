@@ -22,7 +22,7 @@ const rule = (length: number, down = false, fill: Node["fill"] = "surfaceContain
 
 /** a title over a supporting line, taking what the row leaves */
 const lines = (title: string, sub: string, style = "lead"): Node =>
-  vbox({ gap: 2, hugWidth: false, width: 160 }, some(para(title, style, { maxLines: 1 }), sub && para(sub, "body", { color: "muted", maxLines: 1 })), { grow: true });
+  vbox({ gap: 2, hugWidth: false, width: 160 }, some(para(title, style, { maxLines: 1 }), sub && para(sub, "body", { color: "on-surface-variant", maxLines: 1 })), { grow: true });
 
 /** one side of a bar whose title is centered: as wide as the other side */
 const side = (justify: string, kids: Node[]): Node => hbox({ justify, gap: 0, hugWidth: false, width: 80 }, kids, { grow: true });
@@ -41,7 +41,7 @@ const searchLook = (p: P): Pick<Node, "look"> => (p.s("variant") === "outlined" 
 
 /** an app bar's title and the line under it, the room it is given less the 12 the heading keeps on each side (16 with nothing before it) */
 const barTitle = (p: P, lead: boolean): Node =>
-  vbox({ gap: 0, padLeft: lead ? 12 : 16, padRight: 12, hugWidth: false, width: 160 }, some(para(p.s("title"), "title", { maxLines: 1 }), p.s("subtitle") && para(p.s("subtitle"), "label", { color: "muted", maxLines: 1 })), { grow: true });
+  vbox({ gap: 0, padLeft: lead ? 12 : 16, padRight: 12, hugWidth: false, width: 160 }, some(para(p.s("title"), "title", { maxLines: 1 }), p.s("subtitle") && para(p.s("subtitle"), "label", { color: "on-surface-variant", maxLines: 1 })), { grow: true });
 
 /** the arrows that lead back, which an iPhone's bar names with where they go */
 const BACK = ["arrow_back", "arrow_back_ios", "arrow_back_ios_new", "chevron_left"];
@@ -75,7 +75,7 @@ function rowPad(look: KitLook, two: boolean, pad: number): { padX: number; padY:
 }
 
 /** the chevron a row that leads somewhere ends in, where the style shows it (the part carries it hidden) */
-const rowChevron = (look: KitLook): Node | null => (look.row === "chevron" ? icon("chevron_right", { size: 20, color: "muted" }) : look.row === "arrow" ? icon("chevron_right", { size: 16, color: "muted" }) : null);
+const rowChevron = (look: KitLook): Node | null => (look.row === "chevron" ? icon("chevron_right", { size: 20, color: "on-surface-variant" }) : look.row === "arrow" ? icon("chevron_right", { size: 16, color: "on-surface-variant" }) : null);
 
 /** An iPhone's alert or a WeChat dialog, as the style draws a dialog part: a small card, its words centered, its buttons
  *  the halves of a foot under a hairline (one over another when they are stacked). */
@@ -89,7 +89,7 @@ function alertOf(look: KitLook, title: string, words: string, buttons: string[],
   return vbox({ surface: "overlay", width: w, hugWidth: false, padX: 0, padTop: weui ? 24 : 20, padBottom: 0, gap: 0 }, [
     vbox(
       { padX: 16, padTop: 0, padBottom: weui ? 24 : 20, gap: weui ? 8 : 6, align: "center", hugWidth: false, width: w },
-      some(glyph && icon(glyph, { color: "secondary" }), para(title, "heading", { align: "center", bold: true, width: w - 32 }), words && para(words, weui ? "body" : "caption", { color: "muted", align: "center", width: w - 32 })),
+      some(glyph && icon(glyph, { color: "secondary" }), para(title, "heading", { align: "center", bold: true, width: w - 32 }), words && para(words, weui ? "body" : "caption", { color: "on-surface-variant", align: "center", width: w - 32 })),
     ),
     ...(buttons.length ? [rule(w), foot] : []),
   ], { corners: round(weui ? 12 : 14) });
@@ -115,7 +115,7 @@ export const SPLITS: Record<string, (p: P, look?: KitLook) => Node> = {
       [
         searchBar(p, sm),
         line({ length: px(p) }),
-        ...p.list("results").map((r) => hbox({ padX: 16, padY: 0, gap: 16, hugWidth: false, width: px(p), hugHeight: false, height: 56 }, some(r.icon && icon(r.icon, { color: "muted" }), para(r.label, "lead", { maxLines: 1 }, { grow: true })))),
+        ...p.list("results").map((r) => hbox({ padX: 16, padY: 0, gap: 16, hugWidth: false, width: px(p), hugHeight: false, height: 56 }, some(r.icon && icon(r.icon, { color: "on-surface-variant" }), para(r.label, "lead", { maxLines: 1 }, { grow: true })))),
       ],
       { corners: round(28), ...searchLook(p) },
     );
@@ -138,19 +138,19 @@ export const SPLITS: Record<string, (p: P, look?: KitLook) => Node> = {
       const block = size === "large" ? (p.s("subtitle") ? 88 : 56) : p.s("subtitle") ? 72 : 48;
       return vbox({ ...barSurface(p), width: px(p), hugWidth: false, padX: 0, padY: 0, gap: 0 }, [
         hbox({ ...row, justify: "between" }, [hbox({ gap: 0 }, some(lead)), hbox({ gap: 0 }, actions)]),
-        vbox({ padX: 16, padTop: 0, padBottom: 12, gap: 0, justify: "end", hugWidth: false, width: px(p), hugHeight: false, height: block }, some(para(p.s("title"), size === "large" ? "display" : "headline", { maxLines: 1 }), p.s("subtitle") && para(p.s("subtitle"), size === "large" ? "subtitle" : "label", { color: "muted", maxLines: 1 }))),
+        vbox({ padX: 16, padTop: 0, padBottom: 12, gap: 0, justify: "end", hugWidth: false, width: px(p), hugHeight: false, height: block }, some(para(p.s("title"), size === "large" ? "display" : "headline", { maxLines: 1 }), p.s("subtitle") && para(p.s("subtitle"), size === "large" ? "subtitle" : "label", { color: "on-surface-variant", maxLines: 1 }))),
       ], barLook(p));
     }
     /* a style that sets the title large keeps the row for the buttons and puts the title under it */
     if (look.appbar === "large")
       return vbox({ ...barSurface(p), width: px(p), hugWidth: false, padX: 0, padY: 0, gap: 0 }, [
         hbox({ ...row, justify: "between" }, [hbox({ gap: 0 }, some(lead)), hbox({ gap: 0 }, actions)]),
-        vbox({ padX: 16, padTop: 0, padBottom: 8, gap: 0, hugWidth: false, width: px(p) }, some(para(p.s("title"), "headline", { maxLines: 1 }), p.s("subtitle") && para(p.s("subtitle"), "label", { color: "muted", maxLines: 1 }))),
+        vbox({ padX: 16, padTop: 0, padBottom: 8, gap: 0, hugWidth: false, width: px(p) }, some(para(p.s("title"), "headline", { maxLines: 1 }), p.s("subtitle") && para(p.s("subtitle"), "label", { color: "on-surface-variant", maxLines: 1 }))),
       ], barLook(p));
     /* a style that centers the title sets it smaller and bolder than Material's centered bar does */
     const styled = centersTitle(look);
     if (p.b("centered") || styled)
-      return hbox({ ...barSurface(p), ...row }, [side("start", some(lead)), vbox({ gap: 0, align: "center", padX: 8 }, some(text(p.s("title"), styled ? "heading" : "title", styled ? { bold: true } : {}), p.s("subtitle") && text(p.s("subtitle"), "caption", { color: "muted" }))), side("end", actions)], barLook(p));
+      return hbox({ ...barSurface(p), ...row }, [side("start", some(lead)), vbox({ gap: 0, align: "center", padX: 8 }, some(text(p.s("title"), styled ? "heading" : "title", styled ? { bold: true } : {}), p.s("subtitle") && text(p.s("subtitle"), "caption", { color: "on-surface-variant" }))), side("end", actions)], barLook(p));
     return hbox({ ...barSurface(p), ...row }, [...some(lead), barTitle(p, !!lead), ...actions], barLook(p));
   },
 
@@ -168,9 +168,9 @@ export const SPLITS: Record<string, (p: P, look?: KitLook) => Node> = {
               : trailing === "slider"
                 ? atom("slider", { width: 128 })
                 : trailing === "text" && p.s("trailingText")
-                  ? text(p.s("trailingText"), "body", { color: "muted" })
+                  ? text(p.s("trailingText"), "body", { color: "on-surface-variant" })
                   : null;
-    const disc = p.s("iconFill") !== "none";
+    const disc = p.s("iconFill") !== "";
     const pad = p.s("size") === "xs" || p.s("size") === "sm" ? 8 : 10;
     /* a plain row keeps to the screen's margins, as the part's own does; one with a surface keeps its words off its edge.
        A plain list is the one a style sets its own way, and a row that leads somewhere ends in its chevron there */
@@ -180,7 +180,7 @@ export const SPLITS: Record<string, (p: P, look?: KitLook) => Node> = {
     const rows = p.list("items").map((it) =>
       hbox(
         { surface: p.s("variant") === "outline" ? "chip" : p.s("variant") === "muted" ? "panel" : "none", ...set, gap: 12 },
-        some(it.icon && (disc ? box({ surface: "well", layout: "row", align: "center", justify: "center", padX: 8, padY: 8 }, [icon(it.icon)], { corners: round(20) }) : icon(it.icon, { color: "muted" })), lines(it.label, p.s("description")), end, chevron),
+        some(it.icon && (disc ? box({ surface: "well", layout: "row", align: "center", justify: "center", padX: 8, padY: 8 }, [icon(it.icon)], { corners: round(20) }) : icon(it.icon, { color: "on-surface-variant" })), lines(it.label, p.s("description")), end, chevron),
       ),
     );
     /* the lines between grouped rows start where an icon's row has its words */
@@ -198,7 +198,7 @@ export const SPLITS: Record<string, (p: P, look?: KitLook) => Node> = {
     const width = px(p);
     const beside = pos === "leading" || pos === "trailing";
     const room = beside ? width - extent - space * 3 : width - space * 2;
-    const words = vbox({ gap: 4, align: "stretch", padX: space, hugWidth: false, width: room + space * 2 }, some(para(p.s("title"), "title", aligned), p.s("description") && para(p.s("description"), "body", { color: "muted", ...aligned })));
+    const words = vbox({ gap: 4, align: "stretch", padX: space, hugWidth: false, width: room + space * 2 }, some(para(p.s("title"), "title", aligned), p.s("description") && para(p.s("description"), "body", { color: "on-surface-variant", ...aligned })));
     const action = p.s("action") && hbox({ gap: 8, padX: space, justify: align === "center" ? "center" : align === "end" ? "end" : "start" }, [button(p.s("action"), { variant: "text", size: "sm" })]);
     /* the media runs to the card's edges; with no picture of its own it is the part's gradient with its icon */
     const media = (w: number | undefined, h: number): Node =>
@@ -227,7 +227,7 @@ export const SPLITS: Record<string, (p: P, look?: KitLook) => Node> = {
     const tone = p.s("variant");
     return hbox(
       { surface: "panel", width: px(p), hugWidth: false, padX: 16, padY: 16, gap: 12, align: "start" },
-      some(p.s("icon") && icon(p.s("icon"), { color: tone === "destructive" ? "error" : tone === "tertiary" ? "tertiary" : "primary" }), vbox({ gap: 4, hugWidth: false, width: 160 }, some(p.s("title") && para(p.s("title"), "subtitle"), p.s("description") && para(p.s("description"), "body", { color: "muted" })), { grow: true })),
+      some(p.s("icon") && icon(p.s("icon"), { color: tone === "destructive" ? "error" : tone === "tertiary" ? "tertiary" : "primary" }), vbox({ gap: 4, hugWidth: false, width: 160 }, some(p.s("title") && para(p.s("title"), "subtitle"), p.s("description") && para(p.s("description"), "body", { color: "on-surface-variant" })), { grow: true })),
       tone === "info" ? { fill: "secondaryContainer" } : tone === "tertiary" ? { fill: "tertiaryContainer" } : {},
     );
   },
@@ -241,7 +241,7 @@ export const SPLITS: Record<string, (p: P, look?: KitLook) => Node> = {
   "side-tabs": (p) =>
     vbox(
       { surface: "panel", width: px(p), hugWidth: false, padX: 4, padY: 4, gap: 4 },
-      p.list("items").map((t, i) => (i === Math.round(p.n("selected")) ? hbox({ padX: 12, padY: 8, hugWidth: false, width: px(p) - 8 }, [para(t.label, "label", { maxLines: 1 })], { fill: "secondaryContainer", corners: round(8) }) : hbox({ padX: 12, padY: 8, hugWidth: false, width: px(p) - 8 }, [para(t.label, "label", { color: "muted", maxLines: 1 })], { corners: round(8) }))),
+      p.list("items").map((t, i) => (i === Math.round(p.n("selected")) ? hbox({ padX: 12, padY: 8, hugWidth: false, width: px(p) - 8 }, [para(t.label, "label", { maxLines: 1 })], { fill: "secondaryContainer", corners: round(8) }) : hbox({ padX: 12, padY: 8, hugWidth: false, width: px(p) - 8 }, [para(t.label, "label", { color: "on-surface-variant", maxLines: 1 })], { corners: round(8) }))),
       { fill: "surfaceContainer", corners: round(12) },
     ),
 
@@ -253,7 +253,7 @@ export const SPLITS: Record<string, (p: P, look?: KitLook) => Node> = {
     return vbox({ gap: 2, align: "center", width: size + 24, hugWidth: false }, [
       box({ layout: "row", align: "center", justify: "center", padX: 0, padY: 0, width: size, height: size, hugWidth: false, hugHeight: false }, some(p.s("icon") && icon(p.s("icon"), { size: 24 })), { fill: "secondaryContainer", corners: round(size / 2) }),
       para(p.s("label"), "tiny", { align: "center", maxLines: 1, width: size + 24 }),
-      ...some(seconds > 0 && text(clock, "tiny", { color: "muted" })),
+      ...some(seconds > 0 && text(clock, "tiny", { color: "on-surface-variant" })),
     ]);
   },
 
@@ -268,9 +268,9 @@ export const SPLITS: Record<string, (p: P, look?: KitLook) => Node> = {
 
   "stat-card": (p) =>
     vbox({ surface: "panel", width: px(p), hugWidth: false, padX: 16, padY: 16, gap: 4 }, [
-      text(p.s("title"), "label", { color: "muted" }),
+      text(p.s("title"), "label", { color: "on-surface-variant" }),
       text(p.s("value"), "headline"),
-      text(p.s("trend"), "caption", { color: p.s("direction") === "up" ? "primary" : p.s("direction") === "down" ? "error" : "muted" }),
+      text(p.s("trend"), "caption", { color: p.s("direction") === "up" ? "primary" : p.s("direction") === "down" ? "error" : "on-surface-variant" }),
     ]),
 
   "asset-pill": (p) => hbox({ surface: "chip", padX: 12, padY: 6, gap: 4 }, some(p.s("icon") && icon(p.s("icon"), { size: 16 }), text(p.s("value"), "label")), { fill: "surfaceContainerHigh", corners: round(16) }),
@@ -290,9 +290,9 @@ export const SPLITS: Record<string, (p: P, look?: KitLook) => Node> = {
     vbox(
       { surface: p.b("bordered") ? "chip" : "none", width: px(p), hugWidth: false, padX: 24, padY: 32, gap: 12, align: "center" },
       some(
-        p.s("icon") && box({ surface: "well", layout: "row", align: "center", justify: "center", padX: 12, padY: 12 }, [icon(p.s("icon"), { size: 32, color: "muted" })], { corners: round(28) }),
+        p.s("icon") && box({ surface: "well", layout: "row", align: "center", justify: "center", padX: 12, padY: 12 }, [icon(p.s("icon"), { size: 32, color: "on-surface-variant" })], { corners: round(28) }),
         text(p.s("title"), "heading", { align: "center" }),
-        p.s("description") && para(p.s("description"), "body", { color: "muted", align: "center", width: Math.max(40, px(p) - 48) }),
+        p.s("description") && para(p.s("description"), "body", { color: "on-surface-variant", align: "center", width: Math.max(40, px(p) - 48) }),
         p.s("action") && button(p.s("action"), { variant: "tonal" }),
       ),
     ),
@@ -307,11 +307,11 @@ export const SPLITS: Record<string, (p: P, look?: KitLook) => Node> = {
     const badge = (i: number) => (p.n("badge") > 0 && i === badgeAt ? [atom("badge", { kind: "label", label: String(Math.round(p.n("badge"))), variant: "destructive" })] : []);
     const pill = (it: { label: string; icon?: string }, i: number): Node =>
       side
-        ? hbox({ padX: 16, padY: 8, gap: 4 }, [icon(it.icon || "circle", { filled: i === on, color: i === on ? "default" : "muted" }), text(it.label, "caption", { bold: i === on, color: i === on ? "default" : "muted" }), ...badge(i)], i === on ? { fill: "secondaryContainer", corners: round(20) } : {})
-        : box({ layout: "row", align: "center", justify: "center", gap: 2, padX: 0, padY: 0, width: 56, height: 32, hugWidth: false, hugHeight: false }, [icon(it.icon || "circle", { filled: i === on, color: i === on ? "default" : "muted" }), ...badge(i)], i === on ? { fill: "secondaryContainer", corners: round(16) } : {});
+        ? hbox({ padX: 16, padY: 8, gap: 4 }, [icon(it.icon || "circle", { filled: i === on, color: i === on ? "" : "on-surface-variant" }), text(it.label, "caption", { bold: i === on, color: i === on ? "" : "on-surface-variant" }), ...badge(i)], i === on ? { fill: "secondaryContainer", corners: round(20) } : {})
+        : box({ layout: "row", align: "center", justify: "center", gap: 2, padX: 0, padY: 0, width: 56, height: 32, hugWidth: false, hugHeight: false }, [icon(it.icon || "circle", { filled: i === on, color: i === on ? "" : "on-surface-variant" }), ...badge(i)], i === on ? { fill: "secondaryContainer", corners: round(16) } : {});
     return hbox(
       { surface: "bar", width: px(p), hugWidth: false, padX: 0, padY: p.b("tall") ? 12 : 6, gap: 0, align: "start" },
-      items.map((it, i) => (side ? hbox({ justify: "center", hugWidth: false, width: 80 }, [pill(it, i)], { grow: true }) : vbox({ align: "center", gap: 4, hugWidth: false, width: 80 }, [pill(it, i), text(it.label, "caption", { bold: i === on, color: i === on ? "default" : "muted" })], { grow: true }))),
+      items.map((it, i) => (side ? hbox({ justify: "center", hugWidth: false, width: 80 }, [pill(it, i)], { grow: true }) : vbox({ align: "center", gap: 4, hugWidth: false, width: 80 }, [pill(it, i), text(it.label, "caption", { bold: i === on, color: i === on ? "" : "on-surface-variant" })], { grow: true }))),
       p.b("elevated") ? { look: { elevation: 2 } } : {},
     );
   },
@@ -332,7 +332,7 @@ export const SPLITS: Record<string, (p: P, look?: KitLook) => Node> = {
         { gap: 0, align: "start" },
         items.map((it, i) =>
           vbox({ align: primary ? "center" : "stretch", gap: 0, hugWidth: false, width: 80 }, [
-            hbox({ justify: "center", padX: 8, padY: 12, gap: 8 }, some(it.icon && icon(it.icon, { size: 20, color: i === on && primary ? "primary" : i === on ? "default" : "muted" }), text(it.label, "label", { color: i === on && primary ? "primary" : i === on ? "default" : "muted" }))),
+            hbox({ justify: "center", padX: 8, padY: 12, gap: 8 }, some(it.icon && icon(it.icon, { size: 20, color: i === on && primary ? "primary" : i === on ? "" : "on-surface-variant" }), text(it.label, "label", { color: i === on && primary ? "primary" : i === on ? "" : "on-surface-variant" }))),
             box({ layout: "row", padX: 0, padY: 0, width: primary ? 48 : 8, height: primary ? 3 : 2, hugWidth: false, hugHeight: false }, [], i === on ? { fill: "primary", corners: primary ? { tl: 3, tr: 3, br: 0, bl: 0 } : undefined } : {}),
           ], { grow: true }),
         ),
@@ -354,13 +354,13 @@ export const SPLITS: Record<string, (p: P, look?: KitLook) => Node> = {
     const trail = p.list("items");
     const last = trail.length - 1;
     const collapsed = p.b("collapse") && trail.length > 3;
-    const sep = () => (p.s("separator") === "slash" ? text("/", "body", { color: "muted" }) : icon("chevron_right", { size: 16, color: "muted" }));
+    const sep = () => (p.s("separator") === "slash" ? text("/", "body", { color: "on-surface-variant" }) : icon("chevron_right", { size: 16, color: "on-surface-variant" }));
     const kids: Node[] = [];
     trail.forEach((it, i) => {
       if (collapsed && i > 0 && i < last - 1) return;
       if (kids.length) kids.push(sep());
-      kids.push(text(it.label, "body", { color: i === last ? "default" : "muted" }));
-      if (collapsed && i === 0) kids.push(sep(), icon("more_horiz", { size: 16, color: "muted" }));
+      kids.push(text(it.label, "body", { color: i === last ? "" : "on-surface-variant" }));
+      if (collapsed && i === 0) kids.push(sep(), icon("more_horiz", { size: 16, color: "on-surface-variant" }));
     });
     return hbox({ gap: 6, padX: 0, padY: 2 }, kids);
   },
@@ -370,7 +370,7 @@ export const SPLITS: Record<string, (p: P, look?: KitLook) => Node> = {
     return hbox(
       { width: px(p), hugWidth: false, gap: 8 },
       p.list("items").map((s, i) =>
-        hbox({ gap: 8, hugWidth: false, width: 80 }, [box({ layout: "row", align: "center", justify: "center", padX: 0, padY: 0, width: 24, height: 24, hugWidth: false, hugHeight: false }, [text(String(i + 1), "caption", { bold: true, color: i <= at ? "on-primary" : "muted" })], { fill: i <= at ? "primary" : "surfaceContainerHighest", corners: round(12) }), para(s.label, "label", { maxLines: 1, color: i === at ? "default" : "muted" }, { grow: true })], { grow: true }),
+        hbox({ gap: 8, hugWidth: false, width: 80 }, [box({ layout: "row", align: "center", justify: "center", padX: 0, padY: 0, width: 24, height: 24, hugWidth: false, hugHeight: false }, [text(String(i + 1), "caption", { bold: true, color: i <= at ? "on-primary" : "on-surface-variant" })], { fill: i <= at ? "primary" : "surfaceContainerHighest", corners: round(12) }), para(s.label, "label", { maxLines: 1, color: i === at ? "" : "on-surface-variant" }, { grow: true })], { grow: true }),
       ),
     );
   },
@@ -378,7 +378,7 @@ export const SPLITS: Record<string, (p: P, look?: KitLook) => Node> = {
   "title-bar": (p) => {
     const controls = p.s("controls");
     const dots = hbox({ gap: 8 }, [atom("dot", { color: "outline", size: 12 }), atom("dot", { color: "outline", size: 12 }), atom("dot", { color: "outline", size: 12 })]);
-    const caption = hbox({ gap: 12 }, [icon("remove", { size: 16, color: "muted" }), icon("crop_square", { size: 16, color: "muted" }), icon("close", { size: 16, color: "muted" })]);
+    const caption = hbox({ gap: 12 }, [icon("remove", { size: 16, color: "on-surface-variant" }), icon("crop_square", { size: 16, color: "on-surface-variant" }), icon("close", { size: 16, color: "on-surface-variant" })]);
     return hbox(
       { surface: "bar", width: px(p), hugWidth: false, height: 36, hugHeight: false, padX: 12, padY: 0, gap: 12 },
       some(controls === "mac" && dots, para(p.s("title"), "label", { maxLines: 1, align: controls === "mac" ? "center" : "start" }, { grow: true }), controls === "windows" && caption),
@@ -388,7 +388,7 @@ export const SPLITS: Record<string, (p: P, look?: KitLook) => Node> = {
   "status-bar": (p) =>
     hbox(
       { surface: "bar", width: px(p), hugWidth: false, height: 28, hugHeight: false, padX: 12, padY: 0, gap: 8 },
-      some(p.s("icon") && icon(p.s("icon"), { size: 16, color: "muted" }), para(p.s("text"), "caption", { color: "muted", maxLines: 1 }, { grow: true }), p.s("trailing") && text(p.s("trailing"), "caption", { color: "muted" })),
+      some(p.s("icon") && icon(p.s("icon"), { size: 16, color: "on-surface-variant" }), para(p.s("text"), "caption", { color: "on-surface-variant", maxLines: 1 }, { grow: true }), p.s("trailing") && text(p.s("trailing"), "caption", { color: "on-surface-variant" })),
     ),
 
   /* ---------- overlays and feedback ---------- */
@@ -399,14 +399,14 @@ export const SPLITS: Record<string, (p: P, look?: KitLook) => Node> = {
       return vbox({ surface: "sheet", width: px(p), hugWidth: false, height: px(p, "height"), hugHeight: false, padX: 0, padY: 0, gap: 0 }, [
         hbox({ padX: 12, padY: 8, gap: 8 }, some(iconButton("close", p.say("Close")), para(p.s("title"), "heading", { maxLines: 1 }, { grow: true }), p.s("confirm") && button(p.s("confirm"), { variant: "text" }))),
         rule(px(p)),
-        vbox({ padX: 24, padY: 16, gap: 8 }, some(p.s("description") && para(p.s("description"), "body", { color: "muted" }))),
+        vbox({ padX: 24, padY: 16, gap: 8 }, some(p.s("description") && para(p.s("description"), "body", { color: "on-surface-variant" }))),
       ]);
     /* left as it comes, the card is the screen's width less its margins, at most 448 */
     const w = p.n("dialogWidth") === 412 ? DIALOG_W : Math.min(560, px(p, "dialogWidth"));
     const actions = some(p.s("dismiss") && button(p.s("dismiss"), { variant: "text" }), p.s("confirm") && button(p.s("confirm"), { variant: "text" }));
     return vbox({ surface: "overlay", width: w, hugWidth: false, padX: 24, padY: 24, gap: 16 }, [
       ...some(p.s("icon") && hbox({ justify: "center" }, [icon(p.s("icon"), { color: "secondary" })])),
-      vbox({ gap: 16 }, some(para(p.s("title"), "headline", p.s("icon") ? { align: "center" } : {}), p.s("description") && para(p.s("description"), "body", { color: "muted" }))),
+      vbox({ gap: 16 }, some(para(p.s("title"), "headline", p.s("icon") ? { align: "center" } : {}), p.s("description") && para(p.s("description"), "body", { color: "on-surface-variant" }))),
       ...(actions.length ? [p.b("stacked") ? vbox({ gap: 8, align: "end", padY: 0 }, actions.reverse()) : hbox({ justify: "end", gap: 8 }, actions)] : []),
     ], { corners: round(28) });
   },
@@ -418,7 +418,7 @@ export const SPLITS: Record<string, (p: P, look?: KitLook) => Node> = {
     const w = small ? 320 : DIALOG_W;
     const buttons = some(p.s("dismiss") && button(p.s("dismiss"), { variant: "text" }, small ? { grow: true } : {}), p.s("confirm") && button(p.s("confirm"), { variant: "filled" }, small ? { grow: true } : {}));
     return vbox({ surface: "overlay", width: w, hugWidth: false, padX: 24, padY: 24, gap: 16 }, [
-      vbox({ gap: 16, align: center ? "center" : "stretch" }, some(p.s("icon") && icon(p.s("icon"), { color: "secondary" }), para(p.s("title"), "headline", { align: center ? "center" : "start", width: w - 48 }), p.s("description") && para(p.s("description"), "body", { color: "muted", align: center ? "center" : "start", width: w - 48 }))),
+      vbox({ gap: 16, align: center ? "center" : "stretch" }, some(p.s("icon") && icon(p.s("icon"), { color: "secondary" }), para(p.s("title"), "headline", { align: center ? "center" : "start", width: w - 48 }), p.s("description") && para(p.s("description"), "body", { color: "on-surface-variant", align: center ? "center" : "start", width: w - 48 }))),
       ...(buttons.length ? [hbox({ justify: small ? "start" : "end", gap: 8, padY: 0 }, buttons)] : []),
     ], { corners: round(28) });
   },
@@ -427,7 +427,7 @@ export const SPLITS: Record<string, (p: P, look?: KitLook) => Node> = {
     vbox({ width: px(p), hugWidth: false, gap: 8 }, [
       vbox(
         { padX: 0, padY: 0, gap: 0 },
-        [vbox({ padX: 12, padY: 12, gap: 2, align: "center" }, some(text(p.s("title"), "label"), p.s("message") && text(p.s("message"), "caption", { color: "muted" }))), ...p.list("actions").flatMap((a) => [rule(px(p)), hbox({ justify: "center", padX: 16, padY: 10 }, [text(a.label, "label", { color: "primary" })])])],
+        [vbox({ padX: 12, padY: 12, gap: 2, align: "center" }, some(text(p.s("title"), "label"), p.s("message") && text(p.s("message"), "caption", { color: "on-surface-variant" }))), ...p.list("actions").flatMap((a) => [rule(px(p)), hbox({ justify: "center", padX: 16, padY: 10 }, [text(a.label, "label", { color: "primary" })])])],
         { fill: "surfaceContainerHigh", corners: round(16) },
       ),
       ...some(p.s("cancel") && button(p.s("cancel"), { variant: "tonal" })),
@@ -436,7 +436,7 @@ export const SPLITS: Record<string, (p: P, look?: KitLook) => Node> = {
   sonner: (p) =>
     hbox(
       { surface: "overlay", width: 344, hugWidth: false, padX: 16, padY: 6, gap: 8 },
-      some(para(p.s("message"), "body", { color: "inverse", maxLines: 2 }, { grow: true }), p.s("action") && button(p.s("action"), { variant: "text", size: "xs" }), p.b("closeButton") && iconButton("close", p.say("Close"), { size: "xs" }, { textColor: "inverseOnSurface" })),
+      some(para(p.s("message"), "body", { color: "inverse-on-surface", maxLines: 2 }, { grow: true }), p.s("action") && button(p.s("action"), { variant: "text", size: "xs" }), p.b("closeButton") && iconButton("close", p.say("Close"), { size: "xs" }, { textColor: "inverseOnSurface" })),
       { fill: "inverseSurface", corners: round(4) },
     ),
 
@@ -444,7 +444,7 @@ export const SPLITS: Record<string, (p: P, look?: KitLook) => Node> = {
 
   "settings-group": (p) =>
     listPanel(px(p), [
-      ...some(p.s("title") && hbox({ padX: 8, padY: 4 }, [text(p.s("title"), "label", { color: "muted" })])),
+      ...some(p.s("title") && hbox({ padX: 8, padY: 4 }, [text(p.s("title"), "label", { color: "on-surface-variant" })])),
       ...p.table("data").rows.map(([glyph = "", label = "", control = "arrow", value = ""]) =>
         hbox(
           { padX: 8, padY: 4, gap: 12, height: 48, hugHeight: false },
@@ -453,8 +453,8 @@ export const SPLITS: Record<string, (p: P, look?: KitLook) => Node> = {
             para(label, "lead", { maxLines: 1 }, { grow: true }),
             control === "switch" && atom("switch", { label: "", checked: value === "on" }),
             control === "check" && value === "on" && icon("check", { color: "primary" }),
-            (control === "arrow" || control === "value") && value && text(value, "body", { color: "muted" }),
-            control === "arrow" && icon("chevron_right", { color: "muted" }),
+            (control === "arrow" || control === "value") && value && text(value, "body", { color: "on-surface-variant" }),
+            control === "arrow" && icon("chevron_right", { color: "on-surface-variant" }),
           ),
         ),
       ),
@@ -474,7 +474,7 @@ export const SPLITS: Record<string, (p: P, look?: KitLook) => Node> = {
             { padX: 8, padY: 8, gap: 12, align: "start" },
             some(
               box({ layout: "row", align: "center", justify: "center", padX: 0, padY: 0, width: 40, height: 40, hugWidth: false, hugHeight: false }, [icon(glyph || "notifications", { size: 20 })], { fill: "secondaryContainer", corners: round(20) }),
-              vbox({ gap: 0, hugWidth: false, width: 160 }, some(hbox({ gap: 8 }, [para(title, "lead", { maxLines: 1, bold: i < unread }, { grow: true }), text(time, "tiny", { color: "muted" })]), body && para(body, "caption", { color: "muted", maxLines: 2 })), { grow: true }),
+              vbox({ gap: 0, hugWidth: false, width: 160 }, some(hbox({ gap: 8 }, [para(title, "lead", { maxLines: 1, bold: i < unread }, { grow: true }), text(time, "tiny", { color: "on-surface-variant" })]), body && para(body, "caption", { color: "on-surface-variant", maxLines: 2 })), { grow: true }),
               i < unread && hbox({ padY: 8, padX: 0 }, [atom("dot", { color: "primary", size: 8 })]),
             ),
             i < unread ? { fill: "surfaceContainerHigh", corners: round(12) } : {},
@@ -497,8 +497,8 @@ export const SPLITS: Record<string, (p: P, look?: KitLook) => Node> = {
           { padX: 8, padY: 8, gap: 12 },
           [
             avatar(initialsOf(name)),
-            vbox({ gap: 0, hugWidth: false, width: 160 }, [para(name, "lead", { maxLines: 1, bold: unread > 0 }), para(last, "caption", { color: "muted", maxLines: 1 })], { grow: true }),
-            vbox({ gap: 4, align: "end" }, some(text(time, "tiny", { color: "muted" }), unread > 0 && atom("badge", { kind: "label", label: String(unread) }))),
+            vbox({ gap: 0, hugWidth: false, width: 160 }, [para(name, "lead", { maxLines: 1, bold: unread > 0 }), para(last, "caption", { color: "on-surface-variant", maxLines: 1 })], { grow: true }),
+            vbox({ gap: 4, align: "end" }, some(text(time, "tiny", { color: "on-surface-variant" }), unread > 0 && atom("badge", { kind: "label", label: String(unread) }))),
           ],
           i === on ? { fill: "secondaryContainer", corners: round(12) } : {},
         );
@@ -516,8 +516,8 @@ export const SPLITS: Record<string, (p: P, look?: KitLook) => Node> = {
     ordered.forEach((c, k) => {
       const letter = initialsOf(c.name).slice(0, 1);
       /* a letter stands close over its first row, as the part draws it (pt-2 pb-1, less the gap the column puts between) */
-      if (grouped && (k === 0 || initialsOf(ordered[k - 1].name).slice(0, 1) !== letter)) kids.push(hbox({ padX: 8, padTop: 8, padBottom: 2 }, [text(letter, "caption", { color: "muted" })]));
-      kids.push(hbox({ padX: 8, padY: 8, gap: 12 }, some(avatar(initialsOf(c.name)), vbox({ gap: 0, hugWidth: false, width: 160 }, some(para(c.name, "lead", { maxLines: 1 }), c.note && para(c.note, "caption", { color: "muted", maxLines: 1 })), { grow: true }), end && { ...end })));
+      if (grouped && (k === 0 || initialsOf(ordered[k - 1].name).slice(0, 1) !== letter)) kids.push(hbox({ padX: 8, padTop: 8, padBottom: 2 }, [text(letter, "caption", { color: "on-surface-variant" })]));
+      kids.push(hbox({ padX: 8, padY: 8, gap: 12 }, some(avatar(initialsOf(c.name)), vbox({ gap: 0, hugWidth: false, width: 160 }, some(para(c.name, "lead", { maxLines: 1 }), c.note && para(c.note, "caption", { color: "on-surface-variant", maxLines: 1 })), { grow: true }), end && { ...end })));
     });
     return listPanel(px(p), kids);
   },
@@ -530,7 +530,7 @@ export const SPLITS: Record<string, (p: P, look?: KitLook) => Node> = {
           hbox({ gap: 12, align: "start" }, [
             avatar(initialsOf(name), { size: "sm" }),
             vbox({ gap: 2, hugWidth: false, width: 160 }, [
-              hbox({ gap: 8 }, [text(name, "subtitle"), text(time, "tiny", { color: "muted" })]),
+              hbox({ gap: 8 }, [text(name, "subtitle"), text(time, "tiny", { color: "on-surface-variant" })]),
               para(words, "body"),
               hbox({ gap: 4 }, some(hbox({ padX: 0, padY: 4, gap: 4 }, [icon("favorite", { size: 20 }), text(String(Math.round(amount(likes))), "caption")]), p.s("reply") && button(p.s("reply"), { variant: "text", size: "xs" }))),
             ], { grow: true }),
@@ -551,9 +551,9 @@ export const SPLITS: Record<string, (p: P, look?: KitLook) => Node> = {
         ...p.table("data").rows.map(([name = "", detail = "", sum = "", way = ""]) => {
           const income = way.trim() ? ["in", "income"].includes(way.trim().toLowerCase()) : amount(sum) > 0;
           return hbox({ padX: 8, padY: 8, gap: 12 }, [
-            box({ layout: "row", align: "center", justify: "center", padX: 0, padY: 0, width: 40, height: 40, hugWidth: false, hugHeight: false }, [icon(income ? "south_west" : "north_east", { size: 20, color: income ? "default" : "muted" })], { fill: income ? "primaryContainer" : "surfaceContainerHigh", corners: round(20) }),
-            vbox({ gap: 0, hugWidth: false, width: 160 }, some(para(name, "lead", { maxLines: 1 }), detail && para(detail, "caption", { color: "muted", maxLines: 1 })), { grow: true }),
-            text(sum, "subtitle", { color: income ? "primary" : "default" }),
+            box({ layout: "row", align: "center", justify: "center", padX: 0, padY: 0, width: 40, height: 40, hugWidth: false, hugHeight: false }, [icon(income ? "south_west" : "north_east", { size: 20, color: income ? "" : "on-surface-variant" })], { fill: income ? "primaryContainer" : "surfaceContainerHigh", corners: round(20) }),
+            vbox({ gap: 0, hugWidth: false, width: 160 }, some(para(name, "lead", { maxLines: 1 }), detail && para(detail, "caption", { color: "on-surface-variant", maxLines: 1 })), { grow: true }),
+            text(sum, "subtitle", { color: income ? "primary" : "" }),
           ]);
         }),
       ],
@@ -572,7 +572,7 @@ export const SPLITS: Record<string, (p: P, look?: KitLook) => Node> = {
         return hbox(
           { padX: 8, padY: 8, gap: 12 },
           some(
-            box({ layout: "row", align: "center", justify: "center", padX: 0, padY: 0, width: 28, height: 28, hugWidth: false, hugHeight: false }, [text(String(i + 1), "label", { color: i === 0 ? "on-primary" : "default" })], { corners: round(14), ...(podium[i] ? { fill: podium[i] } : {}) }),
+            box({ layout: "row", align: "center", justify: "center", padX: 0, padY: 0, width: 28, height: 28, hugWidth: false, hugHeight: false }, [text(String(i + 1), "label", { color: i === 0 ? "on-primary" : "" })], { corners: round(14), ...(podium[i] ? { fill: podium[i] } : {}) }),
             p.b("faces") && avatar(initialsOf(name), { size: "sm" }),
             para(name, "lead", { maxLines: 1 }, { grow: true }),
             moved !== 0 && icon(moved > 0 ? "arrow_upward" : "arrow_downward", { size: 16, filled: true, color: moved > 0 ? "primary" : "error" }),
@@ -588,7 +588,7 @@ export const SPLITS: Record<string, (p: P, look?: KitLook) => Node> = {
     const rows = p.table("data").rows;
     /* the names take the width of the longest, as the grid's auto column does */
     const nameWidth = Math.max(40, ...rows.map((r) => Math.ceil((r[0] ?? "").length * 8.2)));
-    return vbox({ width: px(p), hugWidth: false, gap: 8 }, rows.map(([name = "", value = ""]) => hbox({ gap: 16, align: "start" }, [hbox({ gap: 0, hugWidth: false, width: nameWidth }, [text(name, "label", { color: "muted" })]), para(value, "body", {}, { grow: true })])));
+    return vbox({ width: px(p), hugWidth: false, gap: 8 }, rows.map(([name = "", value = ""]) => hbox({ gap: 16, align: "start" }, [hbox({ gap: 0, hugWidth: false, width: nameWidth }, [text(name, "label", { color: "on-surface-variant" })]), para(value, "body", {}, { grow: true })])));
   },
 
   timeline: (p) => {
@@ -600,7 +600,7 @@ export const SPLITS: Record<string, (p: P, look?: KitLook) => Node> = {
         const tall = 16 + 24 + (detail ? 16 : 0);
         return hbox({ gap: 12, align: "start" }, [
           vbox({ gap: 0, align: "center", padY: 4 }, some(atom("dot", { color: i <= at ? "primary" : "outline", size: 12 }), i < rows.length - 1 && box({ layout: "row", padX: 0, padY: 0, width: 2, height: tall, hugWidth: false, hugHeight: false }, [], { fill: i < at ? "primary" : "surfaceContainerHighest" }))),
-          vbox({ gap: 0, padY: 0, hugWidth: false, width: 160 }, some(text(when, "tiny", { color: "muted" }), para(title, "lead"), detail && para(detail, "caption", { color: "muted" }), i < rows.length - 1 && spacer(16)), { grow: true }),
+          vbox({ gap: 0, padY: 0, hugWidth: false, width: 160 }, some(text(when, "tiny", { color: "on-surface-variant" }), para(title, "lead"), detail && para(detail, "caption", { color: "on-surface-variant" }), i < rows.length - 1 && spacer(16)), { grow: true }),
         ]);
       }),
     );
@@ -613,9 +613,9 @@ export const SPLITS: Record<string, (p: P, look?: KitLook) => Node> = {
     const body = vbox({ padX: 12, padY: 12, gap: 4, hugWidth: false, width: 120 }, [
       ...some(p.s("badge") && hbox({ gap: 0 }, [atom("badge", { kind: "label", label: p.s("badge"), variant: "destructive" })])),
       para(p.s("title"), "subtitle", { maxLines: 2 }),
-      ...some(p.s("subtitle") && para(p.s("subtitle"), "caption", { color: "muted", maxLines: 1 })),
+      ...some(p.s("subtitle") && para(p.s("subtitle"), "caption", { color: "on-surface-variant", maxLines: 1 })),
       ...some(p.n("rating") > 0 && hbox({ gap: 2 }, [icon("star", { size: 16, filled: true, color: "tertiary" }), text(p.n("rating").toFixed(1), "caption")])),
-      hbox({ gap: 4 }, some(text(p.s("price"), "heading", { color: "primary" }), p.s("original") && text(p.s("original"), "caption", { color: "muted" }, { look: { text: { decoration: "line-through" } } }), spacer(), iconButton("favorite", "Favorite", { size: "sm", iconFill: p.b("liked") }))),
+      hbox({ gap: 4 }, some(text(p.s("price"), "heading", { color: "primary" }), p.s("original") && text(p.s("original"), "caption", { color: "on-surface-variant" }, { look: { text: { decoration: "line-through" } } }), spacer(), iconButton("favorite", "Favorite", { size: "sm", iconFill: p.b("liked") }))),
       ...some(p.s("action") && button(p.n("added") > 0 ? `${p.s("done") || p.s("action")} · ${Math.round(p.n("added"))}` : p.s("action"), { variant: p.n("added") > 0 ? "tonal" : "filled", size: "xs" })),
     ], across ? { grow: true } : {});
     return across
@@ -630,7 +630,7 @@ export const SPLITS: Record<string, (p: P, look?: KitLook) => Node> = {
       { gap: 4, align: "end", wrap: true },
       some(
         hbox({ gap: 0, align: "end" }, some(text(p.s("currency"), "label", { color: "primary" }), text(whole ?? "", big, { color: "primary" }), cents !== undefined && text(`.${cents}`, "subtitle", { color: "primary" }))),
-        p.s("original") && text(p.s("original"), "caption", { color: "muted" }, { look: { text: { decoration: "line-through" } } }),
+        p.s("original") && text(p.s("original"), "caption", { color: "on-surface-variant" }, { look: { text: { decoration: "line-through" } } }),
         p.s("discount") && atom("badge", { kind: "label", label: p.s("discount"), variant: "destructive" }),
       ),
     );
@@ -640,9 +640,9 @@ export const SPLITS: Record<string, (p: P, look?: KitLook) => Node> = {
     hbox(
       { width: px(p), hugWidth: false, height: 96, hugHeight: false, padX: 0, padY: 0, gap: 0, align: "stretch" },
       [
-        vbox({ width: 104, hugWidth: false, padX: 8, padY: 8, gap: 2, align: "center", justify: "center" }, some(text(p.s("amount"), "headline"), p.s("condition") && text(p.s("condition"), "tiny", { color: "muted" }))),
+        vbox({ width: 104, hugWidth: false, padX: 8, padY: 8, gap: 2, align: "center", justify: "center" }, some(text(p.s("amount"), "headline"), p.s("condition") && text(p.s("condition"), "tiny", { color: "on-surface-variant" }))),
         rule(96, true, "primary"),
-        hbox({ padX: 12, padY: 12, gap: 8, hugWidth: false, width: 120 }, some(vbox({ gap: 0, hugWidth: false, width: 100 }, some(para(p.s("title"), "subtitle", { maxLines: 2 }), p.s("expiry") && para(p.s("expiry"), "caption", { color: "muted", maxLines: 1 })), { grow: true }), p.s("action") && button(p.b("claimed") ? p.s("done") || p.s("action") : p.s("action"), { variant: p.b("claimed") ? "tonal" : "filled", size: "xs" })), { grow: true }),
+        hbox({ padX: 12, padY: 12, gap: 8, hugWidth: false, width: 120 }, some(vbox({ gap: 0, hugWidth: false, width: 100 }, some(para(p.s("title"), "subtitle", { maxLines: 2 }), p.s("expiry") && para(p.s("expiry"), "caption", { color: "on-surface-variant", maxLines: 1 })), { grow: true }), p.s("action") && button(p.b("claimed") ? p.s("done") || p.s("action") : p.s("action"), { variant: p.b("claimed") ? "tonal" : "filled", size: "xs" })), { grow: true }),
       ],
       { fill: "primaryContainer", corners: round(12) },
     ),
@@ -653,7 +653,7 @@ export const SPLITS: Record<string, (p: P, look?: KitLook) => Node> = {
       [
         ...p.list("icons").map((it) => vbox({ gap: 2, align: "center", hugWidth: false, width: 48 }, some(it.icon && icon(it.icon, { size: 20 }), text(it.label, "tiny")))),
         spacer(),
-        vbox({ gap: 0, align: "end" }, some(hbox({ gap: 4, align: "end" }, some(p.s("label") && text(p.s("label"), "caption", { color: "muted" }), text(p.s("amount"), "title", { color: "primary" }))), p.s("note") && text(p.s("note"), "tiny", { color: "muted" }))),
+        vbox({ gap: 0, align: "end" }, some(hbox({ gap: 4, align: "end" }, some(p.s("label") && text(p.s("label"), "caption", { color: "on-surface-variant" }), text(p.s("amount"), "title", { color: "primary" }))), p.s("note") && text(p.s("note"), "tiny", { color: "on-surface-variant" }))),
         ...some(p.s("action") && button(p.s("action"), { variant: "filled", size: "sm" })),
       ],
     ),
@@ -677,9 +677,9 @@ export const SPLITS: Record<string, (p: P, look?: KitLook) => Node> = {
           /* the times stand at the ends of the column of places, the dots and the line between them as tall */
           vbox({ gap: 0, hugWidth: false, width: 48, justify: "between", height: 80, hugHeight: false }, [text(p.s("fromTime"), "subtitle"), text(p.s("toTime"), "subtitle")]),
           vbox({ gap: 4, align: "center", padY: 6 }, [box({ layout: "row", padX: 0, padY: 0, width: 10, height: 10, hugWidth: false, hugHeight: false }, [], { corners: round(5), look: { stroke: { width: 2, color: "primary" } } }), box({ layout: "row", padX: 0, padY: 0, width: 2, height: 40, hugWidth: false, hugHeight: false }, [], { fill: "surfaceContainerHighest" }), atom("dot", { color: "primary", size: 10 })]),
-          vbox({ gap: 8, hugWidth: false, width: 160 }, some(para(p.s("from"), "lead", { maxLines: 1 }), p.s("duration") && hbox({ gap: 4 }, some(p.s("icon") && icon(p.s("icon"), { size: 16, color: "muted" }), text(p.s("duration"), "caption", { color: "muted" }))), para(p.s("to"), "lead", { maxLines: 1 })), { grow: true }),
+          vbox({ gap: 8, hugWidth: false, width: 160 }, some(para(p.s("from"), "lead", { maxLines: 1 }), p.s("duration") && hbox({ gap: 4 }, some(p.s("icon") && icon(p.s("icon"), { size: 16, color: "on-surface-variant" }), text(p.s("duration"), "caption", { color: "on-surface-variant" }))), para(p.s("to"), "lead", { maxLines: 1 })), { grow: true }),
         ]),
-        hbox({ gap: 8 }, some(vbox({ gap: 0, hugWidth: false, width: 160 }, some(p.s("price") && text(p.s("price"), "heading", { color: "primary" }), p.s("note") && para(p.s("note"), "caption", { color: "muted", maxLines: 1 })), { grow: true }), p.s("action") && button(p.b("booked") ? p.s("done") || p.s("action") : p.s("action"), { variant: p.b("booked") ? "tonal" : "filled", size: "sm" }))),
+        hbox({ gap: 8 }, some(vbox({ gap: 0, hugWidth: false, width: 160 }, some(p.s("price") && text(p.s("price"), "heading", { color: "primary" }), p.s("note") && para(p.s("note"), "caption", { color: "on-surface-variant", maxLines: 1 })), { grow: true }), p.s("action") && button(p.b("booked") ? p.s("done") || p.s("action") : p.s("action"), { variant: p.b("booked") ? "tonal" : "filled", size: "sm" }))),
       ],
       16,
       12,
@@ -690,7 +690,7 @@ export const SPLITS: Record<string, (p: P, look?: KitLook) => Node> = {
       px(p),
       [
         text(p.s("title"), "title"),
-        ...some(p.s("description") && para(p.s("description"), "body", { color: "muted" })),
+        ...some(p.s("description") && para(p.s("description"), "body", { color: "on-surface-variant" })),
         ...p.list("plans").map((plan) => hbox({ surface: "chip", padX: 12, padY: 12 }, [para(plan.label, "lead", {}, { grow: true })], { corners: round(12) })),
         ...some(p.s("action") && button(p.s("action"), { variant: "filled" })),
       ],
@@ -706,10 +706,10 @@ export const SPLITS: Record<string, (p: P, look?: KitLook) => Node> = {
       px(p),
       [
         hbox({ gap: 16 }, [
-          vbox({ gap: 0, align: "center" }, [text(p.s("score"), "display"), hbox({ gap: 0 }, Array.from({ length: 5 }, (_, i) => icon("star", { size: 16, color: i < stars ? "tertiary" : "outline" }))), text(p.s("count"), "tiny", { color: "muted" })]),
-          vbox({ gap: 4, hugWidth: false, width: 160 }, values.map((v, i) => hbox({ gap: 8 }, [text(String(values.length - i), "tiny", { color: "muted" }), atom("progress", { value: Math.round((v / most) * 100), thickness: 8 }, { grow: true })])), { grow: true }),
+          vbox({ gap: 0, align: "center" }, [text(p.s("score"), "display"), hbox({ gap: 0 }, Array.from({ length: 5 }, (_, i) => icon("star", { size: 16, color: i < stars ? "tertiary" : "outline" }))), text(p.s("count"), "tiny", { color: "on-surface-variant" })]),
+          vbox({ gap: 4, hugWidth: false, width: 160 }, values.map((v, i) => hbox({ gap: 8 }, [text(String(values.length - i), "tiny", { color: "on-surface-variant" }), atom("progress", { value: Math.round((v / most) * 100), thickness: 8 }, { grow: true })])), { grow: true }),
         ]),
-        ...some(p.list("tags").length > 0 && hbox({ gap: 8, wrap: true }, p.list("tags").map((t, i) => (i === Math.round(p.n("selected")) ? hbox({ padX: 12, padY: 4 }, [text(t.label, "label")], { fill: "secondaryContainer", corners: round(8) }) : hbox({ surface: "chip", padX: 12, padY: 4 }, [text(t.label, "label", { color: "muted" })], { corners: round(8) }))))),
+        ...some(p.list("tags").length > 0 && hbox({ gap: 8, wrap: true }, p.list("tags").map((t, i) => (i === Math.round(p.n("selected")) ? hbox({ padX: 12, padY: 4 }, [text(t.label, "label")], { fill: "secondaryContainer", corners: round(8) }) : hbox({ surface: "chip", padX: 12, padY: 4 }, [text(t.label, "label", { color: "on-surface-variant" })], { corners: round(8) }))))),
         ...some(p.s("action") && button(p.s("action"), { variant: "tonal" })),
       ],
       16,
@@ -726,12 +726,12 @@ export const SPLITS: Record<string, (p: P, look?: KitLook) => Node> = {
         ...some(p.b("showCover") && image({ src: p.s("cover"), height: 112, radius: 0 })),
         vbox({ padX: 16, padY: 16, gap: 12 }, [
           hbox({ justify: "between", align: "end", gap: 12 }, some(avatar(initialsOf(p.s("name")), { size: "lg", ...(p.s("avatar") ? { image: p.s("avatar") } : {}) }), p.s("action") && button(p.b("following") ? p.s("done") || p.s("action") : p.s("action"), { variant: p.b("following") ? "tonal" : "filled", size: "xs" }))),
-          vbox({ gap: 0 }, some(para(p.s("name"), "title"), p.s("bio") && para(p.s("bio"), "body", { color: "muted" }))),
+          vbox({ gap: 0 }, some(para(p.s("name"), "title"), p.s("bio") && para(p.s("bio"), "body", { color: "on-surface-variant" }))),
           ...some(
             p.list("stats").length > 0 &&
               hbox({ gap: 4 }, p.list("stats").map((s) => {
                 const gap = s.label.indexOf(" ");
-                return vbox({ gap: 0, align: "center", padY: 4, hugWidth: false, width: 60 }, some(text(gap > 0 ? s.label.slice(0, gap) : s.label, "heading"), gap > 0 && text(s.label.slice(gap + 1), "tiny", { color: "muted" })), { grow: true });
+                return vbox({ gap: 0, align: "center", padY: 4, hugWidth: false, width: 60 }, some(text(gap > 0 ? s.label.slice(0, gap) : s.label, "heading"), gap > 0 && text(s.label.slice(gap + 1), "tiny", { color: "on-surface-variant" })), { grow: true });
               })),
           ),
         ]),
@@ -744,7 +744,7 @@ export const SPLITS: Record<string, (p: P, look?: KitLook) => Node> = {
     return listPanel(
       px(p),
       [
-        hbox({ gap: 12 }, [avatar(initialsOf(p.s("author"))), vbox({ gap: 0 }, some(text(p.s("author"), "subtitle"), p.s("time") && text(p.s("time"), "caption", { color: "muted" })))]),
+        hbox({ gap: 12 }, [avatar(initialsOf(p.s("author"))), vbox({ gap: 0 }, some(text(p.s("author"), "subtitle"), p.s("time") && text(p.s("time"), "caption", { color: "on-surface-variant" })))]),
         ...some(p.s("text") && para(p.s("text"), "body")),
         ...some(p.b("showImage") && image({ src: p.s("image"), height: 176 })),
         hbox({ gap: 4 }, [tally("favorite", p.n("likes"), p.b("liked")), tally("chat_bubble", p.n("comments")), tally("share", p.n("shares")), spacer(), iconButton("bookmark", "Save", { size: "sm", iconFill: p.b("saved") })]),
@@ -758,7 +758,7 @@ export const SPLITS: Record<string, (p: P, look?: KitLook) => Node> = {
 
   message: (p) => {
     const end = p.s("align") === "end";
-    const content = vbox({ gap: 4, align: end ? "end" : "start" }, some(p.s("header") && text(p.s("header"), "caption", { color: "muted" }), bubbleOf(p.s("text"), p.s("variant"), Math.max(80, px(p) - 48)), p.s("footer") && text(p.s("footer"), "caption", { color: "muted" })));
+    const content = vbox({ gap: 4, align: end ? "end" : "start" }, some(p.s("header") && text(p.s("header"), "caption", { color: "on-surface-variant" }), bubbleOf(p.s("text"), p.s("variant"), Math.max(80, px(p) - 48)), p.s("footer") && text(p.s("footer"), "caption", { color: "on-surface-variant" })));
     const face = p.s("avatar") && avatar(p.s("avatar"), { size: "sm" });
     return hbox({ width: px(p), hugWidth: false, gap: 8, align: "end", justify: end ? "end" : "start" }, end ? some(content, face) : some(face, content));
   },
@@ -772,8 +772,8 @@ export const SPLITS: Record<string, (p: P, look?: KitLook) => Node> = {
     const size = p.s("size");
     const pad = size === "xs" ? 4 : size === "sm" ? 6 : 8;
     const tall = p.s("orientation") === "vertical";
-    const media = box({ layout: "row", align: "center", justify: "center", padX: 0, padY: 0, width: size === "default" ? 40 : 32, height: size === "default" ? 40 : 32, hugWidth: false, hugHeight: false }, [p.s("state") === "uploading" || p.s("state") === "processing" ? atom("circular-progress", { value: 60, size: 24, thickness: 3 }) : icon(p.s("state") === "error" ? "error" : p.s("icon") || "description", { size: 20, color: p.s("state") === "error" ? "error" : "default" })], { fill: "surfaceContainerHigh", corners: round(8) });
-    const words = vbox({ gap: 0, align: tall ? "center" : "start" }, some(text(p.s("title"), size === "default" ? "body" : "caption"), p.s("description") && text(p.s("description"), "caption", { color: "muted" })));
+    const media = box({ layout: "row", align: "center", justify: "center", padX: 0, padY: 0, width: size === "default" ? 40 : 32, height: size === "default" ? 40 : 32, hugWidth: false, hugHeight: false }, [p.s("state") === "uploading" || p.s("state") === "processing" ? atom("circular-progress", { value: 60, size: 24, thickness: 3 }) : icon(p.s("state") === "error" ? "error" : p.s("icon") || "description", { size: 20, color: p.s("state") === "error" ? "error" : "" })], { fill: "surfaceContainerHigh", corners: round(8) });
+    const words = vbox({ gap: 0, align: tall ? "center" : "start" }, some(text(p.s("title"), size === "default" ? "body" : "caption"), p.s("description") && text(p.s("description"), "caption", { color: "on-surface-variant" })));
     const kids = some(media, words, p.b("remove") && iconButton("close", p.say("Remove"), { size: "xs" }));
     return tall ? vbox({ surface: "chip", padX: pad, padY: pad, gap: 8, align: "center" }, kids, { corners: round(16) }) : hbox({ surface: "chip", padX: pad, padY: pad, gap: 8 }, kids, { corners: round(28) });
   },
@@ -786,7 +786,7 @@ export const SPLITS: Record<string, (p: P, look?: KitLook) => Node> = {
     const size = Math.round(p.n("size"));
     return vbox({ gap: 2, align: "center", width: size, hugWidth: false }, [
       box({ surface: "chip", layout: "column", align: "center", justify: "center", gap: 0, padX: 0, padY: 0, width: size, height: size, hugWidth: false, hugHeight: false }, some(p.s("rarity") && atom("badge", { kind: "label", label: p.s("rarity"), variant: "default" }), p.s("icon") && icon(p.s("icon"), { size: 28 }), p.s("count") && text(p.s("count"), "tiny"), p.s("badge") && atom("badge", { kind: "label", label: p.s("badge"), variant: "destructive" })), { fill: "surfaceContainerHigh", corners: round(8), ...(p.b("pressed") ? { look: { stroke: { width: 2, color: "primary" } } } : {}) }),
-      ...some(p.s("name") && para(p.s("name"), "tiny", { color: "muted", align: "center", maxLines: 1, width: size })),
+      ...some(p.s("name") && para(p.s("name"), "tiny", { color: "on-surface-variant", align: "center", maxLines: 1, width: size })),
     ]);
   },
 
@@ -798,10 +798,10 @@ export const SPLITS: Record<string, (p: P, look?: KitLook) => Node> = {
     return vbox({ width: px(p), hugWidth: false, gap: 8 }, [
       hbox({ gap: 8, align: "start" }, rows.map((r) => {
         const ready = value >= r.at && !r.claimed;
-        return vbox({ gap: 2, align: "center", padX: 8, padY: 8, hugWidth: false, width: 60 }, some(r.glyph && icon(r.glyph, { size: 20 }), text(r.label, "tiny", { color: ready ? "default" : "muted" }), ready && p.s("action") && text(p.s("action"), "tiny")), { grow: true, fill: ready ? "primaryContainer" : "surfaceContainer", corners: round(8) });
+        return vbox({ gap: 2, align: "center", padX: 8, padY: 8, hugWidth: false, width: 60 }, some(r.glyph && icon(r.glyph, { size: 20 }), text(r.label, "tiny", { color: ready ? "" : "on-surface-variant" }), ready && p.s("action") && text(p.s("action"), "tiny")), { grow: true, fill: ready ? "primaryContainer" : "surfaceContainer", corners: round(8) });
       })),
       atom("progress", { value: Math.round(share), thickness: 6 }),
-      hbox({ gap: 0 }, rows.map((r) => hbox({ justify: "center", hugWidth: false, width: 40 }, [text(String(r.at), "tiny", { color: "muted" })], { grow: true }))),
+      hbox({ gap: 0 }, rows.map((r) => hbox({ justify: "center", hugWidth: false, width: 40 }, [text(String(r.at), "tiny", { color: "on-surface-variant" })], { grow: true }))),
     ]);
   },
 
@@ -817,7 +817,7 @@ export const SPLITS: Record<string, (p: P, look?: KitLook) => Node> = {
         box(
           { layout: "grid", columns: 7, gap: 4, padX: 0, padY: 0, align: "stretch" },
           Array.from({ length: days }, (_, i) =>
-            box({ layout: "row", align: "center", justify: "center", padX: 0, padY: 0, width: cell, height: cell, hugWidth: false, hugHeight: false }, [i < signed ? icon("check", { size: 16, color: "on-primary" }) : text(String(i + 1), "tiny", { color: i === today ? "primary" : "muted" })], {
+            box({ layout: "row", align: "center", justify: "center", padX: 0, padY: 0, width: cell, height: cell, hugWidth: false, hugHeight: false }, [i < signed ? icon("check", { size: 16, color: "on-primary" }) : text(String(i + 1), "tiny", { color: i === today ? "primary" : "on-surface-variant" })], {
               corners: round(cell / 2),
               ...(i < signed ? { fill: "primary" as const } : i === today ? { look: { stroke: { width: 2, color: "primary" } } } : {}),
             }),
@@ -834,7 +834,8 @@ export const SPLITS: Record<string, (p: P, look?: KitLook) => Node> = {
     const numbers = `${Math.round(p.n("value"))}/${Math.round(p.n("max"))}`;
     /* the fill is its share of the track; the track is what the row leaves, worked out from what stands beside it */
     const track = Math.max(24, px(p) - (p.s("icon") ? 28 : 0) - (p.s("label") ? p.s("label").length * 8 + 8 : 0) - (p.b("numbers") ? numbers.length * 6.5 + 8 : 0));
-    const paint = { error: "error", primary: "primary", secondary: "secondary", tertiary: "tertiary" }[p.s("color")] ?? "primary";
+    /* any color of the one color value paints the fill (parts/color.ts); none is the bar's own primary */
+    const paint = p.s("color") || "primary";
     return hbox({ width: px(p), hugWidth: false, gap: 8 }, some(
       p.s("icon") && icon(p.s("icon"), { size: 20 }),
       p.s("label") && text(p.s("label"), "caption", { bold: true }),
@@ -849,12 +850,12 @@ export const SPLITS: Record<string, (p: P, look?: KitLook) => Node> = {
       { width: px(p), hugWidth: false, padX: 0, padY: 0, gap: 0 },
       [
         vbox({ width: px(p), hugWidth: false, height: 160, hugHeight: false, padX: 8, padY: 8, gap: 0, align: "stretch", justify: "between" }, [
-          hbox({ justify: "between" }, some(p.s("rarity") ? atom("badge", { kind: "label", label: p.s("rarity"), variant: "tertiary" }) : spacer(8), p.s("level") && hbox({ padX: 8, padY: 2 }, [text(p.s("level"), "caption", { bold: true, color: "inverse" })], { fill: "inverseSurface", corners: round(6) }))),
+          hbox({ justify: "between" }, some(p.s("rarity") ? atom("badge", { kind: "label", label: p.s("rarity"), variant: "tertiary" }) : spacer(8), p.s("level") && hbox({ padX: 8, padY: 2 }, [text(p.s("level"), "caption", { bold: true, color: "inverse-on-surface" })], { fill: "inverseSurface", corners: round(6) }))),
           hbox({ justify: "center" }, [icon(p.s("icon") || "person", { size: 56 })]),
           spacer(8),
         ], { fill: "primaryContainer", look: { fills: [{ type: "linear", angle: 135, stops: [{ color: "primary-container", at: 0 }, { color: "tertiary-container", at: 100 }] }] } }),
         vbox({ padX: 12, padY: 12, gap: 8 }, [
-          vbox({ gap: 0 }, some(text(p.s("name"), "title"), p.s("role") && text(p.s("role"), "caption", { color: "muted" }))),
+          vbox({ gap: 0 }, some(text(p.s("name"), "title"), p.s("role") && text(p.s("role"), "caption", { color: "on-surface-variant" }))),
           ...stats.map(([stat = "", value = "", max = ""]) => hbox({ gap: 8 }, [hbox({ gap: 0, hugWidth: false, width: 48 }, [text(stat, "caption")]), atom("progress", { value: Math.round(Math.min(100, (amount(value) / Math.max(1, amount(max))) * 100)), thickness: 8 }, { grow: true }), hbox({ gap: 0, hugWidth: false, width: 32, justify: "end" }, [text(value, "tiny")])])),
           ...some(p.s("action") && button(p.s("action"), { variant: "filled" })),
         ]),
@@ -869,7 +870,7 @@ export const SPLITS: Record<string, (p: P, look?: KitLook) => Node> = {
       [
         text(p.s("title"), "headline", { align: "center" }),
         hbox({ gap: 4 }, [0, 1, 2].map((i) => icon("star", { size: 40, filled: true, color: "tertiary" }, i < p.n("stars") ? {} : { look: { opacity: 25 } }))),
-        vbox({ gap: 0, align: "center" }, [text(p.s("scoreLabel"), "caption", { color: "muted" }), text(p.s("score"), "display")]),
+        vbox({ gap: 0, align: "center" }, [text(p.s("scoreLabel"), "caption", { color: "on-surface-variant" }), text(p.s("score"), "display")]),
         ...some(p.list("rewards").length > 0 && hbox({ gap: 8, justify: "center", wrap: true }, p.list("rewards").map((r) => vbox({ gap: 2, align: "center", padX: 8, padY: 8 }, some(r.icon && icon(r.icon), text(r.label, "caption")), { fill: "surfaceContainerLow", corners: round(8) })))),
         hbox({ gap: 8, hugWidth: false, width: px(p) - 40 }, some(p.s("retry") && button(p.s("retry"), { variant: "tonal" }, { grow: true }), p.s("next") && button(p.s("next"), { variant: "filled" }, { grow: true }))),
       ],
@@ -885,7 +886,7 @@ export const SPLITS: Record<string, (p: P, look?: KitLook) => Node> = {
       [
         hbox({ gap: 8 }, [box({ layout: "row", align: "center", justify: "center", padX: 0, padY: 0, width: 40, height: 40, hugWidth: false, hugHeight: false }, [p.s("image") ? image({ src: p.s("image"), width: 40, height: 40, radius: 20 }) : icon(p.s("icon") || "person")], { fill: "primaryContainer", corners: round(20) }), para(p.s("speaker"), "subtitle", { color: "primary", maxLines: 1 }, { grow: true })]),
         vbox({ padX: 4, padY: 4, gap: 0, height: 64, hugHeight: false }, [para(lines[at]?.label ?? "", "lead")]),
-        ...(last && p.list("choices").length ? [vbox({ gap: 4 }, p.list("choices").map((c) => button(c.label, { variant: "tonal" })))] : some(p.s("next") && hbox({ justify: "end", gap: 4 }, [text(p.s("next"), "tiny", { color: "muted" }), icon("keyboard_arrow_down", { size: 16, color: "muted" })]))),
+        ...(last && p.list("choices").length ? [vbox({ gap: 4 }, p.list("choices").map((c) => button(c.label, { variant: "tonal" })))] : some(p.s("next") && hbox({ justify: "end", gap: 4 }, [text(p.s("next"), "tiny", { color: "on-surface-variant" }), icon("keyboard_arrow_down", { size: 16, color: "on-surface-variant" })]))),
       ],
       { fill: "surfaceContainerHigh", corners: round(16) },
     );
@@ -1065,5 +1066,5 @@ function bubbleOf(words: string, variant: string, max: number): Node {
   const ghost = variant === "ghost";
   /* short words hug them; longer ones wrap in the room the part gives */
   const long = words.length * 7.5 > max - 28;
-  return hbox({ surface: v.surface ?? "none", padX: ghost ? 0 : 14, padY: ghost ? 0 : 10, gap: 0 }, [long ? para(words, "body", { color: v.color ?? "default", width: Math.max(40, max - 28) }) : text(words, "body", { color: v.color ?? "default" })], { ...(v.fill ? { fill: v.fill } : {}), ...(ghost ? {} : { corners: round(24) }), ...(v.look ? { look: v.look } : {}) });
+  return hbox({ surface: v.surface ?? "none", padX: ghost ? 0 : 14, padY: ghost ? 0 : 10, gap: 0 }, [long ? para(words, "body", { color: v.color ?? "", width: Math.max(40, max - 28) }) : text(words, "body", { color: v.color ?? "" })], { ...(v.fill ? { fill: v.fill } : {}), ...(ghost ? {} : { corners: round(24) }), ...(v.look ? { look: v.look } : {}) });
 }

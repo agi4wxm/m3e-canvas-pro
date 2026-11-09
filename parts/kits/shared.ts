@@ -71,11 +71,11 @@ export const grabber = (w = 36, h = 5): Node => hbox({ justify: "center", hugWid
 
 /** a title over a supporting line, taking what the row leaves */
 export const lines = (title: Words, sub?: Words, titleStyle = "lead", more: { subLines?: number; subColor?: string } = {}): Node =>
-  vbox({ gap: 2, hugWidth: false, width: 160 }, [atom("text", { text: title, style: titleStyle, fit: "fixed", maxLines: 1 }), ...(sub ? [atom("text", { text: sub, style: "body", color: more.subColor ?? "muted", fit: "fixed", maxLines: more.subLines ?? 1 })] : [])], { grow: true });
+  vbox({ gap: 2, hugWidth: false, width: 160 }, [atom("text", { text: title, style: titleStyle, fit: "fixed", maxLines: 1 }), ...(sub ? [atom("text", { text: sub, style: "body", color: more.subColor ?? "on-surface-variant", fit: "fixed", maxLines: more.subLines ?? 1 })] : [])], { grow: true });
 
 /** a glyph on a small tile of its own color: settings, files, merchants */
 export const tile = (name: string, fill: Node["fill"] = "primaryContainer", size = 40, iconSize = 24, r = 12): Node =>
-  box({ surface: "well", layout: "row", align: "center", justify: "center", padX: 0, padY: 0, width: size, height: size, hugWidth: false, hugHeight: false }, [icon(name, { size: iconSize, filled: true, color: fill === "primary" ? "on-primary" : "default" })], { fill, corners: round(r) });
+  box({ surface: "well", layout: "row", align: "center", justify: "center", padX: 0, padY: 0, width: size, height: size, hugWidth: false, hugHeight: false }, [icon(name, { size: iconSize, filled: true, color: fill === "primary" ? "on-primary" : "" })], { fill, corners: round(r) });
 
 /** a round tile: a disc behind a glyph */
 export const disc = (name: string, fill: Node["fill"] = "secondaryContainer", size = 40, iconSize = 20): Node => tile(name, fill, size, iconSize, size / 2);
@@ -90,7 +90,7 @@ export const tag = (words: Words, variant = "secondary"): Node => atom("badge", 
 export const push = (): Node => box({ layout: "row", padX: 0, padY: 0, hugWidth: false, width: 8, height: 8 }, [], { grow: true });
 
 /** words in the muted color */
-export const muted = (words: Words, style = "body", more: Record<string, unknown> = {}, extra: Partial<Node> = {}): Node => text(words, style, { color: "muted", ...more }, extra);
+export const muted = (words: Words, style = "body", more: Record<string, unknown> = {}, extra: Partial<Node> = {}): Node => text(words, style, { color: "on-surface-variant", ...more }, extra);
 
 /** stars out of five, drawn with the vector atom so a style cannot turn them into its own icon */
 export const stars = (n: number, of = 5, size = 20, gap = 2): Node =>

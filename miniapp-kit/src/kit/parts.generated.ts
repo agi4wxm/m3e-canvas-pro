@@ -35,7 +35,7 @@ export const PARTS: Record<string, PartInfo> = {
    "viewBox": "0 0 24 24",
    "outline": false,
    "strokeWidth": 2,
-   "color": "current",
+   "color": "",
    "stretch": false,
    "label": "",
    "width": 48,
@@ -662,7 +662,7 @@ export const PARTS: Record<string, PartInfo> = {
      "icon": "inbox"
     }
    ],
-   "iconFill": "none",
+   "iconFill": "",
    "description": "12 new messages",
    "variant": "default",
    "size": "default",
@@ -835,7 +835,7 @@ export const PARTS: Record<string, PartInfo> = {
    "orientation": "horizontal",
    "length": 280,
    "thickness": 1,
-   "color": "default"
+   "color": ""
   }
  },
  "scroll-area": {
@@ -948,7 +948,7 @@ export const PARTS: Record<string, PartInfo> = {
   "tier": "composite",
   "defaults": {
    "pages": 10,
-   "current": 2,
+   "page": 1,
    "previous": "Previous",
    "next": "Next",
    "width": 480
@@ -1200,7 +1200,7 @@ export const PARTS: Record<string, PartInfo> = {
    "name": "favorite",
    "size": 24,
    "filled": false,
-   "color": "default"
+   "color": ""
   }
  },
  "avatar": {
@@ -1807,7 +1807,7 @@ export const PARTS: Record<string, PartInfo> = {
     ]
    },
    "caption": "",
-   "selected": 0,
+   "selectedRow": -1,
    "alignLast": false,
    "width": 420
   }
@@ -2232,7 +2232,7 @@ export const PARTS: Record<string, PartInfo> = {
   "defaults": {
    "text": "Text",
    "styleVariant": "body",
-   "color": "default",
+   "color": "",
    "align": "start",
    "bold": false,
    "fit": "fixed",
@@ -2414,7 +2414,7 @@ export const PARTS: Record<string, PartInfo> = {
      "label": "SMS"
     }
    ],
-   "selected": "1",
+   "picked": "0",
    "width": 320,
    "ariaLabel": "",
    "disabled": false,
@@ -2430,7 +2430,32 @@ export const PARTS: Record<string, PartInfo> = {
   "name": "Color palette",
   "tier": "composite",
   "defaults": {
-   "colors": "#6750A4,#625B71,#7D5260,#B3261E,#386A20,#006A6A",
+   "colors": [
+    {
+     "label": "#6750A4",
+     "color": "#6750A4"
+    },
+    {
+     "label": "#625B71",
+     "color": "#625B71"
+    },
+    {
+     "label": "#7D5260",
+     "color": "#7D5260"
+    },
+    {
+     "label": "#B3261E",
+     "color": "#B3261E"
+    },
+    {
+     "label": "#386A20",
+     "color": "#386A20"
+    },
+    {
+     "label": "#006A6A",
+     "color": "#006A6A"
+    }
+   ],
    "selected": 0,
    "width": 320,
    "ariaLabel": "",
@@ -3478,7 +3503,7 @@ export const PARTS: Record<string, PartInfo> = {
   "tier": "composite",
   "defaults": {
    "levels": 12,
-   "current": 5,
+   "level": 4,
    "selected": -1,
    "stars": "3,3,2,1",
    "perRow": 4,

@@ -5,6 +5,7 @@
 import { partBySlug } from "../../../parts/registry";
 import { choiceValueOf } from "../../../parts/labels";
 import type { PartDef, PropDef } from "../../../parts/types";
+import { colorValue } from "../../../parts/color";
 export type { PartDef };
 import { cleanLook } from "../../look";
 import { styleOwnsProp } from "../../styleRules";
@@ -42,9 +43,11 @@ export function propKindText(d: PropDef): string {
     case "image":
       return 'a picture drawn into the document (a data:image URL; generate_image paints one) or ""';
     case "list":
-      return `a list of rows like {"label": "…"${d.icons ? ', "icon": "…"' : ""}${d.images ? ', "image": "…"' : ""}}${d.min !== undefined ? `, at least ${d.min}` : ""}${d.max !== undefined ? `, at most ${d.max}` : ""}`;
+      return `a list of rows like {"label": "…"${d.icons ? ', "icon": "…"' : ""}${d.images ? ', "image": "…"' : ""}${d.colors ? ', "color": "#6750A4"' : ""}}${d.min !== undefined ? `, at least ${d.min}` : ""}${d.max !== undefined ? `, at most ${d.max}` : ""}`;
     case "table":
       return 'a table {"columns": ["…"], "rows": [["…"]]}';
+    case "color":
+      return `a color: a role (${(d.roles ?? ["primary", "on-surface"]).slice(0, 4).join(", ")}…), a role at a share of itself ("primary/40") or a hex ("#7BAE7A"); "" for ${d.none === "none" ? "none" : "the part's own"}`;
   }
 }
 
@@ -82,10 +85,14 @@ export function propValueError(d: PropDef, v: unknown): string | null {
       return v < d.min || v > d.max ? `should be from ${d.min} to ${d.max}` : null;
     case "image":
       return pictureError(v);
+    case "color":
+      return colorValue(v) !== undefined ? null : `should be ${propKindText(d)}`;
     case "list": {
       if (!Array.isArray(v)) return "should be a list of rows";
       const bad = v.findIndex((r) => !isRecord(r) || typeof r.label !== "string" || Object.entries(r).some(([k, x]) => k !== "label" && typeof x !== "string"));
       if (bad >= 0) return `row ${bad} should be {"label": "…"} with text fields only`;
+      const color = d.colors ? v.findIndex((r) => r.color === undefined || !colorValue(r.color)) : -1;
+      if (color >= 0) return `row ${color} should have a color: a role ("primary"), a role at a share of itself ("primary/40") or a hex ("#6750A4")`;
       const picture = d.images ? v.findIndex((r) => r.image !== undefined && pictureError(r.image)) : -1;
       if (picture >= 0) return `row ${picture}: image ${pictureError(v[picture].image)}`;
       if (d.min !== undefined && v.length < d.min) return `should have at least ${d.min} rows`;

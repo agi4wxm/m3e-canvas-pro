@@ -8,7 +8,7 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { beforeAll, describe, expect, it } from "vitest";
 import { loadDocument } from "./project";
 import { setGlobalLang } from "./i18n";
-import { asWrittenAt4, CONVERGE_5, PROP_RENAMES_5 } from "./converge";
+import { asWrittenAt4, CONVERGE_5, enteredNow, PROP_RENAMES_5, treeAsWrittenAt5 } from "./converge";
 import { MIGRATIONS, PROJECT_VERSION } from "./migrations";
 import { partBySlug } from "../parts/registry";
 import type { Doc } from "./tokens";
@@ -42,7 +42,9 @@ if (process.env.UPDATE_HISTORY) {
 describe("old files drawn by the version after the renames", () => {
   const trees = readJson("trees.json");
   it.each(FILES)("draw every part as the same tree on the canvas, in the preview and printed, in every state: %s", (name) => {
-    const now = drawnTrees(loadDocument(fileOf(name))!.doc);
+    /* the trees as version 5 drew them where version 6 hands a widget its value in another form (a multiple choice's
+       picks, from 0), and what a visitor enters as the same act */
+    const now = drawnTrees(loadDocument(fileOf(name))!.doc, treeAsWrittenAt5, enteredNow);
     expect(Object.keys(now).sort()).toEqual(Object.keys(trees[name]).sort());
     expect(Object.entries(now).filter(([k, v]) => trees[name][k] !== v).map(([k]) => k)).toEqual([]);
   });
@@ -56,9 +58,9 @@ const doc = (groups: unknown[], extra: Record<string, unknown> = {}) => ({ title
 const itemsOf = (d: Record<string, unknown>) => (d.groups as { items: Record<string, unknown>[] }[]).flatMap((g) => g.items);
 
 describe("version 5: the props' names and units", () => {
-  it("is the step after 4, and saving writes 5", () => {
-    expect(PROJECT_VERSION).toBe(5);
-    expect(MIGRATIONS.at(-1)).toBe(CONVERGE_5);
+  it("is the step after 4", () => {
+    expect(PROJECT_VERSION).toBeGreaterThanOrEqual(5);
+    expect(MIGRATIONS.find((m) => m.to === 5)).toBe(CONVERGE_5);
   });
 
   it("moves every renamed prop to its new name, in its new unit, and leaves every other prop and part alone", () => {

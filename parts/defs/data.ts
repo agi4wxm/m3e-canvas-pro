@@ -260,7 +260,7 @@ export const data: PartDef[] = [
       { key: "title", label: "Title", labels: { zh: "标题" }, kind: "text", default: "Invoices", defaults: { zh: "发票列表" } },
       { key: "data", label: "Data", labels: { ja: "データ", zh: "数据", ko: "데이터" }, kind: "table", default: { columns: COLUMNS, rows: ROWS }, structure: true },
       { key: "caption", label: "Caption", labels: { ja: "キャプション", zh: "说明文字", ko: "캡션" }, kind: "text", default: "" },
-      { key: "selected", label: "Selected row (0 for none)", kind: "number", default: 0, min: 0, max: 100, step: 1 },
+      { key: "selectedRow", label: "Selected row (from 0, -1: none)", labels: { ja: "選択中の行（0 から、-1: なし）", zh: "选中的行（从 0 数，-1 为无）", ko: "선택한 행 (0부터, -1: 없음)" }, kind: "number", default: -1, min: -1, max: 99, step: 1 },
       { key: "alignLast", label: "Right-align the last column", labels: { ja: "最後の列を右揃え", zh: "最后一列右对齐", ko: "마지막 열 오른쪽 정렬" }, kind: "bool", default: false },
       { key: "width", label: "Width", kind: "number", default: 420, min: 200, max: 960, step: 4, unit: "px" },
     ],
@@ -283,7 +283,7 @@ export const data: PartDef[] = [
           null,
           p.s("caption") && h("TableCaption", null, p.s("caption")),
           h("TableHeader", null, h("TableRow", null, ...columns.map((c, i) => h("TableHead", { className: align(i), style: width(i), "data-key": spec?.[i]?.key }, c)))),
-          h("TableBody", null, ...rows.map((row, r) => h("TableRow", { "data-state": p.n("selected") === r + 1 ? "selected" : undefined }, ...columns.map((_, i) => h("TableCell", { className: align(i) }, cell(row[i] ?? "", i)))))),
+          h("TableBody", null, ...rows.map((row, r) => h("TableRow", { "data-state": p.n("selectedRow") === r ? "selected" : undefined }, ...columns.map((_, i) => h("TableCell", { className: align(i) }, cell(row[i] ?? "", i)))))),
         ),
       );
     },

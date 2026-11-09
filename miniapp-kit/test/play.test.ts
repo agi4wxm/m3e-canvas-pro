@@ -201,7 +201,7 @@ describe("a skill, a level map, a board", () => {
   it("a level map locks what is ahead and picks the level tapped", () => {
     tiny.reset();
     const second = mock(() => {});
-    const w = drawn(G.LevelMap, { levels: 6, current: 3, taps: { "tab:1": second } });
+    const w = drawn(G.LevelMap, { levels: 6, level: 2, taps: { "tab:1": second } });
     expect(w.role("button", "5")[0].props.onClick).toBeUndefined();
     press(w.role("button", "2")[0]);
     w.draw();

@@ -563,7 +563,8 @@ export const starsOf = (stars: string | undefined) => (stars ?? "").split(/[\s,ï
 
 export type LevelMapProps = PartBase & {
   levels?: number;
-  current?: number;
+  /** the level reached, counted from 0 as every place is; the map shows it counted from 1 */
+  level?: number;
   /** the level picked (-1: none): the visitor's, starting at the design's */
   selected?: number;
   stars?: string;
@@ -577,7 +578,7 @@ export function LevelMap(props: LevelMapProps) {
   const p = withDefaults<LevelMapProps>("level-map", props);
   const kit = useKit();
   const levels = Math.max(0, Math.round(p.levels ?? 12));
-  const current = Math.round(p.current ?? 5);
+  const current = Math.round(p.level ?? 4) + 1;
   const columns = Math.max(2, Math.round(p.perRow ?? 4));
   /* a mini-program draws the map at the design's width: the path is laid out in it */
   const width = Math.round(p.width ?? 380);

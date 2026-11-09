@@ -211,7 +211,7 @@ export const INPUT_PROPS: Record<string, string> = {
   /* D3: the pickers' and the entry parts' values, as their inputs declare them */
   "color-field": "value",
   "item-picker": "selected",
-  "multi-select": "selected",
+  "multi-select": "picked",
   "color-palette": "selected",
   "number-picker": "value",
   "transfer-list": "chosen",

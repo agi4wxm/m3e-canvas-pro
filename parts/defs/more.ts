@@ -2,6 +2,7 @@ import { h, ic, listSlots } from "../node";
 import type { Labels, ListItem, P, PartDef, PartSlot, PropDef, TableData } from "../types";
 import { FIELD, fieldFrame, fieldValues } from "../fieldState";
 import { ariaLabelProp } from "../a11y";
+import { paintOf } from "../color";
 
 /* Parts common kinds of app and game ask for that the rest of the catalog could not say: pictures looked
  * at and cropped, places and seats chosen, reviews, voice and calls, funnels and schedules; a game's bars,
@@ -54,7 +55,7 @@ const WORDS: Record<string, Labels> = {
   "Show the numbers": { ja: "数値を表示", zh: "显示数值", ko: "숫자 표시" },
   "Cooldown seconds": { ja: "クールダウン秒数", zh: "冷却秒数", ko: "쿨다운 초" },
   Levels: { ja: "レベル数", zh: "关卡数", ko: "레벨 수" },
-  "Current level": { ja: "現在のレベル", zh: "当前关卡", ko: "현재 레벨" },
+  "Current level (from 0)": { ja: "現在のレベル（0 から）", zh: "当前关卡（从 0 数）", ko: "현재 레벨 (0부터)" },
   "Stars per level (3,2,3)": { ja: "各レベルの星（3,2,3）", zh: "每关星数（如 3,2,3）", ko: "레벨별 별 (3,2,3)" },
   "Levels in a row": { ja: "1 行のレベル数", zh: "每行关卡数", ko: "행당 레벨 수" },
   Role: { ja: "肩書き", zh: "称号", ko: "칭호" },
@@ -442,7 +443,7 @@ export const more: PartDef[] = [
       text("label", "Label", "HP", "生命"),
       num("value", "Current", 72, 0, 1000000),
       num("max", "Maximum", 100, 1, 1000000),
-      pick("color", "Color", "error", Object.keys(BAR_COLORS)),
+      { key: "color", label: "Color", ...say("Color"), kind: "color", default: "error", roles: Object.keys(BAR_COLORS), none: "default" },
       flag("numbers", "Show the numbers", true),
       WIDTH(240, 80, 800),
     ],
@@ -453,7 +454,7 @@ export const more: PartDef[] = [
         { "data-slot": "stat-bar", className: "flex items-center gap-2 text-on-surface", style: { width: px(p) } },
         p.s("icon") && ic(p.s("icon"), { className: "size-5 shrink-0" }),
         p.s("label") && h("span", { "data-slot": "stat-bar-label", className: "text-label-medium shrink-0" }, p.s("label")),
-        h("div", { "data-slot": "stat-bar-track", role: "progressbar", "aria-valuenow": Math.round(p.n("value")), "aria-valuemax": Math.round(p.n("max")), className: "bg-surface-container-highest h-3 min-w-0 flex-1 overflow-hidden rounded-full" }, h("div", { "data-slot": "stat-bar-fill", className: `h-full rounded-full ${BAR_COLORS[p.s("color")] ?? "bg-primary"}`, style: { width: `${share}%` } })),
+        h("div", { "data-slot": "stat-bar-track", role: "progressbar", "aria-valuenow": Math.round(p.n("value")), "aria-valuemax": Math.round(p.n("max")), className: "bg-surface-container-highest h-3 min-w-0 flex-1 overflow-hidden rounded-full" }, h("div", { "data-slot": "stat-bar-fill", className: `h-full rounded-full ${paintOf(p.s("color") || "primary", BAR_COLORS, "background").className ?? ""}`.trimEnd(), style: { width: `${share}%`, ...paintOf(p.s("color") || "primary", BAR_COLORS, "background").style } })),
         p.b("numbers") && h("span", { "data-slot": "stat-bar-value", className: "text-label-small shrink-0 tabular-nums" }, `${Math.round(p.n("value"))}/${Math.round(p.n("max"))}`),
       );
     },
@@ -502,7 +503,7 @@ export const more: PartDef[] = [
     h: 276,
     props: [
       num("levels", "Levels", 12, 1, 60),
-      num("current", "Current level", 5, 1, 60),
+      num("level", "Current level (from 0)", 4, 0, 59),
       num("selected", "Picked level (-1: none)", -1, -1, 59),
       text("stars", "Stars per level (3,2,3)", "3,3,2,1"),
       num("perRow", "Levels in a row", 4, 2, 8),
@@ -510,8 +511,9 @@ export const more: PartDef[] = [
     ],
     /* a tap on a level picks it: whoever draws the map moves `selected` */
     selectKey: "selected",
-    slots: (p) => Array.from({ length: Math.min(Math.round(p.n("levels")), Math.round(p.n("current"))) }, (_, i) => ({ key: `tab:${i}`, label: `${i + 1}` })),
-    tree: (p) => h("LevelMap", { levels: Math.round(p.n("levels")), current: Math.round(p.n("current")), selected: Math.round(p.n("selected")), stars: p.s("stars"), perRow: Math.round(p.n("perRow")), width: px(p) }),
+    /* the levels reached so far, up to the current one (`level`, from 0); the map shows them counted from 1 */
+    slots: (p) => Array.from({ length: Math.min(Math.round(p.n("levels")), Math.round(p.n("level")) + 1) }, (_, i) => ({ key: `tab:${i}`, label: `${i + 1}` })),
+    tree: (p) => h("LevelMap", { levels: Math.round(p.n("levels")), current: Math.round(p.n("level")) + 1, selected: Math.round(p.n("selected")), stars: p.s("stars"), perRow: Math.round(p.n("perRow")), width: px(p) }),
   },
   {
     slug: "character-card",

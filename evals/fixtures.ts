@@ -347,7 +347,7 @@ export const FIXTURES: Record<string, Fixture> = {
             name: "Post",
             props: { surface: "card", layout: "column", gap: 8, padX: 12, padY: 12, hugWidth: false, width: 380 },
             children: [
-              { part: "box", id: "post-1-head", props: { layout: "row", gap: 8, align: "center", padX: 0, padY: 0 }, children: [{ part: "avatar", props: { initials: "AL" } }, { part: "text", props: { text: "Ada Lin", style: "lead" } }, { part: "text", props: { text: "2h", color: "muted" } }] },
+              { part: "box", id: "post-1-head", props: { layout: "row", gap: 8, align: "center", padX: 0, padY: 0 }, children: [{ part: "avatar", props: { initials: "AL" } }, { part: "text", props: { text: "Ada Lin", style: "lead" } }, { part: "text", props: { text: "2h", color: "on-surface-variant" } }] },
               { part: "text", props: { text: "First morning swim of the year. The water was freezing and perfect." } },
               { part: "box", id: "post-1-actions", props: { layout: "row", gap: 8, padX: 0, padY: 0 }, children: [{ part: "button", props: { label: "Like", icon: "favorite", variant: "text" } }, { part: "button", props: { label: "Comment", icon: "chat_bubble", variant: "text" } }] },
             ],
@@ -384,7 +384,7 @@ const productRow = (id: string, name: string, line: string, price: string) => ({
   props: { layout: "row", gap: 12, padX: 0, padY: 8, align: "center", hugWidth: false, width: 380 },
   children: [
     { part: "image", id: `${id}-image`, props: { width: 56, height: 56, radius: 8 } },
-    { part: "box", id: `${id}-words`, grow: true, props: { layout: "column", gap: 2, padX: 0, padY: 0 }, children: [{ part: "text", id: `${id}-name`, props: { text: name, style: "lead" } }, { part: "text", id: `${id}-line`, props: { text: line, color: "muted" } }] },
+    { part: "box", id: `${id}-words`, grow: true, props: { layout: "column", gap: 2, padX: 0, padY: 0 }, children: [{ part: "text", id: `${id}-name`, props: { text: name, style: "lead" } }, { part: "text", id: `${id}-line`, props: { text: line, color: "on-surface-variant" } }] },
     { part: "text", id: `${id}-price`, props: { text: price, style: "label" } },
   ],
 });

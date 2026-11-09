@@ -43,7 +43,7 @@ export function HomeScreen() {
                 <Text
                   text={$f1.text("form.errors.text ?? \"Required\"")}
                   styleVariant="caption"
-                  color={$f1.pick("form.errors.text ? \"error\" : \"muted\"", ["default", "muted", "primary", "secondary", "tertiary", "error", "outline", "on-primary", "inverse"] as const, "muted")}
+                  color={$f1.pick("form.errors.text ? \"error\" : \"muted\"", ["", "on-surface-variant", "primary", "secondary", "tertiary", "error", "outline", "on-primary", "inverse-on-surface"] as const, "on-surface-variant")}
                   fit="auto"
                   testID="text"
                 />

@@ -2,6 +2,7 @@ import { h, ic, listSlots } from "../node";
 import type { ListItem, P, PartDef, TableData } from "../types";
 import { FIELD, fieldFrame, fieldValues } from "../fieldState";
 import { ariaLabelProp } from "../a11y";
+import { cssColor } from "../color";
 
 /* The game parts, after 17722797729/m3e-canvas game-ui (MIT): a definition below and a widget in
  * parts/widgets for each. */
@@ -145,12 +146,12 @@ export const game: PartDef[] = [
       { key: "name", label: "Name", labels: { ja: "名前", zh: "名称", ko: "이름" }, kind: "text", default: "Leaf", defaults: { zh: "树叶" } },
       { key: "count", label: "Count", labels: { ja: "数量", zh: "数量", ko: "수량" }, kind: "text", default: "23" },
       { key: "rarity", label: "Rarity", labels: { ja: "レア度", zh: "稀有度", ko: "희귀도" }, kind: "text", default: "" },
-      { key: "rarityColor", label: "Rarity color", labels: { ja: "レア度の色", zh: "稀有度颜色", ko: "희귀도 색상" }, kind: "text", default: "#7BAE7A" },
+      { key: "rarityColor", label: "Rarity color", labels: { ja: "レア度の色", zh: "稀有度颜色", ko: "희귀도 색상" }, kind: "color", default: "#7BAE7A", roles: ["primary", "secondary", "tertiary", "error", "outline"], none: "default" },
       { key: "badge", label: "Badge", labels: { ja: "バッジ", zh: "角标", ko: "배지" }, kind: "text", default: "" },
       { key: "pressed", label: "Selected", labels: { ja: "選択中", zh: "选中", ko: "선택됨" }, kind: "bool", default: false },
       { key: "size", label: "Size", labels: { zh: "尺寸" }, kind: "number", default: 60, min: 32, max: 160, step: 4, unit: "px" },
     ],
-    tree: (p) => h("ItemCell", { icon: p.s("icon"), name: p.s("name"), count: p.s("count"), rarity: p.s("rarity"), rarityColor: p.s("rarityColor"), badge: p.s("badge"), ...(p.b("pressed") ? { selected: true } : {}), size: Math.round(p.n("size")) }),
+    tree: (p) => h("ItemCell", { icon: p.s("icon"), name: p.s("name"), count: p.s("count"), rarity: p.s("rarity"), rarityColor: cssColor(p.s("rarityColor")) ?? "", badge: p.s("badge"), ...(p.b("pressed") ? { selected: true } : {}), size: Math.round(p.n("size")) }),
   },
   {
     slug: "task-row",

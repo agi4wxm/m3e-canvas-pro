@@ -57,3 +57,21 @@ export function inkVars(ref: string | undefined): Record<string, string> {
   }
   return out;
 }
+
+/** The color words read in over a fill of a color (the editor's parts/color.ts `onColorOf`), as a color the kit paints: a
+ *  role's own on-color, a surface's on-surface, black or white over a hex, whichever stands out more. */
+export function inkOver(ref: string | undefined): string {
+  if (!ref) return "on-surface";
+  if (ref.startsWith("#")) {
+    const rgb = rgbOf(ref);
+    if (!rgb) return "on-surface";
+    const lin = (x: number) => (x <= 0.03928 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4);
+    const [r, g, b] = rgb.split(", ").map((n) => lin(Number(n) / 255));
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b > 0.179 ? "#000000" : "#ffffff";
+  }
+  const role = ref.split("/")[0];
+  if (role === "inverse-surface") return "inverse-on-surface";
+  if (role.startsWith("on-") || role === "outline" || role === "shadow" || role === "scrim") return "surface";
+  if (role === "background" || role.startsWith("surface") || role === "outline-variant") return "on-surface";
+  return `on-${role}`;
+}

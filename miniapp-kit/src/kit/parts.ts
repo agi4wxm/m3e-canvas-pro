@@ -14,7 +14,7 @@ export function withDefaults<T extends object>(slug: string, props: Partial<T>):
 }
 
 /** a row of a list prop */
-export type ListRow = { label: string; icon?: string; variant?: string; width?: string; image?: string };
+export type ListRow = { label: string; icon?: string; variant?: string; width?: string; image?: string; /** a swatch's color (a palette's rows) */ color?: string };
 
 /** a whole number kept inside a range */
 export const clampInt = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, Math.round(Number.isFinite(v) ? v : lo)));

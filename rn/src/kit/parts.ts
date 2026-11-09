@@ -23,7 +23,7 @@ export type Picture = string | number | ImageSource;
 export const sourceOf = (p: Picture): ImageSource | number => (typeof p === "string" ? { uri: p } : p);
 
 /** a row of a list prop */
-export type ListRow = { label: string; icon?: string; variant?: string; width?: string; image?: Picture };
+export type ListRow = { label: string; icon?: string; variant?: string; width?: string; image?: Picture; /** a swatch's color (a palette's rows) */ color?: string };
 
 /** a whole number kept inside a range */
 export const clampInt = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, Math.round(Number.isFinite(v) ? v : lo)));

@@ -2,6 +2,7 @@ import { h, ic, listSlots, raw, wrap } from "../node";
 import type { P, PartDef, PropDef } from "../types";
 import { BUTTON_FIELD } from "../fieldState";
 import { ariaLabelProp, iconMeaning, nameFor } from "../a11y";
+import { cssColor, onColorOf } from "../color";
 
 const VARIANTS = ["filled", "tonal", "elevated", "outlined", "text"];
 /** the height of each named size, for a guess before the button is drawn */
@@ -96,6 +97,10 @@ function buttonTree(p: P) {
   );
 }
 
+/** the colors a FAB comes in (components/m3e/fab.tsx): a container and the color that reads on it; `surface` is its
+ *  surface look */
+const FAB_COLORS = ["primary-container", "secondary-container", "tertiary-container", "primary", "secondary", "tertiary", "surface"];
+
 export const actions: PartDef[] = [
   {
     slug: "button",
@@ -138,25 +143,23 @@ export const actions: PartDef[] = [
       { key: "icon", label: "Icon", kind: "icon", default: "edit" },
       { key: "label", label: "Label (extended)", kind: "text", default: "" },
       { key: "size", label: "Size", kind: "enum", default: "default", options: ["sm", "default", "md", "lg"] },
-      {
-        key: "color",
-        label: "Color",
-        kind: "enum",
-        default: "primary-container",
-        options: ["primary-container", "secondary-container", "tertiary-container", "primary", "secondary", "tertiary", "surface"],
-      },
+      /* the FAB's own colors (its container and what reads on it); any other is painted with the color that reads over it */
+      { key: "color", label: "Color", kind: "color", default: "primary-container", roles: FAB_COLORS, none: "default" },
       { key: "lowered", label: "Lowered", kind: "bool", default: false },
       { key: "collapsed", label: "Collapsed (extended)", kind: "bool", default: false, when: (p) => !!p.s("label") },
       ariaLabelProp((p) => !p.s("label")),
       ...TOGGLE_PROPS,
     ],
     tree: (p) => {
-      const color = p.s("color");
+      const given = p.s("color") || "primary-container";
+      const own = FAB_COLORS.includes(given);
+      const color = own ? given : "primary-container";
       const size = p.s("size");
       const label = p.s("label");
       const loading = p.b("loading");
       const common = {
         color: color === "primary-container" ? undefined : color,
+        ...(own ? {} : { style: { background: cssColor(given), color: cssColor(onColorOf(given)) } }),
         size: size === "default" ? undefined : size,
         lowered: p.b("lowered") || undefined,
         /* loading, it cannot be pressed again, and a spinner stands where its icon was */

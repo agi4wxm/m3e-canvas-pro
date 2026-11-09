@@ -64,7 +64,7 @@ export const tools: Template[] = [
             row({ justify: "center", height: 96, hugHeight: false }, [part("icon", { name: "notifications_active", size: 96, color: "primary" })]),
             col({ gap: 8 }, [
               txt(say("Turn on notifications", "开启通知", "通知をオンにする", "알림 켜기"), "headline", { align: "center" }),
-              txt(say("Hear about what matters as soon as it happens.", "重要动态第一时间告诉你。", "大切なお知らせをすぐに受け取れます。", "중요한 소식을 바로 받아 보세요."), "body", { align: "center", color: "muted" }),
+              txt(say("Hear about what matters as soon as it happens.", "重要动态第一时间告诉你。", "大切なお知らせをすぐに受け取れます。", "중요한 소식을 바로 받아 보세요."), "body", { align: "center", color: "on-surface-variant" }),
             ]),
             col({ gap: 8 }, [part("button", { label: say("Allow", "允许", "許可する", "허용"), size: "md" }), part("button", { label: say("Not now", "以后再说", "後で", "나중에"), size: "md", variant: "text" })]),
           ]),
@@ -114,10 +114,10 @@ export const tools: Template[] = [
           col({ justify: "between", hugHeight: false }, [
             col({ gap: 16 }, [
               row({ justify: "center" }, [part("shape", { name: "sunny", color: "primary", width: 72, height: 72 })]),
-              col({ gap: 4 }, [txt(say("App name", "应用名称", "アプリ名", "앱 이름"), "title", { align: "center" }), txt("1.0.0", "caption", { align: "center", color: "muted" })]),
+              col({ gap: 4 }, [txt(say("App name", "应用名称", "アプリ名", "앱 이름"), "title", { align: "center" }), txt("1.0.0", "caption", { align: "center", color: "on-surface-variant" })]),
               part("item", { description: "", size: "sm", trailing: "icon", items: [{ label: say("Terms of service", "用户协议", "利用規約", "이용약관"), icon: "description" }, { label: say("Privacy policy", "隐私政策", "プライバシーポリシー", "개인정보 처리방침"), icon: "shield" }, { label: say("Check for updates", "检查更新", "アップデートを確認", "업데이트 확인"), icon: "system_update" }] }),
             ]),
-            txt(say("© 2026 Company name", "© 2026 公司名称", "© 2026 会社名", "© 2026 회사명"), "caption", { align: "center", color: "muted" }),
+            txt(say("© 2026 Company name", "© 2026 公司名称", "© 2026 会社名", "© 2026 회사명"), "caption", { align: "center", color: "on-surface-variant" }),
           ], { fill: true }),
         ],
       }),
@@ -181,7 +181,7 @@ export const tools: Template[] = [
             part("text-field", { label: say("Title", "标题", "タイトル", "제목"), value: "", helperText: "" }),
             /* a date picker and a select are drawn open on the canvas and would cover the rest of the form */
             col({ gap: 8 }, [
-              txt(say("Category", "分类", "カテゴリ", "분류"), "label", { color: "muted" }),
+              txt(say("Category", "分类", "カテゴリ", "분류"), "label", { color: "on-surface-variant" }),
               part("native-select", { selected: 0, items: [{ label: say("General", "通用", "一般", "일반") }, { label: say("Work", "工作", "仕事", "업무") }, { label: say("Personal", "个人", "個人", "개인") }] }),
             ]),
             part("text-field", { label: say("Date", "日期", "日付", "날짜"), value: say("Nov 12, 2026", "2026 年 11 月 12 日", "2026 年 11 月 12 日", "2026년 11월 12일"), helperText: "", trailingIcon: "calendar_today" }),

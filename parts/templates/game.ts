@@ -83,7 +83,7 @@ const gameNav = (selected: number): Node =>
 
 /** who is playing, at the head of a lobby */
 const playerChip = (width: number, at?: Anchor): Node =>
-  panel({ padX: 8, padY: 4, gap: 0, width }, [row({ gap: 8 }, [part("avatar", { initials: say("P", "玩", "P", "P"), size: "sm" }), col({ gap: 0 }, [txt(say("Player", "玩家", "プレイヤー", "플레이어"), "label"), txt(say("Lv. 24", "24 级", "Lv. 24", "Lv. 24"), "caption", { color: "muted" })], { fill: true })])], at ? { at } : {});
+  panel({ padX: 8, padY: 4, gap: 0, width }, [row({ gap: 8 }, [part("avatar", { initials: say("P", "玩", "P", "P"), size: "sm" }), col({ gap: 0 }, [txt(say("Player", "玩家", "プレイヤー", "플레이어"), "label"), txt(say("Lv. 24", "24 级", "Lv. 24", "Lv. 24"), "caption", { color: "on-surface-variant" })], { fill: true })])], at ? { at } : {});
 
 export const titleScreen = (links: { start?: Link } = {}): ScreenSeed =>
   screen({
@@ -118,7 +118,7 @@ export const levelSelectScreen = (links: { start?: Link } & WithBack = {}): Scre
     top: [title(say("World 1", "第一章", "ワールド 1", "1장"), links.back)],
     body: [
       purse(),
-      grow({ justify: "center" }, [part("level-map", { levels: 24, current: 7, perRow: 4, stars: "3,3,2,3,1,2" })]),
+      grow({ justify: "center" }, [part("level-map", { levels: 24, level: 6, perRow: 4, stars: "3,3,2,3,1,2" })]),
       part("button", { label: say("Play level 7", "开始第 7 关", "ステージ 7 を開始", "7 스테이지 시작"), size: "md", icon: "play_arrow" }, { action: links.start }),
     ],
   });
@@ -133,9 +133,9 @@ const levelStartScreen = (): ScreenSeed =>
         panel({ gap: 16, padY: 20 }, [
           row({ justify: "between" }, [txt(LEVEL, "headline"), part("icon-button", { icon: "close", label: say("Close", "关闭", "閉じる", "닫기"), variant: "text" })]),
           row({ justify: "center" }, [part("rating", { value: 2, count: 3, readOnly: true })]),
-          txt(say("Goal", "通关目标", "目標", "목표"), "label", { color: "muted" }),
+          txt(say("Goal", "通关目标", "目標", "목표"), "label", { color: "on-surface-variant" }),
           row({ justify: "center", gap: 12 }, [cell("star", say("Stars", "星星", "スター", "별"), "×30"), cell("timer", say("Time", "时间", "時間", "시간"), "60s")]),
-          txt(say("Boosts", "携带道具", "アイテム", "아이템"), "label", { color: "muted" }),
+          txt(say("Boosts", "携带道具", "アイテム", "아이템"), "label", { color: "on-surface-variant" }),
           row({ justify: "center", gap: 12 }, [cell("bolt", say("Boost", "加速", "ブースト", "부스트"), "×2"), cell("shield", say("Shield", "护盾", "シールド", "방패"), "×1"), cell("favorite", say("Life", "生命", "ライフ", "생명"), "×3")]),
           part("button", { label: say("Start", "开始", "開始", "시작"), size: "md", icon: "play_arrow" }),
         ]),
@@ -174,9 +174,9 @@ const puzzleScreen = (): ScreenSeed =>
     top: [part("app-bar", { title: LEVEL, leading: "pause", trailing: "" })],
     body: [
       grid(3, { gap: 8 }, [
-        panel({ gap: 2, padX: 12, padY: 8 }, [txt(say("Moves", "剩余步数", "残り手数", "남은 횟수"), "caption", { color: "muted", align: "center" }), txt("24", "headline", { align: "center" })]),
-        panel({ gap: 2, padX: 12, padY: 8 }, [txt(say("Goal", "目标", "目標", "목표"), "caption", { color: "muted", align: "center" }), txt("18/30", "headline", { align: "center" })]),
-        panel({ gap: 2, padX: 12, padY: 8 }, [txt(say("Score", "得分", "スコア", "점수"), "caption", { color: "muted", align: "center" }), txt("1,280", "headline", { align: "center" })]),
+        panel({ gap: 2, padX: 12, padY: 8 }, [txt(say("Moves", "剩余步数", "残り手数", "남은 횟수"), "caption", { color: "on-surface-variant", align: "center" }), txt("24", "headline", { align: "center" })]),
+        panel({ gap: 2, padX: 12, padY: 8 }, [txt(say("Goal", "目标", "目標", "목표"), "caption", { color: "on-surface-variant", align: "center" }), txt("18/30", "headline", { align: "center" })]),
+        panel({ gap: 2, padX: 12, padY: 8 }, [txt(say("Score", "得分", "スコア", "점수"), "caption", { color: "on-surface-variant", align: "center" }), txt("1,280", "headline", { align: "center" })]),
       ]),
       grow({ justify: "center" }, [part("game-board", { mode: "select", rows: 8, columns: 7, cells: [...PIECES].join(","), marks: "", need: 3, turnText: "", winText: "", drawText: "", reset: "" })]),
       row({ justify: "center", gap: 24 }, [skill("hardware", say("Hammer", "锤子", "ハンマー", "망치")), skill("shuffle", say("Shuffle", "洗牌", "シャッフル", "섞기")), skill("add", say("+5 moves", "加 5 步", "5 手追加", "5회 추가"))]),
@@ -235,7 +235,7 @@ const defeatScreen = (): ScreenSeed =>
         panel({ gap: 12, padY: 24 }, [
           row({ justify: "center" }, [part("icon", { name: "heart_broken", size: 64, color: "error" })]),
           txt(say("Level failed", "挑战失败", "失敗", "실패"), "headline", { align: "center" }),
-          txt(say("You were so close. Keep going?", "就差一点了，要继续吗？", "あと少しでした。続けますか？", "거의 다 왔어요. 계속할까요?"), "body", { align: "center", color: "muted" }),
+          txt(say("You were so close. Keep going?", "就差一点了，要继续吗？", "あと少しでした。続けますか？", "거의 다 왔어요. 계속할까요?"), "body", { align: "center", color: "on-surface-variant" }),
           part("button", { label: say("Continue for 50 gems", "50 钻石继续", "50 ジェムで続ける", "50 보석으로 계속"), size: "md", icon: "diamond" }),
           part("button", { label: say("Try again", "再试一次", "もう一度", "다시 도전"), size: "md", variant: "tonal", icon: "replay" }),
           part("button", { label: say("Back to lobby", "返回大厅", "ロビーへ", "로비로"), size: "md", variant: "text" }),
@@ -249,7 +249,7 @@ const IRON_SWORD = say("Iron sword", "铁剑", "鉄の剣", "철검");
 /** the item picked in a bag: what it is, and what can be done with it */
 const itemDetail = (): Node =>
   panel({ gap: 12 }, [
-    row({ gap: 12, align: "start" }, [cell("swords", "", "×1", say("Rare", "稀有", "レア", "희귀")), col({ gap: 4 }, [txt(IRON_SWORD, "title"), txt(say("A sturdy blade. Attack +25.", "结实的长剑，攻击 +25。", "頑丈な剣。攻撃 +25。", "튼튼한 검. 공격 +25."), "body", { color: "muted" })], { fill: true })]),
+    row({ gap: 12, align: "start" }, [cell("swords", "", "×1", say("Rare", "稀有", "レア", "희귀")), col({ gap: 4 }, [txt(IRON_SWORD, "title"), txt(say("A sturdy blade. Attack +25.", "结实的长剑，攻击 +25。", "頑丈な剣。攻撃 +25。", "튼튼한 검. 공격 +25."), "body", { color: "on-surface-variant" })], { fill: true })]),
     row({ gap: 8, justify: "end" }, [part("button", { label: say("Sell", "出售", "売却", "판매"), variant: "tonal", size: "sm" }), part("button", { label: say("Equip", "装备", "装備", "장착"), size: "sm" })]),
   ]);
 
@@ -323,7 +323,7 @@ const gachaScreen = (): ScreenSeed =>
       stage({ justify: "between", padX: 16, padY: 16 }, [
         col({ gap: 16 }, [
           row({ justify: "between" }, [part("icon-button", { icon: "arrow_back", label: say("Back", "返回", "戻る", "뒤로"), variant: "tonal" }), row({ gap: 8, width: 228, justify: "end" }, [GEMS, part("asset-pill", { value: "12", icon: "confirmation_number" })])]),
-          panel({ gap: 4, padY: 12 }, [txt(say("Limited summon", "限定召唤", "限定ガチャ", "한정 소환"), "headline", { align: "center" }), txt(say("Ends in 3 days", "还剩 3 天", "残り 3 日", "3일 남음"), "caption", { align: "center", color: "muted" })]),
+          panel({ gap: 4, padY: 12 }, [txt(say("Limited summon", "限定召唤", "限定ガチャ", "한정 소환"), "headline", { align: "center" }), txt(say("Ends in 3 days", "还剩 3 天", "残り 3 日", "3일 남음"), "caption", { align: "center", color: "on-surface-variant" })]),
         ]),
         panel({ gap: 12 }, [
           row({ justify: "between" }, [txt(say("Featured", "本期奖励", "ピックアップ", "픽업"), "label", {}, { fill: true }), part("link", { label: say("Odds", "概率说明", "提供割合", "확률 안내"), href: "#" })]),
@@ -342,7 +342,7 @@ const checkInScreen = (): ScreenSeed =>
     place: "spread",
     top: [title(say("Daily check-in", "每日签到", "ログインボーナス", "출석 체크"))],
     body: [
-      panel({}, [row({ gap: 12 }, [cell("diamond", "", "×50"), col({ gap: 4 }, [txt(say("Today's reward", "今日奖励", "本日の報酬", "오늘의 보상"), "title"), txt(say("Gems ×50", "钻石 ×50", "ジェム ×50", "보석 ×50"), "body", { color: "muted" })], { fill: true })])]),
+      panel({}, [row({ gap: 12 }, [cell("diamond", "", "×50"), col({ gap: 4 }, [txt(say("Today's reward", "今日奖励", "本日の報酬", "오늘의 보상"), "title"), txt(say("Gems ×50", "钻石 ×50", "ジェム ×50", "보석 ×50"), "body", { color: "on-surface-variant" })], { fill: true })])]),
       part("check-in", { title: say("11 days this month", "本月已签到 11 天", "今月 11 日目", "이번 달 11일째"), days: 30, signed: 11 }),
       col({ gap: 8 }, [
         heading(say("Total days", "累计签到", "累計日数", "누적 출석")),
@@ -446,7 +446,7 @@ const guildScreen = (): ScreenSeed =>
     top: [title(say("Guild", "公会", "ギルド", "길드"))],
     body: [
       panel({ gap: 8 }, [
-        row({ gap: 12 }, [part("avatar", { initials: say("G", "公", "G", "G"), size: "lg" }), col({ gap: 2 }, [txt(say("Guild name", "公会名称", "ギルド名", "길드 이름"), "title"), txt(say("Lv. 8 · 28/30 members", "8 级 · 28/30 人", "Lv. 8 · 28/30 人", "Lv. 8 · 28/30명"), "caption", { color: "muted" })], { fill: true }), part("button", { label: say("Donate", "捐献", "寄付", "기부"), size: "sm", variant: "tonal" })]),
+        row({ gap: 12 }, [part("avatar", { initials: say("G", "公", "G", "G"), size: "lg" }), col({ gap: 2 }, [txt(say("Guild name", "公会名称", "ギルド名", "길드 이름"), "title"), txt(say("Lv. 8 · 28/30 members", "8 级 · 28/30 人", "Lv. 8 · 28/30 人", "Lv. 8 · 28/30명"), "caption", { color: "on-surface-variant" })], { fill: true }), part("button", { label: say("Donate", "捐献", "寄付", "기부"), size: "sm", variant: "tonal" })]),
         part("progress", { value: 64, label: say("Guild experience", "公会经验", "ギルド経験値", "길드 경험치"), showValue: true }),
       ]),
       tabsOf(say("Members", "成员", "メンバー", "멤버"), say("Chat", "聊天", "チャット", "채팅"), say("Events", "活动", "イベント", "이벤트")),
@@ -541,7 +541,7 @@ const gameSettingsScreen = (): ScreenSeed =>
     name: say("Game settings", "游戏设置", "ゲーム設定", "게임 설정"),
     top: [title(say("Settings", "设置", "設定", "설정"))],
     body: [
-      panel({ gap: 12 }, [txt(say("Sound", "声音", "サウンド", "소리"), "label", { color: "muted" }), part("slider", { label: say("Music", "音乐", "音楽", "음악"), value: 70 }), part("slider", { label: say("Effects", "音效", "効果音", "효과음"), value: 85 })]),
+      panel({ gap: 12 }, [txt(say("Sound", "声音", "サウンド", "소리"), "label", { color: "on-surface-variant" }), part("slider", { label: say("Music", "音乐", "音楽", "음악"), value: 70 }), part("slider", { label: say("Effects", "音效", "効果音", "효과음"), value: 85 })]),
       atomsOf("settings-group", {
         title: say("Game", "游戏", "ゲーム", "게임"),
         data: {
@@ -616,7 +616,7 @@ const loadingScreen = (): ScreenSeed =>
     spots: [
       stage({ justify: "end", padX: 16, padY: 16 }, [
         panel({ gap: 12 }, [
-          txt(say("Tip: upgrade your gear before a hard level.", "提示：挑战难关前先强化装备。", "ヒント：難しいステージの前に装備を強化しよう。", "팁: 어려운 스테이지 전에 장비를 강화하세요."), "body", { color: "muted" }),
+          txt(say("Tip: upgrade your gear before a hard level.", "提示：挑战难关前先强化装备。", "ヒント：難しいステージの前に装備を強化しよう。", "팁: 어려운 스테이지 전에 장비를 강화하세요."), "body", { color: "on-surface-variant" }),
           part("progress", { value: 64, label: say("Loading", "加载中", "読み込み中", "불러오는 중"), showValue: true }),
         ]),
         row({ justify: "center" }, [VERSION()]),
@@ -657,7 +657,7 @@ const matchFoundScreen = (): ScreenSeed =>
     spots: [
       stage({ justify: "center", align: "center" }, [
         panel({ gap: 12, padX: 24, width: 600 }, [
-          col({ gap: 2 }, [txt(say("Match found", "匹配成功", "マッチング成立", "매치 성사"), "headline", { align: "center" }), txt(say("Ranked · 5 vs 5", "排位赛 · 5 对 5", "ランク戦 · 5 対 5", "랭크전 · 5 대 5"), "caption", { color: "muted", align: "center" })]),
+          col({ gap: 2 }, [txt(say("Match found", "匹配成功", "マッチング成立", "매치 성사"), "headline", { align: "center" }), txt(say("Ranked · 5 vs 5", "排位赛 · 5 对 5", "ランク戦 · 5 対 5", "랭크전 · 5 대 5"), "caption", { color: "on-surface-variant", align: "center" })]),
           row({ justify: "center", gap: 16 }, [team(PLAYERS.nova, PLAYERS.ember, PLAYERS.frost, PLAYERS.kite, PLAYERS.sage), txt("VS", "title", { width: 40, align: "center" }), team(PLAYERS.pixel, PLAYERS.comet, PLAYERS.willow, PLAYERS.orion, PLAYERS.luna)]),
           part("progress", { value: 70, label: say("Accept within 12 s", "请在 12 秒内接受", "12 秒以内に承諾", "12초 안에 수락"), showValue: false }),
           row({ gap: 12 }, [part("button", { label: say("Decline", "拒绝", "辞退", "거절"), size: "md", variant: "tonal" }, { fill: true }), part("button", { label: say("Accept", "接受", "承諾", "수락"), size: "md" }, { fill: true })]),
@@ -677,7 +677,7 @@ const upgradeScreen = (): ScreenSeed =>
     body: [
       tabsOf(say("Level", "等级", "レベル", "레벨"), say("Stars", "星级", "星", "별"), say("Skills", "技能", "スキル", "스킬")),
       panel({ gap: 12 }, [
-        row({ gap: 12 }, [cell("person", "", "", say("Epic", "史诗", "エピック", "에픽"), 96), col({ gap: 4 }, [txt(say("Hero name", "角色名称", "キャラ名", "캐릭터 이름"), "title"), txt(say("Warrior", "战士", "戦士", "전사"), "caption", { color: "muted" }), txt(say("Lv. 24 → Lv. 25", "24 级 → 25 级", "Lv. 24 → Lv. 25", "Lv. 24 → Lv. 25"), "label")], { fill: true })]),
+        row({ gap: 12 }, [cell("person", "", "", say("Epic", "史诗", "エピック", "에픽"), 96), col({ gap: 4 }, [txt(say("Hero name", "角色名称", "キャラ名", "캐릭터 이름"), "title"), txt(say("Warrior", "战士", "戦士", "전사"), "caption", { color: "on-surface-variant" }), txt(say("Lv. 24 → Lv. 25", "24 级 → 25 级", "Lv. 24 → Lv. 25", "Lv. 24 → Lv. 25"), "label")], { fill: true })]),
         part("stat-bar", { icon: "trending_up", label: say("EXP", "经验", "EXP", "EXP"), value: 640, max: 1000, color: "primary", numbers: true }),
       ]),
       atomsOf("settings-group", {
@@ -722,7 +722,7 @@ const pcHudScreen = (): ScreenSeed =>
     spots: [
       panel({ gap: 6, padX: 12, padY: 8, width: 300 }, [part("stat-bar", { icon: "favorite", label: say("HP", "生命", "HP", "HP"), value: 720, max: 1000, color: "error", numbers: true }), part("stat-bar", { icon: "bolt", label: say("Stamina", "体力", "スタミナ", "기력"), value: 460, max: 1000, color: "primary", numbers: true })], { at: { l: 16, t: 16 } }),
       part("map", { label: "", width: 200, height: 160 }, { at: { r: 16, t: 16 } }),
-      panel({ gap: 4, padX: 12, padY: 8, width: 240 }, [txt(say("Quest", "当前任务", "クエスト", "퀘스트"), "label", { color: "muted" }), txt(say("Reach the next checkpoint", "前往下一个检查点", "次のチェックポイントへ", "다음 체크포인트로 이동"), "body")], { at: { l: 16 } }),
+      panel({ gap: 4, padX: 12, padY: 8, width: 240 }, [txt(say("Quest", "当前任务", "クエスト", "퀘스트"), "label", { color: "on-surface-variant" }), txt(say("Reach the next checkpoint", "前往下一个检查点", "次のチェックポイントへ", "다음 체크포인트로 이동"), "body")], { at: { l: 16 } }),
       panel({ padX: 12, padY: 8, width: 392 }, [row({ gap: 6, justify: "center" }, [cell("swords", "1", "", "", 56), cell("shield", "2", "", "", 56), cell("local_fire_department", "3", "", "", 56), cell("healing", "4", "×3", "", 56), cell("science", "5", "×5", "", 56), cell("explore", "6", "", "", 56)])], { at: { b: 16 } }),
     ],
   });

@@ -25,7 +25,7 @@ export function CheckoutScreen() {
       <At x={16} y={80}>
         <Container
           label=""
-          ground="none"
+          ground=""
           border="none"
           radius={0}
           layout="column"
@@ -54,7 +54,7 @@ export function CheckoutScreen() {
                 <Cell dir="row" grow>
                   <Container
                     label=""
-                    ground="none"
+                    ground=""
                     border="none"
                     radius={0}
                     layout="column"
@@ -74,7 +74,7 @@ export function CheckoutScreen() {
                       <Text
                         text="Your order is kept: place it again when you are ready."
                         styleVariant="caption"
-                        color="muted"
+                        color="on-surface-variant"
                         width={312}
                         testID="text41"
                       />
@@ -101,7 +101,7 @@ export function CheckoutScreen() {
                 <Cell dir="row" grow>
                   <Container
                     label=""
-                    ground="none"
+                    ground=""
                     border="none"
                     radius={0}
                     layout="column"
@@ -121,7 +121,7 @@ export function CheckoutScreen() {
                       <Text
                         text="Check your connection and try again."
                         styleVariant="caption"
-                        color="muted"
+                        color="on-surface-variant"
                         width={312}
                         testID="text43"
                       />
@@ -148,7 +148,7 @@ export function CheckoutScreen() {
                 <Cell dir="row" grow>
                   <Container
                     label=""
-                    ground="none"
+                    ground=""
                     border="none"
                     radius={0}
                     layout="column"
@@ -168,7 +168,7 @@ export function CheckoutScreen() {
                       <Text
                         text="Try again, or pick another way to pay."
                         styleVariant="caption"
-                        color="muted"
+                        color="on-surface-variant"
                         width={312}
                         testID="text45"
                       />
@@ -190,7 +190,7 @@ export function CheckoutScreen() {
               testID="panel"
             >
               <Cell dir="column" fillWidth>
-                <Text text="Deliver to" styleVariant="label" color="muted" width={348} testID="text46" />
+                <Text text="Deliver to" styleVariant="label" color="on-surface-variant" width={348} testID="text46" />
               </Cell>
               <Cell dir="column" fillWidth>
                 <ListItem
@@ -218,7 +218,7 @@ export function CheckoutScreen() {
               <Cell dir="column" fillWidth>
                 <Container
                   label=""
-                  ground="none"
+                  ground=""
                   border="none"
                   radius={0}
                   layout="row"
@@ -234,7 +234,7 @@ export function CheckoutScreen() {
                   <Image alt="Ceramic mug" width={56} height={56} testID="image7" />
                   <Image alt="Steel bottle" width={56} height={56} testID="image8" />
                   <Cell dir="row" grow>
-                    <Text text="4 items" color="muted" align="end" width={156} testID="text47" />
+                    <Text text="4 items" color="on-surface-variant" align="end" width={156} testID="text47" />
                   </Cell>
                 </Container>
               </Cell>
@@ -252,7 +252,7 @@ export function CheckoutScreen() {
               testID="panel3"
             >
               <Cell dir="column" fillWidth>
-                <Text text="Pay with" styleVariant="label" color="muted" width={348} testID="text48" />
+                <Text text="Pay with" styleVariant="label" color="on-surface-variant" width={348} testID="text48" />
               </Cell>
               <Cell dir="column" fillWidth>
                 <RadioGroup
@@ -279,14 +279,14 @@ export function CheckoutScreen() {
               testID="panel4"
             >
               <Cell dir="column" fillWidth>
-                <Text text="Summary" styleVariant="label" color="muted" width={348} testID="text49" />
+                <Text text="Summary" styleVariant="label" color="on-surface-variant" width={348} testID="text49" />
               </Cell>
               <Cell dir="column" fillWidth>
                 <Box padX={0} padY={0} align="stretch" hugWidth={false} width={348} testID="descriptionList">
                   <Cell dir="column" fillWidth>
                     <Box layout="row" gap={16} padX={0} padY={0} hugWidth={false}>
                       <Box layout="row" gap={0} padX={0} padY={0} align="center" hugWidth={false} width={66}>
-                        <Text text="Items" styleVariant="label" fit="auto" color="muted" />
+                        <Text text="Items" styleVariant="label" fit="auto" color="on-surface-variant" />
                       </Box>
                       <Cell dir="row" grow>
                         <Text text={"$68.00"} />
@@ -296,7 +296,7 @@ export function CheckoutScreen() {
                   <Cell dir="column" fillWidth>
                     <Box layout="row" gap={16} padX={0} padY={0} hugWidth={false}>
                       <Box layout="row" gap={0} padX={0} padY={0} align="center" hugWidth={false} width={66}>
-                        <Text text="Delivery" styleVariant="label" fit="auto" color="muted" />
+                        <Text text="Delivery" styleVariant="label" fit="auto" color="on-surface-variant" />
                       </Box>
                       <Cell dir="row" grow>
                         <Text text="Free" />
@@ -306,7 +306,7 @@ export function CheckoutScreen() {
                   <Cell dir="column" fillWidth>
                     <Box layout="row" gap={16} padX={0} padY={0} hugWidth={false}>
                       <Box layout="row" gap={0} padX={0} padY={0} align="center" hugWidth={false} width={66}>
-                        <Text text="Arrives" styleVariant="label" fit="auto" color="muted" />
+                        <Text text="Arrives" styleVariant="label" fit="auto" color="on-surface-variant" />
                       </Box>
                       <Cell dir="row" grow>
                         <Text text="Friday" />
@@ -326,10 +326,10 @@ export function CheckoutScreen() {
           </Cell>
           <Box gap={0} padX={0} padY={0} align="end">
             <Box layout="row" gap={4} padX={0} padY={0} align="end">
-              <Text text="Total" styleVariant="caption" fit="auto" color="muted" />
+              <Text text="Total" styleVariant="caption" fit="auto" color="on-surface-variant" />
               <Text text={"$68.00"} styleVariant="title" fit="auto" color="primary" />
             </Box>
-            <Text text="Free delivery" styleVariant="tiny" fit="auto" color="muted" />
+            <Text text="Free delivery" styleVariant="tiny" fit="auto" color="on-surface-variant" />
           </Box>
           <Button label="Place order" onPress={() => s.run(A5, { $: $, part: "checkoutBar2" })} />
         </Box>
