@@ -261,7 +261,7 @@ npx playwright install chromium
 | `clear` | 搭建 |  | 是 | Clears the canvas: every screen and part (with a component open, everything in it). |
 | `add_screen` | 搭建 |  |  | Adds a blank screen to the right of the others: the document's phone unless a preset (tablet, desktop) or a size is given. |
 | `add_template` | 搭建 |  |  | Adds the screens of a screen or flow template (see the template catalog) to the right of the others. |
-| `set_screen` | 搭建 |  |  | Sets a screen's fields: name, bg (a color role), note (what it is for), swipe ({left\|right\|up\|down: screen id}), deviceBars, backgroundImage, backgroundOpacity. |
+| `set_screen` | 搭建 |  |  | Sets a screen's fields: name, bg (a color role), note (what it is for), swipe ({left\|right\|up\|down: screen id}), deviceBars, backgroundImage, backgroundOpacity, layer (world \|… |
 | `resize_screen` | 搭建 |  |  | Changes a screen's size (w and h in dp, or a preset: phone, tablet, desktop); its parts follow and it is laid out again. |
 | `set_phone_model` | 搭建 |  |  | Puts every phone screen of the document on a phone of this size (portrait w×h; screens on their side stay so). |
 | `set_screen_length` | 搭建 |  |  | Makes a screen run longer than its device (it scrolls), or back; what stands at its foot goes with the foot. |
