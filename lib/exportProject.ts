@@ -14,6 +14,8 @@ import { SOURCES } from "../components/m3e/icon-sets/manifest";
 import { str } from "../parts/print";
 import { EXPORT_ALWAYS, EXPORT_DEV } from "./exportPackages";
 import { iconifySetOf } from "./docIcons";
+import { materialOpacities, usedMaterials } from "./materials";
+import { fadedFile, materialSheet, type PictureUrl } from "./materialCss";
 import { VERSIONS } from "./versions.generated";
 import type { AssetManifest } from "./assetManifest";
 import { namedAssets, webAssetsFile } from "./export/assets";
@@ -130,6 +132,29 @@ function hashOf(s: string): string {
   let h = 0x811c9dc5;
   for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 0x01000193);
   return (h >>> 0).toString(36);
+}
+
+/** The pictures of the materials the screens' looks name (lib/materials.ts), as files under public/materials/<id>/, and
+ *  the stylesheet that says which file each material layer's variable is (lib/materialCss.ts). A material no look names
+ *  is not exported. A layer at less than 100% reads a faded copy: an SVG that holds the picture itself, as an SVG drawn
+ *  as a background may load nothing from outside. */
+export function materialFiles(doc: Doc): ProjectFiles {
+  const used = usedMaterials(doc);
+  if (!used.length) return {};
+  const files: ProjectFiles = {};
+  const url: PictureUrl = (m, which, opacity) => {
+    const data = m.maps[which];
+    const ext = EXTENSION[/^data:([^;,]+)/.exec(data)?.[1] ?? ""] ?? "img";
+    const path = opacity < 100 ? `/materials/${m.id}/${which}-o${opacity}.svg` : `/materials/${m.id}/${which}.${ext}`;
+    files[`public${path}`] = opacity < 100 ? strToU8(decodeURIComponent(fadedFile(data, m.resolution, opacity).slice("data:image/svg+xml,".length))) : dataToBytes(data);
+    return path;
+  };
+  const sheet = materialSheet(used, materialOpacities(doc), ":root", url);
+  files["src/materials.css"] = `/* The materials the screens wear (docs/m3e-material.md): what each material layer's variables are. The pictures are in
+   public/materials/; a layer's tile, offset and tint are in the part's own style. */
+${sheet.replace(/;(?=--m3e-mat-)/g, ";\n  ").replace("{", "{\n  ").replace(/\}$/, "\n}")}
+`;
+  return files;
 }
 
 /** a picture's bytes; one whose data cannot be read is an empty file, not a failed export */
@@ -556,7 +581,7 @@ function cssSource(doc: Doc, lang: Lang): string {
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 @import "./styles/m3e.css";
-${styleCssOf(doc, lang) ? '@import "./style.css";\n' : ""}
+${styleCssOf(doc, lang) ? '@import "./style.css";\n' : ""}${usedMaterials(doc).length ? '@import "./materials.css";\n' : ""}
 @custom-variant dark (&:is(.dark *));
 
 html,
@@ -759,6 +784,7 @@ export async function buildProject(doc: Doc, widths: Record<string, number>, o: 
     files["src/runtime.tsx"] = runtimeSource(runtime, runtimeCode);
     files["src/theme.tsx"] = themeSrc;
     if (hasDocIcons(doc)) files["src/doc-icons.ts"] = docIconsFile(doc);
+    Object.assign(files, materialFiles(doc));
     files["src/index.css"] = cssSource(doc, lang);
     const styleSheet = styleCssOf(doc, lang);
     if (styleSheet) files["src/style.css"] = `/* The document's style. It is not in a layer, so it wins over what the components say about themselves. */\n${styleSheet}\n`;

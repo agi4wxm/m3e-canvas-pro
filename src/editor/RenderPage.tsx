@@ -20,8 +20,12 @@ import { outsideInDoc } from "@/lib/outside";
 import { setOutsideBlocked } from "@/lib/outsidePolicy";
 import { setDocStyles, styleContext } from "@/lib/styles";
 import { setDocIcons } from "./docIcons";
+<<<<<<< HEAD
 import { syncAssetIcons } from "./assetIcons";
 import { setAssetCatalog, type AssetCatalog } from "@/lib/assetCatalog";
+=======
+import { setDocMaterials } from "./materials";
+>>>>>>> origin/claude/eager-hamilton-vj1k0f
 import { fontFamilyOf, frameOfGroup, frameSizeOf, normalizeTheme, paletteOf, seedOf, shapeScaleOf, type Doc, type Item } from "@/lib/tokens";
 import { PartView } from "@/components/PartView";
 import { FIT_OVERLAY } from "@/parts/contained";
@@ -96,6 +100,7 @@ export function RenderPage() {
     /* and in reach, for the canvas code that reads a style without being handed one */
     setDocStyles(styles);
     setDocIcons(doc.icons);
+    setDocMaterials(doc);
   }
   const p = useMemo(() => paletteOf(doc?.paletteKey ?? "purple", doc?.customPalette ?? null, theme, styles), [doc, theme, styles]);
   const partTheme = useMemo<PartTheme>(() => ({ seed: seedOf(doc?.paletteKey ?? "purple", doc?.customPalette ?? null, theme, styles), dark: theme.dark, contrast: theme.contrast, shape: shapeScaleOf(theme.shape) }), [doc, theme, styles]);

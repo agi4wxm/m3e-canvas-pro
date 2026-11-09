@@ -15,11 +15,16 @@ import * as api from "./api";
 import * as mocks from "./mocks";
 import * as bindings from "./bindings";
 import * as capabilities from "./capabilities";
+import * as materials from "./materials";
 import * as splits from "./split";
 import * as rows from "./rows";
 import { editComponentOp } from "./definition";
 
+<<<<<<< HEAD
 export { document, screens, nodes, layout, components, data, tree, styles, icons, assets, api, mocks, bindings, capabilities, splits, rows };
+=======
+export { document, screens, nodes, layout, components, data, tree, styles, icons, api, mocks, bindings, capabilities, splits, rows, materials };
+>>>>>>> origin/claude/eager-hamilton-vj1k0f
 export * from "./document";
 export * from "./screens";
 export * from "./nodes";
@@ -34,6 +39,7 @@ export * from "./api";
 export * from "./mocks";
 export * from "./bindings";
 export * from "./capabilities";
+export * from "./materials";
 export * from "./split";
 export * from "./rows";
 export { DEFINITION_OPS, definitionOpened } from "./definition";

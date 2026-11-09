@@ -44,7 +44,7 @@ describe("the asset manifest in file mode", () => {
     writeFileSync(join(dir, "asset-manifest.json"), JSON.stringify(manifest));
     const listed = textOf(await call("list_assets"));
     expect(listed).toMatch(/: 2 asset\(s\)/);
-    expect(listed).toMatch(/gaps.*\n- hero\.src on Home: asset:ui\/hero is not in the asset manifest/s);
+    expect(listed).toMatch(/gaps[\s\S]*\n- hero\.src on Home: asset:ui\/hero is not in the asset manifest/);
     const out = await call("export_product", { dir: "shop-product" });
     expect(out.isError).toBeFalsy();
     const gaps = JSON.parse(readFileSync(join(dir, "shop-product", ".m3e/gaps.json"), "utf8"));

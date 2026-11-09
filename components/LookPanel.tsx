@@ -1,5 +1,5 @@
 import { Fragment, useContext, useEffect, useMemo, useRef, useState } from "react";
-import { clamp, type BlendMode, type ColorRef, type GradientStop, type Item, type ItemLook, type LookShadow, type LookStroke, type LookText, type LookTexture, type PaintLayer, type Palette, type TextureKind } from "@/lib/tokens";
+import { clamp, type BlendMode, type ColorPaint, type ColorRef, type GradientStop, type Item, type ItemLook, type LookShadow, type LookStroke, type LookText, type LookTexture, type PaintLayer, type Palette, type TextureKind } from "@/lib/tokens";
 import { t, useLang, type UIKey } from "@/lib/i18n";
 import { roleName } from "@/lib/i18n/look";
 import {
@@ -31,10 +31,12 @@ import {
   type ColorRole,
 } from "@/lib/look";
 import { usePartTheme } from "@/parts/theme";
+import { MATERIAL_BLENDS, type MaterialBlend, type MaterialLayer } from "@/lib/material";
+import { MaterialThumb, useMaterials } from "./Materials";
 import { BehaviorContext } from "./EffectsPanel";
 import { Icon } from "./Icon";
 import { Num } from "./PartPanel";
-import { IconBtn, RUN_CELL, Segmented, Select, Toggle } from "./ui";
+import { ConfirmDialog, IconBtn, RUN_CELL, Segmented, Select, Toggle } from "./ui";
 
 /* The effects of a part (lib/look.ts), in the inspector's appearance section. A strip of one-click looks on top, then a
  * group per kind of effect, each folded until it has something in it. Whatever a preset or a control writes is an
@@ -354,10 +356,12 @@ export function ColorPick({ value, onChange, label, p, clearable }: { value?: Co
 
 /* ---------- paint ---------- */
 
-const TYPE_KEY: Record<PaintLayer["type"], UIKey> = { solid: "lkSolid", linear: "lkLinear", radial: "lkRadial", conic: "lkConic" };
+const TYPE_KEY: Record<PaintLayer["type"], UIKey> = { solid: "lkSolid", linear: "lkLinear", radial: "lkRadial", conic: "lkConic", material: "lkMaterial" };
 
 /** a paint as a small picture of itself */
 function PaintSwatch({ layer, size = 28, p }: { layer: PaintLayer; size?: number; p: Palette }) {
+  const { materials } = useMaterials();
+  if (layer.type === "material") return <span style={{ opacity: layer.hidden ? 0.4 : 1, display: "inline-flex" }}><MaterialThumb material={materials.find((m) => m.id === layer.material)} size={size} /></span>;
   const image = paintCss({ ...layer, hidden: false });
   return (
     <Scope>
@@ -453,11 +457,96 @@ function GradientStops({ stops, onChange, p }: { stops: GradientStop[]; onChange
   );
 }
 
-/** One layer of paint: what kind it is, its color or its gradient, and where a gradient runs. */
+const fillWords = (s: string, vars: Record<string, string>) => s.replace(/\{(\w+)\}/g, (m, k: string) => vars[k] ?? m);
+
+/** A layer of a material of the document's library (lib/materials.ts): which one, laid as it is or tinted, and how its
+ *  tile is laid. */
+function MaterialEditor({ layer, onChange, p }: { layer: MaterialLayer; onChange: (l: MaterialLayer) => void; p: Palette }) {
+  const lang = useLang();
+  const { materials, importPack, remove, uses } = useMaterials();
+  const [asking, setAsking] = useState<string | null>(null);
+  const current = materials.find((m) => m.id === layer.material);
+  const set = (patch: Partial<MaterialLayer>) => onChange(Object.fromEntries(Object.entries({ ...layer, ...patch }).filter(([, v]) => v !== undefined)) as MaterialLayer);
+  const asked = asking ? materials.find((m) => m.id === asking) : undefined;
+  return (
+    <div data-material-editor style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+      <div role="radiogroup" aria-label={t("mtLibrary", lang)} style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+        {materials.map((m) => (
+          <button
+            key={m.id}
+            role="radio"
+            aria-checked={m.id === layer.material}
+            title={`${m.name} · ${m.swatch.palette.join(" ")}`}
+            data-material-pick={m.id}
+            onClick={() => set({ material: m.id })}
+            style={{ padding: 2, borderRadius: 10, border: `2px solid ${m.id === layer.material ? p.primary : "transparent"}`, background: "transparent", cursor: "pointer", display: "inline-flex" }}
+          >
+            <MaterialThumb material={m} size={36} />
+          </button>
+        ))}
+        {importPack && <IconBtn icon="upload_file" size={40} p={p} title={t("mtImport", lang)} onClick={importPack} />}
+      </div>
+      <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: current ? p.onSurface : p.error }}>
+        <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{current ? current.name : `${layer.material} · ${t("mtMissing", lang)}`}</span>
+        {current && remove && <IconBtn icon="delete" size={28} p={p} title={t("mtRemove", lang)} onClick={() => setAsking(current.id)} />}
+      </div>
+      <Segmented<"surface" | "tint">
+        options={[
+          { key: "surface", label: t("mtModeSurface", lang), style: RUN_CELL },
+          { key: "tint", label: t("mtModeTint", lang), style: RUN_CELL },
+        ]}
+        value={layer.mode ?? "surface"}
+        onChange={(mode) => set(mode === "tint" ? { mode, tint: layer.tint ?? "primary" } : { mode: undefined, tint: undefined })}
+        p={p}
+        height={32}
+        tight
+        label={t("lkMaterial", lang)}
+      />
+      {layer.mode === "tint" && <ColorPick value={layer.tint} onChange={(tint) => set({ tint })} label={layer.tint ? t("mtTint", lang) : t("mtTintAverage", lang)} p={p} clearable />}
+      <Range label={t("mtScale", lang)} value={layer.scale ?? 100} min={5} max={400} onChange={(v) => set({ scale: v === 100 ? undefined : v })} p={p} />
+      <Range label={t("mtOffsetX", lang)} value={layer.x ?? 0} min={-100} max={100} onChange={(v) => set({ x: v || undefined })} p={p} />
+      <Range label={t("mtOffsetY", lang)} value={layer.y ?? 0} min={-100} max={100} onChange={(v) => set({ y: v || undefined })} p={p} />
+      <Range label={t("lookOpacity", lang)} value={layer.opacity ?? 100} min={0} max={100} onChange={(v) => set({ opacity: v === 100 ? undefined : v })} p={p} />
+      <Select
+        label={t("lkBlendMode", lang)}
+        p={p}
+        value={layer.blend ?? "normal"}
+        options={MATERIAL_BLENDS.map((b) => ({ key: b, label: `${b === "normal" ? `${t("lkBlendMode", lang)}: ` : ""}${t(blendKey(b), lang)}` }))}
+        onChange={(k) => set({ blend: k === "normal" ? undefined : (k as MaterialBlend) })}
+      />
+      <ConfirmDialog
+        open={!!asked}
+        title={asked ? fillWords(t("mtRemoveAsk", lang), { name: asked.name }) : ""}
+        body={asked ? ((uses?.(asked.id) ?? 0) > 0 ? fillWords(t("mtRemoveUsed", lang), { n: String(uses!(asked.id)) }) : t("mtRemoveUnused", lang)) : ""}
+        p={p}
+        onCancel={() => setAsking(null)}
+        onConfirm={() => {
+          if (asked) remove?.(asked.id);
+          setAsking(null);
+        }}
+      />
+    </div>
+  );
+}
+
+/** One layer of paint: what kind it is, its color or its gradient, and where a gradient runs; a material's own editor
+ *  for a material. */
 function PaintEditor({ layer, onChange, p, types = PAINT_TYPES }: { layer: PaintLayer; onChange: (l: PaintLayer) => void; p: Palette; types?: readonly PaintLayer["type"][] }) {
   const lang = useLang();
+  const { materials, importPack } = useMaterials();
+  /* a material needs the library: with none to name, the kind is offered only where a pack can be imported */
+  const offered = types.filter((k) => k !== "material" || materials.length > 0 || importPack);
   const retype = (type: PaintLayer["type"]) => {
     if (type === layer.type) return;
+    if (type === "material") {
+      const first = materials[0];
+      if (!first) return importPack?.();
+      return onChange({ type, material: first.id, ...(layer.hidden ? { hidden: true } : {}) });
+    }
+    if (layer.type === "material") {
+      const color = layer.tint ?? materials.find((m) => m.id === layer.material)?.swatch.average ?? "primary";
+      return onChange(type === "solid" ? { type, color } : { type, stops: [{ color, at: 0 }, { color: withAlpha(color, 0), at: 100 }], ...(type !== "radial" ? { angle: type === "linear" ? 180 : 0 } : {}), ...(type !== "linear" ? { x: 50, y: 50 } : {}) });
+    }
     if (type === "solid") return onChange({ type, color: layer.stops?.[0]?.color ?? layer.color ?? "primary", ...(layer.hidden ? { hidden: true } : {}) });
     const stops = layer.stops ?? [
       { color: layer.color ?? "primary", at: 0 },
@@ -467,8 +556,10 @@ function PaintEditor({ layer, onChange, p, types = PAINT_TYPES }: { layer: Paint
   };
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-      <Segmented<PaintLayer["type"]> options={types.map((k) => ({ key: k, label: t(TYPE_KEY[k], lang), style: RUN_CELL }))} value={layer.type} onChange={retype} p={p} height={32} tight label={t("lkFill", lang)} />
-      {layer.type === "solid" ? (
+      <Segmented<PaintLayer["type"]> options={offered.map((k) => ({ key: k, label: t(TYPE_KEY[k], lang), style: RUN_CELL }))} value={layer.type} onChange={retype} p={p} height={32} tight label={t("lkFill", lang)} />
+      {layer.type === "material" ? (
+        <MaterialEditor layer={layer} onChange={onChange} p={p} />
+      ) : layer.type === "solid" ? (
         <ColorPick value={layer.color} onChange={(c) => c && onChange({ ...layer, color: c })} label={t("lkFill", lang)} p={p} />
       ) : (
         <>
@@ -513,6 +604,13 @@ const swap = <T,>(list: T[], i: number, j: number) => {
   return out;
 };
 
+/** a material layer in its row: the material's name, or that the library has none of that id */
+function MaterialTitle({ layer }: { layer: MaterialLayer }) {
+  const lang = useLang();
+  const m = useMaterials().materials.find((d) => d.id === layer.material);
+  return <>{`${t("lkMaterial", lang)} · ${m ? m.name : t("mtMissing", lang)}`}</>;
+}
+
 function FillList({ fills, onChange, p }: { fills: PaintLayer[]; onChange: (f: PaintLayer[]) => void; p: Palette }) {
   const lang = useLang();
   const [open, setOpen] = useState<number | null>(null);
@@ -522,7 +620,7 @@ function FillList({ fills, onChange, p }: { fills: PaintLayer[]; onChange: (f: P
         <div key={i} style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           <ListRow
             lead={<PaintSwatch layer={layer} p={p} />}
-            title={t(TYPE_KEY[layer.type], lang)}
+            title={layer.type === "material" ? <MaterialTitle layer={layer} /> : t(TYPE_KEY[layer.type], lang)}
             open={open === i}
             onOpen={() => setOpen(open === i ? null : i)}
             hidden={layer.hidden}
@@ -1080,7 +1178,7 @@ export function LookPanel({ item, onChange, p, strict = false, only, wrap }: { i
           </>
         )}
         <Toggle on={!!text.gradient} onChange={(on) => setText({ gradient: on ? { type: "linear", angle: 180, stops: [{ color: "primary", at: 0 }, { color: "tertiary", at: 100 }] } : undefined })} label={t("lkTextGradient", lang)} p={p} grow />
-        {text.gradient && <PaintEditor layer={text.gradient} onChange={(gradient) => setText({ gradient })} p={p} types={["linear", "radial", "conic"]} />}
+        {text.gradient && <PaintEditor layer={text.gradient} onChange={(gradient) => setText({ gradient: gradient as ColorPaint })} p={p} types={["linear", "radial", "conic"]} />}
             </>
           ),
         },
