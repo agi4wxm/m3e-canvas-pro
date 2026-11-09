@@ -17,6 +17,8 @@ import { boundVar, comparisonOf, fieldVarOf, type Comparison } from "./bindings/
 import { inlineReads } from "./refs";
 import { literal } from "./export/code";
 import { screenToken, screenWords } from "./export/ir/names";
+import { usesFocus } from "./focus/design";
+import { FOCUS_NONE, type FrameFocus, type ItemFocus } from "./focus/model";
 
 /* What a tap does and what state a part reads, as source text over the generated runtime
  * (lib/runtimeSource.ts). Pure, like the rest of the printer: a document in, strings out.
@@ -61,6 +63,8 @@ export type RuntimeSpec = {
   /** a part hands its Pressable a family's action as a function of the entry (`families`), for the entries the design's
    *  props do not hold */
   families?: true;
+  /** a keyboard's and a gamepad's focus (lib/focus): what each screen and part says of it, by their keys in the app */
+  focus?: { screens: Record<string, FrameFocus>; parts: Record<string, ItemFocus> };
 };
 
 /** What the runtime runs the taps over (lib/actions' `Host`, src/runtime.tsx): where each part an effect reaches stands,
@@ -379,6 +383,8 @@ export class Behaviour {
   private actsName = "screenActions";
   /** the key of the part being printed: what its taps say they were made on */
   private partNow = "part";
+  /** the document says something about the focus: a whole app carries the keyboard's and the gamepad's focus with it */
+  private readonly focus: boolean;
 
   constructor(doc: Doc, widths: Record<string, number>, o: Options) {
     this.doc = doc;
@@ -388,6 +394,7 @@ export class Behaviour {
     this.shown = o.shown;
     this.bound = o.binds;
     this.groupById = new Map(doc.groups.map((g) => [g.id, g]));
+    this.focus = o.live && usesFocus(doc);
     const screenKeys = new Set<string>();
     /* a screen's key (its address, lib/export/targets/webSources.ts) is its words, else the English the templates give
        them, else its id's (lib/export/ir/names.ts), as on the phone and in the mini-program */
@@ -566,7 +573,33 @@ export class Behaviour {
       ...(this.bound ? { bound: this.boundSpec() } : {}),
       ...(this.acts ? { acts: this.actsSpec() } : {}),
       ...(this.printedFamilies ? { families: true as const } : {}),
+      ...(this.focus ? { focus: this.focusSpec() } : {}),
     };
+  }
+
+  /** What the screens and the parts say of the focus, by their keys in the app: a part named that the app has no key
+   *  for (one on a screen not printed) is left out. */
+  private focusSpec(): NonNullable<RuntimeSpec["focus"]> {
+    const keyOf = (id: string | undefined) => (id === undefined ? undefined : id === FOCUS_NONE ? FOCUS_NONE : this.partKeys.get(id));
+    const screens: Record<string, FrameFocus> = {};
+    for (const f of this.shown) {
+      const key = this.screens.get(f.id);
+      if (!f.focus || !key) continue;
+      const first = keyOf(f.focus.first);
+      const cancel = keyOf(f.focus.cancel);
+      const own: FrameFocus = { ...(first ? { first } : {}), ...(cancel ? { cancel } : {}), ...(f.focus.wrap ? { wrap: true } : {}) };
+      if (Object.keys(own).length) screens[key] = own;
+    }
+    const parts: Record<string, ItemFocus> = {};
+    for (const g of this.doc.groups)
+      for (const it of g.items) {
+        const key = this.partKeys.get(it.id);
+        if (!it.focus || !key) continue;
+        const next = Object.fromEntries(Object.entries(it.focus.next ?? {}).flatMap(([d, to]) => (keyOf(to) ? [[d, keyOf(to)!]] : [])));
+        const own: ItemFocus = { ...(it.focus.focusable !== undefined ? { focusable: it.focus.focusable } : {}), ...(Object.keys(next).length ? { next } : {}) };
+        if (Object.keys(own).length) parts[key] = own;
+      }
+    return { screens, parts };
   }
 
   /** what the runtime runs the taps over */
@@ -1267,6 +1300,10 @@ export class Behaviour {
       });
     }
     if (direct) tree = { ...tree, props: { ...tree.props, onClick: raw(onPress!) } };
+    /* what a keyboard's or a gamepad's focus knows the part by (src/lib/focus/dom.ts): its key, or "off" when it says it
+       never takes the focus; a part a Pressable stands around is marked by it */
+    const focusKey = this.focus ? (it.focus?.focusable === false ? "off" : this.partKeys.get(it.id)!) : undefined;
+    if (focusKey && !pressable && (direct || it.focus?.focusable !== undefined)) tree = { ...tree, props: { ...tree.props, "data-focus": focusKey } };
     const fieldWrap = field?.wrap ?? ((source: string) => source);
     if (!pressable) return { tree, keepTap: false, wrap: fieldWrap };
     uses.press = true;
@@ -1278,6 +1315,7 @@ export class Behaviour {
       families.length ? `families={{ ${families.join(", ")} }}` : "",
       selecting && selfSelecting ? `onTab={(index) => ${(uses.app.add("selectTab"), `selectTab(${json(this.barKey(it, def))}, index)`)}}` : "",
       closes ? `onClose={() => ${(uses.app.add("hide"), `hide(${this.part(g!.items[0].id)})`)}}` : "",
+      focusKey ? `focus=${json(focusKey)}` : "",
     ].filter(Boolean);
     return { tree, keepTap: true, wrap: (source) => `<Pressable ${attrs.join(" ")}>${fieldWrap(source)}</Pressable>` };
   }

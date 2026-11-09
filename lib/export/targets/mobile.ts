@@ -17,6 +17,7 @@ import { printRnScreens, type RnScreen, type RnScreens } from "../rn/print";
 import { rnThemeOf } from "../rn/theme";
 import { KIT_ICONS } from "../../../rn/src/kit/icons/names";
 import { darkVarOf } from "../../tokens";
+import { focusData } from "../../focus/design";
 import { GENERATED, jsonCode, jsonFile, propKey, sortedObject, str } from "../code";
 import { kebab } from "../paths";
 import { boundaryDifferences } from "../boundary";
@@ -387,6 +388,13 @@ export const mobileTarget: ProductTarget = {
     const warnings = [...screens.warnings, ...boundaryDifferences(doc, "mobile", ctx.widths).map(({ app: _app, ...w }) => w)];
     files["src/generated/warnings.json"] = generated(`${JSON.stringify(warnings, null, 1)}\n`);
     ctx.differences.push(...warnings.map((w) => ({ app: "mobile" as const, ...w })));
+    /* a keyboard's and a gamepad's focus as the design has it (lib/focus): the data, for a TV or keyboard adaptor of the
+       product's own; the kit draws the ring where the platform moves its focus (docs/焦点与输入.md) */
+    const focus = focusData(doc, ctx.widths);
+    if (focus) {
+      files["src/generated/focus.json"] = generated(`${JSON.stringify(focus, null, 1)}\n`);
+      ctx.differences.push({ app: "mobile", kind: "focus", detail: "a keyboard's or a gamepad's focus: the kit draws the ring where the platform moves its focus (Android TV, a keyboard), by the platform's own search; where the design starts it, what cancel runs and where each direction goes are in src/generated/focus.json for an adaptor of the product's own" });
+    }
 
     /* the routes */
     const routes = routesOf(screens);

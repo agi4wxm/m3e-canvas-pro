@@ -12,6 +12,7 @@ import { fromBase64 } from "../../mocks/bytes";
 import { styleContext } from "../../styles";
 import { normalizeTheme } from "../../tokens";
 import { GENERATED, jsonFile, sortedObject } from "../code";
+import { focusData } from "../../focus/design";
 import { specOf } from "./mocks";
 import { authSource } from "./webSources";
 import { MINIAPP_KIT_DIR, MINIAPP_KIT_FILES, kitFileFor } from "../miniapp/kitFiles";
@@ -348,6 +349,13 @@ export const miniappTarget: ProductTarget = {
     const warnings = [...printed.warnings, ...boundaryDifferences(ctx.doc, "miniapp", ctx.widths).map(({ app: _app, ...w }) => w)];
     files["src/generated/warnings.json"] = generated(`${JSON.stringify(warnings, null, 1)}\n`);
     ctx.differences.push(...warnings.map((w) => ({ app: "miniapp" as const, ...w })));
+    /* a keyboard's and a gamepad's focus as the design has it (lib/focus): a mini-program has neither, so it is data only,
+       for a host of the product's own (docs/焦点与输入.md, 小程序的限制) */
+    const focus = focusData(ctx.doc, ctx.widths);
+    if (focus) {
+      files["src/generated/focus.json"] = generated(`${JSON.stringify(focus, null, 1)}\n`);
+      ctx.differences.push({ app: "miniapp", kind: "focus", detail: "a keyboard's or a gamepad's focus: a mini-program has no keyboard or gamepad and moves no focus over its pages, so no ring is drawn; the design's focus is in src/generated/focus.json" });
+    }
     for (const path of MINIAPP_KIT_FILES) files[`src/kit/${path}`] = generated(kitFileFor(await ctx.read(`${MINIAPP_KIT_DIR}/${path}`), `${ctx.scope}/app-runtime`));
     for (const s of printed.screens) {
       files[`src/generated/screens/${s.component}.tsx`] = generated(s.source);

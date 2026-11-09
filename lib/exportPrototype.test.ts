@@ -226,7 +226,9 @@ describe("a document with no prototype interactions, flows or variables in modes
     expect(text(proof, "src/App.tsx")).toContain('import { screenPoses } from "@/lib/screenMotion"');
     for (const name of ["openOverlay", "FLOWS", "varStyle", "onHover"]) expect(text(proof, "src/App.tsx") + text(proof, "src/runtime.tsx"), name).not.toContain(name);
     /* Digests of what these documents exported before prototypes, flows and modes reached the app. A change here means
-       documents that use none of them now export differently: if that is meant, update the digests (last: version 4 of
+       documents that use none of them now export differently: if that is meant, update the digests (last: the
+       expressions copied beside the app, lib/bindings/expr.ts, can read `input`, the device in use and its hints,
+       lib/focus; before that version 4 of
        the format, lib/converge.ts: a tap's data says its move by its motion alone, no `transition`, and the older fade,
        expand and at-once moves of proof's menu and sweep's screens are motions, played by the preview's own poses; a
        condition is an expression; before that the taps are

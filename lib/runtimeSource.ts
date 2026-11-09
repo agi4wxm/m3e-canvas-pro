@@ -43,7 +43,7 @@ export function runtimeFlags(spec: RuntimeSpec): Record<string, boolean> {
     product: !!bd,
     /* the screen a part is drawn on, and whether it can be used (src/App.tsx says): what a delay waits for, what is
        scrolled into view, the modes a screen reads */
-    page: !!p || !!spec.modes || !!bd,
+    page: !!p || !!spec.modes || !!bd || !!spec.focus,
     /* the prototype reads its expressions itself, over its variables (the product's screens read theirs in the runtime) */
     exprs: !!spec.exprs && !bd,
     varNames: !!Object.keys(spec.exprs?.vars ?? {}).length,
@@ -55,6 +55,8 @@ export function runtimeFlags(spec: RuntimeSpec): Record<string, boolean> {
     mocks: !!spec.acts?.mocks,
     /* a part hands its Pressable a family's action for the entries its props do not hold */
     families: !!spec.families,
+    /* a keyboard's and a gamepad's focus over the screens (src/lib/focus) */
+    focus: !!spec.focus,
   };
 }
 
@@ -108,6 +110,8 @@ function runtimeValues(spec: RuntimeSpec, on: Record<string, boolean>): Record<s
     darkOn: on.colorMode ? "darkOn" : "false",
     darkNow: spec.dark ? `!!live.current.vars.${spec.dark}` : on.colorMode ? "darkNow.current" : "false",
     overlayGone: on.overlay ? "overlay: null, " : "",
+    focusScreens: literal(spec.focus?.screens ?? {}),
+    focusParts: literal(spec.focus?.parts ?? {}),
   };
 }
 

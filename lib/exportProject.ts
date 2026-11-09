@@ -346,7 +346,8 @@ function appSource(screens: ScreenCode[], motion: string, usesToast: boolean, fa
   const overlay = !!proto?.overlay;
   const bound = !!runtime.modes?.bound.length;
   const params = !!runtime.bound;
-  const live = !!proto || !!runtime.modes || params;
+  /* a screen that says which it is and whether it is in use: the focus finds its layers by it too */
+  const live = !!proto || !!runtime.modes || params || !!runtime.focus;
   const imports = screens.map((s) => `import { ${s.component} } from "./screens/${s.component}"`).join("\n");
   const table = screens.map((s) => `  ${s.key}: { Screen: ${s.component}, width: ${s.width}, height: ${s.height}, foot: ${Math.round(s.foot)}${overlay ? `, radius: ${Math.round(s.radius)}` : ""} },`).join("\n");
   const fromApp = [families.length ? "screen: asked" : "screen", "move", "snack", ...(overlay ? ["overlay", "closeOverlay"] : []), ...(bound ? ["varStyle"] : []), ...(params ? ["params"] : [])];

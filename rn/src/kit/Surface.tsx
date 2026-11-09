@@ -1,6 +1,6 @@
 import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
-import { createContext, useContext, useMemo, type ReactNode } from "react";
+import { createContext, useContext, useMemo, useState, type ReactNode } from "react";
 import { Pressable, StyleSheet, View, type StyleProp, type TextStyle, type ViewStyle } from "react-native";
 import Svg, { Defs, RadialGradient, Rect, Stop } from "react-native-svg";
 
@@ -65,8 +65,16 @@ export type SurfaceProps = {
   children?: ReactNode;
 };
 
+/** the focus ring stands this far off a part and is this wide (M3's focus indicator: 2dp off, 3dp wide) */
+const RING_OFF = 2;
+const RING_W = 3;
+
 export function Surface({ base, appearance, style, onPress, testID, accessibilityLabel, accessibilityRole, children }: SurfaceProps) {
   const kit = useKit();
+  /* Where the platform moves a focus over the parts (Android TV's d-pad, a keyboard, the web), the focused part wears
+     M3's focus ring in the secondary color, as the editor's preview and the web app draw it (docs/焦点与输入.md). A
+     touch never focuses, so a phone looks as it always did. */
+  const [focused, setFocused] = useState(false);
   const painted = useMemo(() => paint(kit, appearance), [kit, appearance]);
   const flat = StyleSheet.flatten([base, painted.style, style]) ?? {};
   const corners = cornersOf(flat);
@@ -90,12 +98,16 @@ export function Surface({ base, appearance, style, onPress, testID, accessibilit
   );
   if (painted.ink) body = <Ink roles={painted.ink}>{body}</Ink>;
   if (painted.text) body = <TextLook.Provider value={painted.text}>{body}</TextLook.Provider>;
-  if (onPress)
+  if (onPress) {
+    const out = RING_OFF + RING_W;
+    const ring = focused ? <View pointerEvents="none" testID={testID ? `${testID}-focus` : "focus-ring"} style={{ position: "absolute", top: -out, left: -out, right: -out, bottom: -out, borderWidth: RING_W, borderColor: kit.colors.secondary ?? kit.colors.primary ?? "#625B71", borderRadius: (typeof flat.borderRadius === "number" ? flat.borderRadius : 0) + out }} /> : null;
     return (
-      <Pressable testID={testID} accessibilityRole={accessibilityRole ?? "button"} accessibilityLabel={accessibilityLabel} onPress={onPress} style={({ pressed }) => [flat, pressed ? { opacity: (flat.opacity ?? 1) * 0.85 } : null]}>
+      <Pressable testID={testID} accessibilityRole={accessibilityRole ?? "button"} accessibilityLabel={accessibilityLabel} onPress={onPress} onFocus={() => setFocused(true)} onBlur={() => setFocused(false)} style={({ pressed }) => [flat, pressed ? { opacity: (flat.opacity ?? 1) * 0.85 } : null]}>
         {body}
+        {ring}
       </Pressable>
     );
+  }
   return (
     <View testID={testID} accessibilityRole={accessibilityRole} accessibilityLabel={accessibilityLabel} style={flat}>
       {body}
