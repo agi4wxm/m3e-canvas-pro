@@ -8,6 +8,7 @@ export * from "./map";
 export * from "./link";
 export * from "./gaps";
 export * from "./folder";
+export * from "./readGaps";
 
 import EXAMPLE from "./fixtures/example.m3e-game.json";
 import { readGameContract, type GameContract } from "./format";

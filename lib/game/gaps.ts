@@ -1,16 +1,20 @@
 /* What in a design no longer matches its gameplay contract (docs/玩法契约.md, “缺口”): a call to a command the contract
  * does not have (or to a fact, which only another system sends), an argument it does not take or a parameter it
  * needs and is not given, a `catch` that branches on a refusal the command no longer has, an input action the world
- * does not take, a world view's action on an event it does not send. Importing a changed contract lists these, and
- * `gameHubGaps` gives them in the gap file's format (lib/export/gaps.ts, `.m3e/gaps.json`), module `game-loop`, for the
- * export's gap report to take in (the plan's J7). Reads the document, changes nothing. */
+ * does not take, a world view's action on an event it does not send, a path of the world's snapshot or of an event's
+ * payload the design reads and the contract has no place for (readGaps.ts). Importing a changed contract lists these,
+ * and `gameHubGaps` gives them in the gap file's format (lib/export/gaps.ts, `.m3e/gaps.json`), module `game-loop`,
+ * which the export's report and gap file take in (the plan's J7). Reads the document, changes nothing. */
 
 import type { Gap, GapPlace } from "../export/gaps";
 import { groupsInFrame, type Action, type ActionBody, type Doc, type Effect, type Group, type Item } from "../tokens";
 import { apiCommands, inputCommands, type GameContract } from "./format";
 import { gameOperationId, refusalsOf, rejectionType } from "./map";
+import { readGaps } from "./readGaps";
 
-export type GameGapKind = "command" | "fact" | "param" | "rejection" | "input" | "event";
+/** `snapshot` and `payload`: a path of the world's snapshot, or of an event's payload, that the design reads and the
+ *  contract has no place for (readGaps.ts) */
+export type GameGapKind = "command" | "fact" | "param" | "rejection" | "input" | "event" | "snapshot" | "payload";
 
 /** One reference of the design's that the contract does not answer: what kind, what it names (`game.pull`,
  *  `game.pull count`, `urn:game:problem:cooldown`, `input jump`, `event dodged`), why in a word (`missing`, `not-a-call`,
@@ -152,6 +156,8 @@ export function gameGaps(doc: Pick<Doc, "groups" | "frames" | "components"> & { 
       const fact = c.facts?.[name];
       if (c.commands[name]?.via !== "api") ctx.gaps.push({ kind: fact ? "fact" : "command", ref: s.operationId, reason: fact ? "not-the-apps" : c.commands[name] ? "not-a-call" : "missing", where: { screen: f.name, prop: `data ${s.name}` }, detail: fact ? `loads ${s.operationId}, a fact the game loop takes from ${fact.from}, never from the app` : `loads ${s.operationId}, a command the contract does not have as a call` });
     }
+  /* what the design reads of the world's snapshot and of an event's payload (readGaps.ts) */
+  ctx.gaps.push(...readGaps(doc, widths));
   /* one line for each reference: the same one met twice (a family's slot and an action under it) is said once */
   const seen = new Set<string>();
   return ctx.gaps.filter((g) => {
