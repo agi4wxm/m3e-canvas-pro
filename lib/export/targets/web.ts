@@ -25,6 +25,7 @@ const MOVED: Record<string, string> = {
   "src/theme.tsx": "src/generated/theme.tsx",
   "src/index.css": "src/generated/index.css",
   "src/style.css": "src/generated/style.css",
+  "src/materials.css": "src/generated/materials.css",
   "src/doc-icons.ts": "src/generated/doc-icons.ts",
   "src/style-icons.ts": "src/generated/style-icons.ts",
 };

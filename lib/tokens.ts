@@ -10,6 +10,7 @@ import { normalizeRecipes, normalizeUx, styleOf, stylePalette, stylePatch, style
 import type { ApiSpec } from "./api/types";
 import type { MockSpec } from "./mocks/types";
 import type { CapabilitySpec } from "./capabilities/types";
+import type { MaterialDef, MaterialLayer } from "./material";
 import { fields, withUnknown } from "./keep";
 import { mapAction, mapBody, mapCondition, type RefMap } from "./refs";
 
@@ -96,7 +97,8 @@ export type ColorRef = string;
 export type GradientStop = { color: ColorRef; at: number };
 
 /** One layer of paint over the part's fill. In a list the first paints on top, the way CSS and a layers panel stack them. */
-export type PaintLayer = {
+/** a layer of colour: one colour, or a gradient of several */
+export type ColorPaint = {
   type: "solid" | "linear" | "radial" | "conic";
   /** a solid layer's color */
   color?: ColorRef;
@@ -115,6 +117,10 @@ export type PaintLayer = {
    *  `color` standing in where that is not defined. */
   cssVar?: string;
 };
+
+/** One layer of paint over a part's fill: a colour or a gradient, or a material of the document's library
+ *  (`Doc.materials`, lib/material.ts), tiled as it is or tinted by a colour. */
+export type PaintLayer = ColorPaint | MaterialLayer;
 
 /** a shadow cast by the box, or inside it; on words, `spread` and `inset` mean nothing */
 export type LookShadow = { x: number; y: number; blur: number; spread: number; color: ColorRef; inset?: boolean; hidden?: boolean };
@@ -177,7 +183,7 @@ export type LookText = {
   /** an outline around each letter, outside it */
   stroke?: { width: number; color: ColorRef };
   /** the letters painted with a gradient instead of one color */
-  gradient?: PaintLayer;
+  gradient?: ColorPaint;
   /** Words bound to a color variable in an exported app: the CSS variable (`--m3e-v-<name>`) they are read in, `color`
    *  standing in where that is not defined. */
   cssVar?: string;
@@ -1543,6 +1549,9 @@ export type Doc = {
   /** the platform capabilities the product uses beyond those its designs invoke, and its own (lib/capabilities,
    *  docs/平台能力.md); the standard ones are the catalog's */
   capabilities?: CapabilitySpec;
+  /** the document's materials (lib/material.ts, docs/m3e-material.md), imported from material packs; a `material` layer
+   *  of a look (`ItemLook.fills`) names one by id */
+  materials?: MaterialDef[];
 };
 
 export const defaultTabs = (): NavTab[] => NAV_TABS[getLang()].map((t) => ({ ...t }));
