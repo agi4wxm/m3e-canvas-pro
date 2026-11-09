@@ -26,6 +26,9 @@ export const typeBase = (name: string) =>
 
 const ts = (s: CapabilitySchema | undefined) => schemaTypeTs((s ?? { type: "object" }) as JsonSchema, { comments: false });
 
+/** a type of no key: what an empty map of calls or of a view's events is */
+export const NONE = "Record<never, never>";
+
 /** The interfaces of the capabilities used: each call's arguments and result, each event's payload, each view's props
  *  and events; the map of the calls by name, and what an app's adapters are. */
 export function typesModule(defs: CapabilityDef[]): string {
@@ -41,11 +44,13 @@ export function typesModule(defs: CapabilityDef[]): string {
   for (const d of views) {
     out.push(`/** what the ${d.name} view is given */`, `export type ${typeBase(d.name)}Props = ${ts(d.props)}`, "");
     const evs = d.events ?? [];
-    out.push(`/** the events the ${d.name} view sends, by name, with what each carries */`, `export type ${typeBase(d.name)}Events = {${evs.length ? "\n" + evs.map((e) => `  ${e.name}: ${ts(e.payload)}`).join("\n") + "\n" : " "}}`, "");
+    out.push(`/** the events the ${d.name} view sends, by name, with what each carries */`, `export type ${typeBase(d.name)}Events = ${evs.length ? `{\n${evs.map((e) => `  ${e.name}: ${ts(e.payload)}`).join("\n")}\n}` : NONE}`, "");
   }
-  out.push("/** the calls by name: what each is given and gives back */", "export interface CapabilityMap {");
-  for (const d of calls) out.push(`  ${str(d.name)}: { args: ${typeBase(d.name)}Args; result: ${typeBase(d.name)}Result }`);
-  out.push("}", "");
+  /* a product that only draws views (a map, a call) invokes no call: its map has no key, which is said as a type of no
+     key, not as an empty interface or `{}` (both of which the product's lint turns down: they take any value) */
+  out.push("/** the calls by name: what each is given and gives back */");
+  if (calls.length) out.push("export interface CapabilityMap {", ...calls.map((d) => `  ${str(d.name)}: { args: ${typeBase(d.name)}Args; result: ${typeBase(d.name)}Result }`), "}", "");
+  else out.push(`export type CapabilityMap = ${NONE}`, "");
   out.push(
     "/** An app's adapters, by capability: each takes the arguments and gives the result (a promise or not), or throws",
     ' *  `fail("cancelled")` (or denied, unavailable, timeout, failed) for an outcome the design shows. Any left out answers',

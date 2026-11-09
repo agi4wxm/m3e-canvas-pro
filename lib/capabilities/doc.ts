@@ -5,7 +5,7 @@
 import { partBySlug } from "../../parts/registry";
 import type { ActionBody, Doc, Effect, Item } from "../tokens";
 import { capabilityOf } from "./catalog";
-import type { CapabilityDef } from "./types";
+import type { CapabilityDef, CapabilitySpec } from "./types";
 
 /** the capability view a part stands for (`PartDef.capability`), if it is one */
 export const viewOf = (it: Pick<Item, "component">): string | undefined => partBySlug(it.component)?.capability;
@@ -66,3 +66,27 @@ export function usedDefinitions(doc: Doc): CapabilityDef[] {
 
 /** the capabilities a document invokes that are calls: the ones the mocks can be told how to answer */
 export const capabilityCalls = (doc: Doc): string[] => usedDefinitions(doc).flatMap((d) => (d.kind === "call" ? [d.name] : []));
+
+/** what every capability view's slot is handed besides the view's props: its size, a way to send the view's events and
+ *  to hand out what the visitor chose, and the design's stand-in (`ViewSlotProps` in the product's packages/capabilities) */
+export const VIEW_SLOT_OWN: readonly string[] = ["width", "height", "onEvent", "onValueChange", "children"];
+
+/** The keys a view's props type has (its `props` schema as lib/api/typescript prints it): the schema's properties when
+ *  it names some and takes no others; `undefined` when the type takes any key (a record, an open object, no schema). */
+export function viewPropKeys(def: CapabilityDef | undefined): Set<string> | undefined {
+  const s = def?.props;
+  if (!s || typeof s !== "object" || s.type !== "object" || s.oneOf || s.anyOf || s.allOf) return undefined;
+  const props = s.properties && typeof s.properties === "object" ? Object.keys(s.properties) : [];
+  const extra = s.additionalProperties;
+  if (extra !== undefined && extra !== false) return undefined;
+  return props.length || extra === false ? new Set(props) : undefined;
+}
+
+/** Whether the slot of a capability view (`view`, in the document's capabilities `spec`) takes a prop the design's
+ *  stand-in is drawn with. It takes the view's own props and what every view's slot has; the stand-in may be drawn with
+ *  more (the call's `icon`, shown while there is no picture), which is the design's drawing, handed to the slot as its
+ *  children, not the view's: its props type has no room for them, and handing one fails the exported app's typecheck. */
+export function slotTakes(spec: CapabilitySpec | undefined, view: string): (key: string) => boolean {
+  const keys = viewPropKeys(capabilityOf(spec, view));
+  return (key) => !keys || keys.has(key) || VIEW_SLOT_OWN.includes(key);
+}
