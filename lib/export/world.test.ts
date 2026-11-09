@@ -141,3 +141,24 @@ describe("the web app's world view code", () => {
     }
   }, 120_000);
 });
+
+describe("the app runtime's world files", () => {
+  /* packages/app-runtime types no DOM (lib ES2022, no types): the world's files have to stand on that */
+  it("typecheck with no DOM", async () => {
+    const { mkdtempSync, rmSync, writeFileSync } = await import("node:fs");
+    const { tmpdir } = await import("node:os");
+    const { join } = await import("node:path");
+    const { spawnSync } = await import("node:child_process");
+    const { fileURLToPath } = await import("node:url");
+    const repo = fileURLToPath(new URL("../../", import.meta.url));
+    const dir = mkdtempSync(join(tmpdir(), "m3e-world-runtime-"));
+    try {
+      const files = ["types", "contract", "hostContract", "channel", "example"].map((f) => join(repo, `lib/world/${f}.ts`));
+      writeFileSync(join(dir, "tsconfig.json"), JSON.stringify({ compilerOptions: { target: "ES2022", lib: ["ES2022"], types: [], strict: true, noEmit: true, module: "esnext", moduleResolution: "bundler", skipLibCheck: true, verbatimModuleSyntax: true }, files }));
+      const run = spawnSync(join(repo, "node_modules/.bin/tsc"), ["--noEmit", "-p", join(dir, "tsconfig.json")], { encoding: "utf8" });
+      expect(`${run.stdout}${run.stderr}`).toBe("");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  }, 120_000);
+});

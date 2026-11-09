@@ -90,7 +90,7 @@ describe("the prototype export", () => {
     systems: [47, "42e116738aba93300d77a0f5ab04094c4cd36f7ec700b3ea32a02ee3cd07df78"],
     reuse: [38, "45f2eeffec96e6987a68be50863bd53e5a0096fa8506f0c6f95c79955b524d04"],
     sweep: [100, "56281f14bfb278ca1256149f351854d2ab9bdb334c2dd2cb37c5e7068228a0c5"],
-    parts: [150, "bff48c816a89a568f1a7749ddbad5f4f78a174c52e84d36e9132ba22f0ce9cf8"],
+    parts: [150, "21190e3bcb8f9ab8e760ea966341e85e050452e4257d471d2031484969413b9f"],
   };
   const DOCS: Record<string, () => { doc: Doc; widths: Record<string, number> }> = { proof: proofDoc, systems: systemsDoc, reuse: reuseDoc, sweep: sweepDoc, parts: () => ({ doc: allPartsDoc(), widths: {} }) };
   it.each(Object.keys(DIGESTS))("is byte for byte what it was: %s", async (name) => {

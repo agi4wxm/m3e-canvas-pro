@@ -24,6 +24,10 @@ const MAX_STEP_MS = 100;
  *  clock, ms; the device's when none is given), how often its loop runs, how fast its world time goes against the clock. */
 export type ExampleWorldOptions = { now?: () => number; tickMs?: number; rate?: number };
 
+/* the timers every platform has (a web page, React Native, a mini-program, a JS engine's host), typed here: the app
+   runtime's own types name no DOM */
+const timers = globalThis as unknown as { setInterval(run: () => void, ms: number): unknown; clearInterval(id: unknown): void };
+
 /** what the example engine is, beside the contract: `step` moves it on by hand (its tests do; a host never needs to) */
 export type ExampleWorld = World & {
   /** moves the world on by `ms` milliseconds of world time */
@@ -40,7 +44,7 @@ export function createExampleWorld(start: WorldState = {}, o: ExampleWorldOption
     return typeof n === "number" && Number.isFinite(n) ? n : Date.now();
   };
   const rate = typeof o.rate === "number" && o.rate > 0 ? o.rate : 1;
-  let loop: ReturnType<typeof setInterval> | undefined;
+  let loop: unknown;
   let last = 0;
   let entities: WorldEntity[] = (start.entities ?? []).map((e) => ({ ...e }));
   let score = Number.isFinite(start.score) ? (start.score as number) : 0;
@@ -59,9 +63,9 @@ export function createExampleWorld(start: WorldState = {}, o: ExampleWorldOption
   const world: ExampleWorld = {
     /* the loop of its own: each turn moves world time on by how far the app's clock went, at the world's rate */
     mount: () => {
-      if (loop) return;
+      if (loop !== undefined) return;
       last = clockNow();
-      loop = setInterval(() => {
+      loop = timers.setInterval(() => {
         const at = clockNow();
         const ms = Math.max(0, at - last) * rate;
         last = at;
@@ -70,7 +74,7 @@ export function createExampleWorld(start: WorldState = {}, o: ExampleWorldOption
     },
     occlude: () => {},
     unmount: () => {
-      if (loop) clearInterval(loop);
+      if (loop !== undefined) timers.clearInterval(loop);
       loop = undefined;
       changed.clear();
     },
