@@ -15,7 +15,9 @@ import { slotAction } from "@/lib/partContract";
 import { PartHostContext, type PartHost } from "@/parts/widgets/host";
 import { PartView } from "../PartView";
 import { partBySlug } from "@/parts/registry";
-import { PreviewGameLoopWorld, PreviewWorlds } from "./worlds";
+import { PreviewGameLoopWorld, PreviewMockWorld, PreviewWorlds } from "./worlds";
+import { MockWorldContext } from "@/parts/widgets/mockWorld";
+import { playsOn } from "@/lib/world/script";
 import { connectWorld } from "@/lib/world/example";
 import type { World, WorldState } from "@/lib/world/types";
 import type { InputChannel } from "@/parts/widgets/host";
@@ -103,6 +105,9 @@ export function LivePart({ item, widths, screen, onTap, onSlot, onHover, easeWid
   const worlds = useContext(PreviewWorlds);
   const isWorld = !!partBySlug(item.component)?.world;
   const world = worlds && isWorld ? worlds.channel(item.id) : undefined;
+  /* and plays the mock world the bar has chosen, when the script plays on it; never one handed in for an exported app */
+  const chosen = useContext(PreviewMockWorld);
+  const mockWorld = isWorld && chosen && playsOn(chosen.script, item.id) ? chosen : null;
   const live = useRef({ item, onField, onEvent });
   live.current = { item, onField, onEvent };
   /* a local game loop plays the world: the view shows its snapshots, and plays no example engine of its own */
@@ -110,6 +115,7 @@ export function LivePart({ item, widths, screen, onTap, onSlot, onHover, easeWid
   const played = useGameLoopWorld(isWorld ? remote : null, item.id, world, (name, payload) => live.current.onEvent?.(name, payload), size);
   const shownItem = useMemo(() => (played ? { ...item, props: { ...item.props, ...worldProps(played) } } : item), [item, played]);
   const playsDemo = demo && !played;
+  const scripted = played ? null : mockWorld;
   /* What a part is handed (parts/widgets/host.ts): the preview is an explicit prototype, so a demo runs where nothing
      takes it over; an input, a widget or a base-ui control drawn controlled, says what it holds; an event goes to the
      part's on:<name> action. */
@@ -162,7 +168,9 @@ export function LivePart({ item, widths, screen, onTap, onSlot, onHover, easeWid
       }
       style={{ position: "relative", display: "flex", flex: "0 0 auto", width: easeWidth ? "max-content" : size.w, height: size.h }}>
       <PartHostContext.Provider value={host}>
-        <PartView key={held ? "held" : "free"} item={shownItem} live screen={screen} held={held} />
+        <MockWorldContext.Provider value={scripted}>
+          <PartView key={held ? "held" : "free"} item={shownItem} live screen={screen} held={held} />
+        </MockWorldContext.Provider>
       </PartHostContext.Provider>
     </div>
   );

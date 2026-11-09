@@ -1,6 +1,6 @@
 /* The mock library in a few lines a model (and the MCP client) can read: the settings, each model with its count, its
  * hints (the author's, and what is read from the field names) and its pinned records, how each operation is
- * answered, the scenarios, the files and the realtime scripts. */
+ * answered, the scenarios, the files, the realtime scripts and the world scripts. */
 
 import type { ApiSpec } from "../api/types";
 import { DEFAULT_COUNT } from "./shape";
@@ -8,6 +8,20 @@ import { defaultScripts } from "./realtime";
 import { inferredHints } from "./fill";
 import { compileRoutes } from "./routes";
 import type { MockHint, MockSpec } from "./types";
+import { contractOf, worldScriptsOf } from "./world";
+import { scriptLength } from "../world/script";
+
+/** the world scripts in a line: the document's and the library's, each with its contract, its length and its events */
+function worldsLine(m: MockSpec): string {
+  const own = new Set((m.worlds ?? []).map((s) => s.id));
+  const all = worldScriptsOf(m).map((s) => {
+    const events = [...new Set(s.steps.flatMap((x) => (x.events ?? []).map((e) => e.name)))];
+    const contract = typeof s.contract === "string" ? s.contract : s.contract ? "its own" : "example";
+    const fields = Object.keys(((contractOf(s)?.snapshot as { properties?: object } | undefined)?.properties ?? {}) as object);
+    return `${s.id} "${s.name}"${own.has(s.id) ? "" : " (library)"} contract ${contract} [${fields.join(",")}], ${s.steps.length} steps over ${scriptLength(s)}ms${s.loop ? " looping" : ""}${events.length ? `, events ${events.join(",")}` : ""}${s.views?.length ? `, on ${s.views.join(",")}` : ""}`;
+  });
+  return `World scripts${m.world ? ` (preview starts with ${m.world})` : ""}: ${all.join("; ")}`;
+}
 
 const hintText = (h: MockHint) =>
   [h.kind, h.min !== undefined || h.max !== undefined ? `${h.min ?? ""}..${h.max ?? ""}` : "", h.from || h.to ? `${h.from ?? ""}..${h.to ?? ""}` : "", h.weights ? `weights ${JSON.stringify(h.weights)}` : "", h.files?.length ? `files ${h.files.join(",")}` : "", h.nullRate !== undefined ? `null ${h.nullRate}` : ""]
@@ -15,7 +29,7 @@ const hintText = (h: MockHint) =>
     .join(" ");
 
 export function mocksOutline(api: ApiSpec | undefined, spec: MockSpec | undefined, o: { locale?: string } = {}): string {
-  if (!api?.endpoints?.length && !api?.models?.length) return "The document has no API yet, so there is nothing to mock: add models and endpoints first (the api tools).";
+  if (!api?.endpoints?.length && !api?.models?.length) return `The document has no API yet, so there is nothing to mock: add models and endpoints first (the api tools).\n${worldsLine(spec ?? {})}`;
   const m = spec ?? {};
   const out: string[] = [];
   out.push(`Mocks: seed ${m.seed ?? 1}, locale ${m.locale ?? o.locale ?? "the editor's"}, latency ${m.latency ? `${m.latency.min}-${m.latency.max} ms` : "150-450 ms"}${m.errorRate ? `, error rate ${m.errorRate}` : ""}${m.scenario ? `, preview starts in scenario ${m.scenario}` : ""}`);
@@ -39,6 +53,7 @@ export function mocksOutline(api: ApiSpec | undefined, spec: MockSpec | undefine
   out.push(m.files?.length ? `Files (${m.files.length}): ${m.files.map((f) => `${f.id} ${f.name} ${f.type}${f.tags?.length ? ` [${f.tags.join(",")}]` : ""}`).join("; ")}` : "Files: none (placeholders are made: SVG pictures, PDF, WAV, MP4)");
   const scripts = m.realtime ?? (api.channels?.length ? defaultScripts(api) : []);
   if (scripts.length) out.push(`Realtime${m.realtime ? "" : " (defaults)"}: ${scripts.map((s) => `${s.id} on ${s.channel} ${s.trigger?.on ?? "connect"}${s.trigger && "operationId" in s.trigger ? ` ${s.trigger.operationId}` : ""}${s.trigger && "message" in s.trigger ? ` ${s.trigger.message}` : ""}: ${s.steps.map((x) => `${x.at}ms ${x.message}`).join(", ")}${s.repeat ? ` every ${s.repeat.every}ms${s.repeat.times !== undefined ? ` x${s.repeat.times}` : ""}` : ""}`).join("; ")}`);
+  out.push(worldsLine(m));
   if (m.routes?.length) out.push(`Overrides: ${m.routes.map((r) => `${r.operationId} ${r.kind ?? "auto"}${r.model ? ` ${r.model}` : ""}`).join("; ")}`);
   return out.join("\n");
 }

@@ -20,8 +20,9 @@ export const APP_RUNTIME_FILES = [
   /* the interpreter of the design's taps (lib/actions), and the screen moves its model names */
   "lib/screenMotion.ts",
   ...["model", "host", "run"].map((n) => `lib/actions/${n}.ts`),
-  /* the world views' channels, their contract with an engine, and M3E's example engine */
-  ...["types", "contract", "hostContract", "channel", "example"].map((n) => `lib/world/${n}.ts`),
+  /* the world views' channels, their contract with an engine, M3E's example engine, and the mock world a development
+     build's stand-in plays from a world script */
+  ...["types", "contract", "hostContract", "channel", "example", "script", "scripted"].map((n) => `lib/world/${n}.ts`),
   ...["store", "session", "sources", "channels", "forms", "scope", "runtime", "react", "actions", "index"].map((n) => `lib/app/${n}.ts`),
 ];
 

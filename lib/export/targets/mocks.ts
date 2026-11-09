@@ -12,6 +12,7 @@
 import { fromOpenApi, type ApiSpec } from "../../api";
 import { extensionOf } from "../../mocks/files";
 import type { MockFile, MockModelConfig, MockScenario, MockSpec } from "../../mocks/types";
+import { findWorldScript, resolveWorldScript } from "../../mocks/world";
 import { GENERATED, jsonCode, jsonFile, sortedObject, str } from "../code";
 import { safeSegment } from "../paths";
 import { generated, type ProductContext, type ProductTarget, type Workspace } from "../types";
@@ -39,6 +40,8 @@ export const MOCK_ENGINE_FILES = [
 export const MOCK_ENGINE_API_FILES = ["types", "schema", "transport"].map((n) => `lib/api/${n}.ts`);
 /** what the mock settings say of the capabilities (lib/mocks/types.ts reads the types only) */
 export const MOCK_ENGINE_CAPABILITY_FILES = ["lib/capabilities/types.ts"];
+/** the shape of a world script, which the mock settings hold (docs/模拟库.md “世界脚本”) */
+export const MOCK_ENGINE_WORLD_FILES = ["lib/world/script.ts"];
 
 const ROUTES = (scope: string) => `${GENERATED}
 import type { HttpMethod, TransportRequest, TransportResponse } from ${str(`${scope}/api`)}
@@ -96,6 +99,8 @@ import { answer, type MockRoute } from "./routes"
 
 export { answer, matchPath, type MockAnswer, type MockRoute } from "./routes"
 export { SCENARIOS, type ScenarioName } from "./generated/scenarios"
+export { MOCK_WORLD } from "./generated/world"
+export type { WorldScript } from "./engine/world/script"
 export type { MockLogEntry } from "./engine/mocks/transport"
 export type { MockConnection, MockMessage } from "./engine/mocks/realtime"
 export { controlledClock, fakeClock, type ControlledClock, type MockClock } from "./engine/mocks/clock"
@@ -388,13 +393,17 @@ export const mocksTarget: ProductTarget = {
   async build(ctx: ProductContext): Promise<Workspace> {
     const spec = specOf(ctx);
     const mocks: MockSpec = ctx.doc.mocks ?? {};
-    const { models, scenarios = [], files = [], ...settings } = mocks;
+    /* the world script the design's preview starts with, its pictures made data URLs: what a development build's world
+       views play (MOCK_WORLD); the other scripts stay in the design */
+    const { models, scenarios = [], files = [], worlds: _worlds, world, ...settings } = mocks;
+    const chosen = findWorldScript(mocks, world);
+    const mockWorld = chosen ? resolveWorldScript(chosen, files) : null;
     const collections = (ctx.doc.collections ?? []).filter((c) => c.model);
     /* the files with their bytes beside them; one that has none (an unresolved reference) is left out */
     const kept = files.filter((f) => bytesOf(f) !== null);
     const fileNames = new Map(kept.map((f, i) => [f.id, `${safeSegment(f.id, `file-${i + 1}`)}.${extensionOf(f.type)}`]));
     const engine: Record<string, ReturnType<typeof generated>> = {};
-    for (const path of [...MOCK_ENGINE_FILES, ...MOCK_ENGINE_API_FILES, ...MOCK_ENGINE_CAPABILITY_FILES]) engine[`src/engine/${path.slice(4)}`] = generated(await ctx.read(path));
+    for (const path of [...MOCK_ENGINE_FILES, ...MOCK_ENGINE_API_FILES, ...MOCK_ENGINE_CAPABILITY_FILES, ...MOCK_ENGINE_WORLD_FILES]) engine[`src/engine/${path.slice(4)}`] = generated(await ctx.read(path));
     const assets: Record<string, ReturnType<typeof generated>> = {};
     for (const f of kept) assets[`files/${fileNames.get(f.id)}`] = generated(bytesOf(f)!);
     const fixtures = Object.fromEntries((models ?? []).filter((m) => m.fixtures?.length).map((m) => [m.name, m.fixtures!]));
@@ -445,6 +454,13 @@ import type { MockSpec } from "../engine/mocks/types"
 
 /** the design's mock settings: seed, language, latency, how each model's fields are made and how many records it has, realtime scripts, sign-in */
 export const SETTINGS: MockSpec = ${jsonCode(settingsData)}
+`),
+        "src/generated/world.ts": generated(`${GENERATED}
+import type { WorldScript } from "../engine/world/script"
+
+/** the world script a development build's world views play while no engine is plugged into their slot (the design's
+ *  choice in the Mocks tab, its pictures as data URLs); null for none */
+export const MOCK_WORLD: WorldScript | null = ${jsonCode(mockWorld)}
 `),
         "src/generated/fixtures.ts": generated(`${GENERATED}
 /** the records pinned by hand in the design, by model: they come first, exactly as written */

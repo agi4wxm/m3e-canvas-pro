@@ -408,13 +408,13 @@ const listData = tool<{ rows?: number }>({
 
 /* ---------- pictures ---------- */
 
-type ShotArgs = { id: string; scale?: number; scenario?: string; params?: Record<string, unknown>; state?: RegionState; region?: string };
+type ShotArgs = { id: string; scale?: number; scenario?: string; params?: Record<string, unknown>; state?: RegionState; region?: string; world?: string; at?: number };
 
 const screenshot = tool<ShotArgs>({
   name: "screenshot",
   group: "read",
   description:
-    "A picture of a screen (or of one part, cut out of its screen) as the app draws it, to check your work by eye: alignment, spacing, overflow, contrast, anything missing. With scenario (a mock scenario's id, \"\" for the normal answers) the screen is drawn as the preview shows it: its data loaded from the mocks, lists repeated, words bound, each region in the state its data is in; the result says what each data source got. With state, the regions (or the one named by region) are drawn in that state (loading, empty, error, forbidden, ready). Open selects, menus and date pickers hang over the parts below them on the canvas by design; leave the layout as it is. The picture uses a fallback face a little wider than the real one, so a word cut short at the end of a tight line may be only the picture: check the outline before changing it.",
+    "A picture of a screen (or of one part, cut out of its screen) as the app draws it, to check your work by eye: alignment, spacing, overflow, contrast, anything missing. With scenario (a mock scenario's id, \"\" for the normal answers) the screen is drawn as the preview shows it: its data loaded from the mocks, lists repeated, words bound, each region in the state its data is in; the result says what each data source got. With state, the regions (or the one named by region) are drawn in that state (loading, empty, error, forbidden, ready). With world (a world script's id, \"\" for the one the preview starts with) and at (ms of world time), its world views are drawn as the mock world shows them then: the entities, hit points, score, the scene's words and picture; the result lists the events sent up to then. Open selects, menus and date pickers hang over the parts below them on the canvas by design; leave the layout as it is. The picture uses a fallback face a little wider than the real one, so a word cut short at the end of a tight line may be only the picture: check the outline before changing it.",
   input: obj(
     {
       id: str("a screen id or a part id"),
@@ -423,10 +423,12 @@ const screenshot = tool<ShotArgs>({
       params: { type: "object", description: "the params the screen is opened with, under a scenario (an id from the mocks is used when left out)" },
       state: { type: "string", enum: [...REGION_STATES], description: "draw the regions in this state" },
       region: str("with state: only this region (its container's id)"),
+      world: str('draw its world views as this world script shows them (get_mocks lists the scripts; "" for the one the preview starts with)'),
+      at: { type: "number", minimum: 0, description: "with world: the moment, in ms of world time (0 by default)" },
     },
     ["id"],
   ),
-  output: "a PNG; under a scenario also {data: what each source got and the state each region shows}",
+  output: "a PNG; under a scenario also {data: what each source got and the state each region shows}; with world also {data: {world: the script, the moment, the views drawn, the events sent}}",
   readOnly: true,
   destructive: false,
   async run(a, env) {
@@ -461,6 +463,19 @@ const screenshot = tool<ShotArgs>({
         doc = shown.doc;
       }
     }
+    let moment: unknown;
+    if (a.world !== undefined || a.at !== undefined) {
+      const { worldAt } = await import("../bindings/headless");
+      try {
+        const out = await worldAt(doc ?? (s.doc as Doc), { script: a.world, at: a.at, screen, widths: drawWidths ?? widths });
+        if (!out.moment.views.length) throw new Error(`${JSON.stringify(a.id)} shows no world view the script ${out.moment.script} plays on.`);
+        doc = out.doc;
+        moment = out.moment;
+      } catch (e) {
+        throw new ToolFailure("not_found", e instanceof Error ? e.message : String(e), "get_mocks lists the world scripts; set_mock_world {from: \"battle\"} adds one.");
+      }
+    }
+    if (moment) data = data ? { ...(data as object), world: moment } : { world: moment };
     if (!env.renderer) {
       if (data) return { result: { id: a.id, data, note: "No picture can be taken here; this is what the screen got." } };
       throw new ToolFailure("unavailable", "Pictures cannot be taken here (no renderer).", "Read the outline instead.");

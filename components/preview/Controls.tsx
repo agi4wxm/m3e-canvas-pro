@@ -10,7 +10,7 @@ import { PRESETS } from "@/lib/variants";
 import { flowStarts } from "@/lib/prototype";
 import { EASE } from "@/lib/screenMotion";
 import { Icon } from "../Icon";
-import { MockClockSwitch, MockScenarioSwitch, type PreviewMocks } from "../MockPreview";
+import { MockClockSwitch, MockScenarioSwitch, MockWorldSwitch, type PreviewMocks } from "../MockPreview";
 import { GameLoopSwitch } from "./GameLoopSwitch";
 import type { PreviewGameLoop } from "./gameLoop";
 
@@ -244,6 +244,7 @@ export function PreviewControls({
           </div>
           {gameLoop && <GameLoopSwitch loop={gameLoop} p={p} wide={wide} barBtn={{ ...barBtn, ...markOnly }} />}
           {mocks && <MockScenarioSwitch mocks={mocks} scenarios={doc.mocks?.scenarios ?? []} p={p} wide={wide} barBtn={{ ...barBtn, ...markOnly }} />}
+          {mocks && mocks.worlds.length > 0 && doc.groups.some((g) => g.items.some((it) => it.component === "world-view")) && <MockWorldSwitch mocks={mocks} p={p} wide={wide} barBtn={{ ...barBtn, ...markOnly }} />}
           {mocks && <MockClockSwitch mocks={mocks} p={p} wide={wide} barBtn={{ ...barBtn, ...markOnly }} />}
           {mocks && (
             <button data-preview-log-button aria-pressed={logOpen} onClick={onToggleLog} title={t("mocksLog", lang)} aria-label={t("mocksLog", lang)} className="m3-press" style={{ ...barBtn, ...markOnly, color: logOpen ? p.onSecondaryContainer : p.onSurfaceVariant, background: logOpen ? p.secondaryContainer : "transparent" }}>

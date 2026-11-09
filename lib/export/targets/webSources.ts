@@ -143,9 +143,9 @@ export function ScenarioPicker({ start, choose }: { start: string | undefined; c
 }
 `;
 
-export const MOCKS = (scope: string) => `${GENERATED}
+export const MOCKS = (scope: string, world = false) => `${GENERATED}
 import { createElement, type ReactNode } from "react"
-import { createMockTransport, startsSignedIn, type ScenarioName } from ${str(`${scope}/mocks`)}
+import { createMockTransport, startsSignedIn, ${world ? "MOCK_WORLD, " : ""}type ScenarioName } from ${str(`${scope}/mocks`)}${world ? `\nimport { setMockWorld } from "@/components/widgets/mockWorld"` : ""}
 import type { Transport, TransportRequest } from ${str(`${scope}/api`)}
 import { runtime, setTransport } from "./api"
 import { ScenarioPicker } from "./ScenarioPicker"
@@ -193,7 +193,9 @@ function remember(id: string) {
 /** Development only (main.tsx imports this behind import.meta.env.DEV): the API answers from the mocks, signed in as
  *  their session starts. "msw" serves them from a service worker instead, so they show in the browser's network panel.
  *  Gives back the scenario picker. */
-export async function startMocks(mode?: string): Promise<ReactNode> {
+export async function startMocks(mode?: string): Promise<ReactNode> {${world ? `
+  /* the world views' stand-ins play the design's world script, on the app's clock, until an engine is plugged in */
+  if (MOCK_WORLD) setMockWorld({ script: MOCK_WORLD })` : ""}
   const asked = scenarioAsked()
   if (mode === "msw") {
     const { startWorker } = await import(${str(`${scope}/mocks/browser`)})
