@@ -11,7 +11,7 @@ export function CartScreen() {
       <At x={16} y={80}>
         <Container
           label=""
-          ground="none"
+          ground=""
           border="none"
           radius={0}
           layout="column"
@@ -44,7 +44,13 @@ export function CartScreen() {
                         <Text text="Everyday canvas tote" width={250} maxLines={1} />
                       </Cell>
                       <Cell dir="column" fillWidth>
-                        <Text text="Sand / Large" styleVariant="caption" color="muted" width={250} maxLines={1} />
+                        <Text
+                          text="Sand / Large"
+                          styleVariant="caption"
+                          color="on-surface-variant"
+                          width={250}
+                          maxLines={1}
+                        />
                       </Cell>
                       <Cell dir="column" fillWidth>
                         <Box
@@ -84,7 +90,13 @@ export function CartScreen() {
                         <Text text="Ceramic mug" width={250} maxLines={1} />
                       </Cell>
                       <Cell dir="column" fillWidth>
-                        <Text text="Glazed white" styleVariant="caption" color="muted" width={250} maxLines={1} />
+                        <Text
+                          text="Glazed white"
+                          styleVariant="caption"
+                          color="on-surface-variant"
+                          width={250}
+                          maxLines={1}
+                        />
                       </Cell>
                       <Cell dir="column" fillWidth>
                         <Box
@@ -124,7 +136,13 @@ export function CartScreen() {
                         <Text text="Steel bottle" width={250} maxLines={1} />
                       </Cell>
                       <Cell dir="column" fillWidth>
-                        <Text text="Steel / 500 ml" styleVariant="caption" color="muted" width={250} maxLines={1} />
+                        <Text
+                          text="Steel / 500 ml"
+                          styleVariant="caption"
+                          color="on-surface-variant"
+                          width={250}
+                          maxLines={1}
+                        />
                       </Cell>
                       <Cell dir="column" fillWidth>
                         <Box
@@ -169,7 +187,7 @@ export function CartScreen() {
                     <Box layout="row" padX={0} padY={0} width={28} height={8} hugWidth={false} hugHeight={false} />
                   </Cell>
                   <Box gap={0} padX={0} padY={0} align="end" width={56} height={40}>
-                    <Text text="Total" styleVariant="tiny" color="muted" fit="auto" />
+                    <Text text="Total" styleVariant="tiny" color="on-surface-variant" fit="auto" />
                     <Text text={"$68.00"} styleVariant="heading" color="primary" fit="auto" />
                   </Box>
                   <Button label="Checkout (4)" onPress={() => nav.go("Checkout")} />
@@ -191,7 +209,7 @@ export function CartScreen() {
           <Cell dir="column" fillWidth>
             <Container
               label=""
-              ground="none"
+              ground=""
               border="none"
               radius={0}
               layout="grid"

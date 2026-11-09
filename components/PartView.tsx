@@ -17,6 +17,8 @@ import { REMEASURE } from "@/parts/contained";
 import type { PNode } from "@/parts/node";
 import { withoutOutside } from "@/lib/outside";
 import { outsideBlocked, subscribeOutside } from "@/lib/outsidePolicy";
+import { assetCatalogVersion, drawnAssetUrl, subscribeAssetCatalog } from "@/lib/assetCatalog";
+import { withAssetUrls } from "@/lib/assetRefs";
 
 const NOTHING: PNode = { type: "span" };
 const NONE: readonly string[] = [];
@@ -120,7 +122,14 @@ function PartViewBody({ item: own, live = false, screen, held = false }: PartVie
   const lang = useLang();
   /* a project from elsewhere fetches nothing from other sites until the author allows it (lib/outside.ts) */
   const blocked = useSyncExternalStore(subscribeOutside, outsideBlocked, outsideBlocked);
-  const props = useMemo(() => (blocked && def ? withoutOutside(def, item.props) : item.props), [blocked, def, item.props]);
+  /* an asset of the pipeline's (`asset:<id>`) is drawn from the project's manifest as it is now (lib/assetCatalog.ts):
+   * a picture swapped there is drawn anew, one taken out draws the placeholder */
+  const assets = useSyncExternalStore(subscribeAssetCatalog, assetCatalogVersion, assetCatalogVersion);
+  const props = useMemo(() => {
+    const own = blocked && def ? withoutOutside(def, item.props) : item.props;
+    return def ? withAssetUrls(def, own, drawnAssetUrl) : own;
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `assets` is the catalog's version: drawnAssetUrl reads it
+  }, [blocked, def, item.props, assets]);
   const tree = useMemo(() => (def ? viewOf(def, props, appearanceOf(item), screen, live && !held, item.id) : null), [def, props, item.fill, item.textColor, item.corners, item.look, item.id, screen?.w, screen?.h, live, held, lang]);
   /* the icon component is memoized: icons that arrive after the first draw show only in a fresh tree */
   const icons = useIcons(tree ?? NOTHING);

@@ -8,6 +8,7 @@
  * lib/printBehaviour.ts asks this for what a part shows and what a tap does; lib/codegen.ts for a screen's hooks, its
  * repeats and its imports. Expressions reach code only as escaped strings (`str`), names only through `identifierOf`. */
 
+import { colorChoicesOf } from "../parts/color";
 import type { ApiOperation } from "./export/api";
 import { answerShape, clientCallCode, fieldRule, fillCode, holdsCode, listCode, pageSizeOf, paneState, paramPlaces, placeArgs, readCode, readOf, regionOptions } from "./export/bindCode";
 import { endpointOf, formFields, type FieldSpec } from "./bindings/contract";
@@ -252,8 +253,8 @@ export class BoundPrint {
       if (read === "text" ? !WORDS.has(d.kind) : read !== "num" && read !== "bool" && read !== "pick") return null;
       if (read === "num" && d.kind === "number") return { code: readCode(read, $, expr, [str(typeof design === "number" ? design : 0), ...(Number.isFinite(d.min) ? [`${d.min}`] : []), ...(Number.isFinite(d.max) ? [`${d.max}`] : [])]) };
       if (read === "bool") return { code: readCode(read, $, expr, [`${design === true}`]) };
-      if (read === "pick" && d.kind === "enum") {
-        const options = d.options.map((o) => (typeof o === "string" ? o : o.value));
+      if (read === "pick" && (d.kind === "enum" || d.kind === "color")) {
+        const options = d.kind === "color" ? colorChoicesOf(d) : d.options.map((o) => (typeof o === "string" ? o : o.value));
         const own = String(design ?? d.default);
         const named = literalsOf(expr).filter((x) => options.includes(x));
         const can = named.length ? [...new Set([...named, own])] : options;

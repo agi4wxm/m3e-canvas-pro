@@ -39,8 +39,8 @@ const tabBar = kit(
           { surface: "bar", pin: "bottom", width: SCREEN, hugWidth: false, padX: 8, padY: 12, gap: 8, align: "start" },
           TABS.map(([name, label], i) =>
             tabItem([
-              box({ layout: "row", align: "center", justify: "center", padX: 0, padY: 0, width: 64, height: 32, hugWidth: false, hugHeight: false }, [icon(name, { filled: i === 0, color: i === 0 ? "default" : "muted" })], i === 0 ? { fill: "secondaryContainer", corners: round(16) } : {}),
-              text(label, "caption", { bold: i === 0, color: i === 0 ? "default" : "muted" }),
+              box({ layout: "row", align: "center", justify: "center", padX: 0, padY: 0, width: 64, height: 32, hugWidth: false, hugHeight: false }, [icon(name, { filled: i === 0, color: i === 0 ? "" : "on-surface-variant" })], i === 0 ? { fill: "secondaryContainer", corners: round(16) } : {}),
+              text(label, "caption", { bold: i === 0, color: i === 0 ? "" : "on-surface-variant" }),
             ]),
           ),
         ),
@@ -53,7 +53,7 @@ const tabBar = kit(
       (l) =>
         hbox(
           { surface: "bar", pin: "bottom", width: SCREEN, hugWidth: false, padX: 8, padY: l.nav === "icononly" ? 12 : 6, gap: 0, align: "start" },
-          TABS.map(([name, label], i) => tabItem([icon(name, { size: 26, filled: true, color: i === 0 ? "primary" : "muted" }), ...(l.nav === "icononly" ? [] : [text(label, "tiny", { bold: i === 0, color: i === 0 ? "primary" : "muted" })])], 2)),
+          TABS.map(([name, label], i) => tabItem([icon(name, { size: 26, filled: true, color: i === 0 ? "primary" : "on-surface-variant" }), ...(l.nav === "icononly" ? [] : [text(label, "tiny", { bold: i === 0, color: i === 0 ? "primary" : "on-surface-variant" })])], 2)),
         ),
       { span: "screen", suits: (l) => l.nav === "plain" || l.nav === "icononly" || l.nav === "topline" },
     ),
@@ -66,7 +66,7 @@ const tabBar = kit(
         hbox(
           { surface: "overlay", pin: "floatingBottom", padX: 4, padY: 4, gap: 0 },
           TABS.map(([name, label], i) =>
-            vbox({ align: "center", gap: 0, padX: 0, padY: 6, hugWidth: false, width: 76 }, [icon(name, { size: 24, filled: true, color: i === 0 ? "primary" : "default" }), text(label, "tiny", { bold: true, color: i === 0 ? "primary" : "default" })], i === 0 ? { fill: "surfaceContainerHighest", corners: round(26) } : {}),
+            vbox({ align: "center", gap: 0, padX: 0, padY: 6, hugWidth: false, width: 76 }, [icon(name, { size: 24, filled: true, color: i === 0 ? "primary" : "" }), text(label, "tiny", { bold: true, color: i === 0 ? "primary" : "" })], i === 0 ? { fill: "surfaceContainerHighest", corners: round(26) } : {}),
           ),
           { corners: round(32) },
         ),
@@ -82,7 +82,7 @@ const tabBar = kit(
           TABS.map(([name, label], i) =>
             i === 0
               ? vbox({ surface: "button", align: "center", gap: 2, padY: 10, hugWidth: false, width: 80 }, [icon(name, { size: 30, filled: true, color: "on-primary" }), text(label, "caption", { bold: true, color: "on-primary" })], { grow: true, corners: round(14), look: LIP })
-              : vbox({ surface: "well", align: "center", gap: 2, padY: 6, hugWidth: false, width: 80 }, [icon(name, { size: 26, filled: true, color: "muted" }), text(label, "caption", { bold: true, color: "muted" })], { grow: true, corners: round(14) }),
+              : vbox({ surface: "well", align: "center", gap: 2, padY: 6, hugWidth: false, width: 80 }, [icon(name, { size: 26, filled: true, color: "on-surface-variant" }), text(label, "caption", { bold: true, color: "on-surface-variant" })], { grow: true, corners: round(14) }),
           ),
         ),
       { span: "screen", suits: isGame },
@@ -109,7 +109,7 @@ const segmented = kit(
           hbox(
             { gap: 0, align: "start" },
             SEGMENTS.map((label, i) =>
-              vbox({ align: "center", gap: 0, hugWidth: false, width: 100 }, [hbox({ padX: 0, padY: 14 }, [text(label, "label", { bold: i === 0, color: i === 0 ? "primary" : "muted" })]), box({ layout: "row", padX: 0, padY: 0, width: 48, height: 3, hugWidth: false, hugHeight: false }, [], i === 0 ? { fill: "primary", corners: { tl: 3, tr: 3, br: 0, bl: 0 } } : {})], { grow: true }),
+              vbox({ align: "center", gap: 0, hugWidth: false, width: 100 }, [hbox({ padX: 0, padY: 14 }, [text(label, "label", { bold: i === 0, color: i === 0 ? "primary" : "on-surface-variant" })]), box({ layout: "row", padX: 0, padY: 0, width: 48, height: 3, hugWidth: false, hugHeight: false }, [], i === 0 ? { fill: "primary", corners: { tl: 3, tr: 3, br: 0, bl: 0 } } : {})], { grow: true }),
             ),
           ),
           rule(SCREEN),
@@ -184,7 +184,7 @@ const toolbar = kit(
 );
 
 const CRUMBS = [say("Projects", "项目", "プロジェクト", "프로젝트"), say("Design", "设计", "デザイン", "디자인"), say("Mobile app", "移动应用", "モバイルアプリ", "모바일 앱")];
-const chevron = () => icon("chevron_right", { size: 16, color: "muted" });
+const chevron = () => icon("chevron_right", { size: 16, color: "on-surface-variant" });
 
 const breadcrumb = kit(
   "breadcrumb-bar",
@@ -195,7 +195,7 @@ const breadcrumb = kit(
   "a row of the way down: a home icon, muted levels parted by chevrons and the current one in bold; on desktop slashes and the page's actions at the far end; on a phone a back button before the last two levels",
   [
     variant("chevrons", "Chevrons", ["箭头分隔", "矢印区切り", "화살표 구분"], () =>
-      hbox({ gap: 4 }, [icon("home", { size: 18, color: "muted" }), chevron(), muted(CRUMBS[0]), chevron(), muted(CRUMBS[1]), chevron(), text(CRUMBS[2], "body", { bold: true })]),
+      hbox({ gap: 4 }, [icon("home", { size: 18, color: "on-surface-variant" }), chevron(), muted(CRUMBS[0]), chevron(), muted(CRUMBS[1]), chevron(), text(CRUMBS[2], "body", { bold: true })]),
     ),
     variant(
       "page",
@@ -233,7 +233,7 @@ const sidebar = kit(
     variant("drawer", "Drawer", ["抽屉导航", "ドロワー", "서랍"], () =>
       vbox({ surface: "sheet", width: 300, hugWidth: false, padX: 12, padY: 12, gap: 0 }, [
         hbox({ padX: 16, padY: 16 }, [text(say("Mail", "邮件", "メール", "메일"), "title")]),
-        ...MAIL.map(([name, label, n], i) => hbox({ padX: 16, padY: 16, gap: 12 }, [icon(name, { filled: i === 0, color: i === 0 ? "default" : "muted" }), para(label, "label", { bold: i === 0, maxLines: 1 }, { grow: true }), ...(n ? [text(n, "label", { color: "muted" })] : [])], i === 0 ? { fill: "secondaryContainer", corners: round(28) } : {})),
+        ...MAIL.map(([name, label, n], i) => hbox({ padX: 16, padY: 16, gap: 12 }, [icon(name, { filled: i === 0, color: i === 0 ? "" : "on-surface-variant" }), para(label, "label", { bold: i === 0, maxLines: 1 }, { grow: true }), ...(n ? [text(n, "label", { color: "on-surface-variant" })] : [])], i === 0 ? { fill: "secondaryContainer", corners: round(28) } : {})),
       ]),
     ),
     variant(
@@ -243,7 +243,7 @@ const sidebar = kit(
       () =>
         vbox({ surface: "panel", width: 240, hugWidth: false, padX: 8, padY: 12, gap: 2 }, [
           hbox({ padX: 10, padY: 4 }, [muted(say("Mailboxes", "邮箱", "メールボックス", "편지함"), "caption", { bold: true })]),
-          ...MAIL.map(([name, label, n], i) => hbox({ padX: 10, padY: 6, gap: 10 }, [icon(name, { size: 18, color: i === 0 ? "primary" : "muted" }), para(label, "body", { maxLines: 1 }, { grow: true }), ...(n ? [muted(n, "caption")] : [])], i === 0 ? { fill: "surfaceContainerHigh", corners: round(6) } : {})),
+          ...MAIL.map(([name, label, n], i) => hbox({ padX: 10, padY: 6, gap: 10 }, [icon(name, { size: 18, color: i === 0 ? "primary" : "on-surface-variant" }), para(label, "body", { maxLines: 1 }, { grow: true }), ...(n ? [muted(n, "caption")] : [])], i === 0 ? { fill: "surfaceContainerHigh", corners: round(6) } : {})),
         ]),
       { suits: isDense },
     ),
@@ -274,7 +274,7 @@ const tabStrip = kit(
   [
     variant("browser", "Browser tabs", ["浏览器标签", "ブラウザのタブ", "브라우저 탭"], () =>
       hbox({ surface: "bar", width: 640, hugWidth: false, padX: 8, padY: 6, gap: 4 }, [
-        ...PAGES.map((title, i) => hbox({ padX: 10, padY: 7, gap: 8, hugWidth: false, width: 180 }, [icon("travel_explore", { size: 16, color: i === 0 ? "primary" : "muted" }), para(title, "caption", { maxLines: 1, color: i === 0 ? "default" : "muted" }, { grow: true }), icon("close", { size: 16, color: "muted" })], i === 0 ? { fill: "surface", corners: round(8) } : {})),
+        ...PAGES.map((title, i) => hbox({ padX: 10, padY: 7, gap: 8, hugWidth: false, width: 180 }, [icon("travel_explore", { size: 16, color: i === 0 ? "primary" : "on-surface-variant" }), para(title, "caption", { maxLines: 1, color: i === 0 ? "" : "on-surface-variant" }, { grow: true }), icon("close", { size: 16, color: "on-surface-variant" })], i === 0 ? { fill: "surface", corners: round(8) } : {})),
         iconButton("add", say("New tab", "新标签页", "新しいタブ", "새 탭"), { size: "xs" }),
       ]),
     ),
@@ -287,7 +287,7 @@ const tabStrip = kit(
           { surface: "bar", width: 640, hugWidth: false, padX: 0, padY: 0, gap: 0, align: "start" },
           FILES.flatMap((f, i) => [
             /* a tab of a set width, so the line along the top of the open one runs its whole width */
-            vbox({ gap: 0, padX: 0, padY: 0, hugWidth: false, width: 148 }, [box({ layout: "row", padX: 0, padY: 0, hugWidth: false, hugHeight: false, width: 8, height: 2 }, [], i === 0 ? { fill: "primary" } : {}), hbox({ padX: 12, padY: 8, gap: 6 }, [icon("description", { size: 16, color: i === 0 ? "primary" : "muted" }), para(f, "caption", { maxLines: 1, color: i === 0 ? "default" : "muted" }, { grow: true }), icon("close", { size: 16, color: i === 0 ? "default" : "muted" })])], i === 0 ? { fill: "surface" } : {}),
+            vbox({ gap: 0, padX: 0, padY: 0, hugWidth: false, width: 148 }, [box({ layout: "row", padX: 0, padY: 0, hugWidth: false, hugHeight: false, width: 8, height: 2 }, [], i === 0 ? { fill: "primary" } : {}), hbox({ padX: 12, padY: 8, gap: 6 }, [icon("description", { size: 16, color: i === 0 ? "primary" : "on-surface-variant" }), para(f, "caption", { maxLines: 1, color: i === 0 ? "" : "on-surface-variant" }, { grow: true }), icon("close", { size: 16, color: i === 0 ? "" : "on-surface-variant" })])], i === 0 ? { fill: "surface" } : {}),
             rule(34, true),
           ]),
         ),
@@ -367,7 +367,7 @@ const statusRow = kit(
       "game",
       "Game readout",
       ["游戏状态读数", "ゲームの表示", "게임 표시"],
-      () => hbox({ surface: "chip", padX: 10, padY: 4, gap: 12 }, [status("wifi", "32 ms", "default"), status("", say("60 FPS", "60 FPS", "60 FPS", "60 FPS"), "default"), status("battery_5_bar", "82%", "default")], { corners: round(12) }),
+      () => hbox({ surface: "chip", padX: 10, padY: 4, gap: 12 }, [status("wifi", "32 ms", ""), status("", say("60 FPS", "60 FPS", "60 FPS", "60 FPS"), ""), status("battery_5_bar", "82%", "")], { corners: round(12) }),
       { suits: isGame },
     ),
   ],

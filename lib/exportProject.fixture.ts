@@ -165,10 +165,10 @@ export function reuseDoc(): { doc: Doc; widths: Record<string, number> } {
   const DOCKED = "r-docked";
   const x = (i: number) => i * (PHONE_W + FRAME_GAP);
   const go = (to: string): Action => ({ to });
-  const box = (id: string, gx: number, gy: number, props: Record<string, unknown>, more: Partial<Group> = {}): Group => ({ id, x: gx, y: gy, axis: "x", ...more, items: [part(`${id}-part`, "container", { label: "", fill: "none", border: "none", radius: 0, padX: 0, padY: 0, gap: 8, hugHeight: true, hugWidth: true, width: 380, height: 80, ...props })] });
+  const box = (id: string, gx: number, gy: number, props: Record<string, unknown>, more: Partial<Group> = {}): Group => ({ id, x: gx, y: gy, axis: "x", ...more, items: [part(`${id}-part`, "container", { label: "", fill: "", border: "none", radius: 0, padX: 0, padY: 0, gap: 8, hugHeight: true, hugWidth: true, width: 380, height: 80, ...props })] });
   const inside = (id: string, host: string, item: Item, more: Partial<Group> = {}): Group => ({ id, x: 0, y: 0, axis: "x", inFlow: host, items: [item], ...more });
   const plain = (id: string, gx: number, gy: number, item: Item, more: Partial<Group> = {}): Group => ({ id, x: gx, y: gy, axis: "x", items: [item], ...more });
-  const instance = (id: string, of: string, gx: number, gy: number, more: Partial<Group> = {}): Group => ({ id, x: gx, y: gy, axis: "x", instanceOf: of, ...more, items: [part(`${id}-part`, "container", { label: "", fill: "none", border: "none", radius: 0, width: 200, height: 100 })] });
+  const instance = (id: string, of: string, gx: number, gy: number, more: Partial<Group> = {}): Group => ({ id, x: gx, y: gy, axis: "x", instanceOf: of, ...more, items: [part(`${id}-part`, "container", { label: "", fill: "", border: "none", radius: 0, width: 200, height: 100 })] });
   const sized = (id: string, name: string, groups: Group[]): ComponentDef => ({ id, name, w: 240, h: 160, groups });
 
   const promo = sized("c-promo", "Promo", [
@@ -293,7 +293,7 @@ export function systemsDoc(): { doc: Doc; widths: Record<string, number> } {
     ],
   });
   const components = [variant("c-rest", "Rest", "Rest"), variant("c-down", "Down", "Down")];
-  const instance = (id: string, of: string, gx: number, gy: number, more: Partial<Group> = {}): Group => ({ id, x: gx, y: gy, axis: "x", instanceOf: of, ...more, items: [part(`${id}-part`, "container", { label: "", fill: "none", border: "none", radius: 0, width: 200, height: 96 })] });
+  const instance = (id: string, of: string, gx: number, gy: number, more: Partial<Group> = {}): Group => ({ id, x: gx, y: gy, axis: "x", instanceOf: of, ...more, items: [part(`${id}-part`, "container", { label: "", fill: "", border: "none", radius: 0, width: 200, height: 96 })] });
   const tinted = (id: string, gx: number, gy: number): Group => plain(id, gx, gy, part(`${id}-p`, "box", { surface: "card", layout: "free", width: 200, height: 80 }, { bind: { "@fill": '=vars["v-brand"]', "@opacity": '=vars["v-fade"]' } }));
   const groups: Group[] = [
     instance("i-rest", "c-rest", x(0) + 16, 40, { properties: { "p-label": "Buy" } }),

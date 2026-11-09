@@ -6,6 +6,8 @@ import type { PartDef } from "../types";
 
 /** only the web: a saved `javascript:` address must not run */
 const webAddress = (url: string) => (/^https?:\/\//i.test(url) ? url : "");
+/** a clip: the web, or an asset of the pipeline's as the editor reads it from the project's folder (lib/assetCatalog.ts) */
+const clipAddress = (url: string) => (/^(?:blob:|data:video\/)/i.test(url) ? url : webAddress(url));
 
 const frame = "bg-surface-container-high flex flex-col items-center justify-center gap-1 overflow-hidden rounded-xl";
 
@@ -27,7 +29,7 @@ export const media: PartDef[] = [
     ],
     tree: (p) => {
       const width = Math.round(p.n("width"));
-      const src = webAddress(p.s("src"));
+      const src = clipAddress(p.s("src"));
       if (src) return h("video", { "data-slot": "video", src, controls: true, className: "rounded-xl bg-inverse-surface", style: { width, height: Math.round((width * 9) / 16) } });
       return h(
         "div",

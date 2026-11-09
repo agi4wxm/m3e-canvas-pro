@@ -236,6 +236,7 @@ function readmeSource(ctx: ProductContext, ws: Workspace[]): string {
 | --- | --- |
 ${rows("zh")}
 | \`.m3e/manifest.json\` | 导出清单：每个生成文件和它的哈希 |
+| \`.m3e/gaps.json\` | 缺口文件：设计依赖、外部模块（资产管线等）还没有提供的东西，给中枢读 |
 
 ## 运行
 

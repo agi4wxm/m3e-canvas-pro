@@ -99,15 +99,15 @@ const thinking = kit(
   "psychology",
   "a row saying how long it thought with a chevron that opens it; open, an outlined box with that row over the reasoning in muted words; or a spinner while it is still thinking",
   [
-    variant("closed", "Closed", ["收起", "閉じた状態", "닫힘"], () => hbox({ gap: 6 }, [icon("lightbulb", { size: 18, color: "muted" }), muted(THOUGHT, "label"), icon("chevron_right", { size: 18, color: "muted" })])),
+    variant("closed", "Closed", ["收起", "閉じた状態", "닫힘"], () => hbox({ gap: 6 }, [icon("lightbulb", { size: 18, color: "on-surface-variant" }), muted(THOUGHT, "label"), icon("chevron_right", { size: 18, color: "on-surface-variant" })])),
     variant(
       "open",
       "Open, in a box",
       ["展开，带边框", "開いた状態・枠付き", "펼침·테두리"],
       () =>
         vbox({ surface: "chip", width: W, hugWidth: false, padX: 14, padY: 12, gap: 8 }, [
-          hbox({ justify: "between" }, [hbox({ gap: 6 }, [icon("lightbulb", { size: 18, color: "muted" }), text(THOUGHT, "label")]), icon("expand_less", { size: 18, color: "muted", filled: true })]),
-          para(REASONING, "body", { color: "muted" }),
+          hbox({ justify: "between" }, [hbox({ gap: 6 }, [icon("lightbulb", { size: 18, color: "on-surface-variant" }), text(THOUGHT, "label")]), icon("expand_less", { size: 18, color: "on-surface-variant", filled: true })]),
+          para(REASONING, "body", { color: "on-surface-variant" }),
         ], { corners: round(12) }),
       { suits: (l) => l.card === "paper" || l.card === "outlined" },
     ),
@@ -126,15 +126,15 @@ const toolStep = kit(
   "a row: a done mark or a spinner, what the assistant did, a muted detail and a chevron; or an outlined box with a tool tile, its name, a status tag and its output in a well",
   [
     variant("done", "Done", ["已完成", "完了", "완료"], () =>
-      hbox({ width: W, hugWidth: false, gap: 10 }, [icon("check_circle", { size: 20, color: "primary", filled: true }), text(say("Searched the web", "已搜索网页", "ウェブを検索しました", "웹을 검색함"), "label"), muted(say("8 results", "8 条结果", "8 件", "결과 8개"), "caption"), box({ layout: "row", padX: 0, padY: 0, hugWidth: false, width: 8, height: 8 }, [], { grow: true }), icon("chevron_right", { size: 18, color: "muted" })]),
+      hbox({ width: W, hugWidth: false, gap: 10 }, [icon("check_circle", { size: 20, color: "primary", filled: true }), text(say("Searched the web", "已搜索网页", "ウェブを検索しました", "웹을 검색함"), "label"), muted(say("8 results", "8 条结果", "8 件", "결과 8개"), "caption"), box({ layout: "row", padX: 0, padY: 0, hugWidth: false, width: 8, height: 8 }, [], { grow: true }), icon("chevron_right", { size: 18, color: "on-surface-variant" })]),
     ),
     variant("running", "Running", ["进行中", "実行中", "실행 중"], () =>
-      hbox({ width: W, hugWidth: false, gap: 10 }, [busy(), text(say("Reading 3 files", "正在读取 3 个文件", "3 ファイルを読み込み中", "파일 3개 읽는 중"), "label"), para(say("src/app.ts, src/routes.ts…", "src/app.ts、src/routes.ts…", "src/app.ts、src/routes.ts…", "src/app.ts, src/routes.ts…"), "caption", { color: "muted", maxLines: 1 }, { grow: true })]),
+      hbox({ width: W, hugWidth: false, gap: 10 }, [busy(), text(say("Reading 3 files", "正在读取 3 个文件", "3 ファイルを読み込み中", "파일 3개 읽는 중"), "label"), para(say("src/app.ts, src/routes.ts…", "src/app.ts、src/routes.ts…", "src/app.ts、src/routes.ts…", "src/app.ts, src/routes.ts…"), "caption", { color: "on-surface-variant", maxLines: 1 }, { grow: true })]),
     ),
     variant("card", "In a box with output", ["带输出的框", "出力付きの枠", "출력이 있는 상자"], () =>
       vbox({ surface: "chip", width: W, hugWidth: false, padX: 12, padY: 12, gap: 10 }, [
         hbox({ gap: 10 }, [tile("terminal", "surfaceContainerHigh", 28, 18, 8), para(say("Ran a command", "运行了命令", "コマンドを実行", "명령 실행함"), "label", { maxLines: 1 }, { grow: true }), tag(say("Done", "完成", "完了", "완료"))]),
-        vbox({ surface: "well", padX: 12, padY: 10, gap: 2 }, [para(say("$ npm test", "$ npm test", "$ npm test", "$ npm test"), "caption", {}, { look: { font: "mono" } }), para(say("42 passed, 0 failed", "42 个通过，0 个失败", "42 件成功、0 件失敗", "42개 통과, 0개 실패"), "caption", { color: "muted" }, { look: { font: "mono" } })], { corners: round(8) }),
+        vbox({ surface: "well", padX: 12, padY: 10, gap: 2 }, [para(say("$ npm test", "$ npm test", "$ npm test", "$ npm test"), "caption", {}, { look: { font: "mono" } }), para(say("42 passed, 0 failed", "42 个通过，0 个失败", "42 件成功、0 件失敗", "42개 통과, 0개 실패"), "caption", { color: "on-surface-variant" }, { look: { font: "mono" } })], { corners: round(8) }),
       ], { corners: round(12) }),
     ),
   ],
@@ -202,7 +202,7 @@ const suggestions = kit(
       vbox({ width: W, hugWidth: false, gap: 0 }, [
         text(say("Related", "相关问题", "関連", "관련 질문"), "heading", { bold: true }),
         ...[say("Best time to visit Kyoto?", "京都什么时候去最好？", "京都のベストシーズンは？", "교토 가기 좋은 때는?"), say("How to get from Osaka to Kyoto", "大阪怎么去京都", "大阪から京都への行き方", "오사카에서 교토 가는 법")].map((q) =>
-          hbox({ padX: 0, padY: 12, gap: 12 }, [icon("subdirectory_arrow_right", { size: 20, color: "muted", filled: true }), para(q, "body", { maxLines: 1 }, { grow: true }), icon("add", { size: 20, color: "primary" })]),
+          hbox({ padX: 0, padY: 12, gap: 12 }, [icon("subdirectory_arrow_right", { size: 20, color: "on-surface-variant", filled: true }), para(q, "body", { maxLines: 1 }, { grow: true }), icon("add", { size: 20, color: "primary" })]),
         ),
       ]),
     ),
@@ -229,7 +229,7 @@ const attachments = kit(
       hbox({ gap: 8 }, [image({ width: 64, height: 64, alt: "" }), image({ width: 64, height: 64, alt: "" }), image({ width: 64, height: 64, alt: "" }), box({ surface: "well", layout: "row", align: "center", justify: "center", padX: 0, padY: 0, width: 64, height: 64, hugWidth: false, hugHeight: false }, [text("+2", "label", { bold: true })], { corners: round(12) })]),
     ),
     variant("small", "Small chips", ["小标签", "小さなチップ", "작은 칩"], () =>
-      hbox({ gap: 6, wrap: true, width: W, hugWidth: false, align: "start" }, NAMES.map((n) => hbox({ surface: "chip", padX: 10, padY: 4, gap: 6 }, [icon("attach_file", { size: 16, color: "muted" }), text(n, "caption"), icon("close", { size: 16, color: "muted" })], { corners: round(16) }))),
+      hbox({ gap: 6, wrap: true, width: W, hugWidth: false, align: "start" }, NAMES.map((n) => hbox({ surface: "chip", padX: 10, padY: 4, gap: 6 }, [icon("attach_file", { size: 16, color: "on-surface-variant" }), text(n, "caption"), icon("close", { size: 16, color: "on-surface-variant" })], { corners: round(16) }))),
     ),
   ],
 );
@@ -273,7 +273,7 @@ const citations = kit(
       hbox({ gap: 4, wrap: true, width: W, hugWidth: false, align: "center" }, [text(say("Fushimi Inari opens all day.", "伏见稻荷全天开放。", "伏見稲荷は終日開いています。", "후시미 이나리는 종일 개방됩니다."), "body"), tag("1"), tag("2")]),
     ),
     variant("sites", "Site chips", ["网站标签", "サイトチップ", "사이트 칩"], () =>
-      hbox({ gap: 6, wrap: true, width: W, hugWidth: false, align: "start" }, SOURCES.map((s) => hbox({ surface: "chip", padX: 8, padY: 4, gap: 6 }, [icon("travel_explore", { size: 16, color: "muted" }), text(s, "caption")], { corners: round(14) }))),
+      hbox({ gap: 6, wrap: true, width: W, hugWidth: false, align: "start" }, SOURCES.map((s) => hbox({ surface: "chip", padX: 8, padY: 4, gap: 6 }, [icon("travel_explore", { size: 16, color: "on-surface-variant" }), text(s, "caption")], { corners: round(14) }))),
     ),
     variant("stack", "Stacked sources", ["来源汇总", "ソースのまとめ", "출처 모음"], () =>
       hbox({ surface: "chip", padX: 8, padY: 4, gap: 8 }, [avatar("A", { size: "sm", count: 3 }), text(say("12 sources", "12 个来源", "12 件のソース", "출처 12개"), "label")], { corners: round(20) }),
@@ -299,7 +299,7 @@ const greeting = kit(
     variant("grid", "Question and starter cards", ["问题和建议卡片", "質問と提案カード", "질문과 추천 카드"], () =>
       vbox({ width: W, hugWidth: false, gap: 24, align: "center" }, [
         text(say("What can I help with?", "有什么可以帮忙的？", "何かお手伝いできますか？", "무엇을 도와드릴까요?"), "headline", { align: "center" }),
-        box({ layout: "grid", columns: 2, gap: 8, padX: 0, padY: 0, align: "stretch", width: W, hugWidth: false }, STARTERS.map(([a, b]) => vbox({ surface: "chip", padX: 12, padY: 10, gap: 2 }, [para(a, "label", { bold: true, maxLines: 1 }), para(b, "caption", { color: "muted", maxLines: 1 })], { corners: round(14) }))),
+        box({ layout: "grid", columns: 2, gap: 8, padX: 0, padY: 0, align: "stretch", width: W, hugWidth: false }, STARTERS.map(([a, b]) => vbox({ surface: "chip", padX: 12, padY: 10, gap: 2 }, [para(a, "label", { bold: true, maxLines: 1 }), para(b, "caption", { color: "on-surface-variant", maxLines: 1 })], { corners: round(14) }))),
       ]),
     ),
     variant(
@@ -317,7 +317,7 @@ const greeting = kit(
       vbox({ width: W, hugWidth: false, gap: 16 }, [
         vbox({ gap: 2 }, [
           text(say("Hello, Alex", "你好，Alex", "こんにちは、Alex さん", "안녕하세요, Alex"), "display", {}, { look: { text: { gradient: { type: "linear", angle: 90, stops: [{ color: "primary", at: 0 }, { color: "tertiary", at: 100 }] } } } }),
-          text(say("How can I help today?", "今天想做点什么？", "今日は何をしましょう？", "오늘 무엇을 도와드릴까요?"), "headline", { color: "muted" }),
+          text(say("How can I help today?", "今天想做点什么？", "今日は何をしましょう？", "오늘 무엇을 도와드릴까요?"), "headline", { color: "on-surface-variant" }),
         ]),
         hbox({ gap: 8, wrap: true, width: W, hugWidth: false, align: "start" }, IDEAS.slice(0, 3).map((w) => chip(w))),
       ]),

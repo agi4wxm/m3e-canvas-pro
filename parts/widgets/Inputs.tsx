@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import type { Look } from "./look";
+import { PAINTABLE, type Look } from "./look";
 import { cn } from "@/lib/m3e/cn";
 import { Button } from "@/components/m3e/button";
 import { FilterChip, InputChip } from "@/components/m3e/chip";
@@ -12,10 +12,8 @@ import { useValue } from "./seed";
 /* What a person picks or enters beyond a plain field. Written here on the shadcn M3E controls, after
  * flutter_shadcn_kit's chip input, dropzone, item picker and multiple choice, and Miuix's number picker
  * and color palette. Each is an input (docs/组件规范.md "受控值和草稿"): its value is a prop, handed out on every
- * change, and while someone takes it the prop is what shows. An author's colors are data, not theme roles, so they
- * are written as given. */
-
-const HEX = /^#[0-9a-f]{3,8}$/i;
+ * change, and while someone takes it the prop is what shows. A palette's colors are worked out to CSS by its part
+ * (parts/color.ts) and painted only when they are one (`PAINTABLE`). */
 
 /** words as a list: the list itself, or one a line (as a variable holds a list) */
 const wordsOf = (v: string[] | string) => (Array.isArray(v) ? v.filter((w) => typeof w === "string") : String(v).split("\n").filter((w) => w.trim()));
@@ -135,15 +133,15 @@ export function ItemPicker({ items = [], columns = 4, selected = 0, width = 320,
   );
 }
 
-/** rows counted from 1 in words like "1,3" (or places from 0, as code may give them), as places from 0 */
-const placesOf = (picked: string | number[]) => (Array.isArray(picked) ? picked.filter((n) => Number.isInteger(n) && n >= 0) : [...new Set(String(picked).split(/[\s,，]+/).map((x) => Number(x) - 1).filter((n) => Number.isInteger(n) && n >= 0))]);
-/** places as the words that hold them: counted from 1, in order */
-const wordsOfPlaces = (at: number[]) => [...at].sort((a, b) => a - b).map((n) => n + 1).join(",");
+/** the rows picked, by their places from 0 in words like "0,2" (or as a list of places), as places */
+const placesOf = (picked: string | number[]) => (Array.isArray(picked) ? picked.filter((n) => Number.isInteger(n) && n >= 0) : [...new Set(String(picked).split(/[\s,，]+/).filter(Boolean).map(Number).filter((n) => Number.isInteger(n) && n >= 0))]);
+/** places as the words that hold them, in order */
+const wordsOfPlaces = (at: number[]) => [...at].sort((a, b) => a - b).join(",");
 
-/* A choice of several: `selected` is the value, the rows picked counted from 1 ("1,3"), handed out on every change. */
-export function MultiSelect({ items = [], selected = "", width = 320, demo, onValueChange, onEvent, wired, className, style }: { items?: string[]; selected?: string | number[]; width?: number } & HostProps & Look) {
+/* A choice of several: `picked` is the value, the rows picked by their places from 0 ("0,2"), handed out on every change. */
+export function MultiSelect({ items = [], picked = "", width = 320, demo, onValueChange, onEvent, wired, className, style }: { items?: string[]; picked?: string | number[]; width?: number } & HostProps & Look) {
   const host = useHost({ demo, onValueChange, onEvent, wired });
-  const [value, setValue] = useValue(Array.isArray(selected) ? wordsOfPlaces(selected) : String(selected), host);
+  const [value, setValue] = useValue(Array.isArray(picked) ? wordsOfPlaces(picked) : String(picked), host);
   const on = placesOf(value);
   return (
     <div data-slot="multi-select" data-selected={on.join(",")} className={cn("flex flex-wrap gap-2", className)} style={{ width, ...style }}>
@@ -158,14 +156,14 @@ export function MultiSelect({ items = [], selected = "", width = 320, demo, onVa
 
 /* A choice of one color: `selected` is its place among all the colors given, an unreadable one included (it is only
  * not drawn), so a color picked stays picked when another one is mistyped. */
-export function ColorPalette({ colors = [], selected = 0, width = 320, demo, onValueChange, onEvent, wired, className, style }: { colors?: string[]; selected?: number; width?: number } & HostProps & Look) {
+export function ColorPalette({ colors = [], names, selected = 0, width = 320, demo, onValueChange, onEvent, wired, className, style }: { colors?: string[]; /** what each swatch is read out as; its color where left out */ names?: string[]; selected?: number; width?: number } & HostProps & Look) {
   const host = useHost({ demo, onValueChange, onEvent, wired });
   const [on, setOn] = useValue(selected, host);
-  const shown = colors.map((color, i) => ({ color, i })).filter((c) => HEX.test(c.color));
+  const shown = colors.map((color, i) => ({ color, i })).filter((c) => PAINTABLE.test(c.color));
   return (
     <div
       data-slot="color-palette"
-      data-selected={HEX.test(colors[on] ?? "") ? colors[on] : ""}
+      data-selected={PAINTABLE.test(colors[on] ?? "") ? colors[on] : ""}
       role="radiogroup"
       className={cn("flex flex-wrap gap-2", className)}
       style={{ width, ...style }}
@@ -179,7 +177,7 @@ export function ColorPalette({ colors = [], selected = 0, width = 320, demo, onV
       }}
     >
       {shown.map(({ color, i }, k) => (
-        <Tap key={`${color}-${i}`} role="radio" aria-checked={i === on} tabIndex={i === on || (k === 0 && !shown.some((c) => c.i === on)) ? 0 : -1} aria-label={color} className={`flex size-10 items-center justify-center rounded-full ${i === on ? "border-on-surface border-2" : "border-outline-variant border"}`} style={{ background: color }} onClick={() => setOn(i)}>
+        <Tap key={`${color}-${i}`} role="radio" aria-checked={i === on} tabIndex={i === on || (k === 0 && !shown.some((c) => c.i === on)) ? 0 : -1} aria-label={names?.[i] || color} className={`flex size-10 items-center justify-center rounded-full ${i === on ? "border-on-surface border-2" : "border-outline-variant border"}`} style={{ background: color }} onClick={() => setOn(i)}>
           {i === on && <WidgetIcon name="check" className="text-on-primary size-5" />}
         </Tap>
       ))}

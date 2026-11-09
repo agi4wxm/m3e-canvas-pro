@@ -14,7 +14,9 @@ import { MANIFEST_PATH, planExport } from "./merge";
 import { assertSafePaths, npmSlug, pathProblem } from "./paths";
 import { PRODUCT_TARGETS } from "./targets";
 import { rootFiles } from "./targets/root";
-import type { Product, ProductContext, ProductFiles, ProductTarget, Workspace } from "./types";
+import { generated, type Product, type ProductContext, type ProductFiles, type ProductTarget, type Workspace } from "./types";
+import { GAPS_PATH, assetGaps, gapsFileText } from "./gaps";
+import type { AssetManifest } from "../assetManifest";
 
 export type ProductOptions = {
   lang?: Lang;
@@ -26,6 +28,9 @@ export type ProductOptions = {
   api?: { openapi?: Record<string, unknown>; asyncapi?: Record<string, unknown> | null; types?: string } | ApiModel;
   /** the targets to build, PRODUCT_TARGETS by default */
   targets?: readonly ProductTarget[];
+  /** the project's asset manifest (lib/assetManifest.ts), read from where its configuration says (`Doc.external`);
+   *  left out, every asset the design names is a gap */
+  assets?: AssetManifest | null;
 };
 
 /** words of the author's as one line of plain text */
@@ -70,6 +75,7 @@ export async function buildProduct(doc: Doc, widths: Record<string, number>, o: 
     onProgress: o.onProgress,
     warnings: [],
     differences: [],
+    assets: o.assets ?? null,
   };
   const files: ProductFiles = {};
   const workspaces: Workspace[] = [];
@@ -85,6 +91,9 @@ export async function buildProduct(doc: Doc, widths: Record<string, number>, o: 
     }
     workspaces.push(ws);
   }
+  /* what the design leans on that the outside modules do not deliver, for the hub: written on every export, with
+     none as well (lib/export/gaps.ts); each is also among the apps' differences, for the report */
+  files[GAPS_PATH] = generated(gapsFileText(name, assetGaps(doc, ctx.assets)));
   for (const [path, file] of Object.entries(await rootFiles(ctx, workspaces, files))) {
     if (path in files) throw new Error(`two targets both write ${path}`);
     files[path] = file;

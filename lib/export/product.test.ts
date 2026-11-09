@@ -50,8 +50,13 @@ describe("the prototype export", () => {
   /* The single-app export stays as it was, to the byte, beside the product. These digests were taken from the export
      before the product existed; one that changes on purpose is written again here (last: a value of a tree that carries a
      `type` beside other keys is data, not a node, parts/node.ts `isNode`, copied as src/components/node.ts, so the
-     every-parts document's world view is handed its inputs as data and no longer as `<vec2 />` elements; before that
-     the world view and its input actions, batch 5 K2: the interpreter copied into src/lib/actions runs move, press and release (model.ts, host.ts,
+     every-parts document's world view is handed its inputs as data and no longer as `<vec2 />` elements; before that format version 6, lib/converge.ts: parts/types.ts, which
+     ships, has the color prop kind, a palette's rows of colors, the row model's `P.rows` and places among rows (`of`), the widgets paint a color only when it is one
+     (parts/widgets/look.ts `PAINTABLE`, the item cell's rarity and the palette's swatches), and a multiple choice's
+     picks are its rows' places from 0 (`picked`); with it the icon component draws an asset of the asset pipeline's,
+     `asset:<id>`, from the collection its lookup registers, components/m3e/icon.tsx and asset-icon-name.ts, copied
+     beside it, and parts/icons.ts draws again what names one whose picture changed; with it the world view and its input
+     actions, batch 5 K2: the interpreter copied into src/lib/actions runs move, press and release (model.ts, host.ts,
      run.ts), the widgets' host contract hands a world view its channel (parts/widgets/host.ts), parts/types.ts says
      what `world` is, the joystick sends `move` with each push, and the every-parts document draws a world view
      (parts/widgets/World.tsx with lib/world copied beside it, the world's clock the app's), on top of K1's clock; before that the time the parts' countdowns read comes from the app's
@@ -88,11 +93,11 @@ describe("the prototype export", () => {
      icons asking again and the ripple under reduced motion; in parts, form fields keyed by their item and resizable
      sizes as percentages). */
   const DIGESTS: Record<string, [number, string]> = {
-    proof: [90, "3c4ba15a68c9b25b003491863db6b01236b3da8a5cab1b4615a3b91a02f5fb8a"],
-    systems: [47, "42e116738aba93300d77a0f5ab04094c4cd36f7ec700b3ea32a02ee3cd07df78"],
+    proof: [91, "11e134323dca9589815ea02c537e85359dd76d8b7e1811a6a866c5b0cd5ef9a1"],
+    systems: [48, "18f4e60fd98fee038588bbd2eb2922adb6d03f8a3839d9fa5415acc69ed00c89"],
     reuse: [38, "45f2eeffec96e6987a68be50863bd53e5a0096fa8506f0c6f95c79955b524d04"],
-    sweep: [100, "e74ce218fe76ab8c4783b59bc465772280f00a80a944fecc1b25ea95b5f099b6"],
-    parts: [150, "5ff7705c2b2da7278098c8750972311cf8d1a365599441a172b7228dd0a1df86"],
+    sweep: [101, "7f4d1abd1c3a763d547d8784a9108a94417b0d551566e932d0bccf28e9eb1412"],
+    parts: [151, "b38dc4dfa8d69250b2a0f995bd5b75a477b16843f238f4a6f668a884d93d9fb4"],
   };
   const DOCS: Record<string, () => { doc: Doc; widths: Record<string, number> }> = { proof: proofDoc, systems: systemsDoc, reuse: reuseDoc, sweep: sweepDoc, parts: () => ({ doc: allPartsDoc(), widths: {} }) };
   it.each(Object.keys(DIGESTS))("is byte for byte what it was: %s", async (name) => {

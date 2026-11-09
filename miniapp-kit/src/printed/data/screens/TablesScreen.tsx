@@ -13,7 +13,7 @@ export function TablesScreen() {
         <Table
           data={{ columns: ["Invoice", "Amount", "Paid"], rows: [["INV-1", "250", "yes"], ["INV-2", "1200.5", "no"]], spec: [{ key: "invoice", width: 120 }, { key: "amount", type: "currency", format: "EUR" }, { key: "paid", type: "bool" }] }}
           caption="Q3"
-          selected={1}
+          selectedRow={0}
           width={380}
           testID="table"
         />

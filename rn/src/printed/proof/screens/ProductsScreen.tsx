@@ -11,7 +11,7 @@ export function ProductsScreen() {
       <At x={16} y={80}>
         <Container
           label=""
-          ground="none"
+          ground=""
           border="none"
           radius={0}
           layout="column"
@@ -27,7 +27,7 @@ export function ProductsScreen() {
           <Cell dir="column" fillWidth>
             <Container
               label=""
-              ground="none"
+              ground=""
               border="none"
               radius={0}
               layout="grid"
@@ -74,7 +74,7 @@ export function ProductsScreen() {
                             text={"$32.00"}
                             styleVariant="caption"
                             fit="auto"
-                            color="muted"
+                            color="on-surface-variant"
                             look={{ text: { decoration: "line-through" } }}
                           />
                           <Cell dir="row" grow>
@@ -168,7 +168,7 @@ export function ProductsScreen() {
                             text={"$45.00"}
                             styleVariant="caption"
                             fit="auto"
-                            color="muted"
+                            color="on-surface-variant"
                             look={{ text: { decoration: "line-through" } }}
                           />
                           <Cell dir="row" grow>
