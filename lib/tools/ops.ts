@@ -15,7 +15,7 @@ const STYLE_OPS = new Set(["set_theme", "apply_style", "set_custom_styles", "add
 /** the operations on the API section (lib/core/ops/api.ts): data too, the contract the data comes through */
 export const API_OPS = new Set(["add_model", "update_model", "rename_model", "remove_model", "add_endpoint", "update_endpoint", "remove_endpoint", "set_auth", "add_channel", "update_channel", "remove_channel", "set_servers", "set_api_info", "import_openapi", "import_asyncapi"]);
 /** the operations on the mock library (lib/core/ops/mocks.ts): data too, what the API answers with */
-export const MOCK_OPS = new Set(["set_mocks", "set_mock_model", "pin_mock_records", "unpin_mock_records", "add_mock_scenario", "update_mock_scenario", "remove_mock_scenario", "add_mock_file", "generate_mock_files", "update_mock_file", "remove_mock_file", "set_mock_realtime", "remove_mock_realtime", "set_mock_auth", "set_mock_route", "fill_mocks", "clear_mocks", "set_mock_capability"]);
+export const MOCK_OPS = new Set(["set_mocks", "set_mock_model", "pin_mock_records", "unpin_mock_records", "add_mock_scenario", "update_mock_scenario", "remove_mock_scenario", "add_mock_file", "generate_mock_files", "update_mock_file", "remove_mock_file", "set_mock_realtime", "remove_mock_realtime", "set_mock_world", "remove_mock_world", "set_mock_auth", "set_mock_route", "fill_mocks", "clear_mocks", "set_mock_capability"]);
 /** the operations on the platform capabilities (lib/core/ops/capabilities.ts): the product's own, the ones it uses */
 export const CAPABILITY_OPS = new Set(["declare_capability", "remove_capability", "use_capabilities"]);
 /** the operations that bind screens to the contract (lib/core/ops/bindings.ts) */
@@ -79,6 +79,7 @@ const MORE: Record<string, string> = {
   add_mock_file: "Returns {id}; a hint's files: [id] makes a field use it.",
   generate_mock_files: "Returns {ids}.",
   set_mock_realtime: "get_api lists each channel's messages. Returns {id}.",
+  set_mock_world: 'For a HUD over a world view (hp bars, damage numbers, cooldowns): from "battle" gives twenty enemies to design against. get_mocks lists the scripts and their contracts. Returns {id, steps, contract}.',
   set_mock_capability: "list_capabilities lists the capabilities and how the mocks answer them now. For a shop: one scenario per outcome of a payment (cancelled, failed) and the order's status from the API per scenario (its getOrder answering status paid, pending or failed).",
   declare_capability: "Only for a capability the catalog does not have (list_capabilities): the standard ones are used as they are.",
   wire_screen:

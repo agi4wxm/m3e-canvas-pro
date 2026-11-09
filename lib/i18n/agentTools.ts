@@ -154,6 +154,8 @@ const L: Record<string, Four> = {
   remove_mock_file: ["Remove a mock file", "删除模拟文件", "モックファイルを削除", "목업 파일 삭제"],
   set_mock_realtime: ["Script realtime messages", "编排实时消息", "リアルタイムのメッセージを設定", "실시간 메시지 설정"],
   remove_mock_realtime: ["Remove a realtime script", "删除实时脚本", "リアルタイムのスクリプトを削除", "실시간 스크립트 삭제"],
+  set_mock_world: ["Script a mock world", "编排模拟世界", "モックのワールドを設定", "목업 월드 설정"],
+  remove_mock_world: ["Remove a world script", "删除世界脚本", "ワールドのスクリプトを削除", "월드 스크립트 삭제"],
   set_mock_auth: ["Set mock sign-in", "设置模拟登录", "モックのログインを設定", "목업 로그인 설정"],
   set_mock_route: ["Set how an endpoint is mocked", "设置接口的模拟方式", "API のモック方法を設定", "엔드포인트 목업 방식 설정"],
   set_mock_capability: ["Set how a capability is mocked", "设置能力的模拟结果", "機能のモックを設定", "기능 목업 설정"],

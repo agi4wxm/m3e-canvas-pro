@@ -56,7 +56,7 @@ const API = new Set([
 /** the mock library: its operations and the tools that read and try it */
 const MOCKS = new Set([
   "get_mocks", "list_mock_records", "try_mock",
-  "set_mocks", "set_mock_model", "pin_mock_records", "unpin_mock_records", "add_mock_scenario", "update_mock_scenario", "remove_mock_scenario", "add_mock_file", "generate_mock_files", "update_mock_file", "remove_mock_file", "set_mock_realtime", "remove_mock_realtime", "set_mock_auth", "set_mock_route", "fill_mocks", "clear_mocks", "set_mock_capability",
+  "set_mocks", "set_mock_model", "pin_mock_records", "unpin_mock_records", "add_mock_scenario", "update_mock_scenario", "remove_mock_scenario", "add_mock_file", "generate_mock_files", "update_mock_file", "remove_mock_file", "set_mock_realtime", "remove_mock_realtime", "set_mock_world", "remove_mock_world", "set_mock_auth", "set_mock_route", "fill_mocks", "clear_mocks", "set_mock_capability",
 ]);
 
 /** the set a tool belongs to */

@@ -239,6 +239,8 @@ function opCalls(): [string, Record<string, unknown>][] {
     ["remove_mock_file", { id: "dot" }],
     ["set_mock_realtime", { channel: "chat", steps: [{ at: 500, message: "said" }] }],
     ["remove_mock_realtime", { id: "chat-script" }],
+    ["set_mock_world", { from: "meadow" }],
+    ["remove_mock_world", { id: "meadow" }],
     ["set_mock_auth", { signedIn: false, tokenTtl: 60 }],
     ["set_mock_route", { operationId: "listItems", kind: "list", model: "Item" }],
     /* the platform capabilities (lib/core/ops/capabilities.ts) */
