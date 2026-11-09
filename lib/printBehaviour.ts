@@ -11,7 +11,7 @@ import { collectionIdOf, collectionsOf, cssNameOf, isBindField, modeFor, valueIn
 import { cleanMotion, cleanTrigger, flowStarts } from "./prototype";
 import type { BoundPrint } from "./printBindings";
 import { BACK_TARGET, LINK_TARGET, STAY_TARGET, actionSlotsOf, presetOf, actionsOf, darkVarOf, heldBy, holdsParts, linkUrlOf, type Action, type ActionBody, type Condition, type Doc, type Effect, type Frame, type Group, type Item, type VarType, type VarValue } from "./tokens";
-import { eventKey, familyKey, type Answer } from "./actions/model";
+import { WORLD_EFFECTS, eventKey, familyKey, type Answer } from "./actions/model";
 import { evaluate, parseExpr, rootsOf, truthy } from "./bindings/expr";
 import { boundVar, comparisonOf, fieldVarOf, type Comparison } from "./bindings/bind";
 import { inlineReads } from "./refs";
@@ -61,6 +61,8 @@ export type RuntimeSpec = {
   /** a part hands its Pressable a family's action as a function of the entry (`families`), for the entries the design's
    *  props do not hold */
   families?: true;
+  /** the screens draw world views, which the taps' input actions reach on a channel each (lib/world) */
+  worlds?: true;
 };
 
 /** What the runtime runs the taps over (lib/actions' `Host`, src/runtime.tsx): where each part an effect reaches stands,
@@ -354,6 +356,8 @@ export class Behaviour {
   private readonly printed = { motion: false, overlay: false, scroll: false, hover: false, delay: false };
   /** a part's family of places has been printed with its action as a function of the entry (`families`) */
   private printedFamilies = false;
+  /** a world view has been printed with its channel */
+  private printedWorlds = false;
   /** the bindings, printed against the product's runtime */
   readonly bound?: BoundPrint;
   private readonly groupById: Map<string, Group>;
@@ -451,6 +455,8 @@ export class Behaviour {
     if (typeof b.scrollTo === "string" && this.owner.has(b.scrollTo)) this.scrollTargets.add(b.scrollTo);
     for (const e of Array.isArray(b.effects) ? b.effects : []) {
       if (!("part" in e)) continue;
+      /* an input action goes to a world view's channel: it shows, hides and sets nothing */
+      if (WORLD_EFFECTS.has(e.do)) continue;
       const g = this.owner.get(e.part);
       const it = g?.items.find((x) => x.id === e.part);
       if (!g || !it) continue;
@@ -566,6 +572,7 @@ export class Behaviour {
       ...(this.bound ? { bound: this.boundSpec() } : {}),
       ...(this.acts ? { acts: this.actsSpec() } : {}),
       ...(this.printedFamilies ? { families: true as const } : {}),
+      ...(this.printedWorlds ? { worlds: true as const } : {}),
     };
   }
 
@@ -816,6 +823,15 @@ export class Behaviour {
       case "signOut":
         if (!this.bound) this.unreached.add("signOut");
         return { do: "signOut" };
+      case "move":
+      case "press":
+      case "release": {
+        /* the world view by its key, whose channel the runtime keeps */
+        const it = this.owner.get(e.part)?.items.find((x) => x.id === e.part);
+        if (!it || !partBySlug(it.component)?.world) return null;
+        this.part(it.id);
+        return { ...e, part: this.partKeys.get(it.id)! };
+      }
       default:
         /* a kind this version does not know, from a file saved by a later one */
         return null;
@@ -1235,6 +1251,12 @@ export class Behaviour {
         const wired = { ...widget, props: { ...widget.props, onEvent: raw(`(name, payload) => { ${events.join(" else ")} }`) } };
         tree = widget === tree ? wired : { ...tree, children: tree.children?.map((c) => (c === widget ? wired : c)) };
       }
+    }
+    /* a world view listens on its channel, which the taps' input actions are sent on (lib/world) */
+    if (def.world && tree.type in WIDGET_SOURCES) {
+      uses.app.add("worldChannel");
+      this.printedWorlds = true;
+      tree = { ...tree, props: { ...tree.props, channel: raw(`worldChannel(${this.part(it.id)})`) } };
     }
     const inputVar = this.inputVar(it);
     if (inputVar) tree = this.wireInput(tree, it, def, inputVar, uses);

@@ -10,7 +10,7 @@ import { rnIconData } from "./icons";
 import { printRnScreens, screensIndex } from "./print";
 import { rnThemeOf } from "./theme";
 import { layoutsDoc } from "./layoutsFixture";
-import { slotFiles, slotNames, slotsOf, type SlotPaths } from "../appCapabilities";
+import { WORLD_VIEW, slotFiles, slotNames, slotsOf, type SlotPaths } from "../appCapabilities";
 
 /* Documents printed into the kit's test bed (rn/src/printed), so that what the printer writes is type-checked, linted,
  * rendered by the kit's tests and bundled by Metro there, exactly as an exported app would be: the export's proof
@@ -254,12 +254,49 @@ export function slotsDoc(): { doc: Doc; widths: Record<string, number> } {
   return { doc: { groups: groups.map((g) => (g.id === "g-done" ? { ...g, x: g.x + done.x } : g)), frames: [home, done], paletteKey: "purple", frame: "phone", title: "Slots", brief: "" }, widths: defaultMeasures(groups) };
 }
 
+/** The slots a test bed prints: the parts the design marks as the product's own, and its world views (their types are
+ *  the app runtime's, which the test bed has); a capability view's slot types come from a package it has not. */
+export const testBedSlotsOf = (doc: Doc) => slotsOf(doc).filter((s) => !s.view || s.view === WORLD_VIEW);
+
+/** The world view hosting M3E's example engine (docs/组件规范.md “世界视口”): a phone screen with a world (a hero, a coin
+ *  and a slime), a pad whose pushes go to the world as its `move` input, a skill that presses and lets go of `attack`,
+ *  and the design's actions on the world's events: a snackbar for a hit and for a coin picked up, and the round over
+ *  opening another screen. Its slot plugs the example engine in (`testBedSlots`), so the test beds play it. */
+export function worldDoc(): { doc: Doc; widths: Record<string, number> } {
+  const play: Frame = { id: "world-play", name: "Arena", x: 0, y: 0 };
+  const won: Frame = { id: "world-won", name: "Won", x: PHONE_W + FRAME_GAP, y: 0 };
+  const stay = (...effects: Action["effects"] & object): Action => ({ to: "none", effects });
+  const entities = { columns: ["Id", "Kind", "X", "Y", "Label"], rows: [["hero", "player", "20", "40", "Hero"], ["coin", "coin", "32", "40", ""], ["slime", "enemy", "25", "52", "Slime"]] };
+  const groups: Group[] = [
+    {
+      id: "g-arena",
+      x: 26,
+      y: 80,
+      axis: "x",
+      name: "Arena",
+      items: [
+        {
+          ...makeItem("world-view"),
+          id: "arena",
+          props: { label: "Arena", scene: "A meadow seen from above", entities, follow: "hero", inputs: "move, attack" },
+          actions: { "on:hit": stay({ do: "snackbar", message: "Hit the slime" }), "on:collected": stay({ do: "snackbar", message: "Got a coin" }), "on:ended": { to: won.id } },
+        },
+      ],
+    },
+    { id: "g-pad", x: 32, y: 360, axis: "x", items: [{ ...makeItem("joystick"), id: "pad", props: { ariaLabel: "Move" }, actions: { "on:move": stay({ do: "move", part: "arena", vector: "event" }) } }] },
+    { id: "g-attack", x: 300, y: 380, axis: "x", items: [{ ...makeItem("skill-button"), id: "attack", props: { label: "Attack", icon: "bolt" }, actions: { action: stay({ do: "press", part: "arena", action: "attack" }, { do: "release", part: "arena", action: "attack" }) } }] },
+    { id: "g-won", x: won.x + 16, y: 120, axis: "x", items: [{ ...makeItem("text"), id: "won", props: { text: "You won" } }] },
+  ];
+  return { doc: { groups, frames: [play, won], paletteKey: "purple", frame: "phone", title: "World", brief: "" }, widths: defaultMeasures(groups) };
+}
+
 /** where a test bed's slots reach the kit and each other: beside its screens */
-export const TEST_BED_SLOTS: SlotPaths = { kit: "../../kit", custom: "./custom/slots", kitFromCustom: "../../../../kit" };
+export const TEST_BED_SLOTS: SlotPaths = { kit: "../../kit", custom: "./custom/slots", kitFromCustom: "../../../../kit", generatedFromCustom: "../.." };
 
 /** the slots of a printed document, at their places beside its screens (`at`) */
 export function testBedSlots(at: string, doc: Doc, platform: "mobile" | "miniapp"): Record<string, string> {
-  const files = slotFiles("@m3e", slotsOf(doc).filter((s) => !s.view), platform, TEST_BED_SLOTS);
+  /* a world view's slot plugs M3E's example engine in: the test bed shows the view hosting one */
+  const files = slotFiles("@m3e", testBedSlotsOf(doc), platform, TEST_BED_SLOTS, { plugExample: true });
   return Object.fromEntries(Object.entries(files).map(([path, f]) => [`${at}/${path.replace(/^src\/generated\//, "").replace(/^src\//, "")}`, f.body as string]));
 }
 
@@ -267,8 +304,9 @@ export function testBedSlots(at: string, doc: Doc, platform: "mobile" | "miniapp
 async function printed(name: string, doc: Doc, widths: Record<string, number>): Promise<Record<string, string | Uint8Array>> {
   const at = `rn/src/printed/${name}`;
   const pictures = new RnPictures("assets", "./assets");
-  /* the parts the design marks as the product's own: a capability view's slot types come from a package the test bed has not */
-  const slots = slotsOf(doc).filter((s) => !s.view);
+  /* the parts the design marks as the product's own, and the world views: a capability view's slot types come from a
+     package the test bed has not */
+  const slots = testBedSlotsOf(doc);
   const screens = printRnScreens(doc, widths, { kitImport: "../../../kit", images: { from: "../images", name: pictures.name }, ...(slots.length ? { slots: { from: "../slots", names: slotNames(slots) } } : {}) });
   const theme = rnThemeOf(doc);
   const icons = await rnIconData([theme.icons], [...screens.icons, ...KIT_ICONS]);
@@ -303,6 +341,8 @@ export async function printedFixture(): Promise<Record<string, string | Uint8Arr
   const media = withIds(next, mediaDoc);
   /* the parts the product draws itself (report 9.3) */
   const slots = withIds(next, slotsDoc);
-  return { ...(await printed("proof", proof.doc, proof.widths)), ...(await printed("kits", kits.doc, kits.widths)), ...(await printed("splits", splits.doc, splits.widths)), ...(await printed("play", play.doc, play.widths)), ...(await printed("layouts", layouts.doc, layouts.widths)), ...(await printed("inputs", inputs.doc, inputs.widths)), ...(await printed("data", data.doc, data.widths)), ...(await printed("media", media.doc, media.widths)), ...(await printed("slots", slots.doc, slots.widths)) };
+  /* the world view hosting the example engine (docs/组件规范.md “世界视口”) */
+  const world = withIds(next, worldDoc);
+  return { ...(await printed("proof", proof.doc, proof.widths)), ...(await printed("kits", kits.doc, kits.widths)), ...(await printed("splits", splits.doc, splits.widths)), ...(await printed("play", play.doc, play.widths)), ...(await printed("layouts", layouts.doc, layouts.widths)), ...(await printed("inputs", inputs.doc, inputs.widths)), ...(await printed("data", data.doc, data.widths)), ...(await printed("media", media.doc, media.widths)), ...(await printed("slots", slots.doc, slots.widths)), ...(await printed("world", world.doc, world.widths)) };
 }
 

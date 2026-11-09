@@ -67,6 +67,59 @@ export const PARTS: Record<string, PartInfo> = {
    "ring": false
   }
  },
+ "world-view": {
+  "name": "World view",
+  "tier": "atom",
+  "defaults": {
+   "label": "World",
+   "scene": "A meadow seen from above",
+   "entities": {
+    "columns": [
+     "Id",
+     "Kind",
+     "X",
+     "Y",
+     "Label"
+    ],
+    "rows": [
+     [
+      "hero",
+      "player",
+      "20",
+      "50",
+      "Hero"
+     ],
+     [
+      "coin1",
+      "coin",
+      "50",
+      "50",
+      ""
+     ],
+     [
+      "coin2",
+      "coin",
+      "80",
+      "30",
+      ""
+     ],
+     [
+      "slime",
+      "enemy",
+      "70",
+      "75",
+      "Slime"
+     ]
+    ]
+   },
+   "follow": "",
+   "score": 0,
+   "status": "running",
+   "inputs": "move, attack",
+   "width": 360,
+   "height": 240
+  }
+ },
  "button": {
   "name": "Button",
   "tier": "atom",

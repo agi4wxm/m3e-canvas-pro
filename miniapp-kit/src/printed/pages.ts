@@ -37,5 +37,7 @@ export const PRINTED_PAGES: string[] = [
   "printed/media/pages/mediaListen/index",
   "printed/media/pages/mediaTalk/index",
   "printed/slots/pages/slots/index",
-  "printed/slots/pages/bought/index"
+  "printed/slots/pages/bought/index",
+  "printed/world/pages/arena/index",
+  "printed/world/pages/won/index"
 ];

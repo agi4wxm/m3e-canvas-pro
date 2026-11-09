@@ -461,6 +461,8 @@ export type JoystickProps = PartBase & {
   onValueChange?: (value: string) => void;
   /** the finger let go, where it was */
   onRelease?: (at: Vec) => void;
+  /** each direction handed out, as the part's `move` event: what a world view's input action reads (docs/交互规则.md) */
+  onMove?: (at: Vec) => void;
 };
 
 export function Joystick(props: JoystickProps) {
@@ -484,6 +486,8 @@ export function Joystick(props: JoystickProps) {
   const push = (at: Vec) => {
     setHeld(at);
     p.onValueChange?.(wordsOfVec(at));
+    /* a finger moving within the same direction is no new push */
+    if (!held || held.x !== at.x || held.y !== at.y) p.onMove?.({ x: at.x, y: at.y });
   };
   const letGo = (at: Vec) => {
     const rest = p.autoCenter !== false ? { x: 0, y: 0 } : at;
@@ -491,6 +495,7 @@ export function Joystick(props: JoystickProps) {
     setHeld(null);
     setLeft({ at: rest, given: p.value ?? "" });
     p.onValueChange?.(wordsOfVec(rest));
+    p.onMove?.({ x: rest.x, y: rest.y });
   };
   const pan = PanResponder.create({
     onStartShouldSetPanResponder: () => !p.disabled,

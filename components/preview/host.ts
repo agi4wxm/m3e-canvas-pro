@@ -7,7 +7,7 @@
  * capabilities (the mock library's, the catalog's examples). Navigation is the preview's own and is handed in. No React
  * and no page here: the preview's click-path tests run this file as it is. */
 
-import type { BackOptions, CallArgs, Change, FormRef, GoOptions, Host, InvokeOutcome, Tap } from "@/lib/actions";
+import type { BackOptions, CallArgs, Change, FormRef, GoOptions, Host, InvokeOutcome, Tap, WorldInput } from "@/lib/actions";
 import { outcomeOf } from "@/lib/app/actions";
 import type { DesignRuntime, FormAt, ScreenAt } from "@/lib/bindings/design";
 import type { TransportFile } from "@/lib/api/transport";
@@ -50,6 +50,8 @@ export type PreviewHostDeps = {
   told?: (part: string) => void;
   /** the visitor signed out: a screen that needs a session cannot stay on show */
   signedOut?: () => void;
+  /** an input action for a world view (docs/交互规则.md “输入动作”): its channel, which the view listens on */
+  worldInput?: (part: string, action: string, value: WorldInput) => void;
 };
 
 /** where in the document a part is: its group */
@@ -187,6 +189,7 @@ export function createPreviewHost(d: PreviewHostDeps): Host {
     },
     afterSignIn: (operationId) => d.doc().api?.auth?.login === operationId && d.returnAfterSignIn(),
     moves: () => d.moves(),
+    worldInput: (part, action, value) => d.worldInput?.(part, action, value),
   };
   return host;
 }

@@ -73,7 +73,16 @@ export type Effect =
   /** submits a form (`Group.form`): the one given by its group id, else the one the tapped part is in */
   | { do: "submit"; form?: string }
   /** ends the session: the token is forgotten (and the API's logout endpoint called, when it has one) */
-  | { do: "signOut" };
+  | { do: "signOut" }
+  /** Sends a direction to a world view (the `world-view` part, docs/交互规则.md “输入动作”): `part` is its item id,
+   *  `action` the input the world takes it as (`move` when left out), `vector` an expression read at its step that
+   *  comes to a direction: `{x, y}` (a joystick's `event`) or words `"x,y"`, each from -1 to 1 (a longer one is cut
+   *  back to length 1). One that comes to no direction sends nothing. The world, not the design, decides what moving
+   *  means. */
+  | { do: "move"; part: string; action?: string; vector: string }
+  /** Holds down (`press`) or lets go of (`release`) a named input of a world view (`attack`, `jump`); `part` is its
+   *  item id. A tap that presses and lets go says both, in that order. */
+  | { do: "press" | "release"; part: string; action: string };
 
 /** What a call changes before it is answered: the tapped row taken out of a data source's list, or fields of it set
  *  (each an expression). Put back when the call fails. */
@@ -97,6 +106,15 @@ export const API_EFFECTS = new Set<Effect["do"]>(["call", "refresh", "loadMore",
 
 /** the effects that are answered later and run a `then` or a `catch` then: a call of the API, an invoke of a capability */
 export const ANSWERED_EFFECTS = new Set<Effect["do"]>(["call", "invoke"]);
+
+/** the effects that send input to a world view (docs/交互规则.md “输入动作”) */
+export const WORLD_EFFECTS = new Set<Effect["do"]>(["move", "press", "release"]);
+
+/** the input a direction goes to when a `move` names none */
+export const MOVE_ACTION = "move";
+
+/** what names an input of a world: a small letter, then letters and digits (`move`, `attack`, `jump2`) */
+export const WORLD_ACTION = /^[a-z][a-zA-Z0-9]{0,31}$/;
 
 /** an effect that is answered later: its `then` and `catch` */
 export type AnsweredEffect = Extract<Effect, { do: "call" | "invoke" }>;

@@ -176,12 +176,49 @@ describe("a movement pad", () => {
     expect(value).toHaveBeenLastCalledWith("0,0");
   });
 
+  it("sends each new direction as a push (`move`, what a world view's input action reads), and the middle as it lets go", () => {
+    tiny.reset();
+    const moved = mock((v: unknown) => void v);
+    const w = drawn(G.Joystick, { onValueChange: () => {}, onMove: moved });
+    const pad = () => w.role("slider", "Joystick")[0];
+    (pad().props.onTouchStart as (e: unknown) => void)({ touches: [{ clientX: 100, clientY: 50 }] });
+    w.draw();
+    expect(moved).toHaveBeenLastCalledWith({ x: 1, y: 0 });
+    /* the finger within the same direction is no new push */
+    (pad().props.onTouchMove as (e: unknown) => void)({ touches: [{ clientX: 100, clientY: 50 }] });
+    w.draw();
+    expect(moved).toHaveBeenCalledTimes(1);
+    (pad().props.onTouchEnd as (e: unknown) => void)({ changedTouches: [{ clientX: 100, clientY: 50 }] });
+    w.draw();
+    expect(moved).toHaveBeenLastCalledWith({ x: 0, y: 0 });
+  });
+
   it("rests where it is let go without going back to the middle, and as its value says", () => {
     expect(G.restingOf({ at: { x: 1, y: 0 }, given: "" }, "", false, 0)).toEqual({ x: 1, y: 0 });
     expect(G.restingOf({ at: { x: 1, y: 0 }, given: "" }, "0,-1", false, 0)).toEqual({ x: 0, y: -1 });
     expect(G.restingOf(null, "", false, 90)).toEqual({ x: 1, y: 0 });
     expect(G.pushOf(1, 1, 30)).toEqual({ x: 0, y: 0 });
     expect(G.angleOf({ x: -1, y: 0 })).toBe(270);
+  });
+});
+
+describe("a world view's stand-in", () => {
+  it("draws the world's state as the props say, and lists the inputs it hears on its channel", async () => {
+    tiny.reset();
+    const W = await import("../src/kit/world");
+    const { createWorlds } = await import("@m3e/app-runtime");
+    const worlds = createWorlds();
+    const entities = { columns: ["Id", "Kind", "X", "Y", "Label"], rows: [["hero", "player", "20", "50", "Hero"], ["bad", "enemy", "x", "1", ""]] };
+    const w = drawn(W.WorldStandIn, { label: "Arena", entities, score: 3, status: "paused", channel: worlds.channel("arena") });
+    expect(w.words()).toEqual(expect.arrayContaining(["Arena", "Hero", "★ 3", "paused"]));
+    expect(W.entitiesOf(entities).map((e) => e.id)).toEqual(["hero"]);
+    worlds.send("arena", "move", { x: 0.5, y: -1 });
+    worlds.send("arena", "move", { x: 1, y: 0 });
+    worlds.send("arena", "attack", true);
+    worlds.send("other", "attack", true);
+    w.draw();
+    /* a new direction of the same input takes the place of the one before; another world's inputs are not its own */
+    expect(w.words().filter((t) => /^(move|attack) /.test(String(t)))).toEqual(["move 1,0", "attack ↓"]);
   });
 });
 

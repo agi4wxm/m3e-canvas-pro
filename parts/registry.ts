@@ -19,6 +19,7 @@ import { media } from "./defs/media";
 import { mobile } from "./defs/mobile";
 import { more } from "./defs/more";
 import { atoms } from "./defs/atoms";
+import { world } from "./defs/world";
 import { SPLITS } from "./defs/splits";
 import { RETIRED, RETIRED_SPLITS } from "./defs/retired";
 import type { Labels, ListItem, P, PartDef, PropDef, PropValues, Screen, TableColumn, TableData } from "./types";
@@ -149,7 +150,7 @@ export const categoryName = (c: PartCategory, lang: Lang) => CATEGORY_TEXT[c][la
 /* the composites that split are handed their trees of atoms here, where the two meet, and the retired parts what
  * replaces them (parts/defs/retired.ts); an input is handed the props of the field states it declares and does not
  * write itself (parts/fieldState.ts), and a table prop the column structure its part reads it by (parts/tableColumns.ts) */
-export const PARTS: PartDef[] = [...atoms, ...actions, ...selection, ...textInputs, ...communication, ...containment, ...navigation, ...menus, ...pickers, ...content, ...chat, ...controls, ...containers, ...media, ...data, ...desktop, ...game, ...mobile, ...additions, ...app, ...more].map((given) => {
+export const PARTS: PartDef[] = [...atoms, ...world, ...actions, ...selection, ...textInputs, ...communication, ...containment, ...navigation, ...menus, ...pickers, ...content, ...chat, ...controls, ...containers, ...media, ...data, ...desktop, ...game, ...mobile, ...additions, ...app, ...more].map((given) => {
   const states = fieldProps(given);
   const withColumns = given.props.some((x) => x.kind === "table" && !x.columns && TABLE_COLUMNS[`${given.slug}.${x.key}`])
     ? given.props.map((x) => (x.kind === "table" && !x.columns && TABLE_COLUMNS[`${given.slug}.${x.key}`] ? { ...x, columns: TABLE_COLUMNS[`${given.slug}.${x.key}`] } : x))

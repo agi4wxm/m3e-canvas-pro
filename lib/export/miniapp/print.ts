@@ -115,6 +115,10 @@ const EFFECT_KEYS: Record<string, string[]> = {
   loadMore: ["source"],
   submit: ["form"],
   signOut: [],
+  /* an input action for a world view, which goes by its printed name as its channel does */
+  move: ["part", "action", "vector"],
+  press: ["part", "action"],
+  release: ["part", "action"],
 };
 
 /** What the printed code calls the document's things: a screen by its key (a tap names it by its frame's id; back, a
@@ -519,14 +523,16 @@ class ScreenPrinter {
     }
     /* a capability view is its slot (src/custom/slots), handed what the design's stand-in is and drawing it until written */
     const slot = this.o.slots?.names[it.id];
-    if (slot && def.capability) {
+    /* a world view hears the design's input actions on its channel, which the screen's runtime keeps (kit/app/world.ts) */
+    const channel: [string, string][] = def.world ? [["channel", `s.world(${str(this.names.part(it.id))})`]] : [];
+    if (slot && (def.capability || def.world)) {
       this.slots.add(slot);
-      /* the stand-in is the kit's own drawing of the view where it has one (the camera's, the map's, the call's), its
-         props the part's as the kit takes them */
+      /* the stand-in is the kit's own drawing of the view where it has one (the camera's, the map's, the call's, the
+         world's), its props the part's as the kit takes them */
       const standIn = isNative(def.slug) ? NATIVE[def.slug] : "Placeholder";
       this.kit.add(standIn);
-      const drawn = isNative(def.slug) ? el(standIn, [...this.props(def, it, at), ...this.extras(p, at, true, close), ["testID", str(this.names.part(it.id))]]) : el("Placeholder", [["part", str(def.slug)], ["name", str(def.name)], ["width", expr(size.w)], ["height", expr(size.h)]]);
-      return el(slot, [...slotGiven(def, it).map(([k, v]) => [k, expr(v)] as [string, string]), ["width", expr(size.w)], ["height", expr(size.h)], ...this.slotEvents(p, at)], [drawn]);
+      const drawn = isNative(def.slug) ? el(standIn, [...this.props(def, it, at), ...this.extras(p, at, true, close), ...channel, ["testID", str(this.names.part(it.id))]]) : el("Placeholder", [["part", str(def.slug)], ["name", str(def.name)], ["width", expr(size.w)], ["height", expr(size.h)]]);
+      return el(slot, [...slotGiven(def, it).map(([k, v]) => [k, expr(v)] as [string, string]), ["width", expr(size.w)], ["height", expr(size.h)], ...this.slotEvents(p, at), ...channel], [drawn]);
     }
     /* a part the product draws itself (`Item.slot`): its slot, handed what the kit's component is (the generated slots
        module draws the kit's component inside it), or around the atoms or the placeholder it is drawn as */
@@ -553,7 +559,7 @@ class ScreenPrinter {
       const picks: [string, string][] = selectsByProp(def, it) ? [["onSelect", `(i: number) => s.setProp(${str(this.names.part(it.id))}, "selected", i)`]] : [];
       /* files are asked for through the capability registry (file.pick) */
       if (def.slug === "file-upload") picks.push(["pick", "s.pickFiles"]);
-      return el(slot ?? name, [...props, ...input.props, ...layout, ...this.extras(p, at, true, close), ...opens, ...picks, ["testID", str(this.names.part(it.id))]], kids);
+      return el(slot ?? name, [...props, ...input.props, ...layout, ...this.extras(p, at, true, close), ...opens, ...picks, ...channel, ["testID", str(this.names.part(it.id))]], kids);
     }
     const drawn = this.drawn(p, at, kids, layout);
     return slot ? el(slot, [["width", expr(size.w)], ["height", expr(size.h)]], [drawn]) : drawn;

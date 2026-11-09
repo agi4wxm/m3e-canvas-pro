@@ -17,9 +17,11 @@ import {
   type SendInit,
   type SourceHandle,
   type Tap,
+  type WorldChannel,
 } from "@m3e/app-runtime";
 
 import { pickFiles, type PickedFile } from "../composites/forms";
+import { WORLDS } from "../world";
 import { Layer, OverlaidProvider } from "../screen";
 import { currentPlace, goBack, loginScreen, moved, movesSoFar, openPlace, readQuery, type Place } from "./nav";
 import type { Action, ActionBody, AppSpec, Condition, VarValue } from "./spec";
@@ -126,6 +128,8 @@ export type ScreenHandle = {
   layer: ReactNode;
   /** asks for files through the capability registry (file.pick), else the platform's own pickers */
   pickFiles: (o: { multiple?: boolean; accept?: string }) => Promise<PickedFile[]>;
+  /** the channel the world view `part` (its printed name) hears the design's input actions on */
+  world: (part: string) => WorldChannel;
 };
 
 /** a value as the kind the design gave a prop: a yes or no, a number, words */
@@ -309,6 +313,8 @@ export function useScreen(key: string, init: ScreenInit = {}): ScreenHandle {
         return true;
       },
       moves: movesSoFar,
+      /* an input action goes straight to the world view's channel */
+      worldInput: (part, action, value) => WORLDS.send(part, action, value),
     };
   }, [spec, runtime, key, update, setOverlay, fieldOf]);
 
@@ -393,6 +399,7 @@ export function useScreen(key: string, init: ScreenInit = {}): ScreenHandle {
       if (out.dropped || out.error.type !== "not-implemented") return [];
       return pickFiles(o);
     },
+    world: (part) => WORLDS.channel(part),
   };
 }
 

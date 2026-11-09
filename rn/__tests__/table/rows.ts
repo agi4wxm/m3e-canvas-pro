@@ -2176,5 +2176,132 @@ export const ROWS: (KitRow & {
   "triggers": [],
   "initial": "Home",
   "auth": {}
+ },
+ {
+  "id": "world-move-fixed",
+  "title": "输入动作：一个固定方向发给世界视口，替身列出它听到的",
+  "ref": "输入动作；报告 1.8（World 接口）",
+  "steps": [
+   {
+    "tap": "Go right"
+   }
+  ],
+  "expect": {
+   "shown": {
+    "Arena": true,
+    "move 1,0": true
+   }
+  },
+  "vars": [],
+  "screens": {
+   "Home": "home"
+  },
+  "appVars": [],
+  "hidden": [],
+  "triggers": [],
+  "initial": "Home",
+  "auth": {}
+ },
+ {
+  "id": "world-move-at-step",
+  "title": "输入动作：方向在它那一步读，前一个效果写的值算数；长于 1 的方向截成长度 1",
+  "ref": "输入动作；顺序",
+  "steps": [
+   {
+    "tap": "Aim"
+   }
+  ],
+  "expect": {
+   "vars": {
+    "dir": "0,-1"
+   },
+   "shown": {
+    "move 0.6,0.8": true,
+    "move 0,1": false,
+    "move 0,-1": false
+   }
+  },
+  "vars": [
+   "dir"
+  ],
+  "screens": {
+   "Home": "home"
+  },
+  "appVars": [
+   {
+    "id": "dir",
+    "name": "dir",
+    "type": "text",
+    "value": "0,1"
+   }
+  ],
+  "hidden": [],
+  "triggers": [],
+  "initial": "Home",
+  "auth": {}
+ },
+ {
+  "id": "world-press-release",
+  "title": "输入动作：一次点击按下又松开一个命名输入，按顺序发出",
+  "ref": "输入动作；报告 1.8（World 接口）",
+  "steps": [
+   {
+    "tap": "Attack"
+   },
+   {
+    "tap": "Attack"
+   }
+  ],
+  "expect": {
+   "shown": {
+    "attack ↓": true,
+    "attack ↑": true
+   }
+  },
+  "vars": [],
+  "screens": {
+   "Home": "home"
+  },
+  "appVars": [],
+  "hidden": [],
+  "triggers": [],
+  "initial": "Home",
+  "auth": {}
+ },
+ {
+  "id": "world-move-from-event",
+  "title": "输入动作：部件事件带来的方向（event）作为一个命名输入发出；读不出方向的不发",
+  "ref": "输入动作；事件与槽位族",
+  "steps": [
+   {
+    "emit": "Steer",
+    "event": "submit",
+    "payload": {
+     "value": "0.5,-1"
+    }
+   },
+   {
+    "emit": "Steer",
+    "event": "submit",
+    "payload": {
+     "value": "nowhere"
+    }
+   }
+  ],
+  "expect": {
+   "shown": {
+    "aim 0.45,-0.89": true,
+    "jump ↓": true
+   }
+  },
+  "vars": [],
+  "screens": {
+   "Home": "home"
+  },
+  "appVars": [],
+  "hidden": [],
+  "triggers": [],
+  "initial": "Home",
+  "auth": {}
  }
 ];

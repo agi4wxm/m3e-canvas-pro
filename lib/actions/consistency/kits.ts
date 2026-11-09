@@ -158,6 +158,9 @@ export async function rnTable(): Promise<Record<string, string>> {
     for (const [path, file] of Object.entries(app.files)) {
       const m = /^src\/generated\/(screens\/[^/]+\.tsx?|bind\.ts|effects\.ts|contract\.ts|api\.ts)$/.exec(path);
       if (m && typeof file.body === "string") files[`${dir}/${m[1]}`] = placed(file.body);
+      /* a world view's slot (written once, drawing the stand-in), beside the screens as the app has it */
+      const slot = /^src\/(generated\/slots\.tsx?|generated\/exampleWorld\.tsx|custom\/slots\/[^/]+\.tsx)$/.exec(path);
+      if (slot && typeof file.body === "string") files[`${dir}/${slot[1].replace(/^generated\//, "")}`] = placed(file.body).replaceAll('"../custom/slots/', '"./custom/slots/');
     }
     files[`${dir}/client.ts`] = clientModule(api.operations, head);
     files[`${dir}/runtime.ts`] = `${head}

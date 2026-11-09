@@ -25,6 +25,16 @@ export type PartHost = {
    *  exported product hands its registry of capabilities (lib/capabilities, docs/平台能力.md), so the app decides what
    *  it does on each platform. Left out, the browser's own does it (`useCapability`). Never rejects. */
   invoke?: (capability: string, args: Record<string, unknown>) => Promise<CapabilityOutcome>;
+  /** The channel a world view's input actions come in on (lib/world, docs/交互规则.md “输入动作”): the preview hands its
+   *  own for the part, as printed code hands the prop `channel`. Left out, no input reaches it. */
+  world?: InputChannel;
+};
+
+/** what a world view hears its inputs on, as lib/world's `WorldChannel` says it (written out here: an exported app
+ *  carries this file without lib/world) */
+export type InputChannel = {
+  listen(fn: (action: string, value: { x: number; y: number } | boolean, at: number) => void): () => void;
+  held(): Record<string, { x: number; y: number } | boolean>;
 };
 
 /** What an invoke of a capability came to, as lib/capabilities' `InvokeOutcome` says it (written out here: an exported

@@ -28,6 +28,12 @@ import type { Motion, Transition } from "@/lib/screenMotion"
 //| import { createMockCapabilities } from "@/lib/capabilities/mock"
 //| import type { CapabilityHost, CapabilitySpec } from "@/lib/capabilities/types"
 //#end
+//#if worlds && product
+import { createWorlds, type WorldChannel } from /*$runtime*/"@m3e/app-runtime"/*$*/
+//#elif worlds
+//| import { createWorlds } from "@/lib/world/channel"
+//| import type { WorldChannel } from "@/lib/world/types"
+//#end
 //#if product
 import { PartHostContext, browserCapability } from "@/components/widgets/host"
 import { /*#if acts*/formOutcomeOf, isFilled, outcomeOf, run, /*#end*/screenParams, useRuntime, useSession, /*#if acts*/type Action, type Answer, type CallArgs, type FormHandle, type Host, type Scope, type SourceHandle, type Tap, type VarType, /*#end*/type ParamSpec } from /*$runtime*/"@m3e/app-runtime"/*$*/
@@ -340,6 +346,10 @@ export type App = {
   /** whether an input holds something: words, a tick, a choice */
   hasValue: (value: Value) => boolean
   asBool: (value: Value) => boolean
+//#if worlds
+  /** the channel a world view's input actions come in on (lib/world): its engine, or its stand-in, listens there */
+  worldChannel: (part: PartId) => WorldChannel
+//#end
 //#if acts
   /** runs what a tap does with the editor's own interpreter (lib/actions), where it was made (`useActions`) */
   act: (action: Action, tap: Tap) => void
@@ -417,6 +427,10 @@ export function AppProvider({ children/*#if !mocks*//*#else , capabilities#end*/
 //|   const [state, /*#if acts*/setDrawn/*#else setState#end*/] = useState(START)
 //#end
   const screen = state.stack[state.stack.length - 1].screen
+//#if worlds
+  /* the world views' channels: an input action goes straight there, through no state of the app's */
+  const [worlds] = useState(() => createWorlds())
+//#end
 //#if acts
   /* A tap's steps each read the state as the step before left it (lib/actions), not as it was last drawn: every change
      goes through `live` first and is drawn after. A change of the screen on show is a move of the visitor's, which an
@@ -573,8 +587,11 @@ export function AppProvider({ children/*#if !mocks*//*#else , capabilities#end*/
 //|       afterSignIn: () => false,
 //#end
       moves: () => moves.current,
+//#if worlds
+      worldInput: (part, action, value) => worlds.send(part, action, value),
+//#end
     }
-  }, [])
+  }, [/*#if worlds*/worlds/*#end*/])
   /** runs what a tap does, where it was made; `{{current.field}}` reads the row last tapped */
   const act = useCallback((action: Action, tap: Tap) => void run(action, host, { ...tap, current: live.current.current }), [host])
 //#end
@@ -700,6 +717,9 @@ export function AppProvider({ children/*#if !mocks*//*#else , capabilities#end*/
       pickRow: (row) => setState((s) => ({ ...s, current: row })),
       hasValue,
       asBool,
+//#if worlds
+      worldChannel: (part) => worlds.channel(part),
+//#end
 //#if acts
       act,
 //#if product
@@ -709,7 +729,7 @@ export function AppProvider({ children/*#if !mocks*//*#else , capabilities#end*/
 //#end
 //#end
     }
-  }, [state, screen/*#if modes && !dark && colorMode*/, darkOn/*#end*//*#if product*/, runtime/*#end*//*#if acts*/, act/*#end*/])
+  }, [state, screen/*#if modes && !dark && colorMode*/, darkOn/*#end*//*#if product*/, runtime/*#end*//*#if acts*/, act/*#end*//*#if worlds*/, worlds/*#end*/])
 //#if acts
   latest.current = app
 //#end

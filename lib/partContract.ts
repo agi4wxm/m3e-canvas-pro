@@ -111,6 +111,9 @@ export function demoTakenOver(it: Item): boolean {
   const demo = defOf(it)?.demo;
   if (!demo) return false;
   if (demo.takenOverBy.some((k) => it.bind?.[k] !== undefined)) return true;
+  /* a world view's actions run on what its world says (a round over sending the score to the API): they take nothing
+     of the world over, only its state from data does */
+  if (defOf(it)?.world) return false;
   const actions = [it.action, ...Object.values(it.actions ?? {})].filter((a): a is Action => !!a);
   return actions.some((a) => reachesApi(a) || reachesApi(a.else));
 }

@@ -420,6 +420,8 @@ export type JoystickProps = PartBase & {
   onValueChange?: (value: string) => void;
   /** the finger let go, where it was */
   onRelease?: (at: Vec) => void;
+  /** each direction handed out, as the part's `move` event: what a world view's input action reads (docs/交互规则.md) */
+  onMove?: (at: Vec) => void;
 };
 
 let pads = 0;
@@ -446,6 +448,8 @@ export function Joystick(props: JoystickProps) {
     if (!at) return;
     setHeld(at);
     p.onValueChange?.(wordsOfVec(at));
+    /* a finger moving within the same direction is no new push */
+    if (!held || held.x !== at.x || held.y !== at.y) p.onMove?.({ x: at.x, y: at.y });
   };
   const onStart = (e: CommonEvent) => {
     if (p.disabled) return;
@@ -474,6 +478,7 @@ export function Joystick(props: JoystickProps) {
     setHeld(null);
     setLeft({ at: rest, given: p.value ?? "" });
     p.onValueChange?.(wordsOfVec(rest));
+    p.onMove?.({ x: rest.x, y: rest.y });
   };
   return (
     <Surface base={{ width: size, height: size, borderRadius: "50%", backgroundColor: c("surface-container-high"), opacity: p.disabled ? 0.38 : 1, flexShrink: 0, alignSelf: "flex-start" }} appearance={p}>

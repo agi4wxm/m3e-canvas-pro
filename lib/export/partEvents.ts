@@ -23,13 +23,16 @@ const SINGLE: Record<string, Record<string, { params: string; payload: string }>
 
 /** The events a kit component does not hand out: a split view hands out its share as its value only, the camera and
  *  the map stand-ins take no picture and never move (their slot sends those: `onEvent`), the audio player plays
- *  nothing to an end, and the dialogue box is drawn as its atoms. */
+ *  nothing to an end, the dialogue box is drawn as its atoms, and a world view's stand-in plays no world (its slot's
+ *  engine sends its events). */
 const NOT_SENT: Record<string, string[]> = {
   "split-view": ["resize"],
   camera: ["captured", "scanned"],
   map: ["regionChange"],
   "audio-player": ["ended"],
   "dialogue-box": ["settled"],
+  /* a world view's stand-in plays no world: its slot's engine sends these (`onEvent`) */
+  "world-view": ["hit", "collected", "ended"],
 };
 
 /** how a kit component hands out an event of its part; null when it does not */

@@ -288,6 +288,9 @@ function effectText(e: Effect, s: Scope, lang: Lang): string | null {
         case "loadMore": return `データ ${e.source} の続きを読み込む`;
         case "submit": return "フォームを送信する";
         case "signOut": return "ログアウトする";
+        case "move": return `${part}に入力 ${e.action ?? "move"} の方向（${e.vector}）を送る`;
+        case "press": return `${part}の入力 ${e.action} を押す`;
+        case "release": return `${part}の入力 ${e.action} を離す`;
       }
     },
     en: () => {
@@ -308,6 +311,9 @@ function effectText(e: Effect, s: Scope, lang: Lang): string | null {
         case "loadMore": return `loads more of data ${e.source}`;
         case "submit": return "submits the form";
         case "signOut": return "signs out";
+        case "move": return `sends ${part} the direction ${e.vector} as its ${e.action ?? "move"} input`;
+        case "press": return `presses the ${e.action} input of ${part}`;
+        case "release": return `lets go of the ${e.action} input of ${part}`;
       }
     },
     zh: () => {
@@ -328,6 +334,9 @@ function effectText(e: Effect, s: Scope, lang: Lang): string | null {
         case "loadMore": return `加载数据 ${e.source} 的下一页`;
         case "submit": return "提交表单";
         case "signOut": return "退出登录";
+        case "move": return `把方向 ${e.vector} 作为输入 ${e.action ?? "move"} 发给${part}`;
+        case "press": return `按下${part}的输入 ${e.action}`;
+        case "release": return `松开${part}的输入 ${e.action}`;
       }
     },
     ko: () => {
@@ -348,6 +357,9 @@ function effectText(e: Effect, s: Scope, lang: Lang): string | null {
         case "loadMore": return `데이터 ${e.source}의 다음 페이지 불러오기`;
         case "submit": return "양식 제출";
         case "signOut": return "로그아웃";
+        case "move": return `${part}에 방향 ${e.vector}을(를) 입력 ${e.action ?? "move"}(으)로 보내기`;
+        case "press": return `${part}의 입력 ${e.action} 누르기`;
+        case "release": return `${part}의 입력 ${e.action} 떼기`;
       }
     },
   };

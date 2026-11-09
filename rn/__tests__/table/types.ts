@@ -31,8 +31,9 @@ export type PartSpec = {
   screen?: string;
   /** a button (the default), words, a text field, a dropdown menu (the words are its trigger's), a dialog, a number pad
    *  (the words are its confirm button's; it sends `submit` with the value), a button group (the words are its first
-   *  entry, `items` the rest; its entries are a family of places, `tab:*`) */
-  kind?: "button" | "text" | "field" | "menu" | "dialog" | "numpad" | "buttons";
+   *  entry, `items` the rest; its entries are a family of places, `tab:*`), a world view (the words are its name, `items`
+   *  the input actions its world takes; its stand-in lists each input it hears: `move 1,0`, `attack ↓`) */
+  kind?: "button" | "text" | "field" | "menu" | "dialog" | "numpad" | "buttons" | "world";
   label: string;
   /** a menu's entries, a dialog's confirm button */
   items?: string[];

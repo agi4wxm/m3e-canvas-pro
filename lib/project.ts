@@ -15,7 +15,7 @@ import { BARE_VERSION, PROJECT_VERSION, migrate, versionOf, type Migration } fro
 import { fields, withUnknown } from "./keep";
 import { bindRule, conditionRule } from "./rules";
 /* how deep a call's `then` and `catch` may hold calls of their own: the interpreter's own limit */
-import { MAX_CALL_DEPTH } from "./actions/model";
+import { MAX_CALL_DEPTH, WORLD_ACTION } from "./actions/model";
 
 /* A project file is the Doc as JSON, nothing more. Reading one back only checks
  * the shape the editor relies on. */
@@ -99,6 +99,9 @@ const EFFECT_FIELDS: Record<string, ReadonlySet<string>> = {
   loadMore: fields("do", "source"),
   submit: fields("do", "form"),
   signOut: fields("do"),
+  move: fields("do", "part", "action", "vector"),
+  press: fields("do", "part", "action"),
+  release: fields("do", "part", "action"),
 };
 const OPTIMISTIC = fields("source", "remove", "patch");
 
@@ -158,6 +161,14 @@ function cleanKnownEffect(e: Record<string, unknown>, depth: number): Effect | u
       return { do: "submit", ...(typeof e.form === "string" && e.form ? { form: e.form } : {}) };
     case "signOut":
       return { do: "signOut" };
+    case "move": {
+      if (typeof e.part !== "string" || !e.part || (e.action !== undefined && !(typeof e.action === "string" && WORLD_ACTION.test(e.action)))) return undefined;
+      const vector = cleanExpr(e.vector);
+      return vector ? { do: "move", part: e.part, ...(typeof e.action === "string" ? { action: e.action } : {}), vector } : undefined;
+    }
+    case "press":
+    case "release":
+      return typeof e.part === "string" && e.part && typeof e.action === "string" && WORLD_ACTION.test(e.action) ? { do: e.do, part: e.part, action: e.action } : undefined;
     default:
       return undefined;
   }

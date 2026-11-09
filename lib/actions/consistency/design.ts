@@ -5,7 +5,7 @@ import { DocStore, counterIds, guessMeasurer, ops, savedDoc, stateOf } from "../
 import type { Doc } from "../../tokens";
 import type { Design, OperationSpec, PartSpec } from "./types";
 
-const SLUG = { button: "button", text: "text", field: "text-field", menu: "dropdown-menu", dialog: "dialog", numpad: "number-pad", buttons: "button-group" } as const;
+const SLUG = { button: "button", text: "text", field: "text-field", menu: "dropdown-menu", dialog: "dialog", numpad: "number-pad", buttons: "button-group", world: "world-view" } as const;
 
 function endpointArgs(o: OperationSpec) {
   const props = (fields: Record<string, "string" | "number">) => Object.fromEntries(Object.entries(fields).map(([k, t]) => [k, { type: t }]));
@@ -58,7 +58,9 @@ export function designDoc(d: Design): { doc: Doc; widths: Record<string, number>
                 ? { action: p.label }
                 : kind === "buttons"
                   ? { items: [p.label, ...(p.items ?? [])].map((label) => ({ label })) }
-                  : { label: p.label };
+                  : kind === "world"
+                    ? { label: p.label, scene: "", inputs: (p.items ?? []).join(", "), entities: { columns: ["Id", "Kind", "X", "Y", "Label"], rows: [] } }
+                    : { label: p.label };
       const out = tx.run(ops.addPart, { slug: SLUG[kind], id: p.id, screen, at, props }) as { groupId: string };
       groupOf[p.id] = out.groupId;
       if (p.action && !p.unchecked) tx.run(ops.setAction, { id: p.id, action: p.action as never });

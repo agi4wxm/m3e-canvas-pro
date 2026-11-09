@@ -55,6 +55,8 @@ export function runtimeFlags(spec: RuntimeSpec): Record<string, boolean> {
     mocks: !!spec.acts?.mocks,
     /* a part hands its Pressable a family's action for the entries its props do not hold */
     families: !!spec.families,
+    /* the world views' channels, which the taps' input actions are sent on (lib/world) */
+    worlds: !!spec.worlds,
   };
 }
 
