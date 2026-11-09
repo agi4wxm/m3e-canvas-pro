@@ -346,3 +346,18 @@ export async function printedFixture(): Promise<Record<string, string | Uint8Arr
   return { ...(await printed("proof", proof.doc, proof.widths)), ...(await printed("kits", kits.doc, kits.widths)), ...(await printed("splits", splits.doc, splits.widths)), ...(await printed("play", play.doc, play.widths)), ...(await printed("layouts", layouts.doc, layouts.widths)), ...(await printed("inputs", inputs.doc, inputs.widths)), ...(await printed("data", data.doc, data.widths)), ...(await printed("media", media.doc, media.widths)), ...(await printed("slots", slots.doc, slots.widths)), ...(await printed("world", world.doc, world.widths)) };
 }
 
+
+/** A HUD over a world view, bound per frame (lib/bindings/frame.ts, docs/数据绑定.md “每帧绑定”): the score as words, the
+ *  hero's place as a stat bar's value, the words fading as the round ends; what every printer writes as per-frame code
+ *  (the web's frame loop on requestAnimationFrame, the phone's on an animated value, the mini-program's on its page's
+ *  node), never through a render. */
+export function hudDoc(): { doc: Doc; widths: Record<string, number> } {
+  const { doc } = worldDoc();
+  const play = doc.frames[0];
+  const groups: Group[] = [
+    ...doc.groups,
+    { id: "g-score", x: 26, y: 330, axis: "x", items: [{ ...makeItem("text"), id: "score", props: { text: "Score ?" }, frame: { text: "'Score ' + world.score", "@opacity": "world.status == 'ended' ? 40 : 100" } }] },
+    { id: "g-hp", x: 26, y: 300, axis: "x", items: [{ ...makeItem("stat-bar"), id: "hp", props: { label: "Health", value: 20, max: 100 }, frame: { value: "world.byId.hero.x" } }] },
+  ];
+  return { doc: { ...doc, groups, frames: [play, ...doc.frames.slice(1)], title: "HUD" }, widths: defaultMeasures(groups) };
+}

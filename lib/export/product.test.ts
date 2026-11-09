@@ -48,8 +48,11 @@ beforeAll(async () => {
 
 describe("the prototype export", () => {
   /* The single-app export stays as it was, to the byte, beside the product. These digests were taken from the export
-     before the product existed; one that changes on purpose is written again here (last: the world view and its input
-     actions, batch 5 K2: the interpreter copied into src/lib/actions runs move, press and release (model.ts, host.ts,
+     before the product existed; one that changes on purpose is written again here (last: bindings per frame, batch 6 H2:
+     the expression evaluator copied into src/lib/bindings knows the `world` root, and the world channels copied into
+     src/lib/world take the world a view connects, which a HUD's bindings per frame read (types.ts `attach`,
+     channel.ts `attached`, example.ts `connectWorld`); nothing of a screen or the runtime changes for a document bound
+     to nothing per frame. Before that the world view and its input actions, batch 5 K2: the interpreter copied into src/lib/actions runs move, press and release (model.ts, host.ts,
      run.ts), the widgets' host contract hands a world view its channel (parts/widgets/host.ts), parts/types.ts says
      what `world` is, the joystick sends `move` with each push, and the every-parts document draws a world view
      (parts/widgets/World.tsx with lib/world copied beside it, the world's clock the app's), on top of K1's clock; before that the time the parts' countdowns read comes from the app's
@@ -86,11 +89,11 @@ describe("the prototype export", () => {
      icons asking again and the ripple under reduced motion; in parts, form fields keyed by their item and resizable
      sizes as percentages). */
   const DIGESTS: Record<string, [number, string]> = {
-    proof: [90, "16daf374ad4e428c48abb10420dca191e146db09542ac1b8e81af51220ac563b"],
-    systems: [47, "42e116738aba93300d77a0f5ab04094c4cd36f7ec700b3ea32a02ee3cd07df78"],
-    reuse: [38, "45f2eeffec96e6987a68be50863bd53e5a0096fa8506f0c6f95c79955b524d04"],
-    sweep: [100, "56281f14bfb278ca1256149f351854d2ab9bdb334c2dd2cb37c5e7068228a0c5"],
-    parts: [150, "21190e3bcb8f9ab8e760ea966341e85e050452e4257d471d2031484969413b9f"],
+    proof: [90, "a45ed7711ff347e42457bdca5144e77ff2665c9f1789a63b81cc99280b554b55"],
+    systems: [47, "1d30ea210a9d9124c6391cfcbcd22cd1fff68494acdc609e085b57fba2e06318"],
+    reuse: [38, "d865227fef00dbbed101d77065d0466defcd67870fef0ae0d0981d7a79b71735"],
+    sweep: [100, "e43b1e9ca33b23346dafd31e4e391c8368f1af8b48c526a9fef213edfcd2f49a"],
+    parts: [150, "e34cb355ce68f20e6a8301841ff6943762200e208c7a1ce28bb07a34ba8e5fdc"],
   };
   const DOCS: Record<string, () => { doc: Doc; widths: Record<string, number> }> = { proof: proofDoc, systems: systemsDoc, reuse: reuseDoc, sweep: sweepDoc, parts: () => ({ doc: allPartsDoc(), widths: {} }) };
   it.each(Object.keys(DIGESTS))("is byte for byte what it was: %s", async (name) => {

@@ -627,6 +627,9 @@ function screensOf(source: Doc, widths: Record<string, number>, o: BuildOptions)
        the interpreter runs them (src/runtime.tsx `useActions`) */
     const acts = b.screenActions();
     const fromRuntime = new Set<string>(acts ? ["useActions", "type Action"] : []);
+    /* what the screen shows of the world on every frame: a table above its function, handed to the runtime's frame loop */
+    const perFrame = b.screenFramesCode(name);
+    if (perFrame) fromRuntime.add("useFrames").add("type ScreenFrame");
     for (const n of head?.app ?? []) {
       if (n === "useScreenParams" || n === "scopeVars" || n === "useActions") fromRuntime.add(n);
       else c.uses.app.add(n);
@@ -635,7 +638,7 @@ function screensOf(source: Doc, widths: Record<string, number>, o: BuildOptions)
     const fromApp = c.uses.app.size ? `  const { ${[...c.uses.app].sort().join(", ")} } = useApp()\n` : "";
     if (c.uses.app.size || c.uses.press || fromRuntime.size) c.imports.set(RUNTIME, new Set([...(c.uses.app.size ? ["useApp"] : []), ...(c.uses.press ? ["Pressable"] : []), ...fromRuntime]));
     const data = binds?.dataFile();
-    const hooks = (head?.lines.length ? `${head.lines.map((l) => `  ${l}\n`).join("")}` : "") + (acts && !binds ? `  const act = useActions(${str(key)})\n` : "");
+    const hooks = (head?.lines.length ? `${head.lines.map((l) => `  ${l}\n`).join("")}` : "") + (acts && !binds ? `  const act = useActions(${str(key)})\n` : "") + (perFrame ? `  useFrames(${perFrame.name})\n` : "");
     const state = (folds ? "  const [fabFolded, setFabFolded] = useState(false)\n  const lastScrollTop = useRef(0)\n" : "") + hooks;
     usesToast ||= c.usesToast;
     return {
@@ -646,7 +649,7 @@ function screensOf(source: Doc, widths: Record<string, number>, o: BuildOptions)
       height: h,
       foot: Math.max(0, ...runs.filter((g) => g.items.length === 1 && roleOf(g.items[0]) === "bottom").map((g) => sizeOf(g.items[0], widths).h)),
       radius: frameRadius(frame) / 2,
-      source: `${acts ? `${acts}\n\n` : ""}export function ${name}() {\n${fromApp}${state}  return (\n${pretty(inner, 2)}\n  )\n}`,
+      source: `${acts ? `${acts}\n\n` : ""}${perFrame ? `${perFrame.code}\n\n` : ""}export function ${name}() {\n${fromApp}${state}  return (\n${pretty(inner, 2)}\n  )\n}`,
       imports: c.imports,
       local: c.local,
       ...(data ? { data } : {}),

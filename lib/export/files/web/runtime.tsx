@@ -34,6 +34,12 @@ import { createWorlds, type WorldChannel } from /*$runtime*/"@m3e/app-runtime"/*
 //| import { createWorlds } from "@/lib/world/channel"
 //| import type { WorldChannel } from "@/lib/world/types"
 //#end
+//#if frames && product
+import { createFrameLoop, writeFrameDom, type FrameLoop, type FrameNode, type FrameSpec } from /*$runtime*/"@m3e/app-runtime"/*$*/
+//#elif frames
+//| import { createFrameLoop, type FrameLoop, type FrameSpec } from "@/lib/app/frame"
+//| import { writeFrameDom, type FrameNode } from "@/lib/world/frameTargets"
+//#end
 //#if product
 import { PartHostContext, browserCapability, setDomainClock } from "@/components/widgets/host"
 import { /*#if acts*/formOutcomeOf, isFilled, outcomeOf, run, /*#end*/screenParams, useRuntime, useSession, /*#if acts*/type Action, type Answer, type CallArgs, type FormHandle, type Host, type Scope, type SourceHandle, type Tap, type VarType, /*#end*/type ParamSpec } from /*$runtime*/"@m3e/app-runtime"/*$*/
@@ -350,6 +356,10 @@ export type App = {
   /** the channel a world view's input actions come in on (lib/world): its engine, or its stand-in, listens there */
   worldChannel: (part: PartId) => WorldChannel
 //#end
+//#if frames
+  /** the loop the screens' bindings per frame run on (lib/app/frame.ts): what each comes to on the last frame */
+  frames: FrameLoop
+//#end
 //#if acts
   /** runs what a tap does with the editor's own interpreter (lib/actions), where it was made (`useActions`) */
   act: (action: Action, tap: Tap) => void
@@ -430,6 +440,11 @@ export function AppProvider({ children/*#if !mocks*//*#else , capabilities#end*/
 //#if worlds
   /* the world views' channels: an input action goes straight there, through no state of the app's */
   const [worlds] = useState(() => createWorlds())
+//#end
+//#if frames
+  /* the bindings per frame of the screens on show (lib/bindings/frame.ts): one loop on the browser's frames, over the
+     world a view connected to its channel; a frame writes into the parts, never through a render */
+  const [frames] = useState(() => createFrameLoop({ world: () => worlds.attached(), schedule: (fn) => window.requestAnimationFrame(fn), cancel: (h) => window.cancelAnimationFrame(h as number) }))
 //#end
 //#if acts
   /* A tap's steps each read the state as the step before left it (lib/actions), not as it was last drawn: every change
@@ -720,6 +735,9 @@ export function AppProvider({ children/*#if !mocks*//*#else , capabilities#end*/
 //#if worlds
       worldChannel: (part) => worlds.channel(part),
 //#end
+//#if frames
+      frames,
+//#end
 //#if acts
       act,
 //#if product
@@ -729,7 +747,7 @@ export function AppProvider({ children/*#if !mocks*//*#else , capabilities#end*/
 //#end
 //#end
     }
-  }, [state, screen/*#if modes && !dark && colorMode*/, darkOn/*#end*//*#if product*/, runtime/*#end*//*#if acts*/, act/*#end*//*#if worlds*/, worlds/*#end*/])
+  }, [state, screen/*#if modes && !dark && colorMode*/, darkOn/*#end*//*#if product*/, runtime/*#end*//*#if acts*/, act/*#end*//*#if worlds*/, worlds/*#end*//*#if frames*/, frames/*#end*/])
 //#if acts
   latest.current = app
 //#end
@@ -791,6 +809,33 @@ export function useActions(screen: ScreenId/*#if product*/, parts: ScreenActions
 //|   const act = app.act
 //|   return useCallback((action: Action, at: TapAt = {}) => act(action, { screen, ...tapOf(at) }), [act, screen])
 //#end
+}
+//#end
+//#if frames
+
+/** a prop of a part bound per frame, by the key its element is marked with (`data-part`), with what the part is */
+export type ScreenFrame = FrameSpec & { slug: string }
+
+/** A screen's props bound per frame (lib/bindings/frame.ts): the app's frame loop evaluates them on every frame over the
+ *  world the HUD reads and writes each into its part's element, never through a render. */
+export function useFrames(specs: readonly ScreenFrame[]) {
+  const { frames } = useApp()
+  useEffect(() => {
+    const off = [
+      frames.add(specs),
+      ...specs.map((s) =>
+        frames.listen(
+          s.part,
+          s.prop,
+          (value) => {
+            for (const el of globalThis.document?.querySelectorAll?.(`[data-part="${s.part}"]`) ?? []) writeFrameDom(s.slug, s.prop, el as unknown as FrameNode, value)
+          },
+          true,
+        ),
+      ),
+    ]
+    return () => off.forEach((f) => f())
+  }, [frames, specs])
 }
 //#end
 

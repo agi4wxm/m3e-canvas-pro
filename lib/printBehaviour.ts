@@ -15,6 +15,9 @@ import { WORLD_EFFECTS, eventKey, familyKey, type Answer } from "./actions/model
 import { evaluate, parseExpr, rootsOf, truthy } from "./bindings/expr";
 import { boundVar, comparisonOf, fieldVarOf, type Comparison } from "./bindings/bind";
 import { inlineReads } from "./refs";
+import { FRAME_LIMITS } from "./bindings/frame";
+import type { FrameSpec } from "./app/frame";
+import { framesOfItem } from "./world/frameTargets";
 import { literal } from "./export/code";
 import { screenToken, screenWords } from "./export/ir/names";
 
@@ -63,6 +66,8 @@ export type RuntimeSpec = {
   families?: true;
   /** the screens draw world views, which the taps' input actions reach on a channel each (lib/world) */
   worlds?: true;
+  /** a part is bound per frame (lib/bindings/frame.ts): the runtime runs the frame loop its screens hand them to */
+  frames?: true;
 };
 
 /** What the runtime runs the taps over (lib/actions' `Host`, src/runtime.tsx): where each part an effect reaches stands,
@@ -358,6 +363,9 @@ export class Behaviour {
   private printedFamilies = false;
   /** a world view has been printed with its channel */
   private printedWorlds = false;
+  /** the bindings per frame of the screen being printed, each by the key its part is marked with; and of any screen */
+  private screenFrames: (FrameSpec & { slug: string })[] = [];
+  private printedFrames = false;
   /** the bindings, printed against the product's runtime */
   readonly bound?: BoundPrint;
   private readonly groupById: Map<string, Group>;
@@ -572,7 +580,8 @@ export class Behaviour {
       ...(this.bound ? { bound: this.boundSpec() } : {}),
       ...(this.acts ? { acts: this.actsSpec() } : {}),
       ...(this.printedFamilies ? { families: true as const } : {}),
-      ...(this.printedWorlds ? { worlds: true as const } : {}),
+      ...(this.printedWorlds || this.printedFrames ? { worlds: true as const } : {}),
+      ...(this.printedFrames ? { frames: true as const } : {}),
     };
   }
 
@@ -971,11 +980,25 @@ export class Behaviour {
 
   /** Starts a screen: its table of actions is its own. */
   beginScreen(component: string) {
+    this.screenFrames = [];
     this.screenActs = new Map();
     this.actNamed = new Map();
     this.screenTapped = false;
     this.actKeys = new Set();
     this.actsName = `${component[0].toLowerCase()}${component.slice(1)}Actions`;
+  }
+
+  /** The screen's bindings per frame as code, once its parts are printed: the table the screen hands the runtime's frame
+   *  loop (src/runtime.tsx `useFrames`), which writes each value into the element its part is marked with
+   *  (`data-part`) on every frame, never through a render. Undefined with none. */
+  screenFramesCode(component: string): { name: string; code: string } | undefined {
+    if (!this.screenFrames.length) return undefined;
+    const name = `${component[0].toLowerCase()}${component.slice(1)}Frames`;
+    const rows = this.screenFrames.slice(0, FRAME_LIMITS.perScreen).map((f) => `  ${literal(f)},`);
+    return { name, code: `/** what this screen shows of the world on every frame (lib/bindings/frame.ts): src/runtime.tsx writes each into its part */
+const ${name} = [
+${rows.join("\n")}
+] satisfies ScreenFrame[]` };
   }
 
   /** whether the screen being printed has actions to run (a form's then or catch among them), and taps that run them */
@@ -1262,6 +1285,15 @@ export class Behaviour {
         const wired = { ...widget, props: { ...widget.props, onEvent: raw(`(name, payload) => { ${events.join(" else ")} }`) } };
         tree = widget === tree ? wired : { ...tree, children: tree.children?.map((c) => (c === widget ? wired : c)) };
       }
+    }
+    /* a prop bound per frame is written into the part's element by the runtime's frame loop: the element is marked */
+    const frames = this.live ? framesOfItem(it) : [];
+    if (frames.length) {
+      const key = this.partKeys.get(it.id)!;
+      this.usedParts.add(key);
+      this.printedFrames = true;
+      this.screenFrames.push(...frames.map((f) => ({ ...f, part: key, slug: it.component ?? "" })));
+      tree = { ...tree, props: { ...tree.props, "data-part": key } };
     }
     /* a world view listens on its channel, which the taps' input actions are sent on (lib/world) */
     if (def.world && tree.type in WIDGET_SOURCES) {

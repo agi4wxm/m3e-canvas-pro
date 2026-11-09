@@ -10,6 +10,8 @@
  *   - baselines: text line boxes read there (Range#getClientRects: a baseline worked out again)
  *   - next paint: from each input event to the frame after it was handled, median and worst, in ms
  *   - long tasks: the main thread's tasks over 50 ms during the interaction, summed
+ * Then it previews a HUD of twenty enemies bound per frame (docs/数据绑定.md “每帧绑定”) over a world that moves on every
+ * frame, and reports the commits and renders per frame there, which should be none (`--json` keeps it as `frames`).
  * `--breakdown` also lists the components that rendered most, by name: against the dev server (`--base` of `vp dev`),
  * where names are kept. Numbers depend on the machine; compare runs made on the same one. Playwright comes from wherever
  * it is installed, as for the end-to-end tests (e2e/run.ts). */
@@ -21,7 +23,8 @@ import { createServer } from "node:net";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { deflateRawSync } from "node:zlib";
-import type { Browser, Page } from "../e2e/lib";
+import { selectScreen, type Browser, type Page } from "../e2e/lib";
+import { hudDoc, movingWorld } from "../e2e/frames.e2e";
 
 const root = resolve(fileURLToPath(new URL(".", import.meta.url)), "..");
 const args = process.argv.slice(2);
@@ -239,6 +242,49 @@ const browser = await playwright().chromium.launch();
 const rows: Row[] = [];
 let parts = 0;
 let opening = {};
+let frames: { frames: number; commits: number; rendered: number; changed: number } | undefined;
+
+/** The preview of a HUD bound per frame (e2e/frames.e2e.ts): twenty health bars, damage numbers and a cooldown over a
+ *  world the page hands in, which moves on every frame. Counts what React does over sixty frames once it has settled,
+ *  and how many of those frames drew the bars differently. */
+async function framesRow(browser: Browser) {
+  const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: 1 });
+  await ctx.addInitScript(() => {
+    if (!localStorage.getItem("m3e:ui")) localStorage.setItem("m3e:ui", JSON.stringify({ pickedLang: "en" }));
+  }, undefined);
+  await ctx.addInitScript(instrument, undefined);
+  await ctx.addInitScript(movingWorld, 20);
+  const page = await ctx.newPage();
+  await page.goto(`${base}/${linkOf(hudDoc())}`, { waitUntil: "load" });
+  await page.waitForSelector(".m3e-boot", { state: "detached", timeout: 120_000 });
+  await page.waitForSelector('[data-screen="hud"]', { timeout: 120_000 });
+  await idle(page, 1500);
+  await page.keyboard.press("Escape");
+  await selectScreen(page, "hud");
+  await page.keyboard.press("p");
+  await page.waitForSelector('[data-preview-active] [data-slot="stat-bar-fill"]', { timeout: 30_000 });
+  await idle(page, 1500);
+  await reset(page, true);
+  const changed = await page.evaluate(
+    () =>
+      new Promise<number>((done) => {
+        let n = 0;
+        let last = "";
+        let changes = 0;
+        const step = () => {
+          const now = [...document.querySelectorAll('[data-preview-active] [data-slot="stat-bar-fill"]')].map((el) => (el as HTMLElement).style.width).join();
+          if (now !== last) changes++;
+          last = now;
+          if (++n < 60) requestAnimationFrame(step);
+          else done(changes);
+        };
+        requestAnimationFrame(step);
+      }),
+  );
+  const counted = await read(page);
+  await ctx.close();
+  return { frames: 60, commits: counted.commits, rendered: counted.rendered, changed };
+}
 try {
   const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: 1 });
   await ctx.addInitScript(() => {
@@ -336,6 +382,7 @@ try {
     }),
   );
   await ctx.close();
+  frames = await framesRow(browser);
 } finally {
   await browser.close();
   stop();
@@ -348,4 +395,5 @@ for (const r of rows)
   );
 console.log("(per repetition; paint = input event to the next frame, ms; long = long-task ms per repetition)");
 const out = option("json");
-if (out) writeFileSync(out, JSON.stringify({ screens: SCREENS, parts, reps: REPS, opening, rows }, null, 2));
+if (frames) console.log(`\npreview of a HUD bound per frame (20 bars, 20 damage numbers, a cooldown): ${frames.commits} commits and ${frames.rendered} renders in ${frames.frames} frames, the bars drawn anew on ${frames.changed} of them`);
+if (out) writeFileSync(out, JSON.stringify({ screens: SCREENS, parts, reps: REPS, opening, rows, ...(frames ? { frames } : {}) }, null, 2));

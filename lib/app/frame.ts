@@ -92,7 +92,8 @@ export function createFrameLoop(o: FrameLoopOptions): FrameLoop {
       const changed = !s.has || s.value !== v;
       s.value = v;
       s.has = true;
-      for (const sink of [...s.sinks]) if (changed || sink.every) sink.write(v);
+      /* a writer that stops listening as it hears does not stop the others hearing */
+      for (const sink of Array.from(s.sinks)) if (changed || sink.every) sink.write(v);
     }
   };
 

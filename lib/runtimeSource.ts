@@ -57,6 +57,8 @@ export function runtimeFlags(spec: RuntimeSpec): Record<string, boolean> {
     families: !!spec.families,
     /* the world views' channels, which the taps' input actions are sent on (lib/world) */
     worlds: !!spec.worlds,
+    /* the bindings per frame of the screens, on the app's frame loop (lib/app/frame.ts) */
+    frames: !!spec.frames,
   };
 }
 

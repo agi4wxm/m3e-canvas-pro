@@ -8,7 +8,7 @@
 import { createContext, useContext, useEffect, useMemo, type RefObject } from "react";
 import { createFrameLoop, type FrameLoop, type FrameSpec } from "@/lib/app/frame";
 import { FRAME_LIMITS } from "@/lib/bindings/frame";
-import { frameTargetOf, writeFrameDom, type FrameNode } from "@/lib/world/frameTargets";
+import { frameTargetOf, framesOfItem, writeFrameDom, type FrameNode } from "@/lib/world/frameTargets";
 import type { WorldSource } from "@/lib/world/root";
 import type { Worlds } from "@/lib/world/channel";
 import type { Group, Item } from "@/lib/tokens";
@@ -33,18 +33,10 @@ export function createPreviewFrames(worlds: Worlds, lang: () => string): FrameLo
   });
 }
 
-/** the bindings per frame of a part, each as the loop takes it; a prop no frame can write is left out */
-export function framesOf(it: Pick<Item, "id" | "component" | "frame">): FrameSpec[] {
-  return Object.entries(it.frame ?? {}).flatMap(([prop, expr]) => {
-    const t = frameTargetOf(it.component, prop);
-    return t && typeof expr === "string" ? [{ part: it.id, prop, expr, kind: t.kind, ...(t.min !== undefined ? { min: t.min } : {}), ...(t.max !== undefined ? { max: t.max } : {}) }] : [];
-  });
-}
-
 /** Adds the bindings per frame of the parts a screen draws while it is drawn, at most `FRAME_LIMITS.perScreen`. */
 export function useScreenFrames(groups: readonly Group[]) {
   const loop = useContext(PreviewFrames);
-  const specs = useMemo(() => groups.flatMap((g) => g.items.flatMap(framesOf)).slice(0, FRAME_LIMITS.perScreen), [groups]);
+  const specs = useMemo(() => groups.flatMap((g) => g.items.flatMap(framesOfItem)).slice(0, FRAME_LIMITS.perScreen), [groups]);
   /* the same bindings drawn again are the same: a render does not add them anew */
   const key = useMemo(() => JSON.stringify(specs), [specs]);
   useEffect(() => {

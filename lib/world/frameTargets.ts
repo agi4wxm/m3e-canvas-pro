@@ -38,6 +38,15 @@ export function frameTargetOf(slug: string | undefined, prop: string): FrameTarg
 /** the props of a part that can be bound per frame */
 export const frameProps = (slug: string | undefined): string[] => [...Object.keys((slug && FRAME_TARGETS[slug]) || {}), FRAME_OPACITY];
 
+/** The bindings per frame of a part, each with the kind of value its prop takes: what a host's frame loop is handed
+ *  (lib/app/frame.ts `FrameSpec`). A prop no frame can write is left out. */
+export function framesOfItem(it: { id: string; component?: string; frame?: Record<string, string> }): { part: string; prop: string; expr: string; kind: FrameKind; min?: number; max?: number }[] {
+  return Object.entries(it.frame ?? {}).flatMap(([prop, expr]) => {
+    const t = frameTargetOf(it.component, prop);
+    return t && typeof expr === "string" ? [{ part: it.id, prop, expr, kind: t.kind, ...(t.min !== undefined ? { min: t.min } : {}), ...(t.max !== undefined ? { max: t.max } : {}) }] : [];
+  });
+}
+
 /** A value as a target takes it: words for words (nothing is ""), a number kept to the range (none when it reads as no
  *  number). The rule of every binding (lib/bindings/expr.ts `propValueOf`). */
 export function frameValueOf(v: unknown, t: Pick<FrameTarget, "kind" | "min" | "max">): string | number | undefined {
