@@ -22,6 +22,7 @@ import { FileConflict, NotAProject, ProjectFileStore, type ProjectFormat } from 
 import type { Log } from "./log";
 import { readEditorSource } from "./sources";
 import { DiskAssets } from "./assets";
+import { diskContractIndex } from "./hub";
 import { refreshGame } from "../../lib/game/folder";
 import type { Doc } from "../../lib/tokens";
 import { readFile } from "node:fs/promises";
@@ -225,7 +226,9 @@ export class FileBackend implements Backend {
       const target = isAbsolute(dir) ? dir : resolve(dirname(resolve(this.o.path)), dir);
       try {
         const state = this.store.get();
-        const product = await buildProduct(savedDoc(state), state.session.widths, { lang: this.o.lang, read: readEditorSource, assets: this.assets.catalog?.manifest ?? null });
+        /* the hub's contract index beside the project, read afresh (hub.ts): a contract version it differs on is a gap */
+        const index = await diskContractIndex(this.file.projectDir, state.doc).catch(() => null);
+        const product = await buildProduct(savedDoc(state), state.session.widths, { lang: this.o.lang, read: readEditorSource, assets: this.assets.catalog?.manifest ?? null, contractIndex: index?.status === "read" ? index.index : null });
         const done = await exportToFolder(target, product, { force: o.force });
         const written = done.writes.filter((w) => w.why !== "conflict" && w.why !== "manifest").map((w) => w.path);
         this.o.log.info(`Exported ${product.name} to ${done.dir}: ${written.length} written, ${done.conflicts.length} conflicts.`);

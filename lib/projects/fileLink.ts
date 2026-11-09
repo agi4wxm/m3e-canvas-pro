@@ -9,6 +9,7 @@ import { saveErrorKind, type SaveErrorKind } from "../core/persist";
 import type { Doc } from "../tokens";
 import type { FileRecord } from "./db";
 import { readInFolder, refreshGame, type FolderLike, type GameRefresh } from "../game/folder";
+import { loadContractIndex, type ContractIndexState } from "../hub/contractIndex";
 
 /* ---------- the little of the API that is used, typed here: not every lib.dom has it ---------- */
 
@@ -107,8 +108,9 @@ async function mainFileOf(dir: DirHandle): Promise<FileHandle | null> {
 
 /** What a file or folder holds: the project's document (null when it is not one) and the text it was read from. A
  *  folder's project reads its gameplay contract where it says it is, beside it (lib/game/folder.ts): `game` says what
- *  that came to, and the document has the contract as the file has it now. */
-export async function readFromDisk(handle: FileSystemHandle): Promise<{ doc: Doc | null; text: string | null; name: string; game?: GameRefresh }> {
+ *  that came to, and the document has the contract as the file has it now; and the hub's contract index, `index`
+ *  (lib/hub/contractIndex.ts), which the contract's version is compared with. */
+export async function readFromDisk(handle: FileSystemHandle): Promise<{ doc: Doc | null; text: string | null; name: string; game?: GameRefresh; index?: ContractIndexState }> {
   if (handle.kind === "directory") {
     const dir = handle as DirHandle;
     const main = await mainFileOf(dir);
@@ -117,7 +119,8 @@ export async function readFromDisk(handle: FileSystemHandle): Promise<{ doc: Doc
     const doc = await readProjectText(text, (p) => readBytes(dir, p));
     if (!doc) return { doc, text, name: dir.name };
     const read = await refreshGame(doc as Doc & Record<string, unknown>, (p) => readInFolder(dir as unknown as FolderLike, p));
-    return { doc: read.doc, text, name: dir.name, ...(read.refresh.status === "none" ? {} : { game: read.refresh }) };
+    const index = await loadContractIndex(read.doc, (p) => readInFolder(dir as unknown as FolderLike, p));
+    return { doc: read.doc, text, name: dir.name, ...(read.refresh.status === "none" ? {} : { game: read.refresh }), ...(index.status === "none" ? {} : { index }) };
   }
   const file = await (handle as FileHandle).getFile();
   const text = await file.text();

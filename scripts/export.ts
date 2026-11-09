@@ -11,6 +11,7 @@ import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import { ProjectFileStore } from "../mcp/src/fileStore";
 import { DiskAssets } from "../mcp/src/assets";
+import { diskContractIndex } from "../mcp/src/hub";
 import { exportToFolder, FolderRefused, reportLines } from "../lib/export/nodeWriter";
 import { differenceLines } from "../lib/export/differences";
 import { buildProduct } from "../lib/export/product";
@@ -37,7 +38,10 @@ try {
   /* the asset pipeline's manifest, where the project's configuration says (beside the project file by default) */
   const assets = await new DiskAssets().refresh(store.projectDir, doc);
   for (const p of assets.manifest ? assets.problems : []) console.warn(`asset manifest: ${p}`);
-  const product = await buildProduct(doc, {}, { lang, read: (path) => readFile(join(ROOT, path), "utf8"), assets: assets.manifest });
+  /* the hub's contract index, where the project's configuration says (beside the project file by default) */
+  const index = await diskContractIndex(store.projectDir, doc);
+  if (index.status === "missing" || index.status === "invalid") console.warn(`contract index: ${index.path} ${index.status === "missing" ? "is not there" : `is no index (${index.problems.slice(0, 3).join("; ")})`}`);
+  const product = await buildProduct(doc, {}, { lang, read: (path) => readFile(join(ROOT, path), "utf8"), assets: assets.manifest, contractIndex: index.status === "read" ? index.index : null });
   for (const w of product.warnings) console.warn(`warning: ${w}`);
   const done = await exportToFolder(out, product, { force: values.force });
   console.log(`${product.name} → ${done.dir}`);

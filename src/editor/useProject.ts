@@ -18,6 +18,20 @@ import { newerVersionOf, projectFileName } from "@/lib/project";
 import type { Doc, Frame } from "@/lib/tokens";
 import { outsideInDoc } from "@/lib/outside";
 import { holdOutside } from "./useOutsideImages";
+import { linkedContractsOf, versionMismatches, type ContractIndexState } from "@/lib/hub/contractIndex";
+
+/** What reading the hub's contract index beside a folder's project came to, in a sentence (null: nothing to say): a
+ *  contract the design is written to at another version than the index's, a namespace it does not list, an index the
+ *  configuration names that is not there or is none. The export lists the same in .m3e/gaps.json. */
+function hubNoteOf(doc: Doc, index: ContractIndexState | undefined, lang: Lang): string | null {
+  if (!index || index.status === "none") return null;
+  if (index.status === "missing" || index.status === "invalid") return t(index.status === "missing" ? "hubMissing" : "hubInvalid", lang).replace("{path}", index.path);
+  const m = versionMismatches(linkedContractsOf(doc), index.index)[0];
+  if (!m) return null;
+  return m.reason === "not-indexed"
+    ? t("hubUnlisted", lang).replace("{namespace}", m.linked.namespace)
+    : t("hubMismatch", lang).replace("{module}", m.module).replace("{version}", m.entry.contractVersion).replace("{was}", `${m.linked.namespace} ${m.linked.contractVersion}`);
+}
 
 /** a project file or folder opened or dropped, waiting for the person to say where it goes */
 export type PendingOpen = { doc: Doc; name: string; handle?: FileSystemHandle; kind?: "file" | "folder"; written?: FileRecord["written"] };
@@ -279,15 +293,18 @@ export function useProject(o: ProjectInputs) {
 
   /** what a picked or dropped file or folder holds, offered to the person; an error when it holds no project */
   const offerHandle = async (handle: FileSystemHandle) => {
-    const { doc, text, name, game } = await readFromDisk(handle).catch(() => ({ doc: null, text: null, name: handle.name, game: undefined }));
+    const { doc, text, name, game, index } = await readFromDisk(handle).catch(() => ({ doc: null, text: null, name: handle.name, game: undefined, index: undefined }));
     if (!doc) {
       live.current.showToast(t(handle.kind === "directory" ? "fileFolderNoProject" : "invalidProject", lang), 4000, "error");
       return;
     }
-    /* the gameplay contract beside a folder's project, read again: what it broke in the design, or that it is gone */
+    /* the gameplay contract beside a folder's project, read again: what it broke in the design, or that it is gone; then
+       what the hub's contract index says of it (a version it has another of) */
+    const hub = hubNoteOf(doc, index, lang);
     if (game?.status === "updated" && game.report.gaps.length) live.current.showToast(t("gcBroke", lang).replace("{version}", game.report.contractVersion).replace("{n}", String(game.report.gaps.length)), 5000, "error");
-    else if (game?.status === "updated") live.current.showToast(t("gcImported", lang).replace("{version}", game.report.contractVersion), 2500, "check");
     else if (game?.status === "missing" || game?.status === "invalid") live.current.showToast(t(game.status === "missing" ? "gcMissing" : "gcInvalid", lang).replace("{path}", game.path), 5000, "error");
+    else if (hub) live.current.showToast(hub, 5000, "error");
+    else if (game?.status === "updated") live.current.showToast(t("gcImported", lang).replace("{version}", game.report.contractVersion), 2500, "check");
     let written: FileRecord["written"];
     if (handle.kind === "file" && text !== null) {
       const f = await (handle as FileSystemFileHandle).getFile().catch(() => null);

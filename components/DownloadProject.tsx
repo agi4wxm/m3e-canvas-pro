@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { assetCatalog } from "@/lib/assetCatalog";
+import { currentContractIndex } from "@/lib/hub/contractIndex";
 import type { Doc, Palette } from "@/lib/tokens";
 import { t, UI, useLang, type UIKey } from "@/lib/i18n";
 import type { ExportPlan } from "@/lib/export/merge";
@@ -100,8 +101,10 @@ export function DownloadProject({ doc, widths, p, stacked = true }: { doc: Doc; 
 
   const product = async () => {
     const { buildProduct } = await import("@/lib/export/product");
-    /* the asset manifest the project's folder holds (lib/projects/assetLink.ts): the apps' lookups are made from it */
-    return buildProduct(doc, widths, { lang, assets: assetCatalog()?.manifest ?? null, onProgress: (done, total) => setBusy({ done, total }) });
+    /* the asset manifest the project's folder holds (lib/projects/assetLink.ts): the apps' lookups are made from it;
+       the hub's contract index, read afresh from the same folder: a contract version it differs on is a gap */
+    const index = await currentContractIndex(doc).catch(() => null);
+    return buildProduct(doc, widths, { lang, assets: assetCatalog()?.manifest ?? null, contractIndex: index?.status === "read" ? index.index : null, onProgress: (done, total) => setBusy({ done, total }) });
   };
 
   const zipIt = async () => {

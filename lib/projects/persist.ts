@@ -23,6 +23,7 @@ import { DocConflict, getAssets, getFileRecord, getProject, listProjects, patchP
 import { FileLink, type DirHandle, type LinkState } from "./fileLink";
 import { AssetWatch, folderReader } from "./assetLink";
 import { assetManifestPathOf, setAssetCatalog } from "../assetCatalog";
+import { setContractIndexSource } from "../hub/contractIndex";
 import { migrateLegacy } from "./migrate";
 import { setOutsideBlocked } from "../outsidePolicy";
 import { createProject, lockName, mostRecent, newProjectId, onProjectsChanged, PROJECT_PARAM, purgeTrashed, storedForm, summaryOf, tellProjectsChanged } from "./projects";
@@ -603,8 +604,15 @@ export class ProjectsPersist implements PersistAdapter {
     this.assetWatch?.close();
     this.assetWatch = null;
     setAssetCatalog(null);
+    /* the hub's contract index is read from the same folder, afresh on each export (lib/hub/contractIndex.ts) */
+    setContractIndexSource(null);
     if (rec?.kind !== "folder" || typeof window === "undefined") return;
-    const watch = new AssetWatch(folderReader(rec.handle as DirHandle), assetManifestPathOf(doc as Doc | null), (c) => {
+    const reader = folderReader(rec.handle as DirHandle);
+    setContractIndexSource(async (path) => {
+      const bytes = await reader.read(path);
+      return bytes ? new TextDecoder().decode(bytes) : null;
+    });
+    const watch = new AssetWatch(reader, assetManifestPathOf(doc as Doc | null), (c) => {
       if (this.assetWatch === watch) setAssetCatalog(c);
     });
     this.assetWatch = watch;
