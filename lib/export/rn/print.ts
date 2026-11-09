@@ -681,7 +681,7 @@ class ScreenPrinter {
       const standIn = isNative(def.slug) ? NATIVE[def.slug] : "Placeholder";
       this.kit.add(standIn);
       const drawn = isNative(def.slug) ? el(standIn, [...this.props(def, it), ...this.extras(p), ...channel]) : el("Placeholder", [["part", str(def.slug)], ["name", str(def.name)], ["width", expr(size.w)], ["height", expr(size.h)]]);
-      return el(slot, [...slotGiven(def, it).map(([k, v]) => [k, expr(v)] as [string, string]), ["width", expr(size.w)], ["height", expr(size.h)], ...this.slotEvents(p), ...channel], [drawn]);
+      return el(slot, [...slotGiven(def, it, this.doc.capabilities).map(([k, v]) => [k, expr(v)] as [string, string]), ["width", expr(size.w)], ["height", expr(size.h)], ...this.slotEvents(p), ...channel], [drawn]);
     }
     /* a part the product draws itself (`Item.slot`): its slot, handed what the kit's component is (the generated slots
        module draws the kit's component inside it), or around the atoms or the placeholder it is drawn as */

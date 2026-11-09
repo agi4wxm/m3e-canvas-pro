@@ -44,6 +44,8 @@ import { Behaviour, type RuntimeSpec, type Uses } from "./printBehaviour";
 import { BoundPrint, type BindPrintOptions } from "./printBindings";
 import { templateOf } from "./collections";
 import { partBySlug } from "../parts/registry";
+import { slotTakes } from "./capabilities/doc";
+import type { CapabilitySpec } from "./capabilities/types";
 import { fullWidth, roleOf } from "../parts/role";
 import { pinOf } from "./tidy";
 import { footOf } from "./foot";
@@ -120,6 +122,8 @@ class Ctx {
     readonly widths: Record<string, number>,
     /** the slots that draw the capability views, by item id */
     readonly slots: Record<string, string> = {},
+    /** the document's own capabilities beside the catalog's: what a view's slot takes */
+    readonly spec?: CapabilitySpec,
   ) {}
   /** the files of this repo's own the screen's code needs over the registry's, with what needs them */
   local = new Map<string, Set<string>>();
@@ -154,7 +158,10 @@ function jsx(it: Item, c: Ctx, insideTap = false): string {
   const slot = c.slots[it.id];
   if (slot) {
     c.imports.set("@/slots", new Set([...(c.imports.get("@/slots") ?? []), slot]));
-    const props = Object.fromEntries(Object.entries(tree.props ?? {}).filter(([k]) => !k.startsWith("data-") && k !== "className" && k !== "style"));
+    /* a capability view's slot takes the view's props: what else the stand-in is drawn with stays the stand-in's */
+    const def = partBySlug(it.component);
+    const takes = def?.capability ? slotTakes(c.spec, def.capability) : () => true;
+    const props = Object.fromEntries(Object.entries(tree.props ?? {}).filter(([k]) => !k.startsWith("data-") && k !== "className" && k !== "style" && takes(k)));
     return wrap(inlineNode({ type: slot, props, children: [tree] }, keepTap));
   }
   return wrap(inlineNode(tree, keepTap));
@@ -575,7 +582,7 @@ function screensOf(source: Doc, widths: Record<string, number>, o: BuildOptions)
   const offTab = new Set([...outOfPane(doc.groups, widths)].filter((id) => !b.keepsOffTab(id)));
   let usesToast = false;
   const screens = shown.map((frame, i): ScreenCode => {
-    const c = new Ctx(b, frame, widths, o.slots);
+    const c = new Ctx(b, frame, widths, o.slots, doc.capabilities);
     /* A design field bound to a variable is printed with the variable's value on this screen. In a whole app it reads the
      * variable's CSS variable, which the runtime defines for the screen in the mode it shows and with what taps set
      * (src/runtime.tsx), that value standing in until it does */
