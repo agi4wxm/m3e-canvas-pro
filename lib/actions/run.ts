@@ -107,11 +107,19 @@ function answerBranch(a: Answer, host: Host, tap: Tap, extra: Scope): ActionBody
 
 /* ---------- running ---------- */
 
+/** `now` as an expression reads it, at this step: the host's time, as an ISO string; nothing when it tells none */
+function nowAt(host: Host): Scope {
+  const n = host.ctx().now;
+  return typeof n === "number" && Number.isFinite(n) ? { now: new Date(n).toISOString() } : {};
+}
+
 /** What expressions read at this step of a tap: the host's scope for it, what an answer adds (`response`, `status`,
  *  `error`), the row of a collection the part was drawn for as `row`, the payload of the event that started it as
  *  `event`, and the place a family's action was run for as `slot`. */
 export const tapScope = (host: Host, tap: Tap, extra?: Scope): Scope => ({
   ...host.scope(tap),
+  /* the time is read at the step, off the host's clock (the back end's, as its transport tells it) */
+  ...nowAt(host),
   /* a part drawn for a collection's row reads that row's fields as `row.field` */
   ...(tap.row ? { row: tap.row } : {}),
   ...extra,

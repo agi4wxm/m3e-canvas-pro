@@ -3,8 +3,8 @@
 //! the kit does not install). Written in the product's style (Prettier, no semicolons); the lines starting with //!
 //! are the editor's only.
 import { useMemo } from "react"
-import { screenParams, sourceKey, useBindings, useDataSource, useForm, type Bindings, type CallResult, type FieldRule, type FormHandle, type ParamSpec, type SourceHandle } from "@m3e/app-runtime"
-import { useApp, type ActionBody } from "../kit"
+import { screenParams, sourceKey, useBindings, useDataSource, useForm, useSubscription as useSharedSubscription, type Bindings, type CallResult, type ChannelDef, type ChannelEvent, type ChannelView, type FieldRule, type FormHandle, type ParamSpec, type SourceHandle } from "@m3e/app-runtime"
+import { useApp, useOnShow, type ActionBody } from "../kit"
 import { call } from "./api"
 import { FORMS, OPERATIONS } from "./contract"
 //#if copies
@@ -14,7 +14,7 @@ import { runtime } from "./runtime"
 /* What a printed screen's bindings stand on (lib/export/rn/print.ts writes the screens): its params, the scope its
  * expressions read, its data sources and its forms, each made of packages/app-runtime's hooks. */
 
-export { keyOf, regionOf, type ParamSpec } from "@m3e/app-runtime"
+export { keyOf, regionOf, type ChannelDef, type ParamSpec } from "@m3e/app-runtime"
 export { pickFile, fileName } from "./files"
 //#if copies
 
@@ -112,4 +112,12 @@ export function useFormFor(def: FormDef, $: Bindings): FormFor {
     extra,
   })
   return { ...form, def, send: () => form.controller.submit(send, extra()) }
+}
+
+/** A subscription of the screen to a realtime channel (packages/app-runtime `useSubscription`, docs/交互规则.md “订阅”):
+ *  open while the screen is on show (the app's routes say: the stack keeps the screens under the top one drawn), its
+ *  address read in the screen's scope, what runs on each message by key (`on:<message>`, else `on:message`). */
+export function useSubscription(def: ChannelDef, $: Bindings, on?: Readonly<Record<string, (event: ChannelEvent) => void>>): ChannelView {
+  const shown = useOnShow()
+  return useSharedSubscription(def, $, on, { active: shown })
 }

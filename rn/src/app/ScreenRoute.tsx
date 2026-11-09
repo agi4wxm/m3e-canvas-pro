@@ -3,10 +3,10 @@
 //! the kit does not install). Written in the product's style (Prettier, no semicolons); the lines starting with //!
 //! are the editor's only.
 import { useFocusEffect, useLocalSearchParams } from "expo-router"
-import { useCallback, useMemo, type ReactNode } from "react"
+import { useCallback, useMemo, useSyncExternalStore, type ReactNode } from "react"
 import { screenParams, useRequireAuth } from "@m3e/app-runtime"
-import { OverlayFrame } from "../kit"
-import { ROUTES, routerNav, seen, toSignIn } from "./routing"
+import { OnShowProvider, OverlayFrame } from "../kit"
+import { ROUTES, listenOnShow, placeOf, placesOnShow, routerNav, seen, toSignIn } from "./routing"
 
 /** the params an address holds, one value each */
 const flat = (given: Record<string, string | string[] | undefined>) => Object.fromEntries(Object.entries(given).flatMap(([k, v]) => (v === undefined ? [] : [[k, Array.isArray(v) ? v[0] : v]])))
@@ -21,10 +21,15 @@ export function ScreenRoute({ screen, overlay, render }: { screen: string; overl
   const params = useMemo(() => screenParams(route?.spec, flat(JSON.parse(key) as Record<string, string | string[] | undefined>)), [route, key])
   useFocusEffect(
     useCallback(() => {
-      seen({ key: screen, params })
-    }, [screen, params]),
+      seen({ key: screen, params }, !!overlay)
+    }, [screen, params, overlay]),
   )
+  /* on show while it is the screen come on show last, or the one under an overlay over it: what it holds open while on
+     show (its subscriptions) follows */
+  const place = placeOf({ key: screen, params })
+  const read = () => placesOnShow().includes(place)
+  const shown = useSyncExternalStore(listenOnShow, read, read)
   useRequireAuth(route?.auth === "required", () => toSignIn({ key: screen, params }))
-  const body = render(params)
+  const body = <OnShowProvider value={shown}>{render(params)}</OnShowProvider>
   return overlay ? <OverlayFrame onClose={() => routerNav.back()}>{body}</OverlayFrame> : <>{body}</>
 }

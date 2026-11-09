@@ -8,6 +8,8 @@ export * from "./actions";
 export type { CapabilityError, CapabilityHost, FailureKind, InvokeOutcome } from "../capabilities/types";
 export { SessionStore, memoryStorage, sessionOf, sessionTransport, type AuthConfig, type AuthOperation, type Session, type SessionState, type TokenPlacement, type TokenStorage } from "./session";
 export { SourceCache, sourceKey, type LoadInit, type PageValue, type SourceSpec } from "./sources";
+export { ChannelHub, channelSpecFor, type ChannelDef, type ChannelSpec } from "./channels";
+export { KEEP_DEFAULT, KEEP_MAX, addressOf, channelView, isoOf, keepOf, messageAction, type ChannelEntry, type ChannelEvent, type ChannelState, type ChannelStatus, type ChannelView } from "../bindings/channels";
 export { FormController, type CallResult, type FormFields, type FormState, type SendInit } from "./forms";
 export { Bindings, keyOf, type EvalContext, type Scope } from "./scope";
 export { Store, type Listener } from "./store";
@@ -16,6 +18,8 @@ export {
   useAuthScope,
   useBindings,
   useCall,
+  useChannel,
+  useSubscription,
   useDataSource,
   useInvoke,
   useEpoch,
@@ -37,7 +41,7 @@ export { appMessage, APP_MESSAGES, type AppLang, type MessageKey } from "../bind
 export { fieldError, isBlank, pointerField, problemFieldErrors, problemMessage, problemOf, statusMessage, typedValue, type FieldKind, type FieldRule, type Problem } from "../bindings/rules";
 export { MAX_ITEMS, regionOf, screenParams, sourceView, typedParam, type ListAt, type Paging, type ParamSpec, type RegionShows, type SourceState, type SourceStatus, type SourceView } from "../bindings/sources";
 export { formViewOf, readFields, setPath, type FormRun, type FormView } from "../bindings/form";
-export type { AbortSignalLike, HttpMethod, Transport, TransportFile, TransportRequest, TransportResponse } from "../api/transport";
+export type { AbortSignalLike, ChannelConnection, ChannelMessage, HttpMethod, Transport, TransportFile, TransportRequest, TransportResponse } from "../api/transport";
 /* how a transport of the platform's reads an answer (the mini-program's does; packages/api has the same file) */
 export { readBody, textBody, utf8Bytes, type RawResponse, type ResponseFile } from "../api/body";
 /* The interpreter every host runs the design's taps with (lib/actions, docs/交互规则.md): the exported phone app and

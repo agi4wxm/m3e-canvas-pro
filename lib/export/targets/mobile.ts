@@ -412,7 +412,7 @@ export const mobileTarget: ProductTarget = {
         login: login ? str(login) : "undefined",
       }),
     );
-    files["src/generated/runtime.ts"] = generated(await filledFile(ctx, app("runtime.ts"), { capabilities: !!capabilities }, { storageKey: str(`${ctx.name.replace(/[^A-Za-z0-9]/g, "_")}.session`), lang: str(ctx.lang) }));
+    files["src/generated/runtime.ts"] = generated(await filledFile(ctx, app("runtime.ts"), { capabilities: !!capabilities, realtime: !!ctx.doc.api?.channels?.length }, { storageKey: str(`${ctx.name.replace(/[^A-Za-z0-9]/g, "_")}.session`), lang: str(ctx.lang) }));
     Object.assign(files, capabilities?.files ?? {}, slotFiles(scope, slots, "mobile"));
     files["src/generated/api.ts"] = generated(await copiedFile(ctx, app("api.ts")));
     files["src/generated/contract.ts"] = generated(await filledFile(ctx, app("contract.ts"), {}, { operations: jsonCode(operationsOf(doc.api)), auth: authSource(doc.api ?? {}), forms: jsonCode(formRulesOf(doc)) }));

@@ -21,6 +21,8 @@ const { ThemeProvider } = await import("../src/kit/theme");
 const { MATERIAL } = await import("../src/kit/theme.generated");
 const { c } = await import("../src/kit/color");
 const L = await import("../src/kit/composites/live");
+/* the device's clock: a run of the whole kit has an app's runtime clock handed in by an earlier file (the table) */
+(await import("../src/kit/clock")).setClock(() => Date.now());
 
 const h = tiny.react.createElement as (type: unknown, props?: Record<string, unknown> | null, ...children: unknown[]) => Element;
 let root: unknown = null;
@@ -175,6 +177,16 @@ describe("a timer", () => {
     expect(words(els)).toContain("01:30");
     expect(words(press(one(els, "Pause")))).toContain("01:30");
     expect(toggle).toHaveBeenCalled();
+  });
+
+  it("reads the time off the app's clock (the back end's, setClock), never the device's", async () => {
+    const { setClock } = await import("../src/kit/clock");
+    const restore = setClock(() => 500_000);
+    try {
+      expect(words(draw(L.Timer, { endsAt: 530_000, running: true }))).toContain("00:30");
+    } finally {
+      restore();
+    }
   });
 
   it("counts down to the end it is given, and says it ended once", () => {

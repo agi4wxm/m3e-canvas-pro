@@ -31,7 +31,7 @@ export const SET_ABOUT: Record<ToolSet, string> = {
 };
 
 /** binding screens to the contract: its operations and the tool that reads it */
-const BINDINGS = new Set(["describe_bindings", "add_data_source", "update_data_source", "remove_data_source", "set_screen_params", "rename_screen_param", "set_screen_auth", "bind_expression", "set_region", "remove_region", "set_form", "make_form", "bind_field", "wire_screen"]);
+const BINDINGS = new Set(["describe_bindings", "add_data_source", "update_data_source", "remove_data_source", "set_subscription", "remove_subscription", "set_screen_params", "rename_screen_param", "set_screen_auth", "bind_expression", "set_region", "remove_region", "set_form", "make_form", "bind_field", "wire_screen"]);
 
 /** the tools of the build set; everything else falls in the set of its kind */
 const BUILD = new Set([

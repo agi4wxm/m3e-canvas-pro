@@ -20,7 +20,18 @@ type Page = { route: string; options: Record<string, string>; n: number };
 const stack: Page[] = [];
 let opened = 0;
 let toast: string | null = null;
-const PageContext = tiny.react.createContext<{ params: Record<string, string> }>({ params: {} });
+const PageContext = tiny.react.createContext<{ params: Record<string, string>; top?: boolean }>({ params: {} });
+
+/** the platform's word to a page that it is shown again (`shown`) or hidden under another: when its place on the stack
+ *  changes from under to on top, or back */
+const onShown = (shown: boolean) => (fn: () => void) => {
+  const top = tiny.react.useContext(PageContext).top ?? true;
+  const was = tiny.react.useRef(top);
+  tiny.react.useEffect(() => {
+    if (top !== was.current && top === shown) fn();
+    was.current = top;
+  }, [top]);
+};
 
 /** a page's address as the platform keeps it: its route, and its query still encoded */
 const pageOf = (url: string): Page => {
@@ -50,6 +61,8 @@ mock.module("@tarojs/taro", () => {
     useRouter: () => tiny.react.useContext(PageContext),
     usePullDownRefresh: () => {},
     useReachBottom: () => {},
+    useDidShow: onShown(true),
+    useDidHide: onShown(false),
   };
   return fakeTaro(taro);
 });
@@ -106,7 +119,7 @@ describe("the consistency table on the mini-program kit", () => {
     function Pages() {
       return stack.map((p, i) => {
         const key = screenOfPath(SPEC, p.route) ?? "";
-        return tiny.react.createElement(PageContext.Provider, { value: { params: p.options }, key: `${i}:${p.n}` }, tiny.react.createElement(SCREENS[key] as never, null));
+        return tiny.react.createElement(PageContext.Provider, { value: { params: p.options, top: i === stack.length - 1 }, key: `${i}:${p.n}` }, tiny.react.createElement(SCREENS[key] as never, null));
       });
     }
     const own = new Set<unknown>([RuntimeProvider, AppSpecProvider, Pages, ...Object.values(SCREENS)]);
@@ -120,7 +133,7 @@ describe("the consistency table on the mini-program kit", () => {
       answerWith(async (r) => {
         const a = await backend.receive(r.operationId ?? "", { ...r.query, ...(r.body && typeof r.body === "object" && !Array.isArray(r.body) ? (r.body as Record<string, unknown>) : {}) });
         return { status: a.status, headers: { "content-type": "application/json" }, body: a.body };
-      });
+      }, { connect: (address, onMessage) => backend.connect(address, onMessage), now: () => backend.now() });
       runtime.restart();
       draw();
       return {

@@ -9,8 +9,8 @@ import { cleanCapabilities } from "./capabilities/clean";
 import { fitsType, startValueOf } from "./variables";
 import { cleanMotion, cleanTrigger } from "./prototype";
 import { H_CONSTRAINTS, V_CONSTRAINTS } from "./constraints";
-import { COLOR_TOKENS, type ActionBody, Collection, ComponentDef, ComponentProp, ComponentSet, Condition, VarCollection, Doc, DocVar, Effect, Frame, Group, Item, Palette, VARIANTS, VarValue, isPlace, isTextToken } from "./tokens";
-import { cleanDataSources, cleanExpr, cleanExprMap, cleanForm, cleanRegion, cleanScreenParams } from "./bindings/clean";
+import { COLOR_TOKENS, type Action, type ActionBody, Collection, ComponentDef, ComponentProp, ComponentSet, Condition, VarCollection, Doc, DocVar, Effect, Frame, Group, Item, Palette, VARIANTS, VarValue, isPlace, isTextToken } from "./tokens";
+import { cleanDataSources, cleanExpr, cleanExprMap, cleanForm, cleanRegion, cleanScreenParams, cleanSubscriptions } from "./bindings/clean";
 import { BARE_VERSION, PROJECT_VERSION, migrate, versionOf, type Migration } from "./migrations";
 import { fields, withUnknown } from "./keep";
 import { bindRule, conditionRule } from "./rules";
@@ -326,6 +326,7 @@ const cleanFrame = (f: Frame) =>
     varModes: cleanModes,
     flow: (v) => (typeof v === "string" ? v : undefined),
     data: cleanDataSources,
+    subscriptions: (v) => cleanSubscriptions(v, (a) => cleanAction(a) as Action | undefined, (cleanDataSources(f.data) ?? []).map((d) => d.name)),
     params: cleanScreenParams,
     auth: (v) => (v === "required" || v === "login" ? v : undefined),
   }) as unknown as Frame;

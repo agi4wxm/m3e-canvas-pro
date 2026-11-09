@@ -98,7 +98,7 @@ export { answer, matchPath, type MockAnswer, type MockRoute } from "./routes"
 export { SCENARIOS, type ScenarioName } from "./generated/scenarios"
 export type { MockLogEntry } from "./engine/mocks/transport"
 export type { MockConnection, MockMessage } from "./engine/mocks/realtime"
-export { fakeClock, type MockClock } from "./engine/mocks/clock"
+export { controlledClock, fakeClock, type ControlledClock, type MockClock } from "./engine/mocks/clock"
 
 /** the mock settings of the design, as the engine reads them */
 export const MOCKS: MockSpec = {

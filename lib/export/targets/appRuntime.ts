@@ -13,14 +13,14 @@ import { generated, type ProductContext, type ProductTarget, type Workspace } fr
 /** the editor's files the runtime is made of: the bindings' pure pieces, the three of lib/api they read (body.ts: how a
  *  transport reads an answer, for the mini-program's), and lib/app */
 export const APP_RUNTIME_FILES = [
-  ...["expr", "format", "messages", "rules", "sources", "form"].map((n) => `lib/bindings/${n}.ts`),
+  ...["expr", "format", "messages", "rules", "sources", "form", "channels"].map((n) => `lib/bindings/${n}.ts`),
   ...["types", "transport", "body"].map((n) => `lib/api/${n}.ts`),
   /* what an invoke comes to (lib/app reads the types only) */
   "lib/capabilities/types.ts",
   /* the interpreter of the design's taps (lib/actions), and the screen moves its model names */
   "lib/screenMotion.ts",
   ...["model", "host", "run"].map((n) => `lib/actions/${n}.ts`),
-  ...["store", "session", "sources", "forms", "scope", "runtime", "react", "actions", "index"].map((n) => `lib/app/${n}.ts`),
+  ...["store", "session", "sources", "channels", "forms", "scope", "runtime", "react", "actions", "index"].map((n) => `lib/app/${n}.ts`),
 ];
 
 const INDEX = `${GENERATED}

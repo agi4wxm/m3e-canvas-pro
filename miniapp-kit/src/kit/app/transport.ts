@@ -155,6 +155,9 @@ export async function readAsDataUrl(file: PlatformFile): Promise<{ name: string;
 /** A transport that first reads the files a body carries into data URLs (what the mocks take), then hands it on. */
 export function withFileData(inner: Transport): Transport {
   return {
+    /* the mocks' realtime channels and their clock, as they are */
+    ...(inner.connect ? { connect: inner.connect.bind(inner) } : {}),
+    ...(inner.now ? { now: inner.now.bind(inner) } : {}),
     async request(r) {
       if (!r.body || typeof r.body !== "object" || Array.isArray(r.body)) return inner.request(r);
       const body: Record<string, unknown> = { ...(r.body as Record<string, unknown>) };
@@ -171,5 +174,34 @@ export function withFileData(inner: Transport): Transport {
       if (changed && r.onUploadProgress) r.onUploadProgress(1, 1);
       return inner.request(changed ? { ...r, body } : r);
     },
+  };
+}
+
+/** A mini-program's socket (Taro.connectSocket) as the realtime client of packages/api takes one (`SocketLike`): its
+ *  text frames, its opening and its end. A mini-program connects only to the wss addresses its admin put on the socket
+ *  domain list. */
+export function taroSocket(url: string): { send(text: string): void; close(): void; onOpen(fn: () => void): void; onText(fn: (text: string) => void): void; onClose(fn: () => void): void } {
+  const on: { open: () => void; text: (t: string) => void; close: () => void } = { open: () => {}, text: () => {}, close: () => {} };
+  let closed = false;
+  const task = Promise.resolve(Taro.connectSocket({ url }));
+  void task.then(
+    (t) => {
+      if (closed) return void t.close({});
+      t.onOpen(() => on.open());
+      t.onMessage((m) => typeof m.data === "string" && on.text(m.data));
+      t.onClose(() => on.close());
+      t.onError(() => on.close());
+    },
+    () => on.close(),
+  );
+  return {
+    send: (text) => void task.then((t) => t.send({ data: text })).catch(() => {}),
+    close: () => {
+      closed = true;
+      void task.then((t) => t.close({})).catch(() => {});
+    },
+    onOpen: (fn) => void (on.open = fn),
+    onText: (fn) => void (on.text = fn),
+    onClose: (fn) => void (on.close = fn),
   };
 }

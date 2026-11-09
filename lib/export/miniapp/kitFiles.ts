@@ -14,6 +14,7 @@ export const MINIAPP_KIT_FILES = [
   "atoms/controls.tsx",
   "atoms/indicators.tsx",
   "atoms/words.tsx",
+  "clock.ts",
   "color.ts",
   "composites/bars.tsx",
   "composites/content.tsx",
