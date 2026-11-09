@@ -13,9 +13,10 @@
 | `product.ts` | 文档有接口时，回合结束后算一次：每个绑定了数据的屏幕在每个场景下的预览、用模拟库试登录、导出完整产品并类型检查生成的代码 |
 | `judge.ts` | 可选的视觉评分 |
 | `record.ts`、`replay.ts`、`keep-recorded.ts` | 写下和读回一次运行、重新评分、挑几次运行给单元测试 |
+| `mock.ts`、`keep-mock.ts` | 模拟模型：把录下的真实运行的模型步骤按现在的代码重放，报告工具的回答哪里变了；从真实运行里留下它要的录音 |
 | `report.ts` | `summary.md`、`results.json` 和费用估算 |
 | `refs/`、`make-refs.ts` | 复刻任务用的参考图（自己画的 HTML 渲染成 PNG） |
-| `recorded/` | 单元测试重新评分的几次真实运行 |
+| `recorded/` | 单元测试重新评分的几次真实运行；`recorded/mock/<名字>/` 是模拟模型重放用的录音 |
 | `baselines/` | 基线和人工分析 |
 
 ## 运行
@@ -36,6 +37,7 @@ bun run eval -- --only login-material,data           # 按任务 id 或能力挑
 bun run eval -- --repeat 3 --record out/run1         # 每个任务跑三次，全部记录下来
 bun run eval -- --replay out/run1                    # 不调用模型，按现在的检查重新评分
 bun run eval -- --replay out/run1 --judge            # 再让视觉模型看截图打分
+bun run eval -- --mock evals/recorded/mock/2026-11-09-batch5 --no-shots   # 不调用模型：录下的模型步骤按现在的代码重放
 bun run eval -- --list                               # 列出任务
 bun run eval:refs                                    # 重画 refs/ 里的参考图
 ```
@@ -51,6 +53,7 @@ bun run eval:refs                                    # 重画 refs/ 里的参考
 | `--record <目录>` | 每次运行写一个文件夹，再写 `summary.md` 和 `results.json` |
 | `--artifacts <目录>` | 每次运行的文件夹（截图、对话）放到这里，`--record` 里只留汇总：截图大，不要进 git |
 | `--replay <目录>` | 重新评分记录下来的运行，不调用智能体 |
+| `--mock <目录>` | 模拟模型：智能体按现在的代码跑，模型的每一步换成录音里的那一步（见下面“模拟调用”）；有分歧或没通过时以 1 退出 |
 | `--judge`、`--judge-model` | 视觉评分（默认关）：模型看改过的屏幕（和参考图）给 1–5 分和理由，只作参考，不影响通过与否 |
 | `--price <输入,缓存,输出>` | 费用估算用的单价，美元每百万 token |
 | `--title <文字>` | `summary.md` 的标题 |
@@ -177,6 +180,38 @@ bun run eval:refs                                    # 重画 refs/ 里的参考
 ## 回放和单元测试
 
 `--replay` 只读 `observed.json`，用现在的检查重新评分，所以改了检查以后，可以拿以前的记录看结论怎么变，不用再花 token。`evals/evals.test.ts` 在 `bun run test` 里跑，不联网：用操作搭出的文档测每类检查的通过和失败、用脚本模型（`lib/llm/testkit.ts` 的 `scriptedAdapter`）把一个任务从头跑一遍、检查 token 预算会让智能体停下，并把 `recorded/` 里提交的几次真实运行（`observed.json.gz`）重新评分，结论要和 `recorded/expected.json` 一致。改了检查导致结论变化时，确认变化是对的，再用 `bun evals/keep-recorded.ts --update` 重写 `expected.json`；要加一次运行，用 `bun evals/keep-recorded.ts <记录目录> <运行名>…`（只保留压缩后的 `observed.json`）。
+
+## 模拟调用
+
+真实评测要花额度。`--mock` 让应用内的智能体照常跑一遍——同一个系统提示词、工具集、循环、删除前的询问、一步撤销、跑完后的产品层和评分——只是模型换成 `mock.ts` 的模拟模型：每次请求回答录音里下一步的模型输出（说的话和工具调用），工具按现在的代码执行。这样工具模式、操作、校验、导出的回归不花一分钱就能看到；模型面对新的回答会不会换个做法，只有真实评测能回答。
+
+```bash
+bun run eval -- --mock evals/recorded/mock/2026-11-09-batch5 --no-shots                 # 全部 32 个任务，约 40 秒
+bun run eval -- --mock evals/recorded/mock/2026-11-09-batch5 --no-shots --only product --record out/mock
+```
+
+**分歧**（`summary.md` 的“Playback”一节和 `results.json` 每个运行的 `mock`）：每个任务给出播放了几步、配上了多少编号、回答变了的调用有几个，以及每处分歧的步骤、调用（按现在的编号改写后的参数）、当时和现在的结果：
+
+- `status`：录下时成功、现在失败，或者反过来。这是“代码改变了工具接受什么”：有意的改动在报告里说明，并列为以后真实评测要看的能力；不是有意的就是回归。
+- `id`：录下的结果里代码新建的编号（部件、组、风格的键）现在找不到对应的，而后面的调用用到它；或者同一个编号配成了两个。
+- `turns`：回合比录音多要了一步，或者结束时录音还剩几步（比如现在多了一次自查截图）。
+
+字、尺寸、时间戳这些回答里的差别不算分歧（录下的模型读的是旧的回答，换成新的会怎样只有真实模型知道），只计数，并在报告里列出前几处，方便看出“模型可能要换个做法”。
+
+**编号的对应**：代码新建的编号每次运行都不同（`uid()` 是随机的），录下的后续调用用的是当时的编号。所以每个调用执行后，把录下的结果和现在的结果按词逐个对齐（`matchTokens`，Myers 差分），对齐的空隙里形状像编号（小写字母和数字，长度相同）、起始文档里没有、现在的文档里有的一对，就记成“当时的 → 现在的”，之后录下的调用在执行前按它改写（值、键、`{{data.…}}` 这样的表达式里都改）。提示词、工具说明、模型自己写过的词不会被当成编号。`mock.test.ts` 单独测了配对（JSON、尺寸变了的大纲、冲突、对不上的编号），并验证没有它回放会失败。
+
+**图片**：`--no-shots`（或者没有构建）时不开 Chromium，截图换成空白图，尺寸用录音里实测的（开始前用开始时的，回合中和回合后用结束时的，编号按上面的对应换成现在的），和参考图的相似度用录音里的；不加 `--no-shots` 且有构建时用真正的无头截图。工具自己调用模型的地方（`generate_style` 写风格、`generate_svg` 用代码画、`generate_image`）回答录下时它们做出的东西（从录下的最终文档里取）。整个模拟运行把 `fetch` 换成一律失败，不会发出任何网络请求。
+
+**门禁**：`mock.test.ts` 在 `bun run test` 里把 `recorded/mock/2026-11-09-batch5` 的 32 个任务全部重放，要求没有分歧、关键检查全部通过、任务通过，另外用改过的录音验证分歧确实报得出来（改名的操作、当时失败的调用、多出和剩下的回合）。
+
+**录音**：`recorded/mock/<名字>/<任务>/` 里只有 `run.json`（每次模型调用的 token、开始和结束时实测的尺寸、相似度、生成类调用做出的东西、当时的评分结论）和 `transcript.json.gz`（整段对话，去掉推理文字和图片），32 个任务共约 280 KB。现在的一套是 456032c 上第五批的基线运行（`baselines/2026-11-09-batch5`：27 个来自第一次整套运行，密钥失效的 5 个来自补跑）。真实评测恢复后刷新：
+
+```bash
+bun run eval -- --record out/run --artifacts /tmp/evalart                 # 真实运行（花额度）
+bun evals/keep-mock.ts 2026-12-01-xxx /tmp/evalart [/tmp/evalart-rerun] --source "<提交>, <基线名>"
+```
+
+同一任务出现在几个目录里时取最后一次通过的运行（都没通过就取最后一次并警告）。然后把 `mock.test.ts` 里的 `LATEST`、这里和 `docs/交接.md` 里的目录名改成新的，删掉旧目录。
 
 ## 和应用里的差别
 
